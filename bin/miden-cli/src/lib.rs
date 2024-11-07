@@ -7,16 +7,15 @@ use miden_client::{
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
-        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord,
+        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
         StoreAuthenticator,
     },
-    transactions::{LocalTransactionProver, ProvingOptions},
+    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
+use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
-
 mod commands;
-
 use commands::{
     account::AccountCmd,
     export::ExportCmd,
@@ -109,15 +108,19 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-        let tx_prover = LocalTransactionProver::new(ProvingOptions::default());
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
+
+        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.remote_prover_endpoint {
+            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
+            None => Arc::new(LocalTransactionProver::new(Default::default())),
+        };
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(&cli_config.rpc)),
             rng,
-            store,
+            store as Arc<dyn Store>,
             Arc::new(authenticator),
-            Arc::new(tx_prover),
+            tx_prover as Arc<dyn TransactionProver>,
             in_debug_mode,
         );
 
