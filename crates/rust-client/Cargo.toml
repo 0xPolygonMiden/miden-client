@@ -23,14 +23,13 @@ sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
 tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
-web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
+web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client"]
 
 [dependencies]
 async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.9", features = ["rt_tokio_1"], optional = true }
-getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4", optional = true }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
@@ -40,7 +39,6 @@ prost = { version = "0.13", optional = true, default-features = false, features 
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio = { workspace = true, optional = true }
