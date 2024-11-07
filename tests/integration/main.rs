@@ -22,6 +22,7 @@ mod common;
 use common::*;
 
 mod custom_transactions_tests;
+mod fpi_tests;
 mod onchain_tests;
 mod swap_transactions_tests;
 

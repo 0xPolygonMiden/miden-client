@@ -19,8 +19,10 @@ miden-client = { path = "../crates/rust-client", features = [
     "sqlite",
     "tonic",
 ] }
-miden-objects = { workspace = true, default-features = false }
+miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
+rand_chacha = { version = "0.3", default-features = false}
 tokio = { workspace = true }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 

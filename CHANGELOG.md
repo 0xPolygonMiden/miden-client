@@ -5,6 +5,7 @@
 * Rebuilt WASM with latest dependencies (#575).
 * Added Transaction Integration Tests for Web Client (#569).
 * Moved note update logic outside of the `Store` (#559).
+* Added FPI (Foreign Procedure Invocation) support for `TransactionRequest` (#560).
 * Added delegated proving for web client + improved note models (#566).
 * Added remote prover support to the web client with CI tests (#562).
 * [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565, #570).
@@ -17,8 +18,8 @@
 * Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
 * Added support for multiple input note inserts at once (#538).
-* Expose full SyncSummary from WASM (#555)
-* Fixed WASM + added additional WASM models (#548)
+* Expose full SyncSummary from WASM (#555).
+* Fixed WASM + added additional WASM models (#548).
 * Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Added transaction prover component to `Client` (#550).
 * [BREAKING] Added support for committed and discarded transactions (#531).

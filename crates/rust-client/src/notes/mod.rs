@@ -19,7 +19,10 @@ mod note_screener;
 // RE-EXPORTS
 // ================================================================================================
 
-pub use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
+pub use miden_lib::notes::{
+    create_p2id_note, create_p2idr_note, create_swap_note,
+    utils::{build_p2id_recipient, build_swap_tag},
+};
 pub use miden_objects::{
     notes::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
