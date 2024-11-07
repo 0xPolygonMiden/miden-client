@@ -22,7 +22,7 @@ getrandom = { version = "0.2", features = ["js"] }
 miden-client = { path = "../rust-client", version = "0.6", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-tx-prover = { version = 0.6, default-features = false, features = ["async", "testing"] }
+miden-tx-prover = { version = "0.6", default-features = false, features = ["async", "testing"] }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
