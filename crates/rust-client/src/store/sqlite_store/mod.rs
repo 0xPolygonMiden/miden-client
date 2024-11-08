@@ -1,14 +1,19 @@
-use alloc::{collections::BTreeMap, vec::Vec};
-use core::cell::{RefCell, RefMut};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
+use std::{path::Path, string::ToString};
 
+use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
-use winter_maybe_async::maybe_async;
+use tonic::async_trait;
 
 use self::config::SqliteStoreConfig;
 use super::{
@@ -16,82 +21,27 @@ use super::{
 };
 use crate::{
     store::StoreError,
-    sync::StateSyncUpdate,
-    transactions::{TransactionRecord, TransactionResult},
+    sync::{NoteTagRecord, StateSyncUpdate},
+    transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
 mod accounts;
 mod chain_data;
 pub mod config;
 mod errors;
-pub(crate) mod migrations;
 mod notes;
 mod sync;
 mod transactions;
 
 // SQLITE STORE
 // ================================================================================================
+
+/// Represents a pool of connections with an sqlite database. The pool is used to interact
+/// concurrently with the underlying database in a safe and efficient manner.
 ///
-/// Represents a connection with an sqlite database
-///
-///
-/// Current table definitions can be found at `store.sql` migration file. One particular column
-/// type used is JSON, for which you can look more info at [sqlite's official documentation](https://www.sqlite.org/json1.html).
-/// In the case of json, some caveats must be taken:
-///
-/// - To insert json values you must use sqlite's `json` function in the query alongside named
-///   parameters, and the provided parameter must be a valid json. That is:
-///
-/// ```sql
-/// INSERT INTO SOME_TABLE
-///     (some_field)
-///     VALUES (json(:some_field))")
-/// ```
-///
-/// ```ignore
-/// let metadata = format!(r#"{{"some_inner_field": {some_field}, "some_other_inner_field": {some_other_field}}}"#);
-/// ```
-///
-/// (Using raw string literals for the jsons is encouraged if possible)
-///
-/// - To get data from any of the json fields you can use the `json_extract` function (in some cases
-///   you'll need to do some explicit type casting to help rusqlite figure out types):
-///
-/// ```sql
-/// SELECT CAST(json_extract(some_json_col, '$.some_json_field') AS TEXT) from some_table
-/// ```
-///
-/// - For some datatypes you'll need to do some manual serialization/deserialization. For example,
-///   suppose one of your json fields is an array of digests. Then you'll need to
-///     - Create the json with an array of strings representing the digests:
-///
-///     ```ignore
-///     let some_array_field = some_array
-///         .into_iter()
-///         .map(array_elem_to_string)
-///         .collect::<Vec<_>>()
-///         .join(",");
-///
-///     Some(format!(
-///         r#"{{
-///             "some_array_field": [{some_array_field}]
-///         }}"#
-///     )),
-///     ```
-///
-///     - When deserializing, handling the extra symbols (`[`, `]`, `,`, `"`). For that you can use
-///       the `parse_json_array` function:
-///
-///     ```ignore
-///         let some_array = parse_json_array(some_array_field)
-///         .into_iter()
-///         .map(parse_json_byte_str)
-///         .collect::<Result<Vec<u8>, _>>()?;
-///     ```
-/// - Thus, if needed you can create a struct representing the json values and use serde_json to
-///   simplify all of the serialization/deserialization logic
+/// Current table definitions can be found at `store.sql` migration file.
 pub struct SqliteStore {
-    pub(crate) db: RefCell<Connection>,
+    pub(crate) pool: Pool,
 }
 
 impl SqliteStore {
@@ -99,17 +49,59 @@ impl SqliteStore {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
-    pub fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.database_filepath.clone())?;
-        array::load_module(&db)?;
-        migrations::update_to_latest(&mut db)?;
+    pub async fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
+        let database_exists = Path::new(&config.database_filepath).exists();
 
-        Ok(Self { db: RefCell::new(db) })
+        let connection_cfg = Config::new(config.database_filepath.clone());
+        let pool = connection_cfg
+            .builder(Runtime::Tokio1)
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?
+            .post_create(Hook::async_fn(move |conn, _| {
+                Box::pin(async move {
+                    // Feature used to support `IN` and `NOT IN` queries. We need to load this
+                    // module for every connection we create to the DB to
+                    // support the queries we want to run
+                    let _ = conn
+                        .interact(|conn| array::load_module(conn))
+                        .await
+                        .map_err(|_| HookError::message("Loading rarray module failed"))?;
+
+                    Ok(())
+                })
+            }))
+            .build()
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?;
+
+        if !database_exists {
+            pool.get()
+                .await
+                .map_err(|err| StoreError::DatabaseError(err.to_string()))?
+                .interact(|conn| conn.execute_batch(include_str!("store.sql")))
+                .await
+                .map_err(|err| StoreError::DatabaseError(err.to_string()))??;
+        }
+
+        Ok(Self { pool })
     }
 
-    /// Returns a mutable reference to the internal [Connection] to the SQL DB
-    pub fn db(&self) -> RefMut<'_, Connection> {
-        self.db.borrow_mut()
+    /// Interacts with the database by executing the provided function on a connection from the
+    /// pool.
+    ///
+    /// This function is a helper method which simplifies the process of making queries to the
+    /// database. It acquires a connection from the pool and executes the provided function,
+    /// returning the result.
+    async fn interact_with_connection<F, R>(&self, f: F) -> Result<R, StoreError>
+    where
+        F: FnOnce(&mut Connection) -> Result<R, StoreError> + Send + 'static,
+        R: Send + 'static,
+    {
+        self.pool
+            .get()
+            .await
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?
+            .interact(f)
+            .await
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?
     }
 }
 
@@ -117,178 +109,195 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
+#[async_trait(?Send)]
 impl Store for SqliteStore {
-    #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
-        self.get_note_tags()
+    async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_note_tags).await
     }
 
-    #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        self.add_note_tag(tag)
+    async fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_unique_note_tags).await
     }
 
-    #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        self.remove_note_tag(tag)
+    async fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::add_note_tag(conn, tag))
+            .await
     }
 
-    #[maybe_async]
-    fn get_sync_height(&self) -> Result<u32, StoreError> {
-        self.get_sync_height()
+    async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::remove_note_tag(conn, tag))
+            .await
     }
 
-    #[maybe_async]
-    fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
-        self.apply_state_sync(state_sync_update)
+    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+        self.interact_with_connection(SqliteStore::get_sync_height).await
     }
 
-    #[maybe_async]
-    fn get_transactions(
+    async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::apply_state_sync(conn, state_sync_update)
+        })
+        .await
+    }
+
+    async fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.get_transactions(transaction_filter)
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_transactions(conn, transaction_filter)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        self.apply_transaction(tx_result)
+    async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::apply_transaction(conn, tx_update))
+            .await
     }
 
-    #[maybe_async]
-    fn get_input_notes(
+    async fn get_input_notes(
         &self,
-        note_filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_input_notes(note_filter)
+        self.interact_with_connection(move |conn| SqliteStore::get_input_notes(conn, filter))
+            .await
     }
 
-    #[maybe_async]
-    fn get_output_notes(
+    async fn get_output_notes(
         &self,
-        note_filter: NoteFilter<'_>,
+        note_filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.get_output_notes(note_filter)
+        self.interact_with_connection(move |conn| SqliteStore::get_output_notes(conn, note_filter))
+            .await
     }
 
-    #[maybe_async]
-    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        self.insert_input_note(note)
+    async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
+        let notes = notes.to_vec();
+        self.interact_with_connection(move |conn| SqliteStore::upsert_input_notes(conn, &notes))
+            .await
     }
 
-    #[maybe_async]
-    fn insert_block_header(
+    async fn insert_block_header(
         &self,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes)
+        self.interact_with_connection(move |conn| {
+            SqliteStore::insert_block_header(conn, block_header, chain_mmr_peaks, has_client_notes)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn get_block_headers(
+    async fn get_block_headers(
         &self,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
-        self.get_block_headers(block_numbers)
+        let block_numbers = block_numbers.to_vec();
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_block_headers(conn, &block_numbers)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
-        self.get_tracked_block_headers()
+    async fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_tracked_block_headers).await
     }
 
-    #[maybe_async]
-    fn get_chain_mmr_nodes(
+    async fn get_chain_mmr_nodes(
         &self,
-        filter: ChainMmrNodeFilter<'_>,
+        filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.get_chain_mmr_nodes(filter)
+        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, filter))
+            .await
     }
 
-    #[maybe_async]
-    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError> {
-        self.insert_chain_mmr_nodes(nodes)
+    async fn insert_chain_mmr_nodes(
+        &self,
+        nodes: &[(InOrderIndex, Digest)],
+    ) -> Result<(), StoreError> {
+        let nodes = nodes.to_vec();
+        self.interact_with_connection(move |conn| SqliteStore::insert_chain_mmr_nodes(conn, &nodes))
+            .await
     }
 
-    #[maybe_async]
-    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
-        self.get_chain_mmr_peaks_by_block_num(block_num)
+    async fn get_chain_mmr_peaks_by_block_num(
+        &self,
+        block_num: u32,
+    ) -> Result<MmrPeaks, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_chain_mmr_peaks_by_block_num(conn, block_num)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn insert_account(
+    async fn insert_account(
         &self,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        self.insert_account(account, account_seed, auth_info)
+        let account = account.clone();
+        let auth_info = auth_info.clone();
+
+        self.interact_with_connection(move |conn| {
+            SqliteStore::insert_account(conn, &account, account_seed, &auth_info)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
-        self.get_account_ids()
+    async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_account_ids).await
     }
 
-    #[maybe_async]
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
-        self.get_account_stubs()
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_account_headers).await
     }
 
-    #[maybe_async]
-    fn get_account_stub(
+    async fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_account_auth_by_pub_key(conn, pub_key)
+        })
+        .await
+    }
+
+    async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError> {
-        self.get_account_stub(account_id)
+    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::get_account_header(conn, account_id))
+            .await
     }
 
-    #[maybe_async]
-    fn get_account_stub_by_hash(
+    async fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError> {
-        self.get_account_stub_by_hash(account_hash)
+    ) -> Result<Option<AccountHeader>, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_account_header_by_hash(conn, account_hash)
+        })
+        .await
     }
 
-    #[maybe_async]
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
-        self.get_account(account_id)
-    }
-
-    #[maybe_async]
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
-        self.get_account_auth(account_id)
-    }
-
-    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
-        self.get_account_auth_by_pub_key(pub_key)
-    }
-
-    #[maybe_async]
-    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        self.get_unspent_input_note_nullifiers()
-    }
-
-    #[maybe_async]
-    fn update_note_inclusion_proof(
+    async fn get_account(
         &self,
-        note_id: miden_objects::notes::NoteId,
-        inclusion_proof: miden_objects::notes::NoteInclusionProof,
-    ) -> Result<(), StoreError> {
-        self.update_note_inclusion_proof(note_id, inclusion_proof)
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
+            .await
     }
 
-    #[maybe_async]
-    fn update_note_metadata(
-        &self,
-        note_id: miden_objects::notes::NoteId,
-        metadata: miden_objects::notes::NoteMetadata,
-    ) -> Result<(), StoreError> {
-        self.update_note_metadata(note_id, metadata)
+    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
+        self.interact_with_connection(move |conn| SqliteStore::get_account_auth(conn, account_id))
+            .await
+    }
+
+    async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+        self.interact_with_connection(SqliteStore::get_unspent_input_note_nullifiers)
+            .await
     }
 }
 
@@ -297,19 +306,18 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::cell::RefCell;
+    use std::string::ToString;
 
-    use rusqlite::{vtab::array, Connection};
-
-    use super::{migrations, SqliteStore};
+    use super::{config::SqliteStoreConfig, SqliteStore};
     use crate::mock::create_test_store_path;
 
-    pub(crate) fn create_test_store() -> SqliteStore {
+    pub(crate) async fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();
-        let mut db = Connection::open(temp_file).unwrap();
-        array::load_module(&db).unwrap();
-        migrations::update_to_latest(&mut db).unwrap();
 
-        SqliteStore { db: RefCell::new(db) }
+        SqliteStore::new(&SqliteStoreConfig {
+            database_filepath: temp_file.to_string_lossy().to_string(),
+        })
+        .await
+        .unwrap()
     }
 }

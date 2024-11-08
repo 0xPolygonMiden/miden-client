@@ -9,13 +9,10 @@ use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
-use super::{
-    notes::utils::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
-    WebStore,
-};
+use super::{notes::utils::apply_note_updates_tx, WebStore};
 use crate::{
     store::{StoreError, TransactionFilter},
-    transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
 mod js_bindings;
@@ -55,8 +52,7 @@ impl WebStore {
                 let final_account_state: Digest = tx_idxdb.final_account_state.try_into()?;
 
                 let input_note_nullifiers: Vec<Digest> =
-                    serde_json::from_str(&tx_idxdb.input_notes)
-                        .map_err(StoreError::JsonDataDeserializationError)?;
+                    Vec::<Digest>::read_from_bytes(&tx_idxdb.input_notes)?;
 
                 let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
 
@@ -93,46 +89,21 @@ impl WebStore {
         transaction_records
     }
 
-    pub async fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        let transaction_id = tx_result.executed_transaction().id();
-        let account_id = tx_result.executed_transaction().account_id();
-        let account_delta = tx_result.account_delta();
-
-        let (mut account, _seed) = self.get_account(account_id).await.unwrap();
-
-        account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
-
-        // Save only input notes that we care for (based on the note screener assessment)
-        let created_input_notes = tx_result.relevant_notes().to_vec();
-
-        // Save all output notes
-        let created_output_notes = tx_result
-            .created_notes()
-            .iter()
-            .cloned()
-            .filter_map(|output_note| output_note.try_into().ok())
-            .collect::<Vec<_>>();
-
-        let consumed_note_ids =
-            tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
-
+    pub async fn apply_transaction(
+        &self,
+        tx_update: TransactionStoreUpdate,
+    ) -> Result<(), StoreError> {
         // Transaction Data
-        insert_proven_transaction_data(tx_result).await.unwrap();
+        insert_proven_transaction_data(tx_update.executed_transaction()).await?;
 
         // Account Data
-        update_account(&account).await.unwrap();
+        update_account(tx_update.updated_account()).await.unwrap();
 
         // Updates for notes
-        for note in created_input_notes {
-            insert_input_note_tx(note).await?;
-        }
+        apply_note_updates_tx(tx_update.note_updates()).await?;
 
-        for note in &created_output_notes {
-            insert_output_note_tx(note).await?;
-        }
-
-        for note_id in consumed_note_ids {
-            update_note_consumer_tx_id(note_id, transaction_id).await?;
+        for tag_record in tx_update.new_tags() {
+            self.add_note_tag(*tag_record).await?;
         }
 
         Ok(())

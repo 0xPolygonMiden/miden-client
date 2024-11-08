@@ -4,15 +4,10 @@ use clap::{Parser, ValueEnum};
 use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
-    rpc::NodeRpcClient,
-    store::Store,
+    notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
     transactions::{
-        build_swap_tag,
-        request::{PaymentTransactionData, SwapTransactionData, TransactionRequest},
-        TransactionResult,
+        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionResult,
     },
     Client,
 };
@@ -60,16 +55,13 @@ pub struct MintCmd {
 }
 
 impl MintCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
         let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
-        let target_account_id = parse_account_id(&client, self.target_account_id.as_str())?;
+        let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
         let transaction_request = TransactionRequest::mint_fungible_asset(
             fungible_asset,
@@ -113,10 +105,7 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -125,11 +114,11 @@ impl SendCmd {
 
         // try to use either the provided argument or the default account
         let sender_account_id =
-            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone())?;
-        let target_account_id = parse_account_id(&client, self.target_account_id.as_str())?;
+            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone()).await?;
+        let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
         let payment_transaction = PaymentTransactionData::new(
-            fungible_asset.into(),
+            vec![fungible_asset.into()],
             sender_account_id,
             target_account_id,
         );
@@ -170,10 +159,7 @@ pub struct SwapCmd {
 }
 
 impl SwapCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -185,7 +171,7 @@ impl SwapCmd {
 
         // try to use either the provided argument or the default account
         let sender_account_id =
-            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone())?;
+            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone()).await?;
 
         let swap_transaction = SwapTransactionData::new(
             sender_account_id,
@@ -204,8 +190,8 @@ impl SwapCmd {
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
-            swap_transaction.offered_asset().faucet_id(),
-            swap_transaction.requested_asset().faucet_id(),
+            &swap_transaction.offered_asset(),
+            &swap_transaction.requested_asset(),
         )
         .map_err(|err| err.to_string())?
         .into();
@@ -235,27 +221,23 @@ pub struct ConsumeNotesCmd {
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
-        let mut list_of_notes = self
-            .list_of_notes
-            .iter()
-            .map(|note_id| {
-                get_input_note_with_id_prefix(&client, note_id)
-                    .map(|note_record| note_record.id())
-                    .map_err(|err| err.to_string())
-            })
-            .collect::<Result<Vec<NoteId>, _>>()?;
+        let mut list_of_notes = Vec::new();
+        for note_id in &self.list_of_notes {
+            let note_record = get_input_note_with_id_prefix(&client, note_id)
+                .await
+                .map_err(|err| err.to_string())?;
+            list_of_notes.push(note_record.id());
+        }
 
-        let account_id = get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone())?;
+        let account_id =
+            get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()).await?;
 
         if list_of_notes.is_empty() {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
-            let consumable_notes = client.get_consumable_notes(Some(account_id))?;
+            let consumable_notes = client.get_consumable_notes(Some(account_id)).await?;
 
             list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
@@ -273,19 +255,15 @@ impl ConsumeNotesCmd {
 // EXECUTE TRANSACTION
 // ================================================================================================
 
-async fn execute_transaction<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &mut Client<N, R, S, A>,
+async fn execute_transaction(
+    client: &mut Client<impl FeltRng>,
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(account_id, transaction_request)?;
+    let transaction_execution_result =
+        client.new_transaction(account_id, transaction_request).await?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;
@@ -361,11 +339,11 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
 
     let account_delta = transaction_result.account_delta();
 
-    let has_storage_changes = !account_delta.storage().slots().is_empty();
+    let has_storage_changes = !account_delta.storage().is_empty();
     if has_storage_changes {
         let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
 
-        for (updated_item_slot, new_value) in account_delta.storage().slots() {
+        for (updated_item_slot, new_value) in account_delta.storage().values() {
             let value_digest: Digest = new_value.into();
             table.add_row(vec![
                 updated_item_slot.to_string(),

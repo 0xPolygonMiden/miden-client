@@ -1,13 +1,17 @@
 use alloc::{
+    boxed::Box,
+    collections::BTreeSet,
     string::{String, ToString},
     vec::Vec,
 };
 use std::time::Duration;
 
+use async_trait::async_trait;
 use generated::{
     requests::{
-        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
-        GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+        GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+        SyncNoteRequest, SyncStateRequest,
     },
     responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
@@ -25,9 +29,9 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, NoteSyncInfo, NullifierUpdate, StateSyncInfo,
-    TransactionUpdate,
+    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
+    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
+    NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
 use crate::{config::RpcConfig, rpc::RpcError};
 #[rustfmt::skip]
@@ -72,6 +76,7 @@ impl TonicRpcClient {
     }
 }
 
+#[async_trait(?Send)]
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,
@@ -115,16 +120,16 @@ impl NodeRpcClient for TonicRpcClient {
 
         let block_header: BlockHeader = response
             .block_header
-            .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
+            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
             .try_into()?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
                 .chain_length
-                .ok_or(RpcError::ExpectedFieldMissing("ChainLength".into()))?;
+                .ok_or(RpcError::ExpectedDataMissing("ChainLength".into()))?;
             let merkle_path: MerklePath = response
                 .mmr_path
-                .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("MmrPath".into()))?
                 .try_into()?;
 
             Some(MmrProof {
@@ -157,10 +162,10 @@ impl NodeRpcClient for TonicRpcClient {
             let inclusion_details = {
                 let merkle_path = note
                     .merkle_path
-                    .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
+                    .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index, merkle_path)
+                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
             };
 
             let note = match note.details {
@@ -174,15 +179,15 @@ impl NodeRpcClient for TonicRpcClient {
                 None => {
                     let note_metadata = note
                         .metadata
-                        .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
+                        .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                         .try_into()?;
 
                     let note_id: Digest = note
                         .note_id
-                        .ok_or(RpcError::ExpectedFieldMissing("Notes.NoteId".into()))?
+                        .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::OffChain(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)
@@ -245,23 +250,23 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
         let response = response.into_inner();
-        let account_info = response.account.ok_or(RpcError::ExpectedFieldMissing(
+        let account_info = response.details.ok_or(RpcError::ExpectedDataMissing(
             "GetAccountDetails response should have an `account`".to_string(),
         ))?;
 
-        let account_summary = account_info.summary.ok_or(RpcError::ExpectedFieldMissing(
+        let account_summary = account_info.summary.ok_or(RpcError::ExpectedDataMissing(
             "GetAccountDetails response's account should have a `summary`".to_string(),
         ))?;
 
-        let hash = account_summary.account_hash.ok_or(RpcError::ExpectedFieldMissing(
+        let hash = account_summary.account_hash.ok_or(RpcError::ExpectedDataMissing(
             "GetAccountDetails response's account should have an `account_hash`".to_string(),
         ))?;
 
         let hash = hash.try_into()?;
 
         let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
-        if account_id.is_on_chain() {
-            let details_bytes = account_info.details.ok_or(RpcError::ExpectedFieldMissing(
+        if account_id.is_public() {
+            let details_bytes = account_info.details.ok_or(RpcError::ExpectedDataMissing(
                 "GetAccountDetails response's account should have `details`".to_string(),
             ))?;
 
@@ -269,8 +274,98 @@ impl NodeRpcClient for TonicRpcClient {
 
             Ok(AccountDetails::Public(account, update_summary))
         } else {
-            Ok(AccountDetails::OffChain(account_id, update_summary))
+            Ok(AccountDetails::Private(account_id, update_summary))
         }
+    }
+
+    /// Sends a `GetAccountProofs` request to the Miden node, and extracts a list of [AccountProof]
+    /// from the response.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - One of the requested Accounts is not public, or is not returned by the node.
+    /// - There was an error sending the request to the node.
+    /// - The answer had a `None` for one of the expected fields.
+    /// - There is an error during storage deserialization.
+    async fn get_account_proofs(
+        &mut self,
+        account_ids: &BTreeSet<AccountId>,
+        code_commitments: &[Digest],
+        include_headers: bool,
+    ) -> Result<AccountProofs, RpcError> {
+        let account_ids: Vec<AccountId> = account_ids.iter().copied().collect();
+
+        // Ensure all account IDs are public
+        for account_id in &account_ids {
+            if !account_id.is_public() {
+                return Err(RpcError::RequestError(
+                    NodeRpcClientEndpoint::GetAccountProofs.to_string(),
+                    format!("Account ID {account_id} is not public"),
+                ));
+            }
+        }
+
+        let request = GetAccountProofsRequest {
+            account_ids: account_ids.iter().map(|&id| id.into()).collect(),
+            include_headers: Some(include_headers),
+            code_commitments: code_commitments.iter().map(|c| c.into()).collect(),
+        };
+
+        let rpc_api = self.rpc_api().await?;
+        let response = rpc_api
+            .get_account_proofs(request)
+            .await
+            .map_err(|err| {
+                RpcError::RequestError(
+                    NodeRpcClientEndpoint::GetAccountProofs.to_string(),
+                    err.to_string(),
+                )
+            })?
+            .into_inner();
+
+        let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
+        let block_num = response.block_num;
+
+        for account in response.account_proofs {
+            let merkle_proof = account
+                .account_proof
+                .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
+                .try_into()?;
+            let account_hash = account
+                .account_hash
+                .ok_or(RpcError::ExpectedDataMissing("AccountHash".to_string()))?
+                .try_into()?;
+
+            let account_id: AccountId = account
+                .account_id
+                .ok_or(RpcError::ExpectedDataMissing("AccountId".to_string()))?
+                .try_into()?;
+
+            if !account_ids.contains(&account_id) {
+                return Err(RpcError::ExpectedDataMissing(format!(
+                    "Response did not contain data for account ID {account_id}"
+                )));
+            }
+
+            let headers = if include_headers {
+                Some(
+                    account
+                        .state_header
+                        .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
+                        .into_domain(account_id)?,
+                )
+            } else {
+                None
+            };
+
+            let proof = AccountProof::new(account_id, merkle_proof, account_hash, headers)
+                .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+            account_proofs.push(proof);
+        }
+
+        Ok((block_num, account_proofs))
     }
 
     async fn sync_notes(
@@ -311,10 +406,8 @@ impl NodeRpcClient for TonicRpcClient {
             .nullifiers
             .iter()
             .map(|nul| {
-                let nullifier = nul
-                    .nullifier
-                    .clone()
-                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".to_string()))?;
+                let nullifier =
+                    nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
                 let nullifier = nullifier.try_into()?;
                 Ok((nullifier, nul.block_num))
             })
@@ -335,12 +428,12 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
         // Validate and convert block header
         let block_header = value
             .block_header
-            .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
+            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
             .try_into()?;
 
         let mmr_path = value
             .mmr_path
-            .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
+            .ok_or(RpcError::ExpectedDataMissing("MmrPath".into()))?
             .try_into()?;
 
         // Validate and convert account note inclusions into an (AccountId, Digest) tuple
@@ -348,23 +441,23 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
         for note in value.notes {
             let note_id: Digest = note
                 .note_id
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.Id".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
                 .try_into()?;
 
             let note_id: NoteId = note_id.into();
 
             let merkle_path = note
                 .merkle_path
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
             let metadata = note
                 .metadata
-                .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                 .try_into()?;
 
             let committed_note =
-                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
 
             notes.push(committed_note);
         }
@@ -385,13 +478,13 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         // Validate and convert block header
         let block_header: BlockHeader = value
             .block_header
-            .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
+            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
             .try_into()?;
 
         // Validate and convert MMR Delta
         let mmr_delta = value
             .mmr_delta
-            .ok_or(RpcError::ExpectedFieldMissing("MmrDelta".into()))?
+            .ok_or(RpcError::ExpectedDataMissing("MmrDelta".into()))?
             .try_into()?;
 
         // Validate and convert account hash updates into an (AccountId, Digest) tuple
@@ -399,11 +492,11 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         for update in value.accounts {
             let account_id = update
                 .account_id
-                .ok_or(RpcError::ExpectedFieldMissing("AccountHashUpdate.AccountId".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountId".into()))?
                 .try_into()?;
             let account_hash = update
                 .account_hash
-                .ok_or(RpcError::ExpectedFieldMissing("AccountHashUpdate.AccountHash".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountHash".into()))?
                 .try_into()?;
             account_hash_updates.push((account_id, account_hash));
         }
@@ -413,23 +506,23 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         for note in value.notes {
             let note_id: Digest = note
                 .note_id
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.Id".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
                 .try_into()?;
 
             let note_id: NoteId = note_id.into();
 
             let merkle_path = note
                 .merkle_path
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
             let metadata = note
                 .metadata
-                .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                 .try_into()?;
 
             let committed_note =
-                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
 
             note_inclusions.push(committed_note);
         }
@@ -440,8 +533,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .map(|nul_update| {
                 let nullifier_digest = nul_update
                     .nullifier
-                    .clone()
-                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
+                    .ok_or(RpcError::ExpectedDataMissing("Nullifier".into()))?;
 
                 let nullifier_digest = Digest::try_from(nullifier_digest)
                     .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
@@ -459,16 +551,16 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .transactions
             .iter()
             .map(|transaction_summary| {
-                let transaction_id = transaction_summary.transaction_id.clone().ok_or(
-                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                let transaction_id = transaction_summary.transaction_id.ok_or(
+                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_id = TransactionId::try_from(transaction_id)
                     .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 let transaction_block_num = transaction_summary.block_num;
 
-                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
-                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                let transaction_account_id = transaction_summary.account_id.ok_or(
+                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)
                     .map_err(|err| RpcError::DeserializationError(err.to_string()))?;

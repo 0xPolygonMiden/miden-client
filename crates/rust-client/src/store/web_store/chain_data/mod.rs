@@ -8,6 +8,7 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
 };
+use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
@@ -65,8 +66,7 @@ impl WebStore {
             .filter_map(|record_option| record_option.map(Ok))
             .map(|record_result: Result<BlockHeaderIdxdbObject, StoreError>| {
                 let record = record_result?;
-                let block_header = serde_json::from_str(&record.header)
-                    .map_err(StoreError::JsonDataDeserializationError)?;
+                let block_header = BlockHeader::read_from_bytes(&record.header)?;
                 let has_client_notes = record.has_client_notes;
 
                 Ok((block_header, has_client_notes))
@@ -84,7 +84,7 @@ impl WebStore {
         let results: Result<Vec<BlockHeader>, StoreError> = block_headers_idxdb
             .into_iter()
             .map(|record| {
-                let block_header = serde_json::from_str(&record.header).unwrap();
+                let block_header = BlockHeader::read_from_bytes(&record.header)?;
 
                 Ok(block_header)
             })
@@ -93,9 +93,9 @@ impl WebStore {
         results
     }
 
-    pub(crate) async fn get_chain_mmr_nodes<'a>(
-        &'a self,
-        filter: ChainMmrNodeFilter<'a>,
+    pub(crate) async fn get_chain_mmr_nodes(
+        &self,
+        filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         match filter {
             ChainMmrNodeFilter::All => {
@@ -125,8 +125,7 @@ impl WebStore {
         let mmr_peaks_idxdb: MmrPeaksIdxdbObject = from_value(js_value).unwrap();
 
         if let Some(peaks) = mmr_peaks_idxdb.peaks {
-            let mmr_peaks_nodes: Vec<Digest> =
-                serde_json::from_str(&peaks).map_err(StoreError::JsonDataDeserializationError)?;
+            let mmr_peaks_nodes: Vec<Digest> = Vec::<Digest>::read_from_bytes(&peaks)?;
 
             return MmrPeaks::new(block_num as usize, mmr_peaks_nodes)
                 .map_err(StoreError::MmrError);

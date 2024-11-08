@@ -5,32 +5,38 @@ use miden_objects::{
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;
-use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::SyncedNewNotes;
+use super::NoteUpdates;
 use crate::{
     notes::NoteScreener,
-    rpc::NodeRpcClient,
-    store::{ChainMmrNodeFilter, Store, StoreError},
+    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-        for note in maybe_await!(self.store.get_notes_without_block_header())? {
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+
+        let mut changed_notes = vec![];
+        for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
                 .location()
                 .block_num();
-            self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
+            let block_header = self
+                .get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
+
+            if note.block_header_received(block_header)? {
+                changed_notes.push(note);
+            }
         }
+
+        self.store.upsert_input_notes(&changed_notes).await?;
 
         Ok(())
     }
@@ -38,7 +44,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        let genesis = maybe_await!(self.store.get_block_header_by_num(0));
+        let genesis = self.store.get_block_header_by_num(0).await;
 
         match genesis {
             Ok(_) => Ok(()),
@@ -56,18 +62,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        maybe_await!(self.store.insert_block_header(genesis_block, blank_mmr_peaks, false))?;
+        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false).await?;
         Ok(())
     }
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note
-    /// inclusion proof in order to correctly update store data
+    /// Checks the relevance of the block by verifying if any of the input notes in the block are
+    /// relevant to the client. If any of the notes are relevant, the function returns `true`.
     pub(crate) async fn check_block_relevance(
         &mut self,
-        committed_notes: &SyncedNewNotes,
+        committed_notes: &NoteUpdates,
     ) -> Result<bool, ClientError> {
         // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
@@ -75,14 +81,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes.updated_input_notes() {
-            if !maybe_await!(note_screener.check_relevance(input_note.note()))?.is_empty() {
-                return Ok(true);
-            }
-        }
-
-        for public_input_note in committed_notes.new_public_notes() {
-            if !maybe_await!(note_screener.check_relevance(public_input_note.note()))?.is_empty() {
+        for input_note in committed_notes
+            .updated_input_notes()
+            .iter()
+            .chain(committed_notes.new_input_notes().iter())
+        {
+            if !note_screener
+                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
+                .await?
+                .is_empty()
+            {
                 return Ok(true);
             }
         }
@@ -96,19 +104,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    #[maybe_async]
-    pub(crate) fn build_current_partial_mmr(
+    pub(crate) async fn build_current_partial_mmr(
         &self,
         include_current_block: bool,
     ) -> Result<PartialMmr, ClientError> {
-        let current_block_num = maybe_await!(self.store.get_sync_height())?;
+        let current_block_num = self.store.get_sync_height().await?;
 
-        let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
-        let current_peaks =
-            maybe_await!(self.store.get_chain_mmr_peaks_by_block_num(current_block_num))?;
+        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
+        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
 
         let track_latest = if current_block_num != 0 {
-            match maybe_await!(self.store.get_block_header_by_num(current_block_num - 1)) {
+            match self.store.get_block_header_by_num(current_block_num - 1).await {
                 Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
                 Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
                 Err(err) => Err(ClientError::StoreError(err)),
@@ -122,7 +128,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         if include_current_block {
             let (current_block, has_client_notes) =
-                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
+                self.store.get_block_header_by_num(current_block_num).await?;
 
             current_partial_mmr.add(current_block.hash(), has_client_notes);
         }
@@ -141,10 +147,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<BlockHeader, ClientError> {
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
-            let (block_header, _) = maybe_await!(self.store.get_block_header_by_num(block_num))?;
+            let (block_header, _) = self.store.get_block_header_by_num(block_num).await?;
             return Ok(block_header);
         }
-
         let (block_header, mmr_proof) =
             self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
 
@@ -165,12 +170,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
-        maybe_await!(self.store.insert_block_header(
-            block_header,
-            current_partial_mmr.peaks(),
-            true
-        ))?;
-        maybe_await!(self.store.insert_chain_mmr_nodes(&path_nodes))?;
+        self.store
+            .insert_block_header(block_header, current_partial_mmr.peaks(), true)
+            .await?;
+        self.store.insert_chain_mmr_nodes(&path_nodes).await?;
 
         Ok(block_header)
     }

@@ -1,31 +1,26 @@
 use miden_client::accounts::AccountTemplate;
-use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol};
+use miden_objects::assets::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
+use super::models::{account::Account, account_storage_mode::AccountStorageMode};
 use crate::WebClient;
 
 #[wasm_bindgen]
 impl WebClient {
     pub async fn new_wallet(
         &mut self,
-        storage_type: String,
+        storage_mode: &AccountStorageMode,
         mutable: bool,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let client_template = AccountTemplate::BasicWallet {
                 mutable_code: mutable,
-                storage_type: match storage_type.as_str() {
-                    "OffChain" => AccountStorageType::OffChain,
-                    "OnChain" => AccountStorageType::OnChain,
-                    _ => return Err(JsValue::from_str("Invalid storage mode")),
-                },
+                storage_mode: storage_mode.into(),
             };
-
             match client.new_account(client_template).await {
-                Ok((account, _)) => serde_wasm_bindgen::to_value(&account.id().to_string())
-                    .map_err(|e| JsValue::from_str(&e.to_string())),
+                Ok((native_account, _)) => Ok(native_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to create new account: {:?}", err);
+                    let error_message = format!("Failed to create new wallet: {:?}", err);
                     Err(JsValue::from_str(&error_message))
                 },
             }
@@ -36,36 +31,29 @@ impl WebClient {
 
     pub async fn new_faucet(
         &mut self,
-        storage_type: String,
+        storage_mode: &AccountStorageMode,
         non_fungible: bool,
-        token_symbol: String,
-        decimals: String,
-        max_supply: String,
-    ) -> Result<JsValue, JsValue> {
+        token_symbol: &str,
+        decimals: u8,
+        max_supply: u64,
+    ) -> Result<Account, JsValue> {
         if non_fungible {
             return Err(JsValue::from_str("Non-fungible faucets are not supported yet"));
         }
 
         if let Some(client) = self.get_mut_inner() {
             let client_template = AccountTemplate::FungibleFaucet {
-                token_symbol: TokenSymbol::new(&token_symbol)
+                token_symbol: TokenSymbol::new(token_symbol)
                     .map_err(|e| JsValue::from_str(&e.to_string()))?,
-                decimals: decimals.parse::<u8>().map_err(|e| JsValue::from_str(&e.to_string()))?,
-                max_supply: max_supply
-                    .parse::<u64>()
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?,
-                storage_type: match storage_type.as_str() {
-                    "OffChain" => AccountStorageType::OffChain,
-                    "OnChain" => AccountStorageType::OnChain,
-                    _ => return Err(JsValue::from_str("Invalid storage mode")),
-                },
+                decimals,
+                max_supply,
+                storage_mode: storage_mode.into(),
             };
 
             match client.new_account(client_template).await {
-                Ok((account, _)) => serde_wasm_bindgen::to_value(&account.id().to_string())
-                    .map_err(|e| JsValue::from_str(&e.to_string())),
+                Ok((native_account, _)) => Ok(native_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to create new account: {:?}", err);
+                    let error_message = format!("Failed to create new faucet: {:?}", err);
                     Err(JsValue::from_str(&error_message))
                 },
             }

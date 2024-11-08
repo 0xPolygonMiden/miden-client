@@ -1,9 +1,6 @@
 use miden_client::{
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::{NoteExecutionMode, NoteTag},
-    rpc::NodeRpcClient,
-    store::Store,
     Client,
 };
 use tracing::info;
@@ -27,19 +24,16 @@ pub struct TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             TagsCmd { add: Some(tag), .. } => {
-                add_tag(client, *tag)?;
+                add_tag(client, *tag).await?;
             },
             TagsCmd { remove: Some(tag), .. } => {
-                remove_tag(client, *tag)?;
+                remove_tag(client, *tag).await?;
             },
             _ => {
-                list_tags(client)?;
+                list_tags(client).await?;
             },
         }
         Ok(())
@@ -48,18 +42,13 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-) -> Result<(), String> {
-    let tags = client.get_note_tags()?;
+async fn list_tags(client: Client<impl FeltRng>) -> Result<(), String> {
+    let tags = client.get_note_tags().await?;
     println!("Tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
-    tag: u32,
-) -> Result<(), String> {
+async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
     let tag: NoteTag = tag.into();
     let execution_mode = match tag.execution_hint() {
         NoteExecutionMode::Local => "Local",
@@ -70,16 +59,13 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         tag.is_single_target(),
         execution_mode
     );
-    client.add_note_tag(tag)?;
+    client.add_note_tag(tag).await?;
     println!("Tag {} added", tag);
     Ok(())
 }
 
-fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
-    tag: u32,
-) -> Result<(), String> {
-    client.remove_note_tag(tag.into())?;
+async fn remove_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
+    client.remove_note_tag(tag.into()).await?;
     println!("Tag {} removed", tag);
     Ok(())
 }

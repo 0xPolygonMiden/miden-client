@@ -10,10 +10,14 @@ use miden_objects::{
 };
 use miden_tx::DataStoreError;
 
+use super::note_record::NoteRecordError;
+
 // STORE ERROR
 // ================================================================================================
 
+/// Errors generated from the store.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum StoreError {
     AssetVaultError(AssetVaultError),
     AccountCodeDataNotFound(Digest),
@@ -28,8 +32,7 @@ pub enum StoreError {
     DatabaseError(String),
     HexParseError(HexParseError),
     NoteNotFound(NoteId),
-    InputSerializationError(serde_json::Error),
-    JsonDataDeserializationError(serde_json::Error),
+    NoteRecordError(NoteRecordError),
     MmrError(MmrError),
     NoteInclusionProofError(NoteError),
     NoteTagAlreadyTracked(u64),
@@ -81,6 +84,12 @@ impl From<TransactionScriptError> for StoreError {
     }
 }
 
+impl From<NoteRecordError> for StoreError {
+    fn from(value: NoteRecordError) -> Self {
+        StoreError::NoteRecordError(value)
+    }
+}
+
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
@@ -117,14 +126,9 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             },
+            NoteRecordError(err) => write!(f, "note record error: {err}"),
             NoteNotFound(note_id) => {
                 write!(f, "note with note id {} not found", note_id.inner())
-            },
-            InputSerializationError(err) => {
-                write!(f, "error trying to serialize inputs for the store: {err}")
-            },
-            JsonDataDeserializationError(err) => {
-                write!(f, "error deserializing data from JSON from the store: {err}")
             },
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),

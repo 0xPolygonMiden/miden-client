@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, rc::Rc, string::ToString, vec::Vec};
+use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 use core::fmt;
 
 use miden_objects::{
@@ -7,13 +7,11 @@ use miden_objects::{
     notes::{Note, NoteId},
     AccountError, AssetError, Word,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{
-    store::{Store, StoreError},
-    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
-};
+use super::script_roots::{P2ID, P2IDR, SWAP};
+use crate::store::{Store, StoreError};
 
+/// Describes the relevance of a note based on the screening.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
     /// The note can be consumed at any time.
@@ -37,12 +35,18 @@ impl fmt::Display for NoteRelevance {
     }
 }
 
-pub struct NoteScreener<S: Store> {
-    store: Rc<S>,
+/// Provides functionality for testing whether a note is relevant to the client or not.
+///
+/// Here, relevance is based on whether the note is able to be consumed by an account that is
+/// tracked in the provided `store`. This can be derived in a number of ways, such as looking
+/// at the combination of script root and note inputs. For example, a P2ID note is relevant
+/// for a specific account ID if this ID is its first note input.
+pub struct NoteScreener {
+    store: alloc::sync::Arc<dyn Store>,
 }
 
-impl<S: Store> NoteScreener<S> {
-    pub fn new(store: Rc<S>) -> Self {
+impl NoteScreener {
+    pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
         Self { store }
     }
 
@@ -52,18 +56,17 @@ impl<S: Store> NoteScreener<S> {
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
     /// unable to execute notes that are not committed so a slow check for other scripts is
     /// currently not available.
-    #[maybe_async]
-    pub fn check_relevance(
+    pub async fn check_relevance(
         &self,
         note: &Note,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let account_ids = BTreeSet::from_iter(maybe_await!(self.store.get_account_ids())?);
+        let account_ids = BTreeSet::from_iter(self.store.get_account_ids().await?);
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
             P2ID => Self::check_p2id_relevance(note, &account_ids)?,
             P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
-            SWAP => maybe_await!(self.check_swap_relevance(note, &account_ids))?,
+            SWAP => self.check_swap_relevance(note, &account_ids).await?,
             _ => self.check_script_relevance(note, &account_ids)?,
         };
 
@@ -134,8 +137,7 @@ impl<S: Store> NoteScreener<S> {
     /// load the account's vaults, or even have a function in the `Store` to do this.
     ///
     /// TODO: test/revisit this in the future
-    #[maybe_async]
-    fn check_swap_relevance(
+    async fn check_swap_relevance(
         &self,
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
@@ -156,7 +158,7 @@ impl<S: Store> NoteScreener<S> {
         let mut accounts_with_relevance = Vec::new();
 
         for account_id in account_ids {
-            let (account, _) = maybe_await!(self.store.get_account(*account_id))?;
+            let (account, _) = self.store.get_account(*account_id).await?;
 
             // Check that the account can cover the demanded asset
             match asset {

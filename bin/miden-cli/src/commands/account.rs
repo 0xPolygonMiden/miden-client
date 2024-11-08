@@ -1,11 +1,8 @@
 use clap::Parser;
 use miden_client::{
-    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{AccountId, AccountType, StorageSlot},
     assets::Asset,
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
-    rpc::NodeRpcClient,
-    store::Store,
     Client, ZERO,
 };
 
@@ -38,18 +35,15 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), String> {
         match self {
             AccountCmd {
                 list: false,
                 show: Some(id),
                 default: None,
             } => {
-                let account_id = parse_account_id(&client, id)?;
-                show_account(client, account_id)?;
+                let account_id = parse_account_id(&client, id).await?;
+                show_account(client, account_id).await?;
             },
             AccountCmd {
                 list: false,
@@ -68,7 +62,7 @@ impl AccountCmd {
                                 .map_err(|_| "Input number was not a valid Account Id")?;
 
                             // Check whether we're tracking that account
-                            let (account, _) = client.get_account_stub_by_id(account_id)?;
+                            let (account, _) = client.get_account_header_by_id(account_id).await?;
 
                             Some(account.id())
                         };
@@ -85,7 +79,7 @@ impl AccountCmd {
                 }
             },
             _ => {
-                list_accounts(client)?;
+                list_accounts(client).await?;
             },
         }
         Ok(())
@@ -95,17 +89,15 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-) -> Result<(), String> {
-    let accounts = client.get_account_stubs()?;
+async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
+    let accounts = client.get_account_headers().await?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
     for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
             account_type_display_name(&acc.id())?,
-            storage_type_display_name(&acc.id()),
+            acc.id().storage_mode().to_string(),
             acc.nonce().as_int().to_string(),
         ]);
     }
@@ -114,11 +106,12 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+pub async fn show_account<R: FeltRng>(
+    client: Client<R>,
     account_id: AccountId,
 ) -> Result<(), String> {
-    let (account, _) = client.get_account(account_id)?;
+    let (account, _) = client.get_account(account_id).await?;
+
     let mut table = create_dynamic_table(&[
         "Account ID",
         "Account Hash",
@@ -133,10 +126,10 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         account.id().to_string(),
         account.hash().to_string(),
         account_type_display_name(&account_id)?,
-        storage_type_display_name(&account_id),
+        account_id.storage_mode().to_string(),
         account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
-        account.storage().root().to_string(),
+        account.storage().commitment().to_string(),
         account.nonce().as_int().to_string(),
     ]);
     println!("{table}\n");
@@ -178,30 +171,27 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             "Value Arity",
             "Value/Commitment",
         ]);
-        for (idx, entry) in account_storage.layout().iter().enumerate() {
-            let item = account_storage.get_item(idx as u8);
 
-            // Last entry is reserved so I don't think the user cares about it Also, to keep the
-            // output smaller, if the [StorageSlotType] is a value and it's 0 we assume it's not
+        for (idx, entry) in account_storage.slots().iter().enumerate() {
+            let item = account_storage.get_item(idx as u8).map_err(|e| e.to_string())?;
+
+            // Last entry is reserved so I don't think the user cares about it. Also, to keep the
+            // output smaller, if the [StorageSlot] is a value and it's 0 we assume it's not
             // initialized and skip it
-            if idx == AccountStorage::SLOT_LAYOUT_COMMITMENT_INDEX as usize {
-                continue;
-            }
-            if matches!(entry, StorageSlotType::Value { value_arity: _value_arity })
-                && item == [ZERO; 4].into()
-            {
+            if matches!(entry, StorageSlot::Value { .. }) && item == [ZERO; 4].into() {
                 continue;
             }
 
-            let (slot_type, arity) = match entry {
-                StorageSlotType::Value { value_arity } => ("Value", value_arity),
-                StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
-                StorageSlotType::Map { value_arity } => ("Map", value_arity),
+            let slot_type = match entry {
+                StorageSlot::Value(..) => "Value",
+                StorageSlot::Map(..) => "Map",
             };
-            table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
+            table.add_row(vec![&idx.to_string(), slot_type, &item.to_hex()]);
         }
         println!("{table}\n");
     }
+    println!("{table}\n");
+    //}
 
     Ok(())
 }
@@ -221,14 +211,6 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
         AccountType::RegularAccountImmutableCode => "Regular".to_string(),
         AccountType::RegularAccountUpdatableCode => "Regular (updatable)".to_string(),
     })
-}
-
-fn storage_type_display_name(account: &AccountId) -> String {
-    match account.is_on_chain() {
-        true => "On-chain",
-        false => "Off-chain",
-    }
-    .to_string()
 }
 
 /// Loads config file and displays current default account ID

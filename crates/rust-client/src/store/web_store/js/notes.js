@@ -1,406 +1,311 @@
-import { 
-    db,
-    inputNotes,
-    outputNotes,
-    notesScripts,
-    transactions
-} from './schema.js';
+import {
+  db,
+  inputNotes,
+  outputNotes,
+  notesScripts,
+  transactions,
+} from "./schema.js";
 
-export async function getOutputNotes(
-    status
-) {
-    try {
-        let notes;
+export async function getOutputNotes(states) {
+  try {
+    let notes;
 
-        // Fetch the records based on the filter
-        if (status === 'All') {
-            notes = await outputNotes.toArray();
-        } else {
-            notes = await outputNotes.where('status').equals(status).toArray();
-        }
-
-        return await processOutputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get input notes: ", err);
-        throw err;
+    // Fetch the records based on the filter
+    if (states.length === 0) {
+      notes = await outputNotes.toArray();
+    } else {
+      notes = await outputNotes
+        .where("stateDiscriminant")
+        .anyOf(states)
+        .toArray();
     }
+
+    return await processOutputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get input notes: ", err);
+    throw err;
+  }
 }
 
-export async function getInputNotes(
-    status
-) {
-    try {
-        let notes;
+export async function getInputNotes(states) {
+  try {
+    let notes;
 
-        // Fetch the records based on the filter
-        if (status === 'All') {
-            notes = await inputNotes.toArray();
-        } else {
-            notes = await inputNotes
-                .where('status')
-                .equals(status)
-                .and(note => note.ignored === "false")
-                .toArray();
-        }
-
-        return await processInputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get input notes: ", err);
-        throw err;
+    // Fetch the records based on the filter
+    if (states.length === 0) {
+      notes = await inputNotes.toArray();
+    } else {
+      notes = await inputNotes
+        .where("stateDiscriminant")
+        .anyOf(states)
+        .toArray();
     }
+
+    return await processInputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get input notes: ", err);
+    throw err;
+  }
 }
 
-export async function getIgnoredInputNotes() {
-    try {
-        const notes = await inputNotes
-            .where('ignored')
-            .equals("true")
-            .toArray();
+export async function getInputNotesFromIds(noteIds) {
+  try {
+    let notes;
 
-        return await processInputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get ignored input notes: ", err);
-        throw err;
-    }
+    // Fetch the records based on a list of IDs
+    notes = await inputNotes.where("noteId").anyOf(noteIds).toArray();
+
+    return await processInputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get input notes: ", err);
+    throw err;
+  }
 }
 
-export async function getIgnoredOutputNotes() {
-    try {
-        const notes = await outputNotes
-            .where('ignored')
-            .equals("true")
-            .toArray();
+export async function getInputNotesFromNullifiers(nullifiers) {
+  try {
+    let notes;
 
-        return await processOutputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get ignored output notes: ", err);
-        throw err;
-    }
+    // Fetch the records based on a list of IDs
+    notes = await inputNotes.where("nullifier").anyOf(nullifiers).toArray();
 
+    return await processInputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get input notes: ", err);
+    throw err;
+  }
 }
 
-export async function getInputNotesFromIds(
-    noteIds
-) {
-    try {
-        let notes;
+export async function getOutputNotesFromNullifiers(nullifiers) {
+  try {
+    let notes;
 
-        // Fetch the records based on a list of IDs
-        notes = await inputNotes.where('noteId').anyOf(noteIds).toArray();
+    // Fetch the records based on a list of IDs
+    notes = await outputNotes.where("nullifier").anyOf(nullifiers).toArray();
 
-        return await processInputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get input notes: ", err);
-        throw err;
-    }
+    return await processOutputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get output notes: ", err);
+    throw err;
+  }
 }
 
-export async function getOutputNotesFromIds(
-    noteIds
-) {
-    try {
-        let notes;
+export async function getOutputNotesFromIds(noteIds) {
+  try {
+    let notes;
 
-        // Fetch the records based on a list of IDs
-        notes = await outputNotes.where('noteId').anyOf(noteIds).toArray();
+    // Fetch the records based on a list of IDs
+    notes = await outputNotes.where("noteId").anyOf(noteIds).toArray();
 
-        return await processOutputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get input notes: ", err);
-        throw err;
-    }
+    return await processOutputNotes(notes);
+  } catch (err) {
+    console.error("Failed to get input notes: ", err);
+    throw err;
+  }
 }
 
 export async function getUnspentInputNoteNullifiers() {
+  try {
+    const notes = await inputNotes
+      .where("stateDiscriminant")
+      .anyOf([2, 4, 5]) // STATE_COMMITTED, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
+      .toArray();
+    const nullifiers = notes.map((note) => note.nullifier);
+
+    return nullifiers;
+  } catch (err) {
+    console.error("Failed to get unspent input note nullifiers: ", err);
+    throw err;
+  }
+}
+
+export async function upsertInputNote(
+  noteId,
+  assets,
+  serialNumber,
+  inputs,
+  noteScriptHash,
+  serializedNoteScript,
+  nullifier,
+  serializedCreatedAt,
+  stateDiscriminant,
+  state
+) {
+  return db.transaction("rw", inputNotes, notesScripts, async (tx) => {
     try {
-        const notes = await inputNotes
-            .where('status')
-            .anyOf(['Committed', 'Processing'])
-            .toArray();
-        const nullifiers = notes.map(note => JSON.parse(note.details).nullifier);
+      let assetsBlob = new Blob([new Uint8Array(assets)]);
+      let serialNumberBlob = new Blob([new Uint8Array(serialNumber)]);
+      let inputsBlob = new Blob([new Uint8Array(inputs)]);
+      let stateBlob = new Blob([new Uint8Array(state)]);
 
-        return nullifiers;
-    } catch (err) {
-        console.error("Failed to get unspent input note nullifiers: ", err);
-        throw err;
+      // Prepare the data object to insert
+      const data = {
+        noteId: noteId,
+        assets: assetsBlob,
+        serialNumber: serialNumberBlob,
+        inputs: inputsBlob,
+        noteScriptHash: noteScriptHash,
+        nullifier: nullifier,
+        state: stateBlob,
+        stateDiscriminant: stateDiscriminant,
+        createdAt: serializedCreatedAt,
+      };
+
+      // Perform the insert using Dexie
+      await tx.inputNotes.put(data);
+
+      let serializedNoteScriptBlob = new Blob([
+        new Uint8Array(serializedNoteScript),
+      ]);
+
+      const noteScriptData = {
+        scriptHash: noteScriptHash,
+        serializedNoteScript: serializedNoteScriptBlob,
+      };
+
+      await tx.notesScripts.put(noteScriptData);
+    } catch {
+      console.error(`Error inserting note: ${noteId}:`, error);
+      throw error; // Rethrow the error to handle it further up the call chain if needed
     }
+  });
 }
 
-export async function insertInputNote(
-    noteId,
-    assets,
-    recipient,
-    status,
-    metadata,
-    details,
-    noteScriptHash,
-    serializedNoteScript,
-    inclusionProof,
-    serializedCreatedAt,
-    ignored,
-    importedTag
+export async function upsertOutputNote(
+  noteId,
+  assets,
+  recipientDigest,
+  metadata,
+  nullifier,
+  expectedHeight,
+  stateDiscriminant,
+  state
 ) {
-    return db.transaction('rw', inputNotes, notesScripts, async (tx) => {
-        try {
-            let assetsBlob = new Blob([new Uint8Array(assets)]);
-
-            // Prepare the data object to insert
-            const data = {
-                noteId: noteId,
-                assets: assetsBlob,
-                recipient: recipient,
-                status: status,
-                metadata: metadata ? metadata : null,
-                details: details,
-                inclusionProof: inclusionProof ? inclusionProof : null,
-                consumerTransactionId: null,
-                createdAt: serializedCreatedAt,
-                ignored: ignored.toString(),
-                importedTag: importedTag ? importedTag : null
-            };
-
-            // Perform the insert using Dexie
-            await tx.inputNotes.add(data);
-
-            let serializedNoteScriptBlob = new Blob([new Uint8Array(serializedNoteScript)]);
-
-            const noteScriptData = {
-                scriptHash: noteScriptHash,
-                serializedNoteScript: serializedNoteScriptBlob,
-            };
-
-            await tx.notesScripts.put(noteScriptData);
-        } catch {
-            console.error(`Error inserting note: ${noteId}:`, error);
-            throw error; // Rethrow the error to handle it further up the call chain if needed
-        }
-    });
-}
-
-export async function insertOutputNote(
-    noteId,
-    assets,
-    recipient,
-    status,
-    metadata,
-    details,
-    noteScriptHash,
-    serializedNoteScript,
-    inclusionProof,
-    serializedCreatedAt,
-) {
-    return db.transaction('rw', outputNotes, notesScripts, async (tx) => {
-        try {
-            let assetsBlob = new Blob([new Uint8Array(assets)]);
-
-            // Prepare the data object to insert
-            const data = {
-                noteId: noteId,
-                assets: assetsBlob,
-                recipient: recipient,
-                status: status,
-                metadata: metadata,
-                details: details ? details : null,
-                inclusionProof: inclusionProof ? inclusionProof : null,
-                consumerTransactionId: null,
-                createdAt: serializedCreatedAt,
-                ignored: "false",
-                imported_tag: null
-            };
-
-            // Perform the insert using Dexie
-            await tx.outputNotes.add(data);
-
-            if (noteScriptHash) {
-                const exists = await tx.notesScripts.get(noteScriptHash);
-                if (!exists) {
-                    let serializedNoteScriptBlob = null;
-                    if (serializedNoteScript) {
-                        serializedNoteScriptBlob = new Blob([new Uint8Array(serializedNoteScript)]);
-                    }
-
-                    const data = {
-                        scriptHash: noteScriptHash,
-                        serializedNoteScript: serializedNoteScriptBlob,
-                    };
-                    await tx.notesScripts.add(data);
-                }
-            }
-        } catch {
-            console.error(`Error inserting note: ${noteId}:`, error);
-            throw error; // Rethrow the error to handle it further up the call chain if needed
-        }
-    });
-}
-
-export async function updateNoteConsumerTxId(noteId, consumerTxId, submittedAt) {
+  return db.transaction("rw", outputNotes, notesScripts, async (tx) => {
     try {
-        // Start a transaction that covers both tables
-        await db.transaction('rw', inputNotes, outputNotes, async (tx) => {
-            // Update input_notes where note_id matches
-            const updatedInputNotes = await tx.inputNotes
-                .where('noteId')
-                .equals(noteId)
-                .modify({ consumerTransactionId: consumerTxId, submittedAt: submittedAt, status: "Processing" });
+      let assetsBlob = new Blob([new Uint8Array(assets)]);
+      let metadataBlob = new Blob([new Uint8Array(metadata)]);
+      let stateBlob = new Blob([new Uint8Array(state)]);
 
-            // Update output_notes where note_id matches
-            const updatedOutputNotes = await tx.outputNotes
-                .where('noteId')
-                .equals(noteId)
-                .modify({ consumerTransactionId: consumerTxId, submittedAt: submittedAt, status: "Processing" });
+      // Prepare the data object to insert
+      const data = {
+        noteId: noteId,
+        assets: assetsBlob,
+        recipientDigest: recipientDigest,
+        metadata: metadataBlob,
+        nullifier: nullifier ? nullifier : null,
+        expectedHeight: expectedHeight,
+        stateDiscriminant,
+        state: stateBlob,
+      };
 
-            // Log the count of updated entries in both tables (optional)
-            console.log(`Updated ${updatedInputNotes} input notes and ${updatedOutputNotes} output notes`);
-        });
-    } catch (err) {
-        console.error("Failed to update note consumer transaction ID: ", err);
-        throw err;
+      // Perform the insert using Dexie
+      await tx.outputNotes.put(data);
+    } catch {
+      console.error(`Error inserting note: ${noteId}:`, error);
+      throw error; // Rethrow the error to handle it further up the call chain if needed
     }
+  });
 }
 
-export async function updateNoteInclusionProof(
-    noteId, 
-    inclusionProof
-) {
-    try {
-        await inputNotes
-            .where('noteId')
-            .equals(noteId)
-            .modify({ inclusionProof: inclusionProof, status: "Committed" });
+async function processInputNotes(notes) {
+  // Fetch all scripts from the scripts table for joining
+  const transactionRecords = await transactions.toArray();
+  const transactionMap = new Map(
+    transactionRecords.map((transaction) => [
+      transaction.id,
+      transaction.accountId,
+    ])
+  );
 
-    } catch (err) {
-        console.error("Failed to update inclusion proof: ", err);
-        throw err;
-    }
+  const processedNotes = await Promise.all(
+    notes.map(async (note) => {
+      // Convert the assets blob to base64
+      const assetsArrayBuffer = await note.assets.arrayBuffer();
+      const assetsArray = new Uint8Array(assetsArrayBuffer);
+      const assetsBase64 = uint8ArrayToBase64(assetsArray);
+      note.assets = assetsBase64;
+
+      const serialNumberBuffer = await note.serialNumber.arrayBuffer();
+      const serialNumberArray = new Uint8Array(serialNumberBuffer);
+      const serialNumberBase64 = uint8ArrayToBase64(serialNumberArray);
+      note.serialNumber = serialNumberBase64;
+
+      const inputsBuffer = await note.inputs.arrayBuffer();
+      const inputsArray = new Uint8Array(inputsBuffer);
+      const inputsBase64 = uint8ArrayToBase64(inputsArray);
+      note.inputs = inputsBase64;
+
+      // Convert the serialized note script blob to base64
+      let serializedNoteScriptBase64 = null;
+      if (note.noteScriptHash) {
+        let record = await notesScripts.get(note.noteScriptHash);
+        let serializedNoteScriptArrayBuffer =
+          await record.serializedNoteScript.arrayBuffer();
+        const serializedNoteScriptArray = new Uint8Array(
+          serializedNoteScriptArrayBuffer
+        );
+        serializedNoteScriptBase64 = uint8ArrayToBase64(
+          serializedNoteScriptArray
+        );
+      }
+
+      const stateBuffer = await note.state.arrayBuffer();
+      const stateArray = new Uint8Array(stateBuffer);
+      const stateBase64 = uint8ArrayToBase64(stateArray);
+      note.state = stateBase64;
+
+      return {
+        assets: note.assets,
+        serial_number: note.serialNumber,
+        inputs: note.inputs,
+        created_at: note.createdAt,
+        serialized_note_script: serializedNoteScriptBase64,
+        state: note.state,
+      };
+    })
+  );
+
+  return processedNotes;
 }
 
-export async function updateNoteMetadata(
-    noteId, 
-    metadata
-) {
-    try {
-        await inputNotes
-            .where('noteId')
-            .equals(noteId)
-            .modify({ metadata: metadata });
+async function processOutputNotes(notes) {
+  // Process each note to convert 'blobField' from Blob to Uint8Array
+  const processedNotes = await Promise.all(
+    notes.map(async (note) => {
+      const assetsArrayBuffer = await note.assets.arrayBuffer();
+      const assetsArray = new Uint8Array(assetsArrayBuffer);
+      const assetsBase64 = uint8ArrayToBase64(assetsArray);
+      note.assets = assetsBase64;
 
-    } catch (err) {
-        console.error("Failed to update inclusion proof: ", err);
-        throw err;
-    }
-}
+      // Convert the metadata blob to base64
+      const metadataArrayBuffer = await note.metadata.arrayBuffer();
+      const metadataArray = new Uint8Array(metadataArrayBuffer);
+      const metadataBase64 = uint8ArrayToBase64(metadataArray);
+      note.metadata = metadataBase64;
 
-async function processInputNotes(
-    notes
-) {
-    // Fetch all scripts from the scripts table for joining
-    const scripts = await notesScripts.toArray();
-    const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
+      // Convert the state blob to base64
+      const stateBuffer = await note.state.arrayBuffer();
+      const stateArray = new Uint8Array(stateBuffer);
+      const stateBase64 = uint8ArrayToBase64(stateArray);
+      note.state = stateBase64;
 
-    const transactionRecords = await transactions.toArray();
-    const transactionMap = new Map(transactionRecords.map(transaction => [transaction.id, transaction.accountId]));
-
-    const processedNotes = await Promise.all(notes.map(async note => {
-        // Convert the assets blob to base64
-        const assetsArrayBuffer = await note.assets.arrayBuffer();
-        const assetsArray = new Uint8Array(assetsArrayBuffer);
-        const assetsBase64 = uint8ArrayToBase64(assetsArray);
-        note.assets = assetsBase64;
-
-        // Convert the serialized note script blob to base64
-        let serializedNoteScriptBase64 = null;
-        // Parse details JSON and perform a "join"
-        if (note.details) {
-            const details = JSON.parse(note.details);
-            if (details.script_hash) {
-                let serializedNoteScript = scriptMap.get(details.script_hash);
-                let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
-                const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
-                serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
-            }
-        }
-
-        // Perform a "join" with the transactions table
-        let consumerAccountId = null;
-        if (transactionMap.has(note.consumerTransactionId)) { 
-            consumerAccountId = transactionMap.get(note.consumerTransactionId);
-        }
-
-        return {
-            assets: note.assets,
-            details: note.details,
-            recipient: note.recipient,
-            status: note.status,
-            metadata: note.metadata ? note.metadata : null,
-            inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
-            serialized_note_script: serializedNoteScriptBase64,
-            consumer_account_id: consumerAccountId,
-            created_at: note.createdAt,
-            submitted_at: note.submittedAt ? note.submittedAt : null,
-            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
-            ignored: note.ignored === "true",
-            imported_tag: note.importedTag ? note.importedTag : null
-        };
-    }));
-
-    return processedNotes;
-}
-
-async function processOutputNotes(
-    notes
-) {
-    // Fetch all scripts from the scripts table for joining
-    const scripts = await notesScripts.toArray();
-    const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
-
-    const transactionRecords = await transactions.toArray();
-    const transactionMap = new Map(transactionRecords.map(transaction => [transaction.id, transaction.accountId]));
-
-    // Process each note to convert 'blobField' from Blob to Uint8Array
-    const processedNotes = await Promise.all(notes.map(async note => {
-        const assetsArrayBuffer = await note.assets.arrayBuffer();
-        const assetsArray = new Uint8Array(assetsArrayBuffer);
-        const assetsBase64 = uint8ArrayToBase64(assetsArray);
-        note.assets = assetsBase64;
-
-        let serializedNoteScriptBase64 = null;
-        // Parse details JSON and perform a "join"
-        if (note.details) {
-            const details = JSON.parse(note.details);
-            if (details.script_hash) {
-                let serializedNoteScript = scriptMap.get(details.script_hash);
-                let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
-                const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
-                serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
-            }
-        }
-
-        // Perform a "join" with the transactions table
-        let consumerAccountId = null;
-        if (transactionMap.has(note.consumerTransactionId)) { 
-            consumerAccountId = transactionMap.get(note.consumerTransactionId);
-        }
-
-        return {
-            assets: note.assets,
-            details: note.details ? note.details : null,
-            recipient: note.recipient,
-            status: note.status,
-            metadata: note.metadata,
-            inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
-            serialized_note_script: serializedNoteScriptBase64,
-            consumer_account_id: consumerAccountId,
-            created_at: note.createdAt,
-            submitted_at: note.submittedAt ? note.submittedAt : null,
-            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
-            ignored: note.ignored === "true",
-            imported_tag: note.importedTag ? note.importedTag : null
-        };
-    }));
-    return processedNotes;
+      return {
+        assets: note.assets,
+        recipient_digest: note.recipientDigest,
+        metadata: note.metadata,
+        expected_height: note.expectedHeight,
+        state: note.state,
+      };
+    })
+  );
+  return processedNotes;
 }
 
 function uint8ArrayToBase64(bytes) {
-    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
-    return btoa(binary);
+  const binary = bytes.reduce(
+    (acc, byte) => acc + String.fromCharCode(byte),
+    ""
+  );
+  return btoa(binary);
 }

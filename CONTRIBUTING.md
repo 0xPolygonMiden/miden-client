@@ -1,4 +1,4 @@
-# Contributing to Miden Client
+# Contributing to Miden client
 
 #### First off, thanks for taking the time to contribute!
 

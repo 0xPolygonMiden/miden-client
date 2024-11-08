@@ -3,12 +3,13 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountId,
     assets::Asset,
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{get_input_note_with_id_prefix, NoteConsumability, NoteInputs, NoteMetadata},
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
-    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
+    notes::{
+        get_input_note_with_id_prefix,
+        script_roots::{P2ID, P2IDR, SWAP},
+        NoteConsumability, NoteInputs, NoteMetadata,
+    },
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -26,10 +27,10 @@ pub enum NoteFilter {
     Consumable,
 }
 
-impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+impl TryInto<ClientNoteFilter> for NoteFilter {
     type Error = String;
 
-    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+    fn try_into(self) -> Result<ClientNoteFilter, Self::Error> {
         match self {
             NoteFilter::All => Ok(ClientNoteFilter::All),
             NoteFilter::Expected => Ok(ClientNoteFilter::Expected),
@@ -57,25 +58,23 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
-                list_consumable_notes(client, &None)?;
+                list_consumable_notes(client, &None).await?;
             },
             NotesCmd { list: Some(filter), .. } => {
                 list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
-                )?;
+                )
+                .await?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned())?;
+                show_note(client, id.to_owned()).await?;
             },
             _ => {
-                list_notes(client, ClientNoteFilter::All)?;
+                list_notes(client, ClientNoteFilter::All).await?;
             },
         }
         Ok(())
@@ -89,7 +88,7 @@ struct CliNoteSummary {
     inputs_commitment: String,
     serial_num: String,
     note_type: String,
-    status: String,
+    state: String,
     tag: String,
     sender: String,
     exportable: bool,
@@ -97,17 +96,16 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    filter: ClientNoteFilter,
-) -> Result<(), String> {
+async fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
     let input_notes = client
-        .get_input_notes(filter.clone())?
+        .get_input_notes(filter.clone())
+        .await?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
     let output_notes = client
-        .get_output_notes(filter.clone())?
+        .get_output_notes(filter.clone())
+        .await?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
@@ -118,12 +116,9 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    note_id: String,
-) -> Result<(), String> {
-    let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
-    let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
+async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
+    let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
+    let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
     // If we don't find an input note nor an output note return an error
     if matches!(input_note_record, Err(IdPrefixFetchError::NoMatch(_)))
@@ -164,12 +159,11 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         inputs_commitment,
         serial_num,
         note_type,
-        status,
+        state,
         tag,
         sender,
         exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
-
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
     match script_hash.clone().as_str() {
         P2ID => script_hash += " (P2ID)",
@@ -183,7 +177,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
     table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
-    table.add_row(vec![Cell::new("Status"), Cell::new(status)]);
+    table.add_row(vec![Cell::new("State"), Cell::new(state)]);
     table.add_row(vec![Cell::new("Tag"), Cell::new(tag)]);
     table.add_row(vec![Cell::new("Sender"), Cell::new(sender)]);
     table.add_row(vec![Cell::new("Exportable"), Cell::new(if exportable { "✔" } else { "✘" })]);
@@ -193,9 +187,11 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
     let inputs = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
             let details = record.details();
-            Some(details.inputs().clone())
+            Some(details.inputs().values().to_vec())
         },
-        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
+        (_, Some(record)) => {
+            record.recipient().map(|recipient| recipient.inputs().values().to_vec())
+        },
         (None, None) => {
             panic!("One of the two records should be Some")
         },
@@ -258,15 +254,15 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+async fn list_consumable_notes(
+    client: Client<impl FeltRng>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {
         Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
         None => None,
     };
-    let notes = client.get_consumable_notes(account_id)?;
+    let notes = client.get_consumable_notes(account_id).await?;
     print_consumable_notes_summary(&notes)?;
     Ok(())
 }
@@ -285,7 +281,7 @@ where
     println!("\n{table}");
 
     for summary in notes {
-        println!(" {} {}", summary.id, summary.status);
+        println!(" {} {}", summary.id, summary.state);
     }
 
     Ok(())
@@ -344,23 +340,17 @@ fn note_summary(
             (Some(record), _) => {
                 let details = record.details();
                 (
-                    NoteInputs::new(details.inputs().clone())
-                        .map_err(ClientError::NoteError)?
-                        .commitment()
-                        .to_string(),
+                    details.inputs().commitment().to_string(),
                     Digest::new(details.serial_num()).to_string(),
                     details.script().hash().to_string(),
                 )
             },
-            (None, Some(record)) if record.details().is_some() => {
-                let details = record.details().expect("output record should have details");
+            (None, Some(record)) if record.recipient().is_some() => {
+                let recipient = record.recipient().expect("output record should have recipient");
                 (
-                    NoteInputs::new(details.inputs().clone())
-                        .map_err(ClientError::NoteError)?
-                        .commitment()
-                        .to_string(),
-                    Digest::new(details.serial_num()).to_string(),
-                    details.script().hash().to_string(),
+                    recipient.inputs().commitment().to_string(),
+                    Digest::new(recipient.serial_num()).to_string(),
+                    recipient.script().hash().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -373,11 +363,10 @@ fn note_summary(
             .or(output_note_record.map(|record| record.metadata())),
     );
 
-    let status = input_note_record
-        .map(|record| record.status())
-        .or(output_note_record.map(|record| record.status()))
-        .expect("One of the two records should be Some")
-        .to_string();
+    let state = input_note_record
+        .map(|record| record.state().to_string())
+        .or(output_note_record.map(|record| record.state().to_string()))
+        .expect("One of the two records should be Some");
 
     let note_metadata = input_note_record
         .map(|record| record.metadata())
@@ -399,7 +388,7 @@ fn note_summary(
         inputs_commitment: inputs_commitment_str,
         serial_num,
         note_type,
-        status,
+        state,
         tag: note_tag_str,
         sender: note_sender_str,
         exportable: output_note_record.is_some(),

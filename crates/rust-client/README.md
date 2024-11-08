@@ -7,12 +7,11 @@ Rust library, which can be used by other project to programmatically interact wi
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.5" }
+miden-client = { version = "0.6" }
 ````
 
 ## Crate Features
 
-- `async`: enables async traits. Automatically enabled for `web-tonic` feature. Disabled by default.
 - `concurrent`: used to enable concurrency during execution and proof generation. Disabled by default.
 - `idxdb`: includes `WebStore`, an IdexedDB implementation of the `Store` trait. Disabled by default.
 - `sqlite`: includes `SqliteStore`, a SQLite implementation of the `Store` trait. Disabled by default.

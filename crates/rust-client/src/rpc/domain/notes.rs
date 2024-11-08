@@ -30,3 +30,15 @@ impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
         Ok(NoteMetadata::new(sender, note_type, tag, execution_hint, aux)?)
     }
 }
+
+impl From<NoteMetadata> for ProtoNoteMetadata {
+    fn from(value: NoteMetadata) -> Self {
+        ProtoNoteMetadata {
+            sender: Some(value.sender().into()),
+            note_type: value.note_type() as u32,
+            tag: value.tag().into(),
+            execution_hint: value.execution_hint().into(),
+            aux: value.aux().into(),
+        }
+    }
+}

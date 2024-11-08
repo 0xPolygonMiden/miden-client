@@ -1,14 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData,
-    auth::TransactionAuthenticator,
-    crypto::FeltRng,
-    notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::{NoteStatus, Store},
-    utils::Serializable,
-    Client,
+    accounts::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
 
@@ -45,20 +38,25 @@ pub enum ExportType {
     Partial,
 }
 
+impl From<ExportType> for NoteExportType {
+    fn from(export_type: ExportType) -> NoteExportType {
+        match export_type {
+            ExportType::Id => NoteExportType::NoteId,
+            ExportType::Full => NoteExportType::NoteWithProof,
+            ExportType::Partial => NoteExportType::NoteDetails,
+        }
+    }
+}
+
 impl ExportCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.account {
-            export_account(&client, self.id.as_str(), self.filename.clone())?;
+            export_account(&client, self.id.as_str(), self.filename.clone()).await?;
+        } else if let Some(export_type) = &self.export_type {
+            export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type.clone())
+                .await?;
         } else {
-            export_note(
-                &mut client,
-                self.id.as_str(),
-                self.filename.clone(),
-                self.export_type.clone().expect("Note export must have an export type"),
-            )?;
+            return Err("Export type is required when exporting a note".to_string());
         }
         Ok(())
     }
@@ -67,16 +65,16 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+async fn export_account<R: FeltRng>(
+    client: &Client<R>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
-    let account_id = parse_account_id(client, account_id)?;
+    let account_id = parse_account_id(client, account_id).await?;
 
-    let (account, account_seed) = client.get_account(account_id)?;
+    let (account, account_seed) = client.get_account(account_id).await?;
 
-    let auth = client.get_account_auth(account_id)?;
+    let auth = client.get_account_auth(account_id).await?;
 
     let account_data = AccountData::new(account, account_seed, auth);
 
@@ -98,49 +96,24 @@ fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // EXPORT NOTE
 // ================================================================================================
 
-fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+async fn export_note(
+    client: &mut Client<impl FeltRng>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,
 ) -> Result<File, String> {
     let note_id = get_output_note_with_id_prefix(client, note_id)
+        .await
         .map_err(|err| err.to_string())?
         .id();
 
     let output_note = client
-        .get_output_notes(miden_client::store::NoteFilter::Unique(note_id))?
+        .get_output_notes(miden_client::store::NoteFilter::Unique(note_id))
+        .await?
         .pop()
         .expect("should have an output note");
 
-    let note_file = match export_type {
-        ExportType::Id => NoteFile::NoteId(output_note.id()),
-        ExportType::Full => match output_note.inclusion_proof() {
-            Some(inclusion_proof) => {
-                NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
-            },
-            None => return Err("Note does not have inclusion proof".to_string()),
-        },
-        ExportType::Partial => {
-            let after_block_num = match output_note.status() {
-                NoteStatus::Expected { block_height, .. } => block_height.unwrap_or(0),
-                _ => {
-                    output_note
-                        .inclusion_proof()
-                        .expect("Committed notes should have inclusion proof")
-                        .location()
-                        .block_num()
-                        - 1
-                },
-            };
-
-            NoteFile::NoteDetails {
-                details: output_note.clone().try_into()?,
-                after_block_num,
-                tag: Some(output_note.metadata().tag()),
-            }
-        },
-    };
+    let note_file = output_note.into_note_file(export_type.into())?;
 
     let file_path = if let Some(filename) = filename {
         filename

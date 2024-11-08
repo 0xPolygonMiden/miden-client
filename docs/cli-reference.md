@@ -28,7 +28,7 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 ### `init`
 
 Creates a configuration file for the client in the current directory.
- 
+
 ```sh
 # This will create a config file named `miden-client.toml` using default values
 # This file contains information useful for the CLI like the RPC provider and database path
@@ -50,7 +50,7 @@ miden init --store_path db/store.sqlite3
 miden init --rpc 18.203.155.106 --store_path db/store.sqlite3
 ```
 
-### `account` 
+### `account`
 
 Inspect account details.
 
@@ -81,7 +81,7 @@ For the `--default` flag, if `<ID>` is "none" then the previous default account 
 Creates a new wallet account.
 
 This command has two optional flags:
-- `--storage-type <TYPE>`: Used to select the storage type of the account (off-chain if not specified). It may receive "off-chain" or "on-chain".
+- `--storage-type <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--mutable`: Makes the account code mutable (it's immutable by default).
 
 After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
@@ -91,7 +91,7 @@ After creating an account with the `new-wallet` command, it is automatically sto
 Creates a new faucet account.
 
 This command has two optional flags:
-- `--storage-type <type>`: Used to select the storage type of the account (off-chain if not specified). It may receive "off-chain" or "on-chain".
+- `--storage-type <type>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--non-fungible`: Makes the faucet asset non-fungible (it's fungible by default).
 
 After creating an account with the `new-faucet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
@@ -113,15 +113,16 @@ View and manage notes.
 
 The `--list` flag receives an optional filter:
     - expected: Only lists expected notes.
-    - commited: Only lists commited notes.
+    - committed: Only lists committed notes.
     - consumed: Only lists consumed notes.
+    - processing: Only lists processing notes.
     - consumable: Only lists consumable notes. An additional `--account-id <ID>` flag may be added to only show notes consumable by the specified account.
 If no filter is specified then all notes are listed.
 
 The `--show` flag also accepts a partial ID instead of the full ID. For example, instead of:
 
 ```sh
-miden notes --show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
+miden notes --show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ```
 
 You can call:
@@ -133,10 +134,6 @@ miden notes --show 0x70b7ec
 ### `sync`
 
 Sync the client with the latest state of the Miden network. Shows a brief summary at the end.
-
-| Flags             | Description                                                 | Short Flag |
-|-------------------|-------------------------------------------------------------|------------|
-|`--update-ignored` | Update ignored notes in sync                                | `-u`       |
 
 ### `tags`
 
@@ -162,7 +159,7 @@ View transactions.
 
 After a transaction gets executed, two entities start being tracked:
 
-- The transaction itself: It follows a lifecycle from `expected` (initial state) and `committed` (after the node receives it).
+- The transaction itself: It follows a lifecycle from `Pending` (initial state) and `Committed` (after the node receives it). It may also be `Discarded` if the transaction was not included in a block.
 - Output notes that might have been created as part of the transaction (for example, when executing a pay-to-id transaction).
 
 ### Transaction creation commands
@@ -192,7 +189,7 @@ miden consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 
 Additionally, you can optionally not specify note IDs, in which case any note that is known to be consumable by the executor account ID will be consumed.
 
-Either `Expected` or `Committed` notes may be consumed by this command, changing their state to `Processing`. It's status will be updated to `Consumed` after the next sync.
+Either `Expected` or `Committed` notes may be consumed by this command, changing their state to `Processing`. It's state will be updated to `Consumed` after the next sync.
 
 #### `send`
 
@@ -202,7 +199,7 @@ Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --a
 
 #### `swap`
 
-The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset. 
+The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset.
 
 Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered-asset <OFFERED AMOUNT>::<OFFERED FAUCET ID> --requested-asset <REQUESTED AMOUNT>::<REQUESTED FAUCET ID> --note-type <NOTE_TYPE>`
 
@@ -256,8 +253,8 @@ Export input note data to a binary file .
 The user needs to specify how the note should be exported via the `--export-type` flag. The following options are available:
 
 - `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node. This works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and is stored for later use.
-- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched during the next sync.
-- `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the status of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed". 
+- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered unverified. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched and be used to verify the note during the next sync. At this point the note will be committed and may be consumed.
+- `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the state of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed".
 
 #### `import`
 

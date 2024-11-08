@@ -1,9 +1,15 @@
+//! The `accounts` module provides types and client APIs for managing accounts within the Miden
+//! rollup network .
+//!
+//! Accounts can be created or imported. Once they are tracked by the client, their state will be
+//! updated accordingly on every transaction, and validated against the rollup on every sync.
+
 use alloc::vec::Vec;
 
 use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
-    Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType, AccountStub,
-    AccountType, StorageSlotType,
+    Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
 use miden_objects::{
     accounts::AuthSecretKey,
@@ -11,51 +17,57 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use miden_tx::auth::TransactionAuthenticator;
-use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{rpc::NodeRpcClient, Client};
-use crate::{store::Store, ClientError};
+use super::Client;
+use crate::ClientError;
 
+/// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
+    /// The `BasicWallet` variant represents a regular wallet account.
     BasicWallet {
+        /// A boolean indicating whether the account's code can be modified after creation.
         mutable_code: bool,
-        storage_type: AccountStorageType,
+        /// Specifies the type of storage used by the account. This is defined by the
+        /// `AccountStorageMode` enum.
+        storage_mode: AccountStorageMode,
     },
+
+    /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
     FungibleFaucet {
+        /// The symbol of the token being issued by the faucet.
         token_symbol: TokenSymbol,
+        /// The number of decimal places used by the token.
         decimals: u8,
+        /// The maximum supply of tokens that the faucet can issue.
         max_supply: u64,
-        storage_type: AccountStorageType,
+        /// Specifies the type of storage used by the account.
+        storage_mode: AccountStorageMode,
     },
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the store
-    #[maybe_async]
-    pub fn new_account(
+    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
+    /// new tag derived from the account will start being tracked by the client.
+    pub async fn new_account(
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
-                maybe_await!(self.new_basic_wallet(mutable_code, storage_mode))
+            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
+                self.new_basic_wallet(mutable_code, storage_mode).await
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
-                storage_type: storage_mode,
-            } => maybe_await!(self.new_fungible_faucet(
-                token_symbol,
-                decimals,
-                max_supply,
-                storage_mode
-            )),
+                storage_mode,
+            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
         }?;
+
+        self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
 
         Ok(account_and_seed)
     }
@@ -70,8 +82,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    #[maybe_async]
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub async fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
@@ -85,19 +96,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             account_data.account_seed
         };
 
-        maybe_await!(self.insert_account(
-            &account_data.account,
-            account_seed,
-            &account_data.auth_secret_key
-        ))
+        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
+            .await
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
-    #[maybe_async]
-    fn new_basic_wallet(
+    async fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        account_storage_type: AccountStorageType,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -112,32 +119,28 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         }?;
 
-        maybe_await!(self.insert_account(
-            &account,
-            Some(seed),
-            &AuthSecretKey::RpoFalcon512(key_pair)
-        ))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
         Ok((account, seed))
     }
 
-    #[maybe_async]
-    fn new_fungible_faucet(
+    async fn new_fungible_faucet(
         &mut self,
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        account_storage_type: AccountStorageType,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -153,15 +156,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
-            account_storage_type,
+            account_storage_mode,
             auth_scheme,
         )?;
 
-        maybe_await!(self.insert_account(
-            &account,
-            Some(seed),
-            &AuthSecretKey::RpoFalcon512(key_pair)
-        ))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
         Ok((account, seed))
     }
 
@@ -171,8 +171,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// If an account is new and no seed is provided, the function errors out because the client
     /// cannot execute transactions against new accounts for which it does not know the seed.
-    #[maybe_async]
-    pub fn insert_account(
+    pub async fn insert_account(
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
@@ -182,35 +181,56 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        maybe_await!(self.store.insert_account(account, account_seed, auth_info))
+        self.store
+            .insert_account(account, account_seed, auth_info)
+            .await
             .map_err(ClientError::StoreError)
     }
 
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns summary info about the accounts managed by this client.
-    #[maybe_async]
-    pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
-        maybe_await!(self.store.get_account_stubs()).map_err(|err| err.into())
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
+    /// seeds used to create them.
+    ///
+    /// Said accounts' state is the state after the last performed sync.
+    pub async fn get_account_headers(
+        &self,
+    ) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
+        self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
-    /// Returns summary info about the specified account.
-    #[maybe_async]
-    pub fn get_account(
+    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
+    /// otherwise it will be `None`.
+    ///
+    /// This function returns the [Account]'s latest state. If the account is new (that is, has
+    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// will be `None`
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    pub async fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
+        self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
-    /// Returns summary info about the specified account.
-    #[maybe_async]
-    pub fn get_account_stub_by_id(
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
+    /// used to create it. The seed will be returned if the account is new, otherwise it
+    /// will be `None`.
+    ///
+    /// Said account's state is the state according to the last sync performed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    pub async fn get_account_header_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account_stub(account_id)).map_err(|err| err.into())
+    ) -> Result<(AccountHeader, Option<Word>), ClientError> {
+        self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
@@ -220,9 +240,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns a [ClientError::StoreError] with a
     /// [StoreError::AccountDataNotFound](crate::store::StoreError::AccountDataNotFound) if the
     /// provided ID does not correspond to an existing account.
-    #[maybe_async]
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, ClientError> {
-        maybe_await!(self.store.get_account_auth(account_id)).map_err(|err| err.into())
+    pub async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthSecretKey, ClientError> {
+        self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 }
 
@@ -233,21 +255,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 pub mod tests {
     use alloc::vec::Vec;
 
+    use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{Account, AccountData, AccountId, AuthSecretKey},
+        accounts::{
+            account_id::testing::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            },
+            Account, AccountData, AuthSecretKey,
+        },
         crypto::dsa::rpo_falcon512::SecretKey,
-        Word,
+        Felt, Word,
     };
 
-    use crate::mock::{
-        create_test_client, get_account_with_default_account_code,
-        get_new_account_with_default_account_code, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_REGULAR,
-    };
+    use crate::mock::create_test_client;
 
     fn create_account_data(account_id: u64) -> AccountData {
-        let account_id = AccountId::try_from(account_id).unwrap();
-        let account = get_account_with_default_account_code(account_id, Word::default(), None);
+        let account =
+            Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 
         AccountData::new(
             account.clone(),
@@ -257,7 +281,7 @@ pub mod tests {
     }
 
     pub fn create_initial_accounts_data() -> Vec<AccountData> {
-        let account = create_account_data(ACCOUNT_ID_REGULAR);
+        let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
 
         let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
 
@@ -267,43 +291,45 @@ pub mod tests {
         accounts
     }
 
-    #[test]
-    pub fn try_import_new_account() {
+    #[tokio::test]
+    pub async fn try_import_new_account() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _rpc_api) = create_test_client().await;
 
-        let account = get_new_account_with_default_account_code(
-            AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-            Word::default(),
-            None,
+        let account = Account::mock(
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+            Felt::new(0),
+            TransactionKernel::testing_assembler(),
         );
 
         let key_pair = SecretKey::new();
 
         assert!(client
             .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+            .await
             .is_err());
         assert!(client
             .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .is_ok());
     }
 
-    #[test]
-    fn load_accounts_test() {
+    #[tokio::test]
+    async fn load_accounts_test() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data).unwrap();
+            client.import_account(account_data).await.unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {

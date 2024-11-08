@@ -11,17 +11,20 @@ FEATURES_CLIENT=--features "testing, concurrent"
 FEATURES_CLI=--features "testing, concurrent"
 NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="main"
+NODE_BRANCH="next"
+PROVER_BRANCH="next"
+PROVER_FEATURES_TESTING=--features "testing"
+PROVER_PORT=50051
 
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
  clippy: ## Run Clippy with configs
-	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
+	cargo clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
+	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
 fix: ## Run Fix with configs
@@ -33,11 +36,11 @@ fix-wasm: ## Run Fix for the miden-client-web package
 
 .PHONY: format
 format: ## Run format using nightly toolchain
-	cargo +nightly fmt --all
+	cargo +nightly fmt --all && yarn prettier . --write
 
 .PHONY: format-check
 format-check: ## Run format using nightly toolchain but only in check mode
-	cargo +nightly fmt --all --check
+	cargo +nightly fmt --all --check && yarn prettier . --check
 
 .PHONY: lint
 lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)
@@ -80,6 +83,14 @@ test-deps: ## Install dependencies for tests
 integration-test: ## Run integration tests
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
 
+.PHONY: integration-test-web-client
+integration-test-web-client: ## Run integration tests for the web client
+	cd ./crates/web-client && npm run test:clean
+
+.PHONY: integration-test-remote-prover-web-client
+integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
+	cd ./crates/web-client && npm run test:remote_prover
+
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
@@ -103,6 +114,22 @@ node: ## Setup node directory
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
 	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
+
+.PHONY: clean-prover
+clean-prover: ## Uninstall prover
+	cargo uninstall miden-tx-prover || echo 'prover not installed'
+
+.PHONY: prover
+prover: ## Download and install the prover binary
+	cargo install --git https://github.com/0xPolygonMiden/miden-base $(PROVER_FEATURES_TESTING) miden-tx-prover --branch $(PROVER_BRANCH) --locked
+
+.PHONY: start-prover
+start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
+	RUST_LOG=info miden-tx-prover start-worker -p $(PROVER_PORT)
+
+.PHONY: kill-prover
+kill-prover: ## Kill prover process
+	pkill miden-tx-prover || echo 'process not running'
 
 # --- Installing ----------------------------------------------------------------------------------
 

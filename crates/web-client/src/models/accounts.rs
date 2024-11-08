@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+// TODO - Revisit the Account struct and conform it to structure of
+// the other structs in the models directory
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
-pub struct SerializedAccountStub {
+pub struct SerializedAccountHeader {
     id: String,
     nonce: String,
     vault_root: String,
@@ -12,15 +14,15 @@ pub struct SerializedAccountStub {
 }
 
 #[wasm_bindgen]
-impl SerializedAccountStub {
+impl SerializedAccountHeader {
     pub fn new(
         id: String,
         nonce: String,
         vault_root: String,
         storage_root: String,
         code_root: String,
-    ) -> SerializedAccountStub {
-        SerializedAccountStub {
+    ) -> SerializedAccountHeader {
+        SerializedAccountHeader {
             id,
             nonce,
             vault_root,

@@ -1,6 +1,6 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.0.5",
+  "version": "0.0.18",
   "description": "Polygon Miden Wasm SDK",
   "collaborators": [
     "Polygon Miden",
@@ -18,17 +18,35 @@
     "../LICENSE.md"
   ],
   "scripts": {
-    "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && rimraf dist/wasm*"
+    "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && node clean.js",
+    "test": "node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
+    "test:remote_prover": "npm install && MIDEN_WEB_TESTING=true npm run build && cross-env REMOTE_PROVER=true node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs -g new_mint_transactions tests",
+    "test:logs": "cross-env DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
+    "test:clean": "npm install && MIDEN_WEB_TESTING=true npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
-    "@wasm-tool/rollup-plugin-rust": "^2.4.5",
+    "@types/chai": "^4.3.17",
+    "@types/chai-as-promised": "^8.0.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^22.4.1",
+    "@wasm-tool/rollup-plugin-rust": "wasm-tool/rollup-plugin-rust",
+    "chai": "^5.1.1",
     "cpr": "^3.0.1",
-    "rimraf": "^5.0.1",
-    "rollup": "^3.27.2"
+    "cross-env": "^7.0.3",
+    "esm": "^3.2.25",
+    "http-server": "^14.1.1",
+    "mocha": "^10.7.3",
+    "puppeteer": "^23.1.0",
+    "rimraf": "^6.0.1",
+    "rollup": "^3.27.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
-    "dexie": "^4.0.1"
+    "chai-as-promised": "^8.0.0",
+    "dexie": "^4.0.1",
+    "glob": "^11.0.0"
   }
 }

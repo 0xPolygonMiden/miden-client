@@ -3,16 +3,16 @@
 #[macro_use]
 extern crate alloc;
 
+pub use alloc::boxed::Box;
+
 #[cfg(feature = "std")]
 extern crate std;
 
 pub mod accounts;
 pub mod config;
-mod errors;
 pub mod notes;
 pub mod rpc;
 pub mod store;
-mod store_authenticator;
 pub mod sync;
 pub mod transactions;
 
@@ -22,9 +22,12 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
+mod errors;
+
 // RE-EXPORTS
 // ================================================================================================
 
+/// Provides types and utilities for working with assets within the Miden rollup network.
 pub mod assets {
     pub use miden_objects::{
         accounts::delta::{
@@ -34,17 +37,21 @@ pub mod assets {
     };
 }
 
+/// Provides authentication-related types and functionalities for the Miden
+/// rollup network.
 pub mod auth {
     pub use miden_objects::accounts::AuthSecretKey;
-    pub use miden_tx::auth::TransactionAuthenticator;
-
-    pub use crate::store_authenticator::StoreAuthenticator;
+    pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
 
+/// Provides types for working with blocks within the Miden rollup network.
 pub mod blocks {
     pub use miden_objects::BlockHeader;
 }
 
+/// Provides cryptographic types and utilities used within the Miden rollup
+/// network. It re-exports commonly used types and random number generators like `FeltRng` from
+/// the `miden_objects` crate.
 pub mod crypto {
     pub use miden_objects::{
         crypto::{
@@ -61,6 +68,8 @@ pub mod crypto {
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
+/// Provides various utilities that are commonly used throughout the Miden
+/// client library.
 pub mod utils {
     pub use miden_tx::utils::{
         bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
@@ -68,15 +77,18 @@ pub mod utils {
     };
 }
 
+/// Provides test utilities for working with accounts and account IDs
+/// within the Miden rollup network. This module is only available when the `testing` feature is
+/// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
-    pub use miden_objects::accounts::account_id::testing::*;
+    pub use miden_objects::{accounts::account_id::testing::*, testing::*};
 }
 
-use alloc::{rc::Rc, vec::Vec};
+use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor, TransactionProver};
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
 use tracing::info;
@@ -92,19 +104,21 @@ use tracing::info;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> {
+pub struct Client<R: FeltRng> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
-    store: Rc<S>,
+    store: Arc<dyn Store>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
     rng: R,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
-    rpc_api: N,
-    tx_executor: TransactionExecutor<ClientDataStore<S>, A>,
+    rpc_api: Box<dyn NodeRpcClient + Send>,
+    /// An instance of [TransactionProver] which delegates proving.
+    tx_prover: Arc<dyn TransactionProver>,
+    tx_executor: TransactionExecutor,
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -121,6 +135,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
+    /// - `tx_prover`: Defines how transaction proving is performed.
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
     ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
     ///   MASM debugging.
@@ -128,17 +143,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, rng: R, store: Rc<S>, authenticator: A, in_debug_mode: bool) -> Self {
+    pub fn new(
+        rpc_api: Box<dyn NodeRpcClient + Send>,
+        rng: R,
+        store: Arc<dyn Store>,
+        authenticator: Arc<dyn TransactionAuthenticator>,
+        tx_prover: Arc<dyn TransactionProver>,
+        in_debug_mode: bool,
+    ) -> Self {
         if in_debug_mode {
             info!("Creating the Client in debug mode.");
         }
 
-        let data_store = ClientDataStore::new(store.clone());
-        let authenticator = Some(Rc::new(authenticator));
+        let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
+        let authenticator = Some(authenticator);
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
 
-        Self { store, rng, rpc_api: api, tx_executor }
+        Self {
+            store,
+            rng,
+            rpc_api,
+            tx_executor,
+            tx_prover,
+        }
     }
 
     /// Returns a reference to the client's random number generator. This can be used to generate
@@ -151,25 +179,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn rpc_api(&mut self) -> &mut N {
+    pub fn rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
         &mut self.rpc_api
     }
 
-    // TODO: the idxdb feature access here is temporary and should be removed in the future once
-    // a good solution to the syncrhonous store access in the store authenticator is found.
-    // https://github.com/0xPolygonMiden/miden-base/issues/705
-    #[cfg(any(test, feature = "testing", feature = "idxdb"))]
-    pub fn store(&mut self) -> &S {
-        &self.store
-    }
-
     #[cfg(any(test, feature = "testing"))]
-    #[winter_maybe_async::maybe_async]
-    pub fn get_block_headers(
+    pub async fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
-        let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
+    ) -> Result<alloc::vec::Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
+        let result = self.store.get_block_headers(block_numbers).await?;
         Ok(result)
     }
 }

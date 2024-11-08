@@ -6,11 +6,8 @@ use std::{
 
 use miden_client::{
     accounts::{AccountData, AccountId},
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::Store,
     utils::Deserializable,
     Client,
 };
@@ -27,20 +24,18 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_file = read_note_file(filename.clone()).await;
+            let note_file = read_note_file(filename.clone());
 
             if let Ok(note_file) = note_file {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
                 let account_id = import_account(&mut client, filename)
+                    .await
                     .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
                 println!("Succesfully imported account {}", account_id);
 
@@ -56,8 +51,8 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+async fn import_account(
+    client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
 ) -> Result<AccountId, String> {
     info!(
@@ -69,7 +64,7 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data)?;
+    client.import_account(account_data).await?;
 
     Ok(account_id)
 }
@@ -77,7 +72,7 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // IMPORT NOTE
 // ================================================================================================
 
-async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
+fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))

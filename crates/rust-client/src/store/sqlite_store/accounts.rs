@@ -4,12 +4,12 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::store::StoreError;
@@ -22,23 +22,22 @@ type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
 
-type SerializedAccountVaultData = (String, String);
+type SerializedAccountVaultData = (String, Vec<u8>);
 
 type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, String);
+type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>);
 
 impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+    pub(super) fn get_account_ids(conn: &mut Connection) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -48,47 +47,46 @@ impl SqliteStore {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
-    pub(super) fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
+    pub(super) fn get_account_headers(
+        conn: &mut Connection,
+    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_accounts))
             .collect()
     }
 
-    pub(crate) fn get_account_stub(
-        &self,
+    pub(crate) fn get_account_header(
+        conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    pub(crate) fn get_account_stub_by_hash(
-        &self,
+    pub(crate) fn get_account_header_by_hash(
+        conn: &mut Connection,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError> {
+    ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE account_hash = ?";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_hash_str], parse_accounts_columns)?
             .map(|result| {
                 let result = result?;
@@ -99,7 +97,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
@@ -112,8 +110,7 @@ impl SqliteStore {
                             ORDER BY accounts.nonce DESC \
                             LIMIT 1";
 
-        let result = self
-            .db()
+        let result = conn
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
@@ -126,13 +123,12 @@ impl SqliteStore {
 
     /// Retrieve account keys data by Account Id
     pub(crate) fn get_account_auth(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
@@ -140,13 +136,12 @@ impl SqliteStore {
     }
 
     pub(crate) fn insert_account(
-        &self,
+        conn: &mut Connection,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
@@ -158,11 +153,13 @@ impl SqliteStore {
     }
 
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
-    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+    pub fn get_account_auth_by_pub_key(
+        conn: &mut Connection,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![pub_key_bytes], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
@@ -265,17 +262,17 @@ pub(super) fn parse_accounts_columns(
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Option<Word>), StoreError> {
+) -> Result<(AccountHeader, Option<Word>), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
 
     Ok((
-        AccountStub::new(
+        AccountHeader::new(
             (id as u64)
                 .try_into()
                 .expect("Conversion from stored AccountID should not panic"),
             Felt::new(nonce as u64),
-            serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
+            Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
         ),
@@ -294,8 +291,7 @@ pub(super) fn parse_account(
         .expect("Conversion from stored AccountID should not panic");
     let account_code = AccountCode::from_bytes(&code)?;
     let account_storage = AccountStorage::read_from_bytes(&storage)?;
-    let account_assets: Vec<Asset> =
-        serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
+    let account_assets: Vec<Asset> = Vec::<Asset>::read_from_bytes(&assets)?;
 
     Ok((
         Account::from_parts(
@@ -313,14 +309,13 @@ pub(super) fn parse_account(
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
     let code_root = account.code().commitment().to_string();
-    let storage_root = account.storage().root().to_string();
-    let vault_root = serde_json::to_string(&account.vault().commitment())
-        .map_err(StoreError::InputSerializationError)?;
-    let committed = account.is_on_chain();
+    let commitment_root = account.storage().commitment().to_string();
+    let vault_root = account.vault().commitment().to_string();
+    let committed = account.is_public();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed, hash))
+    Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types
@@ -361,31 +356,29 @@ fn serialize_account_auth(
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
-    let root = account_code.commitment().to_string();
+    let commitment = account_code.commitment().to_string();
     let code = account_code.to_bytes();
 
-    Ok((root, code))
+    Ok((commitment, code))
 }
 
 /// Serialize the provided account_storage into database compatible types.
 fn serialize_account_storage(
     account_storage: &AccountStorage,
 ) -> Result<SerializedAccountStorageData, StoreError> {
-    let root = account_storage.root().to_string();
+    let commitment = account_storage.commitment().to_string();
     let storage = account_storage.to_bytes();
 
-    Ok((root, storage))
+    Ok((commitment, storage))
 }
 
 /// Serialize the provided asset_vault into database compatible types.
 fn serialize_account_asset_vault(
     asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let root = serde_json::to_string(&asset_vault.commitment())
-        .map_err(StoreError::InputSerializationError)?;
-    let assets: Vec<Asset> = asset_vault.assets().collect();
-    let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
-    Ok((root, assets))
+    let commitment = asset_vault.commitment().to_string();
+    let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
+    Ok((commitment, assets))
 }
 
 /// Parse accounts parts from the provided row into native types
@@ -397,50 +390,69 @@ pub(super) fn parse_account_columns(
     let account_seed: Option<Vec<u8>> = row.get(2)?;
     let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
-    let assets: String = row.get(5)?;
+    let assets: Vec<u8> = row.get(5)?;
     Ok((id, nonce, account_seed, code, storage, assets))
 }
 
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::{AccountCode, AccountId},
+        accounts::{AccountCode, AccountComponent, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
+        testing::account_component::BASIC_WALLET_CODE,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{insert_account_auth, AuthSecretKey};
-    use crate::{
-        mock::DEFAULT_ACCOUNT_CODE,
-        store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+    use crate::store::{
+        sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+        Store,
     };
 
-    #[test]
-    fn test_account_code_insertion_no_duplicates() {
-        let store = create_test_store();
+    #[tokio::test]
+    async fn test_account_code_insertion_no_duplicates() {
+        let store = create_test_store().await;
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let account_code = AccountCode::compile(DEFAULT_ACCOUNT_CODE, assembler).unwrap();
-        let mut db = store.db();
-        let tx = db.transaction().unwrap();
+        let account_component = AccountComponent::compile(BASIC_WALLET_CODE, assembler, vec![])
+            .unwrap()
+            .with_supports_all_types();
+        let account_code = AccountCode::from_components(
+            &[account_component],
+            miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
+        )
+        .unwrap();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().unwrap();
 
-        // Table is empty at the beginning
-        let mut actual: usize =
-            tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 0);
+                // Table is empty at the beginning
+                let mut actual: usize = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 0);
 
-        // First insertion generates a new row
-        insert_account_code(&tx, &account_code).unwrap();
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // First insertion generates a new row
+                insert_account_code(&tx, &account_code).unwrap();
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
 
-        // Second insertion passes but does not generate a new row
-        assert!(insert_account_code(&tx, &account_code).is_ok());
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // Second insertion passes but does not generate a new row
+                assert!(insert_account_code(&tx, &account_code).is_ok());
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
+
+                Ok(())
+            })
+            .await
+            .unwrap();
     }
 
-    #[test]
-    fn test_auth_info_serialization() {
+    #[tokio::test]
+    async fn test_auth_info_serialization() {
         let exp_key_pair = SecretKey::new();
         let auth_info = AuthSecretKey::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
@@ -453,26 +465,33 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_auth_info_store() {
+    #[tokio::test]
+    async fn test_auth_info_store() {
         let exp_key_pair = SecretKey::new();
 
-        let store = create_test_store();
+        let store = create_test_store().await;
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let mut db = store.db();
-            let tx = db.transaction().unwrap();
-            insert_account_auth(
-                &tx,
-                account_id,
-                &AuthSecretKey::RpoFalcon512(exp_key_pair.clone()),
-            )
-            .unwrap();
-            tx.commit().unwrap();
+            let exp_key_pair_clone = exp_key_pair.clone();
+            store
+                .interact_with_connection(move |conn| {
+                    let tx = conn.transaction().unwrap();
+                    insert_account_auth(
+                        &tx,
+                        account_id,
+                        &AuthSecretKey::RpoFalcon512(exp_key_pair_clone),
+                    )
+                    .unwrap();
+                    tx.commit().unwrap();
+                    Ok(())
+                })
+                .await
+                .unwrap();
         }
 
-        let account_auth = store.get_account_auth(account_id).unwrap();
+        let account_auth = Store::get_account_auth(&store, account_id).await.unwrap();
+
         match account_auth {
             AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());

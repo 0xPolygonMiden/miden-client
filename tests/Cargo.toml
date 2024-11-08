@@ -1,6 +1,6 @@
 [package]
 name = "miden-client-tests"
-version = "0.5.0"
+version = "0.6.0"
 description = "Integration Tests for the miden client library and CLI"
 readme = "README.md"
 publish = false
@@ -19,12 +19,12 @@ miden-client = { path = "../crates/rust-client", features = [
     "sqlite",
     "tonic",
 ] }
-miden-objects = { workspace = true, default-features = false, features = [
-    "serde",
-] }
+miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
+rand_chacha = { version = "0.3", default-features = false}
 tokio = { workspace = true }
-uuid = { version = "1.9", features = ["serde", "v4"] }
+uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [[test]]
 name = "integration"

@@ -3,15 +3,16 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::{
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
-    Digest,
-};
+use js_sys::{Array, Promise};
+use miden_objects::{notes::Nullifier, Digest};
 use serde_wasm_bindgen::from_value;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError};
+use crate::store::{
+    InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, OutputNoteState, StoreError,
+};
 
 mod js_bindings;
 use js_bindings::*;
@@ -25,41 +26,9 @@ use utils::*;
 impl WebStore {
     pub(crate) async fn get_input_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let promise = match filter {
-            NoteFilter::All
-            | NoteFilter::Consumed
-            | NoteFilter::Committed
-            | NoteFilter::Expected
-            | NoteFilter::Processing => {
-                let filter_as_str = match filter {
-                    NoteFilter::All => "All",
-                    NoteFilter::Consumed => "Consumed",
-                    NoteFilter::Committed => "Committed",
-                    NoteFilter::Expected => "Expected",
-                    NoteFilter::Processing => "Processing",
-                    _ => unreachable!(), // Safety net, should never be reached
-                };
-
-                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
-                // filters
-                idxdb_get_input_notes(filter_as_str.to_string())
-            },
-            NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
-            NoteFilter::List(ids) => {
-                let note_ids_as_str: Vec<String> =
-                    ids.iter().map(|id| id.inner().to_string()).collect();
-                idxdb_get_input_notes_from_ids(note_ids_as_str)
-            },
-            NoteFilter::Unique(id) => {
-                let note_id_as_str = id.inner().to_string();
-                let note_ids = vec![note_id_as_str];
-                idxdb_get_input_notes_from_ids(note_ids)
-            },
-        };
-
-        let js_value = JsFuture::from(promise).await.unwrap();
+        let js_value = JsFuture::from(filter.to_input_notes_promise()).await.unwrap();
         let input_notes_idxdb: Vec<InputNoteIdxdbObject> = from_value(js_value).unwrap();
 
         let native_input_notes: Result<Vec<InputNoteRecord>, StoreError> = input_notes_idxdb
@@ -68,18 +37,9 @@ impl WebStore {
             .collect::<Result<Vec<_>, _>>(); // Collect results into a single Result
 
         match native_input_notes {
-            Ok(ref notes) => match filter {
+            Ok(ref notes) => match &filter {
                 NoteFilter::Unique(note_id) if notes.is_empty() => {
-                    return Err(StoreError::NoteNotFound(note_id));
-                },
-                NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                    let missing_note_id = note_ids
-                        .iter()
-                        .find(|&&note_id| {
-                            !notes.iter().any(|note_record| note_record.id() == note_id)
-                        })
-                        .expect("should find one note id that wasn't retrieved by the db");
-                    return Err(StoreError::NoteNotFound(*missing_note_id));
+                    return Err(StoreError::NoteNotFound(*note_id));
                 },
                 _ => {},
             },
@@ -91,42 +51,9 @@ impl WebStore {
 
     pub(crate) async fn get_output_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        let promise = match filter {
-            NoteFilter::All
-            | NoteFilter::Consumed
-            | NoteFilter::Committed
-            | NoteFilter::Expected
-            | NoteFilter::Processing => {
-                let filter_as_str = match filter {
-                    NoteFilter::All => "All",
-                    NoteFilter::Consumed => "Consumed",
-                    NoteFilter::Committed => "Committed",
-                    NoteFilter::Expected => "Expected",
-                    NoteFilter::Processing => "Processing",
-                    _ => unreachable!(), // Safety net, should never be reached
-                };
-
-                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
-                // filters
-
-                idxdb_get_output_notes(filter_as_str.to_string())
-            },
-            NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
-            NoteFilter::List(ids) => {
-                let note_ids_as_str: Vec<String> =
-                    ids.iter().map(|id| id.inner().to_string()).collect();
-                idxdb_get_output_notes_from_ids(note_ids_as_str)
-            },
-            NoteFilter::Unique(id) => {
-                let note_id_as_str = id.inner().to_string();
-                let note_ids = vec![note_id_as_str];
-                idxdb_get_output_notes_from_ids(note_ids)
-            },
-        };
-
-        let js_value = JsFuture::from(promise).await.unwrap();
+        let js_value = JsFuture::from(filter.to_output_note_promise()).await.unwrap();
 
         let output_notes_idxdb: Vec<OutputNoteIdxdbObject> = from_value(js_value).unwrap();
 
@@ -139,15 +66,6 @@ impl WebStore {
             Ok(ref notes) => match filter {
                 NoteFilter::Unique(note_id) if notes.is_empty() => {
                     return Err(StoreError::NoteNotFound(note_id));
-                },
-                NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                    let missing_note_id = note_ids
-                        .iter()
-                        .find(|&&note_id| {
-                            !notes.iter().any(|note_record| note_record.id() == note_id)
-                        })
-                        .expect("should find one note id that wasn't retrieved by the db");
-                    return Err(StoreError::NoteNotFound(*missing_note_id));
                 },
                 _ => {},
             },
@@ -170,35 +88,127 @@ impl WebStore {
             .collect::<Result<Vec<Nullifier>, _>>()
     }
 
-    pub(crate) async fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        insert_input_note_tx(note).await
-    }
-
-    pub async fn update_note_inclusion_proof(
+    pub(crate) async fn upsert_input_notes(
         &self,
-        note_id: NoteId,
-        inclusion_proof: NoteInclusionProof,
+        notes: &[InputNoteRecord],
     ) -> Result<(), StoreError> {
-        let note_id_as_str = note_id.inner().to_string();
-        let inclusion_proof_as_str = serde_json::to_string(&inclusion_proof).unwrap();
-
-        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_str);
-        let _ = JsFuture::from(promise).await.unwrap();
+        for note in notes {
+            upsert_input_note_tx(note).await?;
+        }
 
         Ok(())
     }
+}
 
-    pub async fn update_note_metadata(
-        &self,
-        note_id: NoteId,
-        metadata: NoteMetadata,
-    ) -> Result<(), StoreError> {
-        let note_id_as_str = note_id.inner().to_string();
-        let metadata_as_str = serde_json::to_string(&metadata).unwrap();
+impl NoteFilter {
+    fn to_input_notes_promise(&self) -> Promise {
+        match self {
+            NoteFilter::All
+            | NoteFilter::Consumed
+            | NoteFilter::Committed
+            | NoteFilter::Expected
+            | NoteFilter::Processing
+            | NoteFilter::Unspent
+            | NoteFilter::Unverified => {
+                let states: Vec<u8> = match self {
+                    NoteFilter::All => vec![],
+                    NoteFilter::Consumed => vec![
+                        InputNoteState::STATE_CONSUMED_AUTHENTICATED_LOCAL,
+                        InputNoteState::STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+                        InputNoteState::STATE_CONSUMED_EXTERNAL,
+                    ],
+                    NoteFilter::Committed => vec![InputNoteState::STATE_COMMITTED],
+                    NoteFilter::Expected => vec![InputNoteState::STATE_EXPECTED],
+                    NoteFilter::Processing => {
+                        vec![
+                            InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                            InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
+                        ]
+                    },
+                    NoteFilter::Unverified => vec![InputNoteState::STATE_UNVERIFIED],
+                    NoteFilter::Unspent => vec![
+                        InputNoteState::STATE_EXPECTED,
+                        InputNoteState::STATE_COMMITTED,
+                        InputNoteState::STATE_UNVERIFIED,
+                        InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                        InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
+                    ],
+                    _ => unreachable!(), // Safety net, should never be reached
+                };
 
-        let promise = idxdb_update_note_metadata(note_id_as_str, metadata_as_str);
-        let _ = JsFuture::from(promise).await.unwrap();
+                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
+                // filters
+                idxdb_get_input_notes(states)
+            },
+            NoteFilter::List(ids) => {
+                let note_ids_as_str: Vec<String> =
+                    ids.iter().map(|id| id.inner().to_string()).collect();
+                idxdb_get_input_notes_from_ids(note_ids_as_str)
+            },
+            NoteFilter::Unique(id) => {
+                let note_id_as_str = id.inner().to_string();
+                let note_ids = vec![note_id_as_str];
+                idxdb_get_input_notes_from_ids(note_ids)
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_as_str = nullifiers
+                    .iter()
+                    .map(|nullifier| nullifier.to_string())
+                    .collect::<Vec<String>>();
 
-        Ok(())
+                idxdb_get_input_notes_from_nullifiers(nullifiers_as_str)
+            },
+        }
+    }
+
+    fn to_output_note_promise(&self) -> Promise {
+        match self {
+            NoteFilter::All
+            | NoteFilter::Consumed
+            | NoteFilter::Committed
+            | NoteFilter::Expected
+            | NoteFilter::Unspent => {
+                let states = match self {
+                    NoteFilter::All => vec![],
+                    NoteFilter::Consumed => vec![OutputNoteState::STATE_CONSUMED],
+                    NoteFilter::Committed => vec![
+                        OutputNoteState::STATE_COMMITTED_FULL,
+                        OutputNoteState::STATE_COMMITTED_PARTIAL,
+                    ],
+                    NoteFilter::Expected => vec![
+                        OutputNoteState::STATE_EXPECTED_FULL,
+                        OutputNoteState::STATE_EXPECTED_PARTIAL,
+                    ],
+                    NoteFilter::Unspent => vec![
+                        OutputNoteState::STATE_EXPECTED_FULL,
+                        OutputNoteState::STATE_COMMITTED_FULL,
+                    ],
+                    _ => unreachable!(), // Safety net, should never be reached
+                };
+
+                idxdb_get_output_notes(states)
+            },
+            NoteFilter::Processing | NoteFilter::Unverified => {
+                Promise::resolve(&JsValue::from(Array::new()))
+            },
+            NoteFilter::List(ref ids) => {
+                let note_ids_as_str: Vec<String> =
+                    ids.iter().map(|id| id.inner().to_string()).collect();
+                idxdb_get_output_notes_from_ids(note_ids_as_str)
+            },
+            NoteFilter::Unique(id) => {
+                let note_id_as_str = id.inner().to_string();
+                let note_ids = vec![note_id_as_str];
+                idxdb_get_output_notes_from_ids(note_ids)
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_as_str = nullifiers
+                    .iter()
+                    .map(|nullifier| nullifier.to_string())
+                    .collect::<Vec<String>>();
+
+                idxdb_get_output_notes_from_nullifiers(nullifiers_as_str)
+            },
+        }
     }
 }

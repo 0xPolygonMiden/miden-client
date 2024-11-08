@@ -4,19 +4,20 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::{accounts::Account, transaction::ToInputNoteCommitments, Digest};
+use miden_objects::{
+    accounts::Account,
+    transaction::{ExecutedTransaction, ToInputNoteCommitments},
+    Digest,
+};
 use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::js_bindings::*;
-use crate::{
-    store::{
-        web_store::accounts::utils::{
-            insert_account_asset_vault, insert_account_record, insert_account_storage,
-        },
-        StoreError,
+use crate::store::{
+    web_store::accounts::utils::{
+        insert_account_asset_vault, insert_account_record, insert_account_storage,
     },
-    transactions::TransactionResult,
+    StoreError,
 };
 
 // TYPES
@@ -27,7 +28,7 @@ pub struct SerializedTransactionData {
     pub account_id: String,
     pub init_account_state: String,
     pub final_account_state: String,
-    pub input_notes: String,
+    pub input_notes: Vec<u8>,
     pub output_notes: Vec<u8>,
     pub script_hash: Option<Vec<u8>>,
     pub tx_script: Option<Vec<u8>>,
@@ -38,9 +39,9 @@ pub struct SerializedTransactionData {
 // ================================================================================================
 
 pub async fn insert_proven_transaction_data(
-    transaction_result: TransactionResult,
+    executed_transaction: &ExecutedTransaction,
 ) -> Result<(), StoreError> {
-    let serialized_data = serialize_transaction_data(transaction_result)?;
+    let serialized_data = serialize_transaction_data(executed_transaction)?;
 
     if let Some(hash) = serialized_data.script_hash.clone() {
         let promise = idxdb_insert_transaction_script(hash, serialized_data.tx_script);
@@ -64,9 +65,8 @@ pub async fn insert_proven_transaction_data(
 }
 
 pub(super) fn serialize_transaction_data(
-    transaction_result: TransactionResult,
+    executed_transaction: &ExecutedTransaction,
 ) -> Result<SerializedTransactionData, StoreError> {
-    let executed_transaction = transaction_result.executed_transaction();
     let transaction_id: String = executed_transaction.id().inner().into();
 
     let account_id_as_str: String = executed_transaction.account_id().to_string();
@@ -80,13 +80,12 @@ pub(super) fn serialize_transaction_data(
         .map(|x| x.nullifier().inner())
         .collect();
 
-    let input_notes =
-        serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
+    let input_notes = nullifiers.to_bytes();
 
     let output_notes = executed_transaction.output_notes();
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
-    let transaction_args = transaction_result.transaction_arguments();
+    let transaction_args = executed_transaction.tx_args();
     let mut script_hash = None;
     let mut tx_script = None;
 
@@ -104,7 +103,7 @@ pub(super) fn serialize_transaction_data(
         output_notes: output_notes.to_bytes(),
         script_hash,
         tx_script,
-        block_num: transaction_result.block_num().to_string(),
+        block_num: executed_transaction.block_header().block_num().to_string(),
         commit_height: None,
     })
 }
