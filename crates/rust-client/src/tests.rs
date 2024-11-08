@@ -315,7 +315,9 @@ async fn test_sync_state_mmr() {
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         rpc_api.blocks.last().unwrap().hash(),
-        client.get_block_headers(&[latest_block]).await.unwrap()[0].0.hash()
+        client.test_store().get_block_headers(&[latest_block]).await.unwrap()[0]
+            .0
+            .hash()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
