@@ -24,6 +24,7 @@ miden-lib = { workspace = true, default-features = false, features = ["testing"]
 rand = { workspace = true }
 rand_chacha = { version = "0.3", default-features = false}
 tokio = { workspace = true }
+miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "igamigo-fix-service-build", features = ["async"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [[test]]
