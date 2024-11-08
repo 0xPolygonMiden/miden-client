@@ -69,6 +69,7 @@ pub mod partial_note;
 pub mod rpo256;
 pub mod rpo_digest;
 pub mod sync_summary;
+#[cfg(feature="testing")]
 pub mod test_utils;
 pub mod transaction_args;
 pub mod transaction_filter;
