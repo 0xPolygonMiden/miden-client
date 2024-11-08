@@ -60,7 +60,7 @@ pub use note_record::{
 ///
 /// Because the [Store]'s ownership is shared between the executor and the client, interior
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
-/// not `&mut self`.t
+/// not `&mut self`.
 #[async_trait(?Send)]
 pub trait Store: Send + Sync {
     // TRANSACTIONS
