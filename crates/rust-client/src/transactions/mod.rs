@@ -717,7 +717,7 @@ impl<R: FeltRng> Client<R> {
         }
 
         // Optionally retrieve block header if we don't have it
-        if self.get_block_headers(&[block_num]).await?.is_empty() {
+        if self.store.get_block_headers(&[block_num]).await?.is_empty() {
             info!("Getting current block header data to execute transaction with foreign account requirements");
             let summary = self.sync_state().await?;
 

@@ -8,7 +8,6 @@ use core::fmt;
 use async_trait::async_trait;
 
 mod errors;
-pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},

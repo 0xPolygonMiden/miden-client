@@ -7,13 +7,13 @@ use alloc::{
 };
 use core::fmt::Debug;
 
+use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
-use tonic::async_trait;
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
@@ -60,7 +60,7 @@ pub use note_record::{
 ///
 /// Because the [Store]'s ownership is shared between the executor and the client, interior
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
-/// not `&mut self`.
+/// not `&mut self`.t
 #[async_trait(?Send)]
 pub trait Store: Send + Sync {
     // TRANSACTIONS
