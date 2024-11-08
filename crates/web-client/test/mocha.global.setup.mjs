@@ -6,8 +6,6 @@ import { spawn } from "child_process";
 import { register } from "ts-node";
 import { env } from "process";
 
-import { waitForTransaction } from "./webClientTestUtils";
-
 chai.use(chaiAsPromised);
 
 register({
@@ -41,7 +39,7 @@ before(async () => {
   }
 
   // Creates the client in the test context and attach to window object
-  await testingPage.evaluate(async (port, waitForTransactionStr) => {
+  await testingPage.evaluate(async (port) => {
     const {
       Account,
       AccountHeader,
@@ -117,9 +115,33 @@ before(async () => {
 
     // Create a namespace for helper functions
     window.helpers = window.helpers || {};
-    
-    window.helpers.waitForTransaction = new Function(`return ${waitForTransactionStr}`)();
-  }, LOCAL_MIDEN_NODE_PORT, waitForTransaction.toString());
+
+    window.helpers.waitForTransaction = async (
+      transactionId,
+      maxWaitTime = 20000,
+      delayInterval = 1000
+    ) => {
+      const client = window.client;
+      let timeWaited = 0;
+      while (true) {
+        if (timeWaited >= maxWaitTime) {
+          throw new Error("Timeout waiting for transaction");
+        }
+        await client.sync_state();
+        const uncomittedTransactions = await client.get_transactions(
+          window.TransactionFilter.uncomitted()
+        );
+        let uncomittedTransactionIds = uncomittedTransactions.map(
+          (transaction) => transaction.id().to_hex()
+        );
+        if (!uncomittedTransactionIds.includes(transactionId)) {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, delayInterval));
+        timeWaited += delayInterval;
+      }
+    };
+  }, LOCAL_MIDEN_NODE_PORT);
 });
 
 beforeEach(async () => {

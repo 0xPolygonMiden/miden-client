@@ -4,8 +4,13 @@
 
 ### Features
 
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
 * Added FPI (Foreign Procedure Invocation) support for `TransactionRequest` (#560).
 * [BREAKING] Added transaction prover component to `Client` (#550).
+* Added Transaction Integration Tests for Web Client (#569).
+* Moved note update logic outside of the `Store` (#559)
+* Added delegated proving for web client + improved note models (#566).
+* Allow to set expiration delta for `TransactionRequest` (#553).
 * Added WASM consumable notes API + improved note models (#561).
 * Added remote prover support to the web client with CI tests (#562).
 * Added delegated proving for web client + improved note models (#566).

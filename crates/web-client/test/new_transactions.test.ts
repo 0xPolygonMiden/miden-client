@@ -9,7 +9,7 @@ import {
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
 
-describe.only("new_mint_transactions tests", () => {
+describe("new_mint_transactions tests", () => {
   it("new_mint_transaction completes successfully", async () => {
     const { faucetId, accountId } = await setupWalletAndFaucet();
     const result = await mintTransaction(accountId, faucetId);
@@ -74,11 +74,18 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
     );
     let created_notes = mint_transaction_result.created_notes().notes();
     let created_note_ids = created_notes.map((note) => note.id().to_string());
-    await window.helpers.waitForTransaction(mint_transaction_result.executed_transaction().id().to_hex());
+    await window.helpers.waitForTransaction(
+      mint_transaction_result.executed_transaction().id().to_hex()
+    );
 
     await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
-    const senderConsumeTransactionResult = await client.new_consume_transaction(senderAccount.id(), created_note_ids);
-    await window.helpers.waitForTransaction(senderConsumeTransactionResult.executed_transaction().id().to_hex());
+    const senderConsumeTransactionResult = await client.new_consume_transaction(
+      senderAccount.id(),
+      created_note_ids
+    );
+    await window.helpers.waitForTransaction(
+      senderConsumeTransactionResult.executed_transaction().id().to_hex()
+    );
 
     await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
     let send_transaction_result = await client.new_send_transaction(
@@ -92,14 +99,18 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
     let send_created_note_ids = send_created_notes.map((note) =>
       note.id().to_string()
     );
-    await window.helpers.waitForTransaction(send_transaction_result.executed_transaction().id().to_hex());
+    await window.helpers.waitForTransaction(
+      send_transaction_result.executed_transaction().id().to_hex()
+    );
 
     await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
     const targetConsumeTransactionResult = await client.new_consume_transaction(
       targetAccount.id(),
       send_created_note_ids
     );
-    await window.helpers.waitForTransaction(targetConsumeTransactionResult.executed_transaction().id().to_hex());
+    await window.helpers.waitForTransaction(
+      targetConsumeTransactionResult.executed_transaction().id().to_hex()
+    );
 
     const changedSenderAccount = await client.get_account(senderAccount.id());
     const changedTargetAccount = await client.get_account(targetAccount.id());
@@ -322,7 +333,9 @@ export const customTransaction = async (
       transaction_request
     );
     await client.submit_transaction(transaction_result);
-    await window.helpers.waitForTransaction(transaction_result.executed_transaction().id().to_hex());
+    await window.helpers.waitForTransaction(
+      transaction_result.executed_transaction().id().to_hex()
+    );
 
     // Just like in the miden test, you can modify this script to get the execution to fail
     // by modifying the assert
@@ -378,7 +391,9 @@ export const customTransaction = async (
       transaction_request_2
     );
     await client.submit_transaction(transaction_result_2);
-    await window.helpers.waitForTransaction(transaction_result_2.executed_transaction().id().to_hex());
+    await window.helpers.waitForTransaction(
+      transaction_result_2.executed_transaction().id().to_hex()
+    );
   }, asserted_value);
 };
 
