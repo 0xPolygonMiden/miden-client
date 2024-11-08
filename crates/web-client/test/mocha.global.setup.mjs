@@ -39,109 +39,117 @@ before(async () => {
   }
 
   // Creates the client in the test context and attach to window object
-  await testingPage.evaluate(async (port) => {
-    const {
-      Account,
-      AccountHeader,
-      AccountId,
-      AccountStorageMode,
-      AdviceMap,
-      AuthSecretKey,
-      ConsumableNoteRecord,
-      Felt,
-      FeltArray,
-      FungibleAsset,
-      Note,
-      NoteAssets,
-      NoteConsumability,
-      NoteExecutionHint,
-      NoteExecutionMode,
-      NoteFilter,
-      NoteFilterTypes,
-      NoteIdAndArgs,
-      NoteIdAndArgsArray,
-      NoteInputs,
-      NoteMetadata,
-      NoteRecipient,
-      NoteTag,
-      NoteType,
-      OutputNote,
-      OutputNotesArray,
-      Rpo256,
-      TestUtils,
-      TransactionFilter,
-      TransactionRequest,
-      TransactionScriptInputPair,
-      TransactionScriptInputPairArray,
-      WebClient,
-    } = await import("./index.js");
-    let rpc_url = `http://localhost:${port}`;
-    const client = new WebClient();
-    await client.create_client(rpc_url);
-
-    window.client = client;
-    window.Account = Account;
-    window.AccountHeader = AccountHeader;
-    window.AccountId = AccountId;
-    window.AccountStorageMode = AccountStorageMode;
-    window.AdviceMap = AdviceMap;
-    window.AuthSecretKey = AuthSecretKey;
-    window.ConsumableNoteRecord = ConsumableNoteRecord;
-    window.Felt = Felt;
-    window.FeltArray = FeltArray;
-    window.FungibleAsset = FungibleAsset;
-    window.Note = Note;
-    window.NoteAssets = NoteAssets;
-    window.NoteConsumability = NoteConsumability;
-    window.NoteExecutionHint = NoteExecutionHint;
-    window.NoteExecutionMode = NoteExecutionMode;
-    window.NoteFilter = NoteFilter;
-    window.NoteFilterTypes = NoteFilterTypes;
-    window.NoteIdAndArgs = NoteIdAndArgs;
-    window.NoteIdAndArgsArray = NoteIdAndArgsArray;
-    window.NoteInputs = NoteInputs;
-    window.NoteMetadata = NoteMetadata;
-    window.NoteRecipient = NoteRecipient;
-    window.NoteTag = NoteTag;
-    window.NoteType = NoteType;
-    window.OutputNote = OutputNote;
-    window.OutputNotesArray = OutputNotesArray;
-    window.Rpo256 = Rpo256;
-    window.TestUtils = TestUtils;
-    window.TransactionFilter = TransactionFilter;
-    window.TransactionRequest = TransactionRequest;
-    window.TransactionScriptInputPair = TransactionScriptInputPair;
-    window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
-
-    // Create a namespace for helper functions
-    window.helpers = window.helpers || {};
-
-    window.helpers.waitForTransaction = async (
-      transactionId,
-      maxWaitTime = 20000,
-      delayInterval = 1000
-    ) => {
-      const client = window.client;
-      let timeWaited = 0;
-      while (true) {
-        if (timeWaited >= maxWaitTime) {
-          throw new Error("Timeout waiting for transaction");
-        }
-        await client.sync_state();
-        const uncomittedTransactions = await client.get_transactions(
-          window.TransactionFilter.uncomitted()
-        );
-        let uncomittedTransactionIds = uncomittedTransactions.map(
-          (transaction) => transaction.id().to_hex()
-        );
-        if (!uncomittedTransactionIds.includes(transactionId)) {
-          break;
-        }
-        await new Promise((r) => setTimeout(r, delayInterval));
-        timeWaited += delayInterval;
+  await testingPage.evaluate(
+    async (rpc_port, remote_prover_port) => {
+      const {
+        Account,
+        AccountHeader,
+        AccountId,
+        AccountStorageMode,
+        AdviceMap,
+        AuthSecretKey,
+        ConsumableNoteRecord,
+        Felt,
+        FeltArray,
+        FungibleAsset,
+        Note,
+        NoteAssets,
+        NoteConsumability,
+        NoteExecutionHint,
+        NoteExecutionMode,
+        NoteFilter,
+        NoteFilterTypes,
+        NoteIdAndArgs,
+        NoteIdAndArgsArray,
+        NoteInputs,
+        NoteMetadata,
+        NoteRecipient,
+        NoteTag,
+        NoteType,
+        OutputNote,
+        OutputNotesArray,
+        Rpo256,
+        TestUtils,
+        TransactionFilter,
+        TransactionRequest,
+        TransactionScriptInputPair,
+        TransactionScriptInputPairArray,
+        WebClient,
+      } = await import("./index.js");
+      let rpc_url = `http://localhost:${rpc_port}`;
+      let prover_url = null;
+      if (remote_prover_port) {
+        prover_url = `http://localhost:${remote_prover_port}`;
       }
-    };
-  }, LOCAL_MIDEN_NODE_PORT);
+      const client = new WebClient();
+      await client.create_client(rpc_url, prover_url);
+
+      window.client = client;
+      window.Account = Account;
+      window.AccountHeader = AccountHeader;
+      window.AccountId = AccountId;
+      window.AccountStorageMode = AccountStorageMode;
+      window.AdviceMap = AdviceMap;
+      window.AuthSecretKey = AuthSecretKey;
+      window.ConsumableNoteRecord = ConsumableNoteRecord;
+      window.Felt = Felt;
+      window.FeltArray = FeltArray;
+      window.FungibleAsset = FungibleAsset;
+      window.Note = Note;
+      window.NoteAssets = NoteAssets;
+      window.NoteConsumability = NoteConsumability;
+      window.NoteExecutionHint = NoteExecutionHint;
+      window.NoteExecutionMode = NoteExecutionMode;
+      window.NoteFilter = NoteFilter;
+      window.NoteFilterTypes = NoteFilterTypes;
+      window.NoteIdAndArgs = NoteIdAndArgs;
+      window.NoteIdAndArgsArray = NoteIdAndArgsArray;
+      window.NoteInputs = NoteInputs;
+      window.NoteMetadata = NoteMetadata;
+      window.NoteRecipient = NoteRecipient;
+      window.NoteTag = NoteTag;
+      window.NoteType = NoteType;
+      window.OutputNote = OutputNote;
+      window.OutputNotesArray = OutputNotesArray;
+      window.Rpo256 = Rpo256;
+      window.TestUtils = TestUtils;
+      window.TransactionFilter = TransactionFilter;
+      window.TransactionRequest = TransactionRequest;
+      window.TransactionScriptInputPair = TransactionScriptInputPair;
+      window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+
+      // Create a namespace for helper functions
+      window.helpers = window.helpers || {};
+
+      window.helpers.waitForTransaction = async (
+        transactionId,
+        maxWaitTime = 20000,
+        delayInterval = 1000
+      ) => {
+        const client = window.client;
+        let timeWaited = 0;
+        while (true) {
+          if (timeWaited >= maxWaitTime) {
+            throw new Error("Timeout waiting for transaction");
+          }
+          await client.sync_state();
+          const uncomittedTransactions = await client.get_transactions(
+            window.TransactionFilter.uncomitted()
+          );
+          let uncomittedTransactionIds = uncomittedTransactions.map(
+            (transaction) => transaction.id().to_hex()
+          );
+          if (!uncomittedTransactionIds.includes(transactionId)) {
+            break;
+          }
+          await new Promise((r) => setTimeout(r, delayInterval));
+          timeWaited += delayInterval;
+        }
+      };
+    },
+    LOCAL_MIDEN_NODE_PORT,
+    env.REMOTE_PROVER ? REMOTE_TX_PROVER_PORT : null
+  );
 });
 
 beforeEach(async () => {
