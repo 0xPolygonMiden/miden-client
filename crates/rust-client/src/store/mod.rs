@@ -7,13 +7,13 @@ use alloc::{
 };
 use core::fmt::Debug;
 
+use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
-use tonic::async_trait;
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
