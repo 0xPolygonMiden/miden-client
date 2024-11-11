@@ -4,9 +4,7 @@
 use alloc::string::{String, ToString};
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SqliteStoreConfig {
     pub database_filepath: String,
 }

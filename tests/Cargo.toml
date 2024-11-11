@@ -23,6 +23,7 @@ miden-objects = { workspace = true, default-features = false, features = ["testi
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
 tokio = { workspace = true }
+toml = { version = "0.8" }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 winter-maybe-async = { version = "0.10" }
 

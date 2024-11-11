@@ -1,12 +1,8 @@
 use std::{env::temp_dir, sync::Arc, time::Duration};
 
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 use miden_client::{
     accounts::AccountTemplate,
-    config::RpcConfig,
+    config::{Endpoint, RpcConfig},
     crypto::FeltRng,
     notes::create_p2id_note,
     rpc::{RpcError, TonicRpcClient},
@@ -30,13 +26,14 @@ use miden_objects::{
     Felt, FieldElement,
 };
 use rand::Rng;
+use toml::Table;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -70,9 +67,20 @@ pub async fn create_test_client() -> TestClient {
 }
 
 pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
-    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
-        .extract()
-        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
+    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
+        .unwrap()
+        .parse::<Table>()
+        .unwrap();
+    let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
+
+    let rpc_config: RpcConfig = RpcConfig {
+        endpoint: Endpoint::new(
+            rpc_endpoint_toml["protocol"].as_str().unwrap().to_string(),
+            rpc_endpoint_toml["host"].as_str().unwrap().to_string(),
+            rpc_endpoint_toml["port"].as_integer().unwrap() as u16,
+        ),
+        timeout_ms: rpc_config_toml["timeout"].as_integer().unwrap() as u64,
+    };
 
     let store_config = create_test_store_path()
         .into_os_string()

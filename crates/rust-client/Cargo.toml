@@ -18,7 +18,7 @@ crate-type = ["lib"]
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = []
-idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
@@ -38,7 +38,7 @@ pollster = { version = "0.4" }
 prost = { version = "0.13", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
-serde = { workspace = true }
+serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 tokio = { workspace = true, optional = true }
 tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }

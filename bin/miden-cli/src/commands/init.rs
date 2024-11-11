@@ -44,7 +44,7 @@ impl InitCmd {
         if let Some(endpoint) = &self.rpc {
             let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 
-            cli_config.rpc.endpoint = endpoint;
+            cli_config.rpc.endpoint = endpoint.into();
         }
 
         if let Some(path) = &self.store_path {
@@ -52,7 +52,7 @@ impl InitCmd {
         }
 
         cli_config.remote_prover_endpoint = match &self.remote_prover_endpoint {
-            Some(rpc) => Endpoint::try_from(rpc.as_str()).ok(),
+            Some(rpc) => Endpoint::try_from(rpc.as_str()).ok().map(|e| e.into()),
             None => None,
         };
 

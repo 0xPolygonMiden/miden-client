@@ -3,8 +3,6 @@
 use alloc::string::{String, ToString};
 use core::fmt::{self, Debug};
 
-use serde::{Deserialize, Serialize};
-
 // ENDPOINT
 // ================================================================================================
 
@@ -12,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// port.
 ///
 /// This struct is used to define the address of a Miden node that the client will connect to.
-#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Endpoint {
     /// The protocol used to connect to the endpoint (e.g., "http", "https").
     protocol: String,
@@ -120,17 +118,12 @@ impl TryFrom<&str> for Endpoint {
 // ================================================================================================
 
 /// Settings for the RPC client.
-#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
     /// Timeout for the RPC api requests, in milliseconds.
-    #[serde(default = "default_timeout")]
     pub timeout_ms: u64,
-}
-
-const fn default_timeout() -> u64 {
-    10000
 }
 
 impl Default for RpcConfig {
