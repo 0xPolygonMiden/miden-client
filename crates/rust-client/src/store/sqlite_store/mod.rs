@@ -306,12 +306,12 @@ impl Store for SqliteStore {
         .await
     }
 
-    async fn get_foreign_account_code_commitments(
+    async fn get_foreign_account_code(
         &self,
         account_ids: Vec<AccountId>,
-    ) -> Result<Vec<(AccountId, Digest)>, StoreError> {
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::get_foreign_account_code_commitments(conn, account_ids)
+            SqliteStore::get_foreign_account_code(conn, account_ids)
         })
         .await
     }

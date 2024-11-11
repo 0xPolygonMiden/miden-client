@@ -275,10 +275,10 @@ pub trait Store: Send + Sync {
         code: AccountCode,
     ) -> Result<(), StoreError>;
 
-    async fn get_foreign_account_code_commitments(
+    async fn get_foreign_account_code(
         &self,
         account_ids: Vec<AccountId>,
-    ) -> Result<Vec<(AccountId, Digest)>, StoreError>;
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------

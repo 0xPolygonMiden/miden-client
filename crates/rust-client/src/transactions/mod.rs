@@ -694,28 +694,33 @@ impl<R: FeltRng> Client<R> {
         }
 
         // Get tracked commitments
-        let tracked_code: Vec<Digest> = self
+        let tracked_code = self
             .store
-            .get_foreign_account_code_commitments(account_ids.iter().cloned().collect())
-            .await?
-            .into_iter()
-            .map(|(_, commitment)| commitment)
-            .collect();
+            .get_foreign_account_code(account_ids.iter().cloned().collect())
+            .await?;
+
+        let tracked_commitments: Vec<Digest> =
+            tracked_code.values().map(|code| code.commitment()).collect();
 
         // Fetch account proofs
         let (block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(account_ids, &tracked_code, true).await?;
+            self.rpc_api.get_account_proofs(account_ids, &tracked_commitments, true).await?;
 
         for account_proof in account_proofs.into_iter() {
             let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
-            let account_code = account_proof
-                .account_code()
-                .unwrap_or_else(|| todo!("Get tracked account code"));
-            let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+            let account_code = match account_proof.account_code() {
+                Some(account_code) => {
+                    self.store
+                        .update_foreign_account_code(account_header.id(), account_code.clone())
+                        .await?;
 
-            self.store
-                .update_foreign_account_code(account_header.id(), account_code.clone())
-                .await?;
+                    account_code
+                },
+                None => tracked_code
+                    .get(&account_header.id())
+                    .expect("Account code should be tracked if it's not in the RPC response"),
+            };
+            let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
 
             account_codes.push(account_code.clone());
 

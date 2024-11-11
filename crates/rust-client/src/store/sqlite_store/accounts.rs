@@ -2,7 +2,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use std::rc::Rc;
+use std::{collections::BTreeMap, rc::Rc};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
@@ -183,10 +183,10 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
-    pub fn get_foreign_account_code_commitments(
+    pub fn get_foreign_account_code(
         conn: &mut Connection,
         account_ids: Vec<AccountId>,
-    ) -> Result<Vec<(AccountId, Digest)>, StoreError> {
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
         let params: Vec<Value> = account_ids
             .into_iter()
             .map(|id| {
@@ -194,23 +194,25 @@ impl SqliteStore {
                 Value::from(id_int as i64)
             })
             .collect();
-        const QUERY: &str =
-            "SELECT account_id, code_root FROM foreign_account_code WHERE account_id IN rarray(?)";
+        const QUERY: &str = "
+            SELECT account_id, code
+            FROM foreign_account_code JOIN account_code ON code_root = code_root
+            WHERE account_id IN rarray(?)";
 
         conn.prepare(QUERY)?
             .query_map([Rc::new(params)], |row| Ok((row.get(0)?, row.get(1)?)))
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |(id, code_commitment): (u64, String)| {
+                    |(id, code): (u64, Vec<u8>)| {
                         Ok((
                             AccountId::try_from(id).map_err(StoreError::AccountError)?,
-                            Digest::try_from(code_commitment).map_err(StoreError::HexParseError)?,
+                            AccountCode::from_bytes(&code).map_err(StoreError::AccountError)?,
                         ))
                     },
                 )
             })
-            .collect::<Result<Vec<(AccountId, Digest)>, _>>()
+            .collect::<Result<BTreeMap<AccountId, AccountCode>, _>>()
     }
 }
 
