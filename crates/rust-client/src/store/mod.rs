@@ -9,7 +9,7 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -268,6 +268,17 @@ pub trait Store: Send + Sync {
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
+
+    async fn update_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError>;
+
+    async fn get_foreign_account_code_commitments(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<(AccountId, Digest)>, StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------

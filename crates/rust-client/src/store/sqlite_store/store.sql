@@ -27,6 +27,12 @@ CREATE TABLE account_auth (
     PRIMARY KEY (account_id)
 );
 
+-- Create foreign_account_code table
+CREATE TABLE foreign_account_code(
+    account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
+    code_root TEXT NOT NULL               -- Root of the account_code
+);
+
 -- Create accounts table
 CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- Account ID.
