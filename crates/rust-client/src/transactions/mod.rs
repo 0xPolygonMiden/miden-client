@@ -693,14 +693,29 @@ impl<R: FeltRng> Client<R> {
             return Ok((AdviceInputs::default(), vec![], None));
         }
 
+        // Get tracked commitments
+        let tracked_code: Vec<Digest> = self
+            .store
+            .get_foreign_account_code_commitments(account_ids.iter().cloned().collect())
+            .await?
+            .into_iter()
+            .map(|(_, commitment)| commitment)
+            .collect();
+
         // Fetch account proofs
         let (block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(account_ids, &[], true).await?;
+            self.rpc_api.get_account_proofs(account_ids, &tracked_code, true).await?;
 
         for account_proof in account_proofs.into_iter() {
             let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
-            let account_code = account_proof.account_code().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+            let account_code = account_proof
+                .account_code()
+                .unwrap_or_else(|| todo!("Get tracked account code"));
             let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+
+            self.store
+                .update_foreign_account_code(account_header.id(), account_code.clone())
+                .await?;
 
             account_codes.push(account_code.clone());
 
