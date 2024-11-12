@@ -1,4 +1,5 @@
 use alloc::{
+    collections::BTreeMap,
     string::{String, ToString},
     vec::Vec,
 };
@@ -266,5 +267,57 @@ impl WebStore {
             })?;
 
         Ok(auth_info)
+    }
+
+    pub async fn update_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        let root = code.commitment().to_string();
+        let code = code.to_bytes();
+        let account_id = account_id.to_string();
+
+        let promise = idxdb_update_foreign_account_code(account_id, code, root);
+        let _ = JsFuture::from(promise).await;
+
+        Ok(())
+    }
+
+    pub async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        let account_ids =
+            account_ids.iter().map(|account_id| account_id.to_string()).collect::<Vec<_>>();
+        let promise = idxdb_get_foreign_account_code(account_ids);
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!(
+                "Failed to fetch foreign account code: {:?}",
+                js_error
+            ))
+        })?;
+
+        let foreign_account_code_idxdb: Vec<ForeignAcountCodeIdxdbObject> = from_value(js_value)
+            .map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to deserialize {:?}",
+                    err
+                )))
+            })?;
+
+        let foreign_account_code: BTreeMap<AccountId, AccountCode> = foreign_account_code_idxdb
+            .into_iter()
+            .map(|idxdb_object| {
+                let account_id = AccountId::from_hex(&idxdb_object.account_id)
+                    .map_err(StoreError::AccountError)?;
+                let code = AccountCode::from_bytes(&idxdb_object.code)
+                    .map_err(StoreError::AccountError)?;
+
+                Ok((account_id, code))
+            })
+            .collect::<Result<BTreeMap<AccountId, AccountCode>, StoreError>>()?;
+
+        Ok(foreign_account_code)
     }
 }

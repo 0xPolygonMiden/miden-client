@@ -4,6 +4,7 @@ import {
   accountVaults,
   accountAuths,
   accounts,
+  foreignAccountCode,
 } from "./schema.js";
 
 // GET FUNCTIONS
@@ -446,6 +447,67 @@ export async function insertAccountAuth(accountId, authInfo, pubKey) {
   } catch (error) {
     console.error(`Error inserting auth for account: ${accountId}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
+export async function updateForeignAccountCode(accountId, code, codeRoot) {
+  try {
+    await insertAccountCode(codeRoot, code);
+
+    const data = {
+      accountId,
+      codeRoot,
+    };
+
+    await foreignAccountCode.put(data);
+  } catch (error) {
+    console.error(
+      `Error updating foreign account code: (${accountId}, ${codeRoot}):`,
+      error
+    );
+    throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
+export async function getForeignAccountCode(accountIds) {
+  try {
+    const foreignAccounts = await foreignAccountCode
+      .where("accountId")
+      .anyOf(accountIds)
+      .toArray();
+
+    if (foreignAccounts.length === 0) {
+      console.log("No records found for given code root.");
+      return null; // No records found
+    }
+
+    let codeRoots = foreignAccounts.map((account) => account.codeRoot);
+
+    const accountCode = await accountCodes
+      .where("root")
+      .anyOf(codeRoots)
+      .toArray();
+
+    const processedCode = foreignAccounts.map(async (foreignAccount) => {
+      const matchingCode = accountCode.find(
+        (code) => code.root === foreignAccount.codeRoot
+      );
+
+      // Convert the code Blob to an ArrayBuffer
+      const codeArrayBuffer = await matchingCode.code.arrayBuffer();
+      const codeArray = new Uint8Array(codeArrayBuffer);
+      const codeBase64 = uint8ArrayToBase64(codeArray);
+
+      return {
+        accountId: foreignAccount.accountId,
+        code: codeBase64,
+      };
+    });
+
+    return processedCode;
+  } catch (error) {
+    console.error("Error fetching foreign account code:", error);
+    throw error; // Re-throw the error for further handling
   }
 }
 

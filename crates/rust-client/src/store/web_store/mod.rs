@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::Nullifier,
     BlockHeader, Digest, Word,
@@ -192,6 +192,21 @@ impl Store for WebStore {
 
     async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id).await
+    }
+
+    async fn update_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        self.update_foreign_account_code(account_id, code).await
+    }
+
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        self.get_foreign_account_code(account_ids).await
     }
 
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {

@@ -42,6 +42,13 @@ pub struct AccountRecordIdxdbOjbect {
     pub account_seed: Option<Vec<u8>>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ForeignAcountCodeIdxdbObject {
+    pub account_id: String,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
+    pub code: Vec<u8>,
+}
+
 fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
