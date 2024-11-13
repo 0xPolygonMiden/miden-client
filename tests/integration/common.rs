@@ -2,7 +2,6 @@ use std::{env::temp_dir, sync::Arc, time::Duration};
 
 use miden_client::{
     accounts::AccountTemplate,
-    config::{Endpoint, RpcConfig},
     crypto::FeltRng,
     notes::create_p2id_note,
     rpc::{RpcError, TonicRpcClient},
@@ -44,7 +43,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub async fn create_test_client() -> TestClient {
-    let (rpc_config, store_config) = get_client_config();
+    let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
     let store = {
         let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
@@ -58,7 +57,7 @@ pub async fn create_test_client() -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(&rpc_config)),
+        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
         rng,
         store,
         Arc::new(authenticator),
@@ -66,21 +65,20 @@ pub async fn create_test_client() -> TestClient {
     )
 }
 
-pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
+pub fn get_client_config() -> (String, u64, SqliteStoreConfig) {
     let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
         .parse::<Table>()
         .unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    let rpc_config: RpcConfig = RpcConfig {
-        endpoint: Endpoint::new(
-            rpc_endpoint_toml["protocol"].as_str().unwrap().to_string(),
-            rpc_endpoint_toml["host"].as_str().unwrap().to_string(),
-            rpc_endpoint_toml["port"].as_integer().unwrap() as u16,
-        ),
-        timeout_ms: rpc_config_toml["timeout"].as_integer().unwrap() as u64,
-    };
+    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
+        + "://"
+        + rpc_endpoint_toml["host"].as_str().unwrap()
+        + ":"
+        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
+
+    let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
     let store_config = create_test_store_path()
         .into_os_string()
@@ -89,7 +87,7 @@ pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
         .try_into()
         .unwrap();
 
-    (rpc_config, store_config)
+    (endpoint, timeout_ms, store_config)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

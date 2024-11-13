@@ -6,9 +6,9 @@ use std::{
 };
 
 use assert_cmd::Command;
+use config::RpcConfig;
 use miden_client::{
     accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
-    config::RpcConfig,
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{
@@ -20,6 +20,8 @@ use miden_client::{
 };
 use rand::Rng;
 use uuid::Uuid;
+
+mod config;
 
 /// CLI TESTS
 ///
@@ -557,7 +559,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(&rpc_config)),
+        Box::new(TonicRpcClient::new(rpc_config.endpoint.to_string(), rpc_config.timeout_ms)),
         rng,
         store,
         std::sync::Arc::new(authenticator),

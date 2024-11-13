@@ -4,7 +4,6 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountHeader,
-    config::Endpoint,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
@@ -100,7 +99,7 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store.clone().into())
+        let store = SqliteStore::new(&cli_config.store.clone().try_into()?)
             .await
             .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
@@ -112,7 +111,10 @@ impl Cli {
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
         let client = Client::new(
-            Box::new(TonicRpcClient::new(&cli_config.rpc.clone().into())),
+            Box::new(TonicRpcClient::new(
+                cli_config.rpc.endpoint.to_string(),
+                cli_config.rpc.timeout_ms,
+            )),
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),

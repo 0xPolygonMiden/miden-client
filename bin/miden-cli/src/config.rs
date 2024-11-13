@@ -1,14 +1,14 @@
 use core::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use figment::{
     value::{Dict, Map},
     Metadata, Profile, Provider,
 };
-use miden_client::{
-    config::{Endpoint, RpcConfig},
-    store::sqlite_store::config::SqliteStoreConfig,
-};
+use miden_client::store::sqlite_store::config::SqliteStoreConfig;
 use serde::{Deserialize, Serialize};
 
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
@@ -19,15 +19,15 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint
-    pub rpc: CliRpcConfig,
+    pub rpc: RpcConfig,
     /// Describes settings related to the store.
-    pub store: CliSqliteStoreConfig,
+    pub store: String,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
     /// RPC endpoint for the proving service. If this is not present, a local prover will be used.
-    pub remote_prover_endpoint: Option<CliEndpoint>,
+    pub remote_prover_endpoint: Option<Endpoint>,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -49,8 +49,8 @@ impl Provider for CliConfig {
 impl Default for CliConfig {
     fn default() -> Self {
         Self {
-            rpc: CliRpcConfig::default(),
-            store: CliSqliteStoreConfig::default(),
+            rpc: RpcConfig::default(),
+            store: SqliteStoreConfig::default().database_filepath,
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
@@ -58,10 +58,15 @@ impl Default for CliConfig {
     }
 }
 
-// RPC CONFIG
+// ENDPOINT
 // ================================================================================================
+
+/// The `Endpoint` struct represents a network endpoint, consisting of a protocol, a host, and a
+/// port.
+///
+/// This struct is used to define the address of a Miden node that the client will connect to.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Deserialize, Serialize)]
-pub struct CliEndpoint {
+pub struct Endpoint {
     /// The protocol used to connect to the endpoint (e.g., "http", "https").
     pub protocol: String,
     /// The hostname or IP address of the endpoint.
@@ -70,79 +75,197 @@ pub struct CliEndpoint {
     pub port: u16,
 }
 
-impl From<CliEndpoint> for Endpoint {
-    fn from(endpoint: CliEndpoint) -> Self {
-        Endpoint::new(endpoint.protocol, endpoint.host, endpoint.port)
+impl fmt::Display for Endpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}://{}:{}", self.protocol, self.host, self.port)
     }
 }
 
-impl From<Endpoint> for CliEndpoint {
-    fn from(endpoint: Endpoint) -> Self {
+const MIDEN_NODE_PORT: u16 = 57291;
+impl Default for Endpoint {
+    fn default() -> Self {
         Self {
-            protocol: endpoint.protocol().to_string(),
-            host: endpoint.host().to_string(),
-            port: endpoint.port(),
+            protocol: "http".to_string(),
+            host: "localhost".to_string(),
+            port: MIDEN_NODE_PORT,
         }
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub struct CliRpcConfig {
+impl TryFrom<&str> for Endpoint {
+    type Error = String;
+
+    fn try_from(endpoint: &str) -> Result<Self, Self::Error> {
+        let protocol_separator_index = endpoint.find("://");
+        let port_separator_index = endpoint.rfind(':');
+
+        // port separator index might match with the protocol separator, if so that means there was
+        // no port defined
+        let port_separator_index = if port_separator_index == protocol_separator_index {
+            None
+        } else {
+            port_separator_index
+        };
+
+        let (protocol, hostname, port) = match (protocol_separator_index, port_separator_index) {
+            (Some(protocol_idx), Some(port_idx)) => {
+                let (protocol_and_hostname, port) = endpoint.split_at(port_idx);
+                let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
+
+                let (protocol, hostname) = protocol_and_hostname.split_at(protocol_idx);
+                // skip the separator
+                let hostname = &hostname[3..];
+
+                (protocol, hostname, port)
+            },
+            (Some(protocol_idx), None) => {
+                let (protocol, hostname) = endpoint.split_at(protocol_idx);
+                // skip the separator
+                let hostname = &hostname[3..];
+
+                (protocol, hostname, MIDEN_NODE_PORT)
+            },
+            (None, Some(port_idx)) => {
+                let (hostname, port) = endpoint.split_at(port_idx);
+                let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
+
+                ("https", hostname, port)
+            },
+            (None, None) => ("https", endpoint, MIDEN_NODE_PORT),
+        };
+
+        Ok(Endpoint {
+            protocol: protocol.to_string(),
+            host: hostname.to_string(),
+            port,
+        })
+    }
+}
+
+// RPC CONFIG
+// ================================================================================================
+
+/// Settings for the RPC client.
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct RpcConfig {
     /// Address of the Miden node to connect to.
-    pub endpoint: CliEndpoint,
+    pub endpoint: Endpoint,
     /// Timeout for the RPC api requests, in milliseconds.
     pub timeout_ms: u64,
 }
 
-impl From<RpcConfig> for CliRpcConfig {
-    fn from(config: RpcConfig) -> Self {
-        Self {
-            endpoint: config.endpoint.into(),
-            timeout_ms: config.timeout_ms,
-        }
-    }
-}
-
-impl From<CliRpcConfig> for RpcConfig {
-    fn from(config: CliRpcConfig) -> Self {
-        Self {
-            endpoint: config.endpoint.into(),
-            timeout_ms: config.timeout_ms,
-        }
-    }
-}
-
-impl Default for CliRpcConfig {
+impl Default for RpcConfig {
     fn default() -> Self {
-        RpcConfig::default().into()
-    }
-}
-
-// STORE CONFIG
-// ================================================================================================
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub struct CliSqliteStoreConfig {
-    pub database_filepath: String,
-}
-
-impl From<SqliteStoreConfig> for CliSqliteStoreConfig {
-    fn from(config: SqliteStoreConfig) -> Self {
         Self {
-            database_filepath: config.database_filepath,
+            endpoint: Endpoint::default(),
+            timeout_ms: 10000,
         }
     }
 }
 
-impl From<CliSqliteStoreConfig> for SqliteStoreConfig {
-    fn from(config: CliSqliteStoreConfig) -> Self {
-        Self {
-            database_filepath: config.database_filepath,
-        }
-    }
-}
+#[cfg(test)]
+mod test {
+    use crate::config::{Endpoint, MIDEN_NODE_PORT};
 
-impl Default for CliSqliteStoreConfig {
-    fn default() -> Self {
-        SqliteStoreConfig::default().into()
+    #[test]
+    fn test_endpoint_parsing_with_hostname_only() {
+        let endpoint = Endpoint::try_from("some.test.domain").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "some.test.domain".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_ip() {
+        let endpoint = Endpoint::try_from("192.168.0.1").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_port() {
+        let endpoint = Endpoint::try_from("some.test.domain:8000").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "some.test.domain".to_string(),
+            port: 8000,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_ip_and_port() {
+        let endpoint = Endpoint::try_from("192.168.0.1:8000").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: 8000,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_protocol() {
+        let endpoint = Endpoint::try_from("hkttp://some.test.domain").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "hkttp".to_string(),
+            host: "some.test.domain".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_protocol_and_ip() {
+        let endpoint = Endpoint::try_from("http://192.168.0.1").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_both_protocol_and_port() {
+        let endpoint = Endpoint::try_from("http://some.test.domain:8080").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "some.test.domain".to_string(),
+            port: 8080,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_ip_and_protocol_and_port() {
+        let endpoint = Endpoint::try_from("http://192.168.0.1:8080").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: 8080,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_should_fail_for_invalid_port() {
+        let endpoint = Endpoint::try_from("some.test.domain:8000/hello");
+        assert!(endpoint.is_err());
     }
 }

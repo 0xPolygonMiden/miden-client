@@ -33,7 +33,7 @@ use super::{
     NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
     NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{config::RpcConfig, rpc::RpcError};
+use crate::rpc::RpcError;
 #[rustfmt::skip]
 pub mod generated;
 
@@ -51,12 +51,8 @@ pub struct TonicRpcClient {
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config: &RpcConfig) -> TonicRpcClient {
-        TonicRpcClient {
-            rpc_api: None,
-            endpoint: config.endpoint.to_string(),
-            timeout_ms: config.timeout_ms,
-        }
+    pub fn new(endpoint: String, timeout_ms: u64) -> TonicRpcClient {
+        TonicRpcClient { rpc_api: None, endpoint, timeout_ms }
     }
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
