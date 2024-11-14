@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 (TBD)
+
+### Fixes
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features
