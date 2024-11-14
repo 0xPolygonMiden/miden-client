@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 (TBD)
+
+### Fixes
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features
@@ -16,7 +21,6 @@
 * Added support for multiple input note inserts at once (#538).
 * Added support for custom transactions in web client (#519).
 * Added support for remote proving in the CLI (#552).
-* Added Sync Loop to Integration Tests for Small Speedup (#590).
 * Added Transaction Integration Tests for Web Client (#569).
 * Added WASM Input note tests + updated input note models (#554)
 * Added Account Integration Tests for Web Client (#532).
