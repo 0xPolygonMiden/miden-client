@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 (TBD)
+
+### Features
+* Added caching for foreign account code (#597).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features
