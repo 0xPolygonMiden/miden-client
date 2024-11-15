@@ -194,7 +194,7 @@ impl Store for WebStore {
         self.get_account_auth(account_id).await
     }
 
-    async fn update_foreign_account_code(
+    async fn upsert_foreign_account_code(
         &self,
         account_id: AccountId,
         code: AccountCode,

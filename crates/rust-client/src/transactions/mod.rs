@@ -711,7 +711,7 @@ impl<R: FeltRng> Client<R> {
             let account_code = match account_proof.account_code() {
                 Some(account_code) => {
                     self.store
-                        .update_foreign_account_code(account_header.id(), account_code.clone())
+                        .upsert_foreign_account_code(account_header.id(), account_code.clone())
                         .await?;
 
                     account_code

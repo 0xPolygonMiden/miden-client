@@ -477,7 +477,7 @@ export async function getForeignAccountCode(accountIds) {
       .toArray();
 
     if (foreignAccounts.length === 0) {
-      console.log("No records found for given code root.");
+      console.log("No records found for the given account IDs.");
       return null; // No records found
     }
 

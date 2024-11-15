@@ -269,7 +269,7 @@ impl WebStore {
         Ok(auth_info)
     }
 
-    pub async fn update_foreign_account_code(
+    pub(crate) async fn update_foreign_account_code(
         &self,
         account_id: AccountId,
         code: AccountCode,
@@ -284,7 +284,7 @@ impl WebStore {
         Ok(())
     }
 
-    pub async fn get_foreign_account_code(
+    pub(crate) async fn get_foreign_account_code(
         &self,
         account_ids: Vec<AccountId>,
     ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {

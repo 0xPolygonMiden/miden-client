@@ -295,7 +295,7 @@ impl Store for SqliteStore {
             .await
     }
 
-    async fn update_foreign_account_code(
+    async fn upsert_foreign_account_code(
         &self,
         account_id: AccountId,
         code: AccountCode,

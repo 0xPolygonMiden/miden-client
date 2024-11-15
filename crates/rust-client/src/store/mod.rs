@@ -269,12 +269,15 @@ pub trait Store: Send + Sync {
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
 
-    async fn update_foreign_account_code(
+    /// Upserts the account code for a foreign account. This value will be used as a cache of known
+    /// script roots and added to the `GetForeignAccountCode` request.
+    async fn upsert_foreign_account_code(
         &self,
         account_id: AccountId,
         code: AccountCode,
     ) -> Result<(), StoreError>;
 
+    /// Retrieves the cached account code for various foreign accounts.
     async fn get_foreign_account_code(
         &self,
         account_ids: Vec<AccountId>,
