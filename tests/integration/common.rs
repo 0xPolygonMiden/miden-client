@@ -119,7 +119,7 @@ pub async fn execute_tx(
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
-    client.submit_transaction(transaction_execution_result).await.unwrap();
+    client.submit_transaction(None, transaction_execution_result).await.unwrap();
 
     transaction_id
 }

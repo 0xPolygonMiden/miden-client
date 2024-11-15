@@ -287,7 +287,7 @@ async fn execute_transaction(
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    client.submit_transaction(transaction_execution_result).await?;
+    client.submit_transaction(None, transaction_execution_result).await?;
 
     println!("Succesfully created transaction.");
     println!("Transaction ID: {}", transaction_id);

@@ -437,7 +437,7 @@ async fn test_get_output_notes() {
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
-    client.submit_transaction(transaction).await.unwrap();
+    client.submit_transaction(None, transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed
     assert!(client.get_output_notes(NoteFilter::Consumed).await.unwrap().is_empty());

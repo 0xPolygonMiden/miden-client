@@ -57,7 +57,7 @@ async fn test_fpi() {
         .await
         .unwrap();
     let tx_id = tx.executed_transaction().id();
-    client.submit_transaction(tx).await.unwrap();
+    client.submit_transaction(None, tx).await.unwrap();
     wait_for_tx(&mut client, tx_id).await;
 
     println!("Calling FPI functions with new account");
@@ -110,7 +110,7 @@ async fn test_fpi() {
         .await
         .unwrap();
 
-    client.submit_transaction(tx_result).await.unwrap();
+    client.submit_transaction(None, tx_result).await.unwrap();
 }
 
 /// Builds an account using the auth component and a custom component which just retrieves the

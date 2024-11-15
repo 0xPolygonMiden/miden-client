@@ -4,6 +4,7 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
+    sync::Arc,
     vec::Vec,
 };
 use core::fmt::{self};
@@ -21,7 +22,9 @@ use miden_objects::{
     vm::AdviceInputs,
     AssetError, Digest, Felt, Word, ZERO,
 };
-pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
+pub use miden_tx::{
+    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
@@ -399,24 +402,27 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Proves the specified transaction, submits it to the network, and saves the transaction into
-    /// the local database for tracking.
+    /// the local database for tracking. An optional [TransactionProver] can be provided to use in
+    /// the proof generation, otherwise the client's default prover is used.
     pub async fn submit_transaction(
         &mut self,
+        tx_prover: Option<Arc<dyn TransactionProver>>,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let proven_transaction = self.prove_transaction(&tx_result).await?;
+        let proven_transaction = self.prove_transaction(tx_prover, &tx_result).await?;
         self.submit_proven_transaction(proven_transaction).await?;
         self.apply_transaction(tx_result).await
     }
 
     async fn prove_transaction(
         &mut self,
+        tx_prover: Option<Arc<dyn TransactionProver>>,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
         info!("Proving transaction...");
-
+        let tx_prover = tx_prover.unwrap_or(self.tx_prover.clone());
         let proven_transaction =
-            self.tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
+            tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
 
         info!("Transaction proven.");
 
@@ -741,7 +747,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        self.prove_transaction(tx_result).await
+        self.prove_transaction(None, tx_result).await
     }
 
     pub async fn testing_submit_proven_transaction(

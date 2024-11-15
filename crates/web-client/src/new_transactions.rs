@@ -45,9 +45,12 @@ impl WebClient {
     ) -> Result<(), JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            client.submit_transaction(native_transaction_result).await.map_err(|err| {
-                JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
-            })?;
+            client
+                .submit_transaction(None, native_transaction_result)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                })?;
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -86,7 +89,7 @@ impl WebClient {
             let result = mint_transaction_execution_result.clone().into();
 
             client
-                .submit_transaction(mint_transaction_execution_result)
+                .submit_transaction(None, mint_transaction_execution_result)
                 .await
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
@@ -156,7 +159,7 @@ impl WebClient {
             let result = send_transaction_execution_result.clone().into();
 
             client
-                .submit_transaction(send_transaction_execution_result)
+                .submit_transaction(None, send_transaction_execution_result)
                 .await
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
@@ -194,9 +197,12 @@ impl WebClient {
 
             let result = consume_transaction_execution_result.clone().into();
 
-            client.submit_transaction(consume_transaction_execution_result).await.map_err(
-                |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {}", err)),
-            )?;
+            client
+                .submit_transaction(None, consume_transaction_execution_result)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to submit Consume Transaction: {}", err))
+                })?;
 
             Ok(result)
         } else {
@@ -263,7 +269,10 @@ impl WebClient {
                 None,
             );
 
-            client.submit_transaction(swap_transaction_execution_result).await.unwrap();
+            client
+                .submit_transaction(None, swap_transaction_execution_result)
+                .await
+                .unwrap();
 
             let payback_note_tag_u32: u32 = build_swap_tag(
                 note_type.into(),
