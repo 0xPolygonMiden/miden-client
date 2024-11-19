@@ -6,7 +6,7 @@
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes
-* Added per transaction prover support to the client (#599).
+* [BREAKING] Added per transaction prover support to the client (#599).
 
 ## 0.6.0 (2024-11-08)
 

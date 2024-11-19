@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
@@ -11,13 +11,14 @@ use miden_client::{
     },
     Client,
 };
+use miden_tx_prover::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{
     create_dynamic_table,
     utils::{
-        get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id,
-        SHARED_TOKEN_DOCUMENTATION,
+        get_input_acc_id_by_prefix_or_default, load_config_file, load_faucet_details_map,
+        parse_account_id, SHARED_TOKEN_DOCUMENTATION,
     },
 };
 
@@ -287,7 +288,16 @@ async fn execute_transaction(
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    client.submit_transaction(transaction_execution_result).await?;
+    let (cli_config, _) = load_config_file()?;
+    match &cli_config.remote_prover_endpoint {
+        Some(proving_url) => {
+            let remote_prover = Arc::new(RemoteTransactionProver::new(&proving_url.to_string()));
+            client
+                .submit_transaction_with_prover(remote_prover, transaction_execution_result)
+                .await?;
+        },
+        None => client.submit_transaction(transaction_execution_result).await?,
+    };
 
     println!("Succesfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
