@@ -38,11 +38,11 @@ db.version(1).stores({
   [Table.AccountVaults]: indexes("root"),
   [Table.AccountAuth]: indexes("accountId", "pubKey"),
   [Table.Accounts]: indexes(
-    "[id+nonce]",
+    "&accountHash",
+    "id",
     "codeRoot",
     "storageRoot",
-    "vaultRoot",
-    "accountHash"
+    "vaultRoot"
   ),
   [Table.Transactions]: indexes("id"),
   [Table.TransactionScripts]: indexes("scriptHash"),

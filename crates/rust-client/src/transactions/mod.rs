@@ -33,7 +33,7 @@ use crate::{
     notes::{NoteScreener, NoteUpdates},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, TransactionFilter,
+        OutputNoteRecord, StoreError, TransactionFilter,
     },
     sync::NoteTagRecord,
     ClientError,
@@ -462,6 +462,12 @@ impl<R: FeltRng> Client<R> {
         let (mut account, _seed) = self.get_account(account_id).await?;
 
         account.apply_delta(account_delta)?;
+
+        if self.store.get_account_header_by_hash(account.hash()).await?.is_some() {
+            return Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(
+                account.hash(),
+            )));
+        }
 
         // Save only input notes that we care for (based on the note screener assessment)
         let created_input_notes = tx_result.relevant_notes().to_vec();

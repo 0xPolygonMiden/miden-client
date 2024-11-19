@@ -1,9 +1,10 @@
 use miden_client::{
     accounts::AccountTemplate,
     notes::NoteExecutionHint,
+    store::StoreError,
     transactions::TransactionRequest,
     utils::{Deserializable, Serializable},
-    ZERO,
+    ClientError, ZERO,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageMode},
@@ -280,4 +281,47 @@ fn create_custom_note(
         NoteAssets::new(vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()]).unwrap();
     let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
     Note::new(note_assets, note_metadata, note_recipient)
+}
+
+#[tokio::test]
+async fn test_no_nonce_change_transaction_request() {
+    let mut client = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    };
+
+    client.sync_state().await.unwrap();
+    // Insert Account
+    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+
+    // Prepare transaction
+
+    let code = "
+        begin
+            push.1 push.2
+            # => [1, 2]
+            add push.3
+            # => [1+2, 3]
+            assert_eq
+        end
+        ";
+
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
+    let transaction_request = TransactionRequest::new().with_custom_script(tx_script).unwrap();
+
+    println!("Executing transaction...");
+    let transaction_execution_result =
+        client.new_transaction(regular_account.id(), transaction_request).await.unwrap();
+
+    println!("Sending transaction to node");
+    let result = client.submit_transaction(transaction_execution_result).await;
+
+    assert!(matches!(
+        result,
+        Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
+    ));
 }
