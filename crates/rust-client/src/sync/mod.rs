@@ -15,13 +15,14 @@ use miden_objects::{
 use tracing::info;
 
 use crate::{
+    accounts::AccountUpdates,
     notes::NoteUpdates,
     rpc::{
         AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
     },
     store::{
         input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
-        StoreError, TransactionFilter,
+        TransactionFilter,
     },
     Client, ClientError,
 };
@@ -124,8 +125,8 @@ pub struct StateSyncUpdate {
     /// New authentications nodes that are meant to be stored in order to authenticate block
     /// headers.
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Updated public accounts.
-    pub updated_onchain_accounts: Vec<Account>,
+    /// Information abount account changes after the sync.
+    pub updated_accounts: AccountUpdates,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
     /// Tag records that are no longer relevant
@@ -226,7 +227,8 @@ impl<R: FeltRng> Client<R> {
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        let mismatched_offchain_accounts = self
+            .validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
             .await?;
 
         // Build PartialMmr with current data and apply updates
@@ -260,7 +262,10 @@ impl<R: FeltRng> Client<R> {
             transactions_to_commit,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts: updated_onchain_accounts.clone(),
+            updated_accounts: AccountUpdates::new(
+                updated_onchain_accounts,
+                mismatched_offchain_accounts,
+            ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             transactions_to_discard,
             tags_to_remove,
@@ -573,30 +578,33 @@ impl<R: FeltRng> Client<R> {
         Ok(accounts_to_update)
     }
 
-    /// Validates account hash updates and returns an error if there is a mismatch.
+    /// Validates account hash updates and returns a vector with all the offchain account
+    /// mismatches.
     async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountHeader],
-    ) -> Result<(), ClientError> {
+    ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
+        let mut mismatched_accounts = vec![];
+
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let mismatched_accounts = current_offchain_accounts
+            let mismatched_account = current_offchain_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
             // OffChain accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
-            if mismatched_accounts.is_some() {
+            if mismatched_account.is_some() {
                 let account_by_hash =
                     self.store.get_account_header_by_hash(*remote_account_hash).await?;
 
                 if account_by_hash.is_none() {
-                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                    mismatched_accounts.push((*remote_account_id, *remote_account_hash));
                 }
             }
         }
-        Ok(())
+        Ok(mismatched_accounts)
     }
 }
 

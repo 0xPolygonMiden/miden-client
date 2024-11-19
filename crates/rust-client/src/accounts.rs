@@ -15,7 +15,7 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    Felt, Word,
+    Digest, Felt, Word,
 };
 
 use super::Client;
@@ -245,6 +245,40 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
     ) -> Result<AuthSecretKey, ClientError> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
+    }
+}
+
+// ACCOUNT UPDATES
+// ------------------------------------------------------------------------------------------------
+
+/// Contains account changes to apply to the store.
+pub struct AccountUpdates {
+    /// Updated public accounts.
+    updated_onchain_accounts: Vec<Account>,
+    /// Node account hashes that do not match the tracked information.
+    mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+}
+
+impl AccountUpdates {
+    /// Creates a new instance of `AccountUpdates`.
+    pub fn new(
+        updated_onchain_accounts: Vec<Account>,
+        mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+    ) -> Self {
+        Self {
+            updated_onchain_accounts,
+            mismatched_offchain_accounts,
+        }
+    }
+
+    /// Returns the updated public accounts.
+    pub fn updated_onchain_accounts(&self) -> &[Account] {
+        &self.updated_onchain_accounts
+    }
+
+    /// Returns the mismatched offchain accounts.
+    pub fn mismatched_offchain_accounts(&self) -> &[(AccountId, Digest)] {
+        &self.mismatched_offchain_accounts
     }
 }
 

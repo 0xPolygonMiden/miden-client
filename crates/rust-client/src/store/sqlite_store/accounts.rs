@@ -194,7 +194,7 @@ pub(super) fn insert_account_record(
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
         params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
@@ -243,6 +243,12 @@ pub(super) fn insert_account_auth(
         "INSERT INTO account_auth (account_id, auth_info, pub_key) VALUES (?, ?, ?)";
 
     tx.execute(QUERY, params![account_id, auth_info, pub_key])?;
+    Ok(())
+}
+
+pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Result<(), StoreError> {
+    const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = ?";
+    tx.execute(QUERY, params![u64::from(account_id)])?;
     Ok(())
 }
 
