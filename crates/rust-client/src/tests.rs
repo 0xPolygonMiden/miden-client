@@ -24,7 +24,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store},
-    transactions::TransactionRequest,
+    transactions::TransactionRequestBuilder,
 };
 
 #[tokio::test]
@@ -396,13 +396,14 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -427,13 +428,14 @@ async fn test_get_output_notes() {
         .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x0123456789abcdef").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
@@ -493,7 +495,7 @@ async fn test_transaction_request_expiration() {
         .await
         .unwrap();
 
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
@@ -501,7 +503,8 @@ async fn test_transaction_request_expiration() {
     )
     .unwrap()
     .with_expiration_delta(5)
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 

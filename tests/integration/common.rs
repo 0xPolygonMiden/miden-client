@@ -17,6 +17,7 @@ use miden_client::{
     sync::SyncSummary,
     transactions::{
         DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest,
+        TransactionRequestBuilder,
     },
     Client, ClientError,
 };
@@ -260,13 +261,14 @@ pub async fn mint_note(
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request = TransactionRequest::mint_fungible_asset(
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
         fungible_asset,
         basic_account_id,
         note_type,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
     execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
@@ -285,7 +287,8 @@ pub async fn consume_notes(
 ) {
     println!("Consuming Note...");
     let tx_request =
-        TransactionRequest::consume_notes(input_notes.iter().map(|n| n.id()).collect());
+        TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
+            .build();
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
@@ -317,7 +320,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    let tx_request = TransactionRequest::consume_notes(vec![note_to_consume_id]);
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id]).build();
     match client.new_transaction(consuming_account_id, tx_request).await {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
@@ -352,5 +355,5 @@ pub fn mint_multiple_fungible_asset(
         })
         .collect::<Vec<OutputNote>>();
 
-    TransactionRequest::new().with_own_output_notes(notes).unwrap()
+    TransactionRequestBuilder::new().with_own_output_notes(notes).unwrap().build()
 }

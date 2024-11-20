@@ -95,7 +95,7 @@ let payment_transaction = PaymentTransactionData::new(
     target_account_id,
 );
 
-let transaction_request = TransactionRequest::pay_to_id(
+let transaction_request = TransactionRequestBuilder::pay_to_id(
     payment_transaction,
     None,
     NoteType::Private,

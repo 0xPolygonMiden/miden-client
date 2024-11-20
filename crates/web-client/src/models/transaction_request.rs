@@ -244,7 +244,7 @@ pub struct TransactionRequest(NativeTransactionRequest);
 impl TransactionRequest {
     #[wasm_bindgen(constructor)]
     pub fn new() -> TransactionRequest {
-        let native_transaction_request = NativeTransactionRequest::new();
+        let native_transaction_request = NativeTransactionRequestBuilder::new();
         TransactionRequest(native_transaction_request)
     }
 

@@ -66,7 +66,7 @@ impl WebClient {
                 JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
             })?;
 
-            let mint_transaction_request = NativeTransactionRequest::mint_fungible_asset(
+            let mint_transaction_request = NativeTransactionRequestBuilder::mint_fungible_asset(
                 fungible_asset,
                 target_account_id.into(),
                 note_type.into(),
@@ -119,7 +119,7 @@ impl WebClient {
             );
 
             let send_transaction_request = if let Some(recall_height) = recall_height {
-                NativeTransactionRequest::pay_to_id(
+                NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
                     Some(recall_height),
                     note_type.into(),
@@ -132,7 +132,7 @@ impl WebClient {
                     ))
                 })?
             } else {
-                NativeTransactionRequest::pay_to_id(
+                NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
                     None,
                     note_type.into(),
@@ -183,7 +183,8 @@ impl WebClient {
                 result.push(note_record.id());
             }
 
-            let consume_transaction_request = NativeTransactionRequest::consume_notes(result);
+            let consume_transaction_request =
+                NativeTransactionRequestBuilder::consume_notes(result);
 
             let consume_transaction_execution_result = client
                 .new_transaction(account_id.into(), consume_transaction_request)
@@ -240,7 +241,7 @@ impl WebClient {
                 requested_fungible_asset,
             );
 
-            let swap_transaction_request = NativeTransactionRequest::swap(
+            let swap_transaction_request = NativeTransactionRequestBuilder::swap(
                 swap_transaction.clone(),
                 note_type.into(),
                 client.rng(),

@@ -7,7 +7,8 @@ use miden_client::{
     crypto::{Digest, FeltRng},
     notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
     transactions::{
-        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionResult,
+        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
+        TransactionResult,
     },
     Client,
 };
@@ -63,13 +64,14 @@ impl MintCmd {
 
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
-        let transaction_request = TransactionRequest::mint_fungible_asset(
+        let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
             fungible_asset,
             target_account_id,
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
         execute_transaction(&mut client, fungible_asset.faucet_id(), transaction_request, force)
             .await
@@ -123,13 +125,14 @@ impl SendCmd {
             target_account_id,
         );
 
-        let transaction_request = TransactionRequest::pay_to_id(
+        let transaction_request = TransactionRequestBuilder::pay_to_id(
             payment_transaction,
             self.recall_height,
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
         execute_transaction(&mut client, sender_account_id, transaction_request, force).await
     }
@@ -179,12 +182,13 @@ impl SwapCmd {
             requested_fungible_asset.into(),
         );
 
-        let transaction_request = TransactionRequest::swap(
+        let transaction_request = TransactionRequestBuilder::swap(
             swap_transaction.clone(),
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
         execute_transaction(&mut client, sender_account_id, transaction_request, force).await?;
 
@@ -246,7 +250,7 @@ impl ConsumeNotesCmd {
             return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
         }
 
-        let transaction_request = TransactionRequest::consume_notes(list_of_notes);
+        let transaction_request = TransactionRequestBuilder::consume_notes(list_of_notes).build();
 
         execute_transaction(&mut client, account_id, transaction_request, force).await
     }
