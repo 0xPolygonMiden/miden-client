@@ -179,16 +179,12 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
+    pub fn test_rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
         &mut self.rpc_api
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub async fn get_block_headers(
-        &self,
-        block_numbers: &[u32],
-    ) -> Result<alloc::vec::Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
-        let result = self.store.get_block_headers(block_numbers).await?;
-        Ok(result)
+    pub fn test_store(&mut self) -> &mut Arc<dyn Store> {
+        &mut self.store
     }
 }
