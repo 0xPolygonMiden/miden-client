@@ -38,7 +38,7 @@ impl<R: FeltRng> Client<R> {
         // If the note is already in the store and is in the state processing we return an error.
         if let Some(true) = previous_note.as_ref().map(|note| note.is_processing()) {
             return Err(ClientError::NoteImportError(format!(
-                "Note with id {} is already being processed",
+                "Can't overwrite note with id {} as it's currently being processed",
                 id
             )));
         }
