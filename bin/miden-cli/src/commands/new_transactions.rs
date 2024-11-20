@@ -53,6 +53,10 @@ pub struct MintCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl MintCmd {
@@ -72,8 +76,14 @@ impl MintCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, fungible_asset.faucet_id(), transaction_request, force)
-            .await
+        execute_transaction(
+            &mut client,
+            fungible_asset.faucet_id(),
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -103,6 +113,10 @@ pub struct SendCmd {
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
     #[clap(short, long)]
     recall_height: Option<u32>,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SendCmd {
@@ -132,7 +146,14 @@ impl SendCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -157,6 +178,10 @@ pub struct SwapCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SwapCmd {
@@ -187,7 +212,14 @@ impl SwapCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await?;
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await?;
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
@@ -219,6 +251,10 @@ pub struct ConsumeNotesCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(short, long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl ConsumeNotesCmd {
@@ -249,7 +285,14 @@ impl ConsumeNotesCmd {
 
         let transaction_request = TransactionRequest::consume_notes(list_of_notes);
 
-        execute_transaction(&mut client, account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -261,6 +304,7 @@ async fn execute_transaction(
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,
+    delegated_proving: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
     let transaction_execution_result =
@@ -288,18 +332,22 @@ async fn execute_transaction(
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    let (cli_config, _) = load_config_file()?;
-    match &cli_config.remote_prover_endpoint {
-        Some(proving_url) => {
-            let remote_prover = Arc::new(RemoteTransactionProver::new(&proving_url.to_string()));
-            client
-                .submit_transaction_with_prover(transaction_execution_result, remote_prover)
-                .await?;
-        },
-        None => client.submit_transaction(transaction_execution_result).await?,
-    };
+    if delegated_proving {
+        let (cli_config, _) = load_config_file()?;
+        let remote_prover_endpoint = cli_config
+            .remote_prover_endpoint
+            .as_ref()
+            .ok_or("Remote prover endpoint not found in config file")?;
+        let remote_prover =
+            Arc::new(RemoteTransactionProver::new(&remote_prover_endpoint.to_string()));
+        client
+            .submit_transaction_with_prover(transaction_execution_result, remote_prover)
+            .await?;
+    } else {
+        client.submit_transaction(transaction_execution_result).await?;
+    }
 
-    println!("Succesfully created transaction.");
+    println!("Successfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
 
     if output_notes.is_empty() {
