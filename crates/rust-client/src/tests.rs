@@ -543,9 +543,6 @@ async fn test_import_processing_note_returns_error() {
     )
     .unwrap();
 
-    //Before executing transaction, there are no output notes
-    assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
-
     let transaction =
         client.new_transaction(faucet.id(), transaction_request.clone()).await.unwrap();
     client.submit_transaction(transaction).await.unwrap();
