@@ -459,7 +459,9 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let (mut account, _seed) = self.get_account(account_id).await?;
+        let (account_record, _seed) = self.get_account(account_id).await?;
+
+        let mut account: Account = account_record.into();
 
         account.apply_delta(account_delta)?;
 
@@ -664,7 +666,8 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (account, _) = self.get_account(account_id).await?;
+        let account: Account = self.get_account(account_id).await?.0.into();
+
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
             Ok(())
@@ -678,7 +681,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account = self.get_account(account_id).await?.0;
+        let account: Account = self.get_account(account_id).await?.0.into();
         let account_auth = self.get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use

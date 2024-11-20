@@ -7,7 +7,7 @@ use std::{
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
+    accounts::{AccountId, AccountRecord, AccountStorageMode, AccountTemplate},
     config::RpcConfig,
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
@@ -417,7 +417,7 @@ async fn test_cli_export_import_account() {
             .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
             .await
             .unwrap(),
-        (Account { .. }, _)
+        (AccountRecord { .. }, _)
     ));
 }
 

@@ -175,9 +175,9 @@ async fn test_swap_fully_onchain() {
 
     // first reload the account
     let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
-    let account_a_assets = account_a.vault().assets();
+    let account_a_assets = account_a.account().vault().assets();
     assert_eq!(account_a_assets.count(), 2);
-    let mut account_a_assets = account_a.vault().assets();
+    let mut account_a_assets = account_a.account().vault().assets();
 
     let asset_1 = account_a_assets.next().unwrap();
     let asset_2 = account_a_assets.next().unwrap();
@@ -201,9 +201,9 @@ async fn test_swap_fully_onchain() {
     }
 
     let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
-    let account_b_assets = account_b.vault().assets();
+    let account_b_assets = account_b.account().vault().assets();
     assert_eq!(account_b_assets.count(), 2);
-    let mut account_b_assets = account_b.vault().assets();
+    let mut account_b_assets = account_b.account().vault().assets();
 
     let asset_1 = account_b_assets.next().unwrap();
     let asset_2 = account_b_assets.next().unwrap();
@@ -394,9 +394,9 @@ async fn test_swap_offchain() {
 
     // first reload the account
     let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
-    let account_a_assets = account_a.vault().assets();
+    let account_a_assets = account_a.account().vault().assets();
     assert_eq!(account_a_assets.count(), 2);
-    let mut account_a_assets = account_a.vault().assets();
+    let mut account_a_assets = account_a.account().vault().assets();
 
     let asset_1 = account_a_assets.next().unwrap();
     let asset_2 = account_a_assets.next().unwrap();
@@ -420,9 +420,9 @@ async fn test_swap_offchain() {
     }
 
     let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
-    let account_b_assets = account_b.vault().assets();
+    let account_b_assets = account_b.account().vault().assets();
     assert_eq!(account_b_assets.count(), 2);
-    let mut account_b_assets = account_b.vault().assets();
+    let mut account_b_assets = account_b.account().vault().assets();
 
     let asset_1 = account_b_assets.next().unwrap();
     let asset_2 = account_b_assets.next().unwrap();

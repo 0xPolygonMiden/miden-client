@@ -15,6 +15,7 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    transaction::TransactionId,
     Digest, Felt, Word,
 };
 
@@ -43,6 +44,43 @@ pub enum AccountTemplate {
         /// Specifies the type of storage used by the account.
         storage_mode: AccountStorageMode,
     },
+}
+
+// ACCOUNT RECORD
+// --------------------------------------------------------------------------------------------
+
+pub struct AccountRecord {
+    account: Account,
+    locked: bool,
+    update_transaction_id: Option<TransactionId>,
+}
+
+impl AccountRecord {
+    pub fn new(
+        account: Account,
+        locked: bool,
+        update_transaction_id: Option<TransactionId>,
+    ) -> Self {
+        Self { account, locked, update_transaction_id }
+    }
+
+    pub fn account(&self) -> &Account {
+        &self.account
+    }
+
+    pub fn locked(&self) -> bool {
+        self.locked
+    }
+
+    pub fn update_transaction_id(&self) -> Option<TransactionId> {
+        self.update_transaction_id
+    }
+}
+
+impl From<AccountRecord> for Account {
+    fn from(record: AccountRecord) -> Self {
+        record.account
+    }
 }
 
 impl<R: FeltRng> Client<R> {
@@ -213,7 +251,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), ClientError> {
+    ) -> Result<(AccountRecord, Option<Word>), ClientError> {
         self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 

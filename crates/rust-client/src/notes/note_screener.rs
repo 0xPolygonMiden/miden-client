@@ -2,7 +2,7 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 use core::fmt;
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     assets::Asset,
     notes::{Note, NoteId},
     AccountError, AssetError, Word,
@@ -158,7 +158,7 @@ impl NoteScreener {
         let mut accounts_with_relevance = Vec::new();
 
         for account_id in account_ids {
-            let (account, _) = self.store.get_account(*account_id).await?;
+            let account: Account = self.store.get_account(*account_id).await?.0.into();
 
             // Check that the account can cover the demanded asset
             match asset {

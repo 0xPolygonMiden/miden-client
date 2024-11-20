@@ -6,7 +6,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
@@ -59,7 +59,8 @@ impl DataStore for ClientDataStore {
         }
 
         // Construct Account
-        let (account, seed) = self.store.get_account(account_id).await?;
+        let (account_record, seed) = self.store.get_account(account_id).await?;
+        let account: Account = account_record.into();
 
         // Get header data
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;

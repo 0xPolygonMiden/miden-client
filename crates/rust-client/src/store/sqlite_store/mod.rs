@@ -20,6 +20,7 @@ use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
+    accounts::AccountRecord,
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionStoreUpdate},
@@ -285,7 +286,7 @@ impl Store for SqliteStore {
     async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    ) -> Result<(AccountRecord, Option<Word>), StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
             .await
     }

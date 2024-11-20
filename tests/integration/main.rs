@@ -141,7 +141,7 @@ async fn test_multiple_tx_on_same_block() {
 
     let (sender_account, _) = client.get_account(from_account_id).await.unwrap();
     assert_eq!(
-        sender_account.vault().get_balance(faucet_account_id).unwrap(),
+        sender_account.account().vault().get_balance(faucet_account_id).unwrap(),
         MINT_AMOUNT - (TRANSFER_AMOUNT * 2)
     );
 }
@@ -211,9 +211,9 @@ async fn test_p2id_transfer() {
     let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
 
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.is_new() && seed.is_none());
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
+    assert!(!regular_account.account().is_new() && seed.is_none());
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
 
     // Validate the transfered amounts
     if let Asset::Fungible(fungible_asset) = asset {
@@ -223,8 +223,8 @@ async fn test_p2id_transfer() {
     }
 
     let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
@@ -320,6 +320,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
         .await
         .unwrap()
         .0
+        .account()
         .vault()
         .get_balance(faucet_account_id)
         .unwrap_or(0);
@@ -328,6 +329,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
         .await
         .unwrap()
         .0
+        .account()
         .vault()
         .get_balance(faucet_account_id)
         .unwrap_or(0);
@@ -355,9 +357,9 @@ async fn test_p2idr_transfer_consumed_by_target() {
     execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
     let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.is_new() && seed.is_none());
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
+    assert!(!regular_account.account().is_new() && seed.is_none());
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
 
     // Validate the transfered amounts
     if let Asset::Fungible(fungible_asset) = asset {
@@ -367,8 +369,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
     }
 
     let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), to_account_balance + TRANSFER_AMOUNT);
@@ -403,6 +405,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         .await
         .unwrap()
         .0
+        .account()
         .vault()
         .get_balance(faucet_account_id)
         .unwrap_or(0);
@@ -451,9 +454,9 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
     let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.is_new() && seed.is_none());
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
+    assert!(!regular_account.account().is_new() && seed.is_none());
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
 
     // Validate the sender hasn't lost funds
     if let Asset::Fungible(fungible_asset) = asset {
@@ -463,7 +466,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     }
 
     let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
+    assert_eq!(regular_account.account().vault().assets().count(), 0);
 
     // Check that the target can't consume the note anymore
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;

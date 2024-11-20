@@ -16,6 +16,7 @@ use miden_objects::{
 };
 
 use crate::{
+    accounts::AccountRecord,
     sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -243,7 +244,7 @@ pub trait Store: Send + Sync {
     async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError>;
+    ) -> Result<(AccountRecord, Option<Word>), StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
     /// This is mainly used for authentication in transactions.

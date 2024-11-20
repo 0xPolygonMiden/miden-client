@@ -76,7 +76,7 @@ async fn export_account<R: FeltRng>(
 
     let auth = client.get_account_auth(account_id).await?;
 
-    let account_data = AccountData::new(account, account_seed, auth);
+    let account_data = AccountData::new(account.into(), account_seed, auth);
 
     let file_path = if let Some(filename) = filename {
         filename
