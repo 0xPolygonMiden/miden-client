@@ -35,6 +35,18 @@ impl<R: FeltRng> Client<R> {
 
         let previous_note = self.get_input_note(id).await.ok();
 
+        // If the note is already in the store and is in the state processing we return an error.
+        if let Some(
+            InputNoteState::ProcessingAuthenticated(_)
+            | InputNoteState::ProcessingUnauthenticated(_),
+        ) = previous_note.as_ref().map(|note| note.state())
+        {
+            return Err(ClientError::NoteImportError(format!(
+                "Note with id {} is already being processed",
+                id
+            )));
+        }
+
         let note = match note_file {
             NoteFile::NoteId(id) => self.import_note_record_by_id(previous_note, id).await?,
             NoteFile::NoteDetails { details, after_block_num, tag } => {
