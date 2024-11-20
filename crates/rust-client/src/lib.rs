@@ -115,7 +115,7 @@ pub struct Client<R: FeltRng> {
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
-    /// An instance of [TransactionProver] which delegates proving.
+    /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
     tx_prover: Arc<LocalTransactionProver>,
     tx_executor: TransactionExecutor,
 }

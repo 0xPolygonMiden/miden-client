@@ -293,7 +293,7 @@ async fn execute_transaction(
         Some(proving_url) => {
             let remote_prover = Arc::new(RemoteTransactionProver::new(&proving_url.to_string()));
             client
-                .submit_transaction_with_prover(remote_prover, transaction_execution_result)
+                .submit_transaction_with_prover(transaction_execution_result, remote_prover)
                 .await?;
         },
         None => client.submit_transaction(transaction_execution_result).await?,

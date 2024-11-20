@@ -50,8 +50,8 @@ impl WebClient {
                 Some(ref remote_prover) => {
                     client
                         .submit_transaction_with_prover(
-                            remote_prover.clone(),
                             native_transaction_result,
+                            remote_prover.clone(),
                         )
                         .await
                         .map_err(|err| {

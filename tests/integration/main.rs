@@ -1338,8 +1338,8 @@ async fn test_custom_transaction_prover() {
 
     let result = client
         .submit_transaction_with_prover(
-            Arc::new(AlwaysFailingProver::new()),
             transaction_execution_result,
+            Arc::new(AlwaysFailingProver::new()),
         )
         .await;
 
