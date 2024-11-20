@@ -250,7 +250,7 @@ pub(super) fn insert_account_auth(
 
 pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Result<(), StoreError> {
     const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = ?";
-    tx.execute(QUERY, params![u64::from(account_id)])?;
+    tx.execute(QUERY, params![u64::from(account_id) as i64])?;
     Ok(())
 }
 

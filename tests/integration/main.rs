@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{AccountData, AccountTemplate},
+    assets::TokenSymbol,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
@@ -1368,4 +1369,62 @@ async fn test_custom_transaction_prover() {
         result,
         Err(ClientError::TransactionProvingError(TransactionProverError::InternalError(_)))
     ));
+}
+
+#[tokio::test]
+async fn test_locked_account() {
+    let mut client_1 = create_test_client().await;
+
+    let (faucet_account, _) = client_1
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .await
+        .unwrap();
+
+    let (private_account, seed) = client_1
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .await
+        .unwrap();
+    let auth = client_1.get_account_auth(private_account.id()).await.unwrap();
+
+    let from_account_id = private_account.id();
+    let faucet_account_id = faucet_account.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let private_account = client_1.get_account(from_account_id).await.unwrap().0.into();
+
+    // Import private account in client 2
+    let mut client_2 = create_test_client().await;
+    client_2
+        .import_account(AccountData::new(private_account, seed.into(), auth))
+        .await
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    // When imported the account shouldn't be locked
+    let (account_record, _) = client_2.get_account(from_account_id).await.unwrap();
+    assert!(!account_record.locked());
+
+    // Consume note with private account in client 1
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    // After sync the private account should be locked in client 2
+    client_2.sync_state().await.unwrap();
+    let (account_record, _) = client_2.get_account(from_account_id).await.unwrap();
+    assert!(account_record.locked());
 }

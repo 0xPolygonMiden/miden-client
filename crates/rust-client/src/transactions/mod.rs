@@ -461,8 +461,11 @@ impl<R: FeltRng> Client<R> {
         let account_delta = tx_result.account_delta();
         let (account_record, _seed) = self.get_account(account_id).await?;
 
-        let mut account: Account = account_record.into();
+        if account_record.locked() {
+            return Err(ClientError::AccountLocked(account_id));
+        }
 
+        let mut account: Account = account_record.into();
         account.apply_delta(account_delta)?;
 
         if self.store.get_account_header_by_hash(account.hash()).await?.is_some() {
