@@ -6,15 +6,12 @@ use std::{
 };
 
 use assert_cmd::Command;
-use config::RpcConfig;
+use config::{RpcConfig, SqliteStoreConfig};
 use miden_client::{
     accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        NoteFilter, StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
     Client, Felt,
 };
@@ -548,7 +545,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let rpc_config = RpcConfig::default();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
+        let sqlite_store = SqliteStore::new(store_config.database_filepath).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 

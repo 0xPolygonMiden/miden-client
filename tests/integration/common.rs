@@ -1,14 +1,11 @@
-use std::{env::temp_dir, sync::Arc, time::Duration};
+use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
     accounts::AccountTemplate,
     crypto::FeltRng,
     notes::create_p2id_note,
     rpc::{RpcError, TonicRpcClient},
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        NoteFilter, StoreAuthenticator, TransactionFilter,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
     transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
     Client, ClientError,
@@ -46,7 +43,7 @@ pub async fn create_test_client() -> TestClient {
     let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
+        let sqlite_store = SqliteStore::new(store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
@@ -65,7 +62,7 @@ pub async fn create_test_client() -> TestClient {
     )
 }
 
-pub fn get_client_config() -> (String, u64, SqliteStoreConfig) {
+pub fn get_client_config() -> (String, u64, PathBuf) {
     let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
         .parse::<Table>()
@@ -80,14 +77,7 @@ pub fn get_client_config() -> (String, u64, SqliteStoreConfig) {
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
-    let store_config = create_test_store_path()
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .try_into()
-        .unwrap();
-
-    (endpoint, timeout_ms, store_config)
+    (endpoint, timeout_ms, create_test_store_path())
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

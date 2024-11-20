@@ -34,7 +34,9 @@ async fn print_client_stats(client: &Client<impl FeltRng>) -> Result<(), String>
 
 fn print_config_stats(config: &CliConfig) -> Result<(), String> {
     println!("Node address: {}", config.rpc.endpoint.host);
-    let store_len = fs::metadata(config.store.clone()).map_err(|e| e.to_string())?.len();
+    let store_len = fs::metadata(config.store.database_filepath.clone())
+        .map_err(|e| e.to_string())?
+        .len();
     println!("Store size: {} kB", store_len / 1024);
     println!(
         "Default account: {}",

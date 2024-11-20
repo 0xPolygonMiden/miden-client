@@ -99,7 +99,7 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store.clone().try_into()?)
+        let store = SqliteStore::new(cli_config.store.database_filepath.clone())
             .await
             .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
