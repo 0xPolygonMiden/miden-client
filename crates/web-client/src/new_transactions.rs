@@ -2,7 +2,7 @@ use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
         PaymentTransactionData, SwapTransactionData,
-        TransactionRequest as NativeTransactionRequest,
+        TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
 };
@@ -74,7 +74,8 @@ impl WebClient {
             )
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {}", err))
-            })?;
+            })?
+            .build();
 
             let mint_transaction_execution_result = client
                 .new_transaction(faucet_id.into(), mint_transaction_request)
@@ -131,6 +132,7 @@ impl WebClient {
                         err
                     ))
                 })?
+                .build()
             } else {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
@@ -144,6 +146,7 @@ impl WebClient {
                         err
                     ))
                 })?
+                .build()
             };
 
             let send_transaction_execution_result = client
@@ -184,7 +187,7 @@ impl WebClient {
             }
 
             let consume_transaction_request =
-                NativeTransactionRequestBuilder::consume_notes(result);
+                NativeTransactionRequestBuilder::consume_notes(result).build();
 
             let consume_transaction_execution_result = client
                 .new_transaction(account_id.into(), consume_transaction_request)
@@ -246,7 +249,8 @@ impl WebClient {
                 note_type.into(),
                 client.rng(),
             )
-            .unwrap();
+            .unwrap()
+            .build();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())
                 .await

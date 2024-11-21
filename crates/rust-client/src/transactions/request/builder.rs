@@ -195,7 +195,7 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Extends the advice map with the specified ([Word], Vec<[Felt]>) pairs.
+    /// Extends the advice map with the specified ([Digest], Vec<[Felt]>) pairs.
     pub fn extend_advice_map<T: IntoIterator<Item = (Digest, Vec<Felt>)>>(
         mut self,
         iter: T,

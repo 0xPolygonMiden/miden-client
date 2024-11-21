@@ -97,13 +97,7 @@ impl TransactionRequest {
 
     /// Returns an iterator over authenticated input note IDs for the transaction request.
     pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
-        let unauthenticated_note_ids: BTreeSet<NoteId> =
-            BTreeSet::from_iter(self.unauthenticated_input_note_ids());
-
-        self.input_notes
-            .iter()
-            .map(|(note_id, _)| *note_id)
-            .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
+        self.input_notes.keys().copied()
     }
 
     /// Returns a mapping for input note IDs and their optional [NoteArgs].
