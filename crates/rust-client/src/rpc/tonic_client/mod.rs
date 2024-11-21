@@ -50,7 +50,8 @@ pub struct TonicRpcClient {
 }
 
 impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
+    /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with the
+    /// given timeout in milliseconds
     pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
