@@ -11,11 +11,38 @@ use core::fmt;
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Endpoint {
     /// The protocol used to connect to the endpoint (e.g., "http", "https").
-    pub protocol: String,
+    protocol: String,
     /// The hostname or IP address of the endpoint.
-    pub host: String,
+    host: String,
     /// The port number of the endpoint.
-    pub port: u16,
+    port: u16,
+}
+
+impl Endpoint {
+    /// Creates a new `Endpoint` with the specified protocol, host, and port.
+    ///
+    /// # Arguments
+    ///
+    /// * `protocol` - The protocol to use for the connection (e.g., "http", "https").
+    /// * `host` - The hostname or IP address of the endpoint.
+    /// * `port` - The port number to connect to.
+    pub const fn new(protocol: String, host: String, port: u16) -> Self {
+        Self { protocol, host, port }
+    }
+}
+
+impl Endpoint {
+    pub fn protocol(&self) -> &str {
+        &self.protocol
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
 }
 
 impl fmt::Display for Endpoint {
