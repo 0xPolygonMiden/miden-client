@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use clap::Parser;
 
 use crate::{
-    config::{CliConfig, CliEndpoint, SqliteStoreConfig},
+    config::{CliConfig, CliEndpoint},
     CLIENT_CONFIG_FILE_NAME,
 };
 
@@ -51,7 +51,7 @@ impl InitCmd {
         }
 
         if let Some(path) = &self.store_path {
-            cli_config.store = SqliteStoreConfig { database_filepath: PathBuf::from(path) };
+            cli_config.store_filepath = PathBuf::from(path);
         }
 
         cli_config.remote_prover_endpoint = match &self.remote_prover_endpoint {

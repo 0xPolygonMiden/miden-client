@@ -20,8 +20,8 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint
     pub rpc: RpcConfig,
-    /// Describes settings related to the store.
-    pub store: SqliteStoreConfig,
+    /// Path to the sqlite store file.
+    pub store_filepath: PathBuf,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
@@ -48,9 +48,14 @@ impl Provider for CliConfig {
 
 impl Default for CliConfig {
     fn default() -> Self {
+        const STORE_FILENAME: &str = "store.sqlite3";
+
+        // Get current directory
+        let exec_dir = PathBuf::new();
+
         Self {
             rpc: RpcConfig::default(),
-            store: SqliteStoreConfig::default(),
+            store_filepath: exec_dir.join(STORE_FILENAME),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
@@ -76,43 +81,6 @@ impl Default for RpcConfig {
             endpoint: Endpoint::default().into(),
             timeout_ms: 10000,
         }
-    }
-}
-
-// STORE CONFIG
-// ================================================================================================
-
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub struct SqliteStoreConfig {
-    pub database_filepath: PathBuf,
-}
-
-impl TryFrom<&str> for SqliteStoreConfig {
-    type Error = String;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        SqliteStoreConfig::try_from(value.to_string())
-    }
-}
-
-// TODO: Implement error checking for invalid paths, or make it based on Path types
-impl TryFrom<String> for SqliteStoreConfig {
-    type Error = String;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self { database_filepath: PathBuf::from(value) })
-    }
-}
-
-impl Default for SqliteStoreConfig {
-    fn default() -> Self {
-        const STORE_FILENAME: &str = "store.sqlite3";
-
-        // Get current directory
-        let exec_dir = PathBuf::new();
-
-        // Append filepath
-        let database_filepath = exec_dir.join(STORE_FILENAME);
-
-        Self { database_filepath }
     }
 }
 

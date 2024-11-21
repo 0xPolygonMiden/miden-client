@@ -2,11 +2,12 @@ use std::{
     env::{self, temp_dir},
     fs::File,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use assert_cmd::Command;
-use config::{RpcConfig, SqliteStoreConfig};
+use config::RpcConfig;
 use miden_client::{
     accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
     crypto::RpoRandomCoin,
@@ -541,11 +542,10 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub type TestClient = Client<RpoRandomCoin>;
 
 async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
-    let store_config = SqliteStoreConfig::try_from(store_path.to_str().unwrap()).unwrap();
     let rpc_config = RpcConfig::default();
 
     let store = {
-        let sqlite_store = SqliteStore::new(store_config.database_filepath).await.unwrap();
+        let sqlite_store = SqliteStore::new(PathBuf::from(store_path)).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
