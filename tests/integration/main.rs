@@ -1397,6 +1397,8 @@ async fn test_locked_account() {
     let from_account_id = private_account.id();
     let faucet_account_id = faucet_account.id();
 
+    wait_for_node(&mut client_1).await;
+
     let note =
         mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
 

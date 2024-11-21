@@ -101,7 +101,7 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<AccountRecord, StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked, accounts.update_transaction_id \
+        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked \
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
                             JOIN account_storage ON accounts.storage_root = account_storage.root \

@@ -41,8 +41,7 @@ CREATE TABLE accounts (
     PRIMARY KEY (account_hash),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
-    FOREIGN KEY (vault_root) REFERENCES account_vaults(root),
-    FOREIGN KEY (update_transaction_id) REFERENCES transactions(id)
+    FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 
     CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
