@@ -301,7 +301,7 @@ impl Store for SqliteStore {
         code: AccountCode,
     ) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::update_foreign_account_code(conn, account_id, code)
+            SqliteStore::upsert_foreign_account_code(conn, account_id, code)
         })
         .await
     }

@@ -199,7 +199,7 @@ impl Store for WebStore {
         account_id: AccountId,
         code: AccountCode,
     ) -> Result<(), StoreError> {
-        self.update_foreign_account_code(account_id, code).await
+        self.upsert_foreign_account_code(account_id, code).await
     }
 
     async fn get_foreign_account_code(

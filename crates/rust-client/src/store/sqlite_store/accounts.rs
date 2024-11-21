@@ -167,7 +167,7 @@ impl SqliteStore {
             .ok_or(StoreError::AccountKeyNotFound(pub_key))?
     }
 
-    pub fn update_foreign_account_code(
+    pub fn upsert_foreign_account_code(
         conn: &mut Connection,
         account_id: AccountId,
         code: AccountCode,
@@ -176,7 +176,7 @@ impl SqliteStore {
         let account_id: u64 = account_id.into();
 
         const QUERY: &str =
-            "INSERT INTO foreign_account_code (account_id, code_root) VALUES (?, ?)";
+            "INSERT OR REPLACE INTO foreign_account_code (account_id, code_root) VALUES (?, ?)";
         tx.execute(QUERY, params![account_id, code.commitment().to_string()])?;
 
         insert_account_code(&tx, &code)?;

@@ -269,7 +269,7 @@ impl WebStore {
         Ok(auth_info)
     }
 
-    pub(crate) async fn update_foreign_account_code(
+    pub(crate) async fn upsert_foreign_account_code(
         &self,
         account_id: AccountId,
         code: AccountCode,
@@ -278,7 +278,7 @@ impl WebStore {
         let code = code.to_bytes();
         let account_id = account_id.to_string();
 
-        let promise = idxdb_update_foreign_account_code(account_id, code, root);
+        let promise = idxdb_upsert_foreign_account_code(account_id, code, root);
         let _ = JsFuture::from(promise).await;
 
         Ok(())
