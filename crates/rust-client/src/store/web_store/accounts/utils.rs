@@ -90,7 +90,7 @@ pub async fn insert_account_record(
 
 pub fn parse_account_record_idxdb_object(
     account_header_idxdb: AccountRecordIdxdbOjbect,
-) -> Result<(AccountHeader, Option<Word>), StoreError> {
+) -> Result<(AccountHeader, Option<Word>, bool), StoreError> {
     let native_account_id: AccountId = AccountId::from_hex(&account_header_idxdb.id).unwrap();
     let native_nonce: u64 = account_header_idxdb
         .nonce
@@ -109,5 +109,5 @@ pub fn parse_account_record_idxdb_object(
         Digest::try_from(&account_header_idxdb.code_root)?,
     );
 
-    Ok((account_header, account_seed))
+    Ok((account_header, account_seed, account_header_idxdb.locked))
 }

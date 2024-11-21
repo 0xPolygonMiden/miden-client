@@ -13,7 +13,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::store::StoreError;
+use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 mod js_bindings;
 use js_bindings::*;
@@ -56,7 +56,10 @@ impl WebStore {
 
         let account_headers: Vec<(AccountHeader, Option<Word>)> = account_headers_idxdb
             .into_iter()
-            .map(parse_account_record_idxdb_object)
+            .map(|idxdb_object| {
+                let (account, seed, _) = parse_account_record_idxdb_object(idxdb_object)?;
+                Ok((account, seed))
+            })
             .collect::<Result<Vec<_>, StoreError>>()?;
 
         Ok(account_headers)
@@ -65,7 +68,7 @@ impl WebStore {
     pub(crate) async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, Option<Word>, bool), StoreError> {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_header(account_id_str);
 
@@ -100,7 +103,7 @@ impl WebStore {
             .map_or(Ok(None), |account_record| {
                 let result = parse_account_record_idxdb_object(account_record);
 
-                result.map(|(account_header, _account_seed)| Some(account_header))
+                result.map(|(account_header, _account_seed, _locked)| Some(account_header))
             });
 
         account_header
@@ -109,8 +112,8 @@ impl WebStore {
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_header, seed) = self.get_account_header(account_id).await?;
+    ) -> Result<AccountRecord, StoreError> {
+        let (account_header, seed, locked) = self.get_account_header(account_id).await?;
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
@@ -126,7 +129,13 @@ impl WebStore {
             account_header.nonce(),
         );
 
-        Ok((account, seed))
+        let status = match (seed, locked) {
+            (_, true) => AccountStatus::Locked,
+            (Some(seed), _) => AccountStatus::New { seed },
+            _ => AccountStatus::Tracked,
+        };
+
+        Ok(AccountRecord::new(account, status))
     }
 
     pub(super) async fn get_account_code(&self, root: Digest) -> Result<AccountCode, StoreError> {
@@ -267,4 +276,12 @@ impl WebStore {
 
         Ok(auth_info)
     }
+}
+
+pub async fn lock_account(account_id: &AccountId) -> Result<(), ()> {
+    let account_id_str = account_id.to_string();
+    let promise = idxdb_lock_account(account_id_str);
+    let _ = JsFuture::from(promise).await;
+
+    Ok(())
 }

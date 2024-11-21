@@ -72,4 +72,10 @@ extern "C" {
         auth_info: Vec<u8>,
         pub_key: Vec<u8>,
     ) -> js_sys::Promise;
+
+    // UPDATES
+    // ================================================================================================
+
+    #[wasm_bindgen(js_name = lockAccount)]
+    pub fn idxdb_lock_account(account_id: String) -> js_sys::Promise;
 }
