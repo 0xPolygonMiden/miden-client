@@ -17,10 +17,10 @@ use tonic::async_trait;
 
 use self::config::SqliteStoreConfig;
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
+    AccountRecord, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
+    TransactionFilter,
 };
 use crate::{
-    accounts::AccountRecord,
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionStoreUpdate},
@@ -283,10 +283,7 @@ impl Store for SqliteStore {
         .await
     }
 
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountRecord, Option<Word>), StoreError> {
+    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
             .await
     }

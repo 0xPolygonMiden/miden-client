@@ -15,12 +15,11 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    transaction::TransactionId,
     Digest, Felt, Word,
 };
 
 use super::Client;
-use crate::ClientError;
+use crate::{store::AccountRecord, ClientError};
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
@@ -44,43 +43,6 @@ pub enum AccountTemplate {
         /// Specifies the type of storage used by the account.
         storage_mode: AccountStorageMode,
     },
-}
-
-// ACCOUNT RECORD
-// --------------------------------------------------------------------------------------------
-
-pub struct AccountRecord {
-    account: Account,
-    locked: bool,
-    update_transaction_id: Option<TransactionId>,
-}
-
-impl AccountRecord {
-    pub fn new(
-        account: Account,
-        locked: bool,
-        update_transaction_id: Option<TransactionId>,
-    ) -> Self {
-        Self { account, locked, update_transaction_id }
-    }
-
-    pub fn account(&self) -> &Account {
-        &self.account
-    }
-
-    pub fn locked(&self) -> bool {
-        self.locked
-    }
-
-    pub fn update_transaction_id(&self) -> Option<TransactionId> {
-        self.update_transaction_id
-    }
-}
-
-impl From<AccountRecord> for Account {
-    fn from(record: AccountRecord) -> Self {
-        record.account
-    }
 }
 
 impl<R: FeltRng> Client<R> {
@@ -238,20 +200,13 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
-    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
-    /// otherwise it will be `None`.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
+    /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
+    /// its status.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    pub async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountRecord, Option<Word>), ClientError> {
+    pub async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, ClientError> {
         self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 

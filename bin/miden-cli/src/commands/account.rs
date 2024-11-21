@@ -110,7 +110,7 @@ pub async fn show_account<R: FeltRng>(
     client: Client<R>,
     account_id: AccountId,
 ) -> Result<(), String> {
-    let account: Account = client.get_account(account_id).await?.0.into();
+    let account: Account = client.get_account(account_id).await?.into();
 
     let mut table = create_dynamic_table(&[
         "Account ID",

@@ -204,7 +204,6 @@ async fn test_onchain_accounts() {
         .get_account(from_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -213,7 +212,6 @@ async fn test_onchain_accounts() {
         .get_account(to_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -256,7 +254,6 @@ async fn test_onchain_accounts() {
         .get_account(from_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -265,7 +262,6 @@ async fn test_onchain_accounts() {
         .get_account(to_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)

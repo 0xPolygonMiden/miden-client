@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    accounts::{AccountData, AccountTemplate},
+    accounts::{Account, AccountData, AccountTemplate},
     assets::TokenSymbol,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
@@ -140,7 +140,7 @@ async fn test_multiple_tx_on_same_block() {
     let note = client.get_output_note(note_id).await.unwrap();
     assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
-    let (sender_account, _) = client.get_account(from_account_id).await.unwrap();
+    let sender_account = client.get_account(from_account_id).await.unwrap();
     assert_eq!(
         sender_account.account().vault().get_balance(faucet_account_id).unwrap(),
         MINT_AMOUNT - (TRANSFER_AMOUNT * 2)
@@ -209,12 +209,14 @@ async fn test_p2id_transfer() {
     let current_notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
     assert!(current_notes.is_empty());
 
-    let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
+    let regular_account = client.get_account(from_account_id).await.unwrap();
+    let seed = regular_account.seed().cloned();
+    let regular_account: Account = regular_account.into();
 
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.account().is_new() && seed.is_none());
-    assert_eq!(regular_account.account().vault().assets().count(), 1);
-    let asset = regular_account.account().vault().assets().next().unwrap();
+    assert!(!regular_account.is_new() && seed.is_none());
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
 
     // Validate the transfered amounts
     if let Asset::Fungible(fungible_asset) = asset {
@@ -223,9 +225,9 @@ async fn test_p2id_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.account().vault().assets().count(), 1);
-    let asset = regular_account.account().vault().assets().next().unwrap();
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
@@ -320,7 +322,6 @@ async fn test_p2idr_transfer_consumed_by_target() {
         .get_account(from_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -329,7 +330,6 @@ async fn test_p2idr_transfer_consumed_by_target() {
         .get_account(to_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -356,9 +356,10 @@ async fn test_p2idr_transfer_consumed_by_target() {
     println!("Consuming Note...");
     let tx_request = TransactionRequest::consume_notes(vec![note_id]);
     execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
-    let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
+    let regular_account = client.get_account(from_account_id).await.unwrap();
+
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.account().is_new() && seed.is_none());
+    assert!(!regular_account.account().is_new() && regular_account.seed().is_none());
     assert_eq!(regular_account.account().vault().assets().count(), 1);
     let asset = regular_account.account().vault().assets().next().unwrap();
 
@@ -369,9 +370,9 @@ async fn test_p2idr_transfer_consumed_by_target() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.account().vault().assets().count(), 1);
-    let asset = regular_account.account().vault().assets().next().unwrap();
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), to_account_balance + TRANSFER_AMOUNT);
@@ -405,7 +406,6 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         .get_account(from_account_id)
         .await
         .unwrap()
-        .0
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -453,9 +453,9 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let tx_request = TransactionRequest::consume_notes(vec![notes[0].id()]);
     execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
 
-    let (regular_account, seed) = client.get_account(from_account_id).await.unwrap();
+    let regular_account = client.get_account(from_account_id).await.unwrap();
     // The seed should not be retrieved due to the account not being new
-    assert!(!regular_account.account().is_new() && seed.is_none());
+    assert!(!regular_account.account().is_new() && regular_account.seed().is_none());
     assert_eq!(regular_account.account().vault().assets().count(), 1);
     let asset = regular_account.account().vault().assets().next().unwrap();
 
@@ -466,8 +466,8 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    let (regular_account, _seed) = client.get_account(to_account_id).await.unwrap();
-    assert_eq!(regular_account.account().vault().assets().count(), 0);
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Check that the target can't consume the note anymore
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
@@ -1402,7 +1402,7 @@ async fn test_locked_account() {
 
     consume_notes(&mut client_1, from_account_id, &[note]).await;
 
-    let private_account = client_1.get_account(from_account_id).await.unwrap().0.into();
+    let private_account = client_1.get_account(from_account_id).await.unwrap().into();
 
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
@@ -1414,7 +1414,7 @@ async fn test_locked_account() {
     wait_for_node(&mut client_2).await;
 
     // When imported the account shouldn't be locked
-    let (account_record, _) = client_2.get_account(from_account_id).await.unwrap();
+    let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(!account_record.locked());
 
     // Consume note with private account in client 1
@@ -1425,6 +1425,6 @@ async fn test_locked_account() {
 
     // After sync the private account should be locked in client 2
     client_2.sync_state().await.unwrap();
-    let (account_record, _) = client_2.get_account(from_account_id).await.unwrap();
+    let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(account_record.locked());
 }

@@ -111,13 +111,16 @@ async fn insert_basic_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account_seed = fetched_account.seed().cloned();
+    let fetched_account: Account = fetched_account.into();
+
     // Validate header has matching data
-    assert_eq!(account.id(), fetched_account.account().id());
-    assert_eq!(account.nonce(), fetched_account.account().nonce());
-    assert_eq!(account.vault(), fetched_account.account().vault());
-    assert_eq!(account.storage().commitment(), fetched_account.account().storage().commitment());
-    assert_eq!(account.code().commitment(), fetched_account.account().code().commitment());
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault(), fetched_account.vault());
+    assert_eq!(account.storage().commitment(), fetched_account.storage().commitment());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
@@ -145,13 +148,16 @@ async fn insert_faucet_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account_seed = fetched_account.seed().cloned();
+    let fetched_account: Account = fetched_account.into();
+
     // Validate header has matching data
-    assert_eq!(account.id(), fetched_account.account().id());
-    assert_eq!(account.nonce(), fetched_account.account().nonce());
-    assert_eq!(account.vault(), fetched_account.account().vault());
-    assert_eq!(account.storage(), fetched_account.account().storage());
-    assert_eq!(account.code().commitment(), fetched_account.account().code().commitment());
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault(), fetched_account.vault());
+    assert_eq!(account.storage(), fetched_account.storage());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
@@ -208,7 +214,7 @@ async fn test_account_code() {
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .await
         .unwrap();
-    let (retrieved_acc, _) = client.get_account(account.id()).await.unwrap();
+    let retrieved_acc = client.get_account(account.id()).await.unwrap();
     assert_eq!(*account.code(), *retrieved_acc.account().code());
 }
 

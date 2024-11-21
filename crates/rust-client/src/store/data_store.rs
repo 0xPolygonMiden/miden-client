@@ -59,7 +59,8 @@ impl DataStore for ClientDataStore {
         }
 
         // Construct Account
-        let (account_record, seed) = self.store.get_account(account_id).await?;
+        let account_record = self.store.get_account(account_id).await?;
+        let seed = account_record.seed().cloned();
         let account: Account = account_record.into();
 
         // Get header data

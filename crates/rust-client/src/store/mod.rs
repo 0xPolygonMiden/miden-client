@@ -16,7 +16,6 @@ use miden_objects::{
 };
 
 use crate::{
-    accounts::AccountRecord,
     sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -43,6 +42,8 @@ pub mod sqlite_store;
 #[cfg(feature = "idxdb")]
 pub mod web_store;
 
+mod account_record;
+pub use account_record::{AccountRecord, AccountStatus};
 mod note_record;
 pub use note_record::{
     input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
@@ -231,20 +232,13 @@ pub trait Store: Send + Sync {
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError>;
 
-    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
-    /// otherwise it will be `None`.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
+    /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
+    /// its status.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountRecord, Option<Word>), StoreError>;
+    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
     /// This is mainly used for authentication in transactions.

@@ -291,10 +291,10 @@ pub async fn assert_account_has_single_asset(
     asset_account_id: AccountId,
     expected_amount: u64,
 ) {
-    let (regular_account, _seed) = client.get_account(account_id).await.unwrap();
+    let regular_account: Account = client.get_account(account_id).await.unwrap().into();
 
-    assert_eq!(regular_account.account().vault().assets().count(), 1);
-    let asset = regular_account.account().vault().assets().next().unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.faucet_id(), asset_account_id);

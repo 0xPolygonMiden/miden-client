@@ -38,7 +38,6 @@ CREATE TABLE accounts (
     committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
     account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
     locked BOOLEAN NOT NULL,       -- True if the account is locked, false if not.
-    update_transaction_id TEXT NULL, -- ID of the transaction that created this account state.
     PRIMARY KEY (account_hash),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),

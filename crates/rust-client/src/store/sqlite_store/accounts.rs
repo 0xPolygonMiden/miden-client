@@ -6,14 +6,13 @@ use alloc::{
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
     assets::{Asset, AssetVault},
-    transaction::TransactionId,
     Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
-use crate::{accounts::AccountRecord, store::StoreError};
+use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
 // ================================================================================================
@@ -29,8 +28,7 @@ type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts =
-    (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool, Option<String>);
+type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -101,7 +99,7 @@ impl SqliteStore {
     pub(crate) fn get_account(
         conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<(AccountRecord, Option<Word>), StoreError> {
+    ) -> Result<AccountRecord, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked, accounts.update_transaction_id \
                             FROM accounts \
@@ -112,15 +110,11 @@ impl SqliteStore {
                             ORDER BY accounts.nonce DESC \
                             LIMIT 1";
 
-        let result = conn
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
             .next()
-            .ok_or(StoreError::AccountDataNotFound(account_id))?;
-        let (account, account_seed) = result?;
-
-        Ok((account, account_seed))
+            .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
     /// Retrieve account keys data by Account Id
@@ -291,9 +285,8 @@ pub(super) fn parse_accounts(
 /// Parse an account from the provided parts.
 pub(super) fn parse_account(
     serialized_account_parts: SerializedFullAccountParts,
-) -> Result<(AccountRecord, Option<Word>), StoreError> {
-    let (id, nonce, account_seed, code, storage, assets, locked, transaction_id) =
-        serialized_account_parts;
+) -> Result<AccountRecord, StoreError> {
+    let (id, nonce, account_seed, code, storage, assets, locked) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
     let account_id: AccountId = (id as u64)
         .try_into()
@@ -309,12 +302,13 @@ pub(super) fn parse_account(
         Felt::new(nonce as u64),
     );
 
-    let transaction_id = match transaction_id {
-        Some(id) => Some(TransactionId::from(Digest::try_from(&id)?)),
-        None => None,
+    let status = match (account_seed, locked) {
+        (_, true) => AccountStatus::Locked,
+        (Some(seed), _) => AccountStatus::New { seed },
+        _ => AccountStatus::Tracked,
     };
 
-    Ok((AccountRecord::new(account, locked, transaction_id), account_seed))
+    Ok(AccountRecord::new(account, status))
 }
 
 /// Serialized the provided account into database compatible types.
@@ -404,8 +398,8 @@ pub(super) fn parse_account_columns(
     let storage: Vec<u8> = row.get(4)?;
     let assets: Vec<u8> = row.get(5)?;
     let locked: bool = row.get(6)?;
-    let transaction_id: Option<String> = row.get(7)?;
-    Ok((id, nonce, account_seed, code, storage, assets, locked, transaction_id))
+
+    Ok((id, nonce, account_seed, code, storage, assets, locked))
 }
 
 #[cfg(test)]

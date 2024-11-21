@@ -1,5 +1,5 @@
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{Account, AccountTemplate},
     notes::Note,
     transactions::{SwapTransactionData, TransactionRequest},
 };
@@ -174,10 +174,10 @@ async fn test_swap_fully_onchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
-    let account_a_assets = account_a.account().vault().assets();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
-    let mut account_a_assets = account_a.account().vault().assets();
+    let mut account_a_assets = account_a.vault().assets();
 
     let asset_1 = account_a_assets.next().unwrap();
     let asset_2 = account_a_assets.next().unwrap();
@@ -200,10 +200,10 @@ async fn test_swap_fully_onchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
-    let account_b_assets = account_b.account().vault().assets();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
-    let mut account_b_assets = account_b.account().vault().assets();
+    let mut account_b_assets = account_b.vault().assets();
 
     let asset_1 = account_b_assets.next().unwrap();
     let asset_2 = account_b_assets.next().unwrap();
@@ -393,10 +393,10 @@ async fn test_swap_offchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
-    let account_a_assets = account_a.account().vault().assets();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
-    let mut account_a_assets = account_a.account().vault().assets();
+    let mut account_a_assets = account_a.vault().assets();
 
     let asset_1 = account_a_assets.next().unwrap();
     let asset_2 = account_a_assets.next().unwrap();
@@ -419,10 +419,10 @@ async fn test_swap_offchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
-    let account_b_assets = account_b.account().vault().assets();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
-    let mut account_b_assets = account_b.account().vault().assets();
+    let mut account_b_assets = account_b.vault().assets();
 
     let asset_1 = account_b_assets.next().unwrap();
     let asset_2 = account_b_assets.next().unwrap();
