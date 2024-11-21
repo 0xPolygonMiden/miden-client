@@ -2,6 +2,9 @@
 
 ## 0.7.0 (TBD)
 
+### Features
+* [BREAKING] Added `AccountRecord` with information about the account's status (#600).
+
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
