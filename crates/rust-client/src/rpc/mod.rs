@@ -10,6 +10,10 @@ use async_trait::async_trait;
 mod errors;
 pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
+mod endpoint;
+pub use endpoint::Endpoint;
+#[cfg(test)]
+pub(crate) use endpoint::MIDEN_NODE_PORT;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},

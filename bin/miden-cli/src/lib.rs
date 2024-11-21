@@ -112,7 +112,7 @@ impl Cli {
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
-                cli_config.rpc.endpoint.to_string(),
+                cli_config.rpc.endpoint.clone().into(),
                 cli_config.rpc.timeout_ms,
             )),
             rng,

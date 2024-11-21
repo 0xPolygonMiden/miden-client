@@ -4,7 +4,7 @@ use miden_client::{
     accounts::AccountTemplate,
     crypto::FeltRng,
     notes::create_p2id_note,
-    rpc::{RpcError, TonicRpcClient},
+    rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
     transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
@@ -62,7 +62,7 @@ pub async fn create_test_client() -> TestClient {
     )
 }
 
-pub fn get_client_config() -> (String, u64, PathBuf) {
+pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
     let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
         .parse::<Table>()
@@ -74,6 +74,7 @@ pub fn get_client_config() -> (String, u64, PathBuf) {
         + rpc_endpoint_toml["host"].as_str().unwrap()
         + ":"
         + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
+    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 

@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use clap::Parser;
 
 use crate::{
-    config::{CliConfig, Endpoint, SqliteStoreConfig},
+    config::{CliConfig, CliEndpoint, SqliteStoreConfig},
     CLIENT_CONFIG_FILE_NAME,
 };
 
@@ -44,7 +44,8 @@ impl InitCmd {
         let mut cli_config = CliConfig::default();
 
         if let Some(endpoint) = &self.rpc {
-            let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
+            let endpoint =
+                CliEndpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 
             cli_config.rpc.endpoint = endpoint;
         }
@@ -54,7 +55,7 @@ impl InitCmd {
         }
 
         cli_config.remote_prover_endpoint = match &self.remote_prover_endpoint {
-            Some(rpc) => Endpoint::try_from(rpc.as_str()).ok(),
+            Some(rpc) => CliEndpoint::try_from(rpc.as_str()).ok(),
             None => None,
         };
 

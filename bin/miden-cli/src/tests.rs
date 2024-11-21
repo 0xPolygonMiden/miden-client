@@ -556,7 +556,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_config.endpoint.to_string(), rpc_config.timeout_ms)),
+        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
         rng,
         store,
         std::sync::Arc::new(authenticator),

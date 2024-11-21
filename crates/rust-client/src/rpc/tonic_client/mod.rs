@@ -29,7 +29,7 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
+    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote, Endpoint,
     NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
     NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
@@ -51,8 +51,12 @@ pub struct TonicRpcClient {
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(endpoint: String, timeout_ms: u64) -> TonicRpcClient {
-        TonicRpcClient { rpc_api: None, endpoint, timeout_ms }
+    pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
+        TonicRpcClient {
+            rpc_api: None,
+            endpoint: endpoint.to_string(),
+            timeout_ms,
+        }
     }
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
