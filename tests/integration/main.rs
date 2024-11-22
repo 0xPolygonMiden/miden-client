@@ -10,9 +10,8 @@ use miden_client::{
     },
     sync::NoteTagSource,
     transactions::{
-        PaymentTransactionData, TransactionExecutorError, TransactionProver, 
-        TransactionProverError, TransactionRequest, TransactionRequestBuilder,
-        TransactionStatus,
+        PaymentTransactionData, TransactionExecutorError, TransactionProver,
+        TransactionProverError, TransactionRequest, TransactionRequestBuilder, TransactionStatus,
     },
     ClientError,
 };
