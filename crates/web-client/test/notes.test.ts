@@ -108,6 +108,7 @@ describe("get_consumable_notes", () => {
       expect(record.consumability[0].consumableAfterBlock).to.be.undefined;
     });
   });
+
   it("no filter by account", async () => {
     const { createdNoteId: noteId1, accountId: accountId1 } =
       await setupMintedNote();
@@ -132,6 +133,7 @@ describe("get_consumable_notes", () => {
       expect(c.accountId).to.equal(accountId2);
     });
   });
+
   it("p2idr consume after block", async () => {
     const { accountId: senderAccountId, faucetId } =
       await setupWalletAndFaucet();

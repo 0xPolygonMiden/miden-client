@@ -71,6 +71,15 @@ declare global {
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
     create_client: () => Promise<void>;
+
+    // Add the helpers namespace
+    helpers: {
+      waitForTransaction: (
+        transactionId: string,
+        maxWaitTime?: number,
+        delayInterval?: number
+      ) => Promise<void>;
+    };
   }
 }
 

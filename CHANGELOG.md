@@ -5,6 +5,9 @@
 ### Features
 * Added caching for foreign account code (#597).
 
+### Fixes
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features

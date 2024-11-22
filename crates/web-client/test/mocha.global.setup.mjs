@@ -117,6 +117,35 @@ before(async () => {
       window.TransactionRequest = TransactionRequest;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+
+      // Create a namespace for helper functions
+      window.helpers = window.helpers || {};
+
+      window.helpers.waitForTransaction = async (
+        transactionId,
+        maxWaitTime = 20000,
+        delayInterval = 1000
+      ) => {
+        const client = window.client;
+        let timeWaited = 0;
+        while (true) {
+          if (timeWaited >= maxWaitTime) {
+            throw new Error("Timeout waiting for transaction");
+          }
+          await client.sync_state();
+          const uncomittedTransactions = await client.get_transactions(
+            window.TransactionFilter.uncomitted()
+          );
+          let uncomittedTransactionIds = uncomittedTransactions.map(
+            (transaction) => transaction.id().to_hex()
+          );
+          if (!uncomittedTransactionIds.includes(transactionId)) {
+            break;
+          }
+          await new Promise((r) => setTimeout(r, delayInterval));
+          timeWaited += delayInterval;
+        }
+      };
     },
     LOCAL_MIDEN_NODE_PORT,
     env.REMOTE_PROVER ? REMOTE_TX_PROVER_PORT : null
