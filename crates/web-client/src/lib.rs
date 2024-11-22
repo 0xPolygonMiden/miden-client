@@ -55,7 +55,7 @@ impl WebClient {
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
-        proving_url: Option<String>,
+        prover_url: Option<String>,
     ) -> Result<JsValue, JsValue> {
         let mut rng = StdRng::from_entropy();
         let coin_seed: [u64; 4] = rng.gen();
@@ -70,8 +70,8 @@ impl WebClient {
             &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
         ));
 
-        self.remote_prover = proving_url
-            .map(|proving_url| Arc::new(RemoteTransactionProver::new(&proving_url.to_string())));
+        self.remote_prover = prover_url
+            .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
         self.inner =
             Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
