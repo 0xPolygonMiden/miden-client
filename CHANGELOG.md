@@ -4,7 +4,7 @@
 
 ### Changes
 
-* [BREAKING] Refactored `Client::import_note` to return an error when the note is already being processed (#602).
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
