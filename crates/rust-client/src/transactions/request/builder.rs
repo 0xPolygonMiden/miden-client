@@ -29,6 +29,7 @@ use super::{NoteArgs, TransactionRequest, TransactionRequestError, TransactionSc
 /// and setting other transaction parameters.
 #[derive(Clone, Debug)]
 pub struct TransactionRequestBuilder {
+    /// Notes to be consumed by the transaction that are not authenticated.
     unauthenticated_input_notes: Vec<Note>,
     /// Notes to be consumed by the transaction together with their (optional) arguments. This
     /// includes both authenticated and unauthenticated notes.

@@ -556,7 +556,7 @@ async fn test_import_processing_note_returns_error() {
     let note_id = transaction_request.expected_output_notes().next().unwrap().id();
     let note = client.get_input_note(note_id).await.unwrap();
 
-    let input = [(note.try_into().unwrap(), None)].into_iter();
+    let input = [(note.try_into().unwrap(), None)];
     let consume_note_request =
         TransactionRequestBuilder::new().with_unauthenticated_input_notes(input).build();
     let transaction = client
