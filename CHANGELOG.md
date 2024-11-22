@@ -2,6 +2,10 @@
 
 ## 0.7.0 (TBD)
 
+### Changes
+
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` (#608).
+
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
