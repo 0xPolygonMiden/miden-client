@@ -321,10 +321,11 @@ export const customTransaction = async (
     let note = new window.Note(noteAssets, noteMetadata, noteRecipient);
 
     // Creating First Custom Transaction Request to Mint the Custom Note
-    let transaction_request =
-      new window.TransactionRequestBuilder().with_own_output_notes(
+    let transaction_request = new window.TransactionRequestBuilder()
+      .with_own_output_notes(
         new window.OutputNotesArray([window.OutputNote.full(note)])
-      );
+      )
+      .build();
 
     // Execute and Submit Transaction
     await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
@@ -379,10 +380,11 @@ export const customTransaction = async (
     let note_args_commitment_2 = window.Rpo256.hash_elements(feltArray);
     advice_map.insert(note_args_commitment_2, feltArray);
 
-    let transaction_request_2 = new window.TransactionRequest()
+    let transaction_request_2 = new window.TransactionRequestBuilder()
       .with_authenticated_input_notes(note_id_and_args_array)
       .with_custom_script(transaction_script)
-      .extend_advice_map(advice_map);
+      .extend_advice_map(advice_map)
+      .build();
 
     // Execute and Submit Transaction
     await client.fetch_and_cache_account_auth_by_pub_key(walletAccount.id());
