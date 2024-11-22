@@ -322,7 +322,7 @@ export const customTransaction = async (
 
     // Creating First Custom Transaction Request to Mint the Custom Note
     let transaction_request =
-      new window.TransactionRequest().with_own_output_notes(
+      new window.TransactionRequestBuilder().with_own_output_notes(
         new window.OutputNotesArray([window.OutputNote.full(note)])
       );
 
