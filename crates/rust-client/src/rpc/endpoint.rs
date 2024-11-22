@@ -19,6 +19,8 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
+    pub(crate) const MIDEN_NODE_PORT: u16 = 57291;
+
     /// Creates a new `Endpoint` with the specified protocol, host, and port.
     ///
     /// # Arguments
@@ -29,9 +31,7 @@ impl Endpoint {
     pub const fn new(protocol: String, host: String, port: u16) -> Self {
         Self { protocol, host, port }
     }
-}
 
-impl Endpoint {
     pub fn protocol(&self) -> &str {
         &self.protocol
     }
@@ -51,13 +51,12 @@ impl fmt::Display for Endpoint {
     }
 }
 
-pub(crate) const MIDEN_NODE_PORT: u16 = 57291;
 impl Default for Endpoint {
     fn default() -> Self {
         Self {
             protocol: "http".to_string(),
             host: "localhost".to_string(),
-            port: MIDEN_NODE_PORT,
+            port: Self::MIDEN_NODE_PORT,
         }
     }
 }
@@ -93,7 +92,7 @@ impl TryFrom<&str> for Endpoint {
                 // skip the separator
                 let hostname = &hostname[3..];
 
-                (protocol, hostname, MIDEN_NODE_PORT)
+                (protocol, hostname, Self::MIDEN_NODE_PORT)
             },
             (None, Some(port_idx)) => {
                 let (hostname, port) = endpoint.split_at(port_idx);
@@ -101,7 +100,7 @@ impl TryFrom<&str> for Endpoint {
 
                 ("https", hostname, port)
             },
-            (None, None) => ("https", endpoint, MIDEN_NODE_PORT),
+            (None, None) => ("https", endpoint, Self::MIDEN_NODE_PORT),
         };
 
         Ok(Endpoint {
@@ -116,7 +115,7 @@ impl TryFrom<&str> for Endpoint {
 mod test {
     use alloc::string::ToString;
 
-    use crate::rpc::{Endpoint, MIDEN_NODE_PORT};
+    use crate::rpc::Endpoint;
 
     #[test]
     fn test_endpoint_parsing_with_hostname_only() {
@@ -124,7 +123,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
-            port: MIDEN_NODE_PORT,
+            port: Endpoint::MIDEN_NODE_PORT,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -136,7 +135,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "192.168.0.1".to_string(),
-            port: MIDEN_NODE_PORT,
+            port: Endpoint::MIDEN_NODE_PORT,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -172,7 +171,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "hkttp".to_string(),
             host: "some.test.domain".to_string(),
-            port: MIDEN_NODE_PORT,
+            port: Endpoint::MIDEN_NODE_PORT,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -184,7 +183,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "192.168.0.1".to_string(),
-            port: MIDEN_NODE_PORT,
+            port: Endpoint::MIDEN_NODE_PORT,
         };
 
         assert_eq!(endpoint, expected_endpoint);
