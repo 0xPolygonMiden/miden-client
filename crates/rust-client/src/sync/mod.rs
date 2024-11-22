@@ -115,7 +115,8 @@ impl SyncStatus {
 
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
+    /// The new block header, returned as part of the
+    /// [StateSyncInfo](crate::rpc::domain::state::StateSyncInfo)
     pub block_header: BlockHeader,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
