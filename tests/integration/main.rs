@@ -1364,13 +1364,14 @@ async fn test_custom_transaction_prover() {
 
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
 
-    let tx_request = TransactionRequest::mint_fungible_asset(
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
         fungible_asset,
         from_account_id,
         NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction_execution_result =
         client.new_transaction(faucet_account_id, tx_request.clone()).await.unwrap();

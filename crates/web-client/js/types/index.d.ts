@@ -34,6 +34,7 @@ export {
   TestUtils,
   TransactionFilter,
   TransactionRequest,
+  TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
   WebClient,
