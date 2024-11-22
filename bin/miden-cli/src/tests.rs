@@ -3,7 +3,6 @@ use std::{
     fs::File,
     io::Read,
     path::Path,
-    sync::Arc,
 };
 
 use assert_cmd::Command;
@@ -17,7 +16,6 @@ use miden_client::{
         NoteFilter, StoreAuthenticator,
     },
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
-    transactions::{LocalTransactionProver, ProvingOptions},
     Client, Felt,
 };
 use rand::Rng;
@@ -556,7 +554,6 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let coin_seed: [u64; 4] = rng.gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-    let tx_prover = Arc::new(LocalTransactionProver::new(ProvingOptions::default()));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
@@ -564,7 +561,6 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
         rng,
         store,
         std::sync::Arc::new(authenticator),
-        tx_prover,
         true,
     )
 }

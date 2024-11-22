@@ -5,9 +5,13 @@
 ### Changes
 
 * [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` (#608).
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
+
+### Changes
+* [BREAKING] Added per transaction prover support to the client (#599).
 
 ## 0.6.0 (2024-11-08)
 

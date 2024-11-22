@@ -25,6 +25,7 @@ use crate::{
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store},
     transactions::TransactionRequest,
+    ClientError,
 };
 
 #[tokio::test]
@@ -508,4 +509,64 @@ async fn test_transaction_request_expiration() {
     let (_, tx_outputs, ..) = transaction.executed_transaction().clone().into_parts();
 
     assert_eq!(tx_outputs.expiration_block_num, current_height + 5);
+}
+
+#[tokio::test]
+async fn test_import_processing_note_returns_error() {
+    // generate test client with a random store name
+    let (mut client, _rpc_api) = create_test_client().await;
+    client.sync_state().await.unwrap();
+
+    let (account, _seed) = client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .await
+        .unwrap();
+
+    // Faucet account generation
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .await
+        .unwrap();
+
+    // Test submitting a mint transaction
+    let transaction_request = TransactionRequest::mint_fungible_asset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        account.id(),
+        miden_objects::notes::NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
+
+    let transaction =
+        client.new_transaction(faucet.id(), transaction_request.clone()).await.unwrap();
+    client.submit_transaction(transaction).await.unwrap();
+
+    let note_id = transaction_request.expected_output_notes().next().unwrap().id();
+    let note = client.get_input_note(note_id).await.unwrap();
+
+    let input = [(note.try_into().unwrap(), None)].into_iter();
+    let consume_note_request = TransactionRequest::new().with_unauthenticated_input_notes(input);
+    let transaction = client
+        .new_transaction(account.id(), consume_note_request.clone())
+        .await
+        .unwrap();
+    client.submit_transaction(transaction.clone()).await.unwrap();
+
+    let processing_notes = client.get_input_notes(NoteFilter::Processing).await.unwrap();
+
+    assert!(matches!(
+        client
+            .import_note(NoteFile::NoteId(processing_notes[0].id()))
+            .await
+            .unwrap_err(),
+        ClientError::NoteImportError { .. }
+    ));
 }
