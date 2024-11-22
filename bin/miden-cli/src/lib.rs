@@ -99,7 +99,9 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store).await.map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(cli_config.store_filepath.clone())
+            .await
+            .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
@@ -109,7 +111,10 @@ impl Cli {
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
         let client = Client::new(
-            Box::new(TonicRpcClient::new(&cli_config.rpc)),
+            Box::new(TonicRpcClient::new(
+                cli_config.rpc.endpoint.clone().into(),
+                cli_config.rpc.timeout_ms,
+            )),
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),

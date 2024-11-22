@@ -21,7 +21,7 @@ const FPI_STORAGE_VALUE: Word =
     [Felt::new(9u64), Felt::new(12u64), Felt::new(18u64), Felt::new(30u64)];
 
 #[tokio::test]
-async fn test_fpi() {
+async fn test_standard_fpi() {
     let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
@@ -40,8 +40,8 @@ async fn test_fpi() {
 
     let deployment_tx_script = TransactionScript::compile(
         "begin 
-            call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
-        end",
+                call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+            end",
         vec![],
         TransactionKernel::assembler(),
     )
@@ -72,22 +72,22 @@ async fn test_fpi() {
 
     let tx_script = format!(
         "
-    use.miden::tx
-    use.miden::account
-    begin
-        # push the hash of the `get_fpi_item` account procedure
-        push.{proc_root}
-
-        # push the foreign account id
-        push.{foreign_account_id}
-        # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index]
-
-        exec.tx::execute_foreign_procedure
-        push.{fpi_value} assert_eqw
-
-        call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
-    end
-    ",
+        use.miden::tx
+        use.miden::account
+        begin
+            # push the hash of the `get_fpi_item` account procedure
+            push.{proc_root}
+    
+            # push the foreign account id
+            push.{foreign_account_id}
+            # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index]
+    
+            exec.tx::execute_foreign_procedure
+            push.{fpi_value} assert_eqw
+    
+            call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+        end
+        ",
         fpi_value = prepare_word(&FPI_STORAGE_VALUE)
     );
 
@@ -97,6 +97,14 @@ async fn test_fpi() {
 
     // Wait for a couple of blocks to enforce a sync
     _ = wait_for_blocks(&mut client, 2).await;
+
+    // Before the transaction there are no cached foreign accounts
+    let foreign_accounts = client
+        .test_store()
+        .get_foreign_account_code(vec![foreign_account_id])
+        .await
+        .unwrap();
+    assert!(foreign_accounts.is_empty());
 
     let tx_result = client
         .new_transaction(
@@ -111,6 +119,14 @@ async fn test_fpi() {
         .unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();
+
+    // After the transaction the foreign account should be cached
+    let foreign_accounts = client
+        .test_store()
+        .get_foreign_account_code(vec![foreign_account_id])
+        .await
+        .unwrap();
+    assert_eq!(foreign_accounts.len(), 1);
 }
 
 /// Builds an account using the auth component and a custom component which just retrieves the

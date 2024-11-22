@@ -7,20 +7,7 @@
 //! ## Serialization / Deserialization
 //!
 //! We provide serialization and deserialization support via [Serializable] and [Deserializable]
-//! traits implementations, and also via [Serialize] and [Deserialize] from `serde`, to provide the
-//! ability to serialize most fields into JSON. This is useful for example if you want to store
-//! some fields as JSON columns like we do in
-//! [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
-//! [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
-//!
-//! ```ignore
-//! fn insert_metadata_into_some_table(db: &mut Database, note: InputNoteRecord) {
-//!     let note_metadata_json = serde_json::to_string(note.metadata()).unwrap();
-//!
-//!     db.execute("INSERT INTO notes_metadata (note_id, note_metadata) VALUES (?, ?)",
-//!     note.id().to_hex(), note_metadata_json).unwrap()
-//! }
-//! ```
+//! traits implementations.
 //!
 //! ## Type conversion
 //!
