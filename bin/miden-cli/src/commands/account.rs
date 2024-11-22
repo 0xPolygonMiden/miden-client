@@ -92,13 +92,17 @@ impl AccountCmd {
 async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
     let accounts = client.get_account_headers().await?;
 
-    let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
+    let mut table =
+        create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce", "Status"]);
     for (acc, _acc_seed) in accounts.iter() {
+        let status = client.get_account(acc.id()).await?.status().to_string();
+
         table.add_row(vec![
             acc.id().to_string(),
             account_type_display_name(&acc.id())?,
             acc.id().storage_mode().to_string(),
             acc.nonce().as_int().to_string(),
+            status,
         ]);
     }
 

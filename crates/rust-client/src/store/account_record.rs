@@ -1,6 +1,8 @@
 // ACCOUNT RECORD
 // --------------------------------------------------------------------------------------------
 
+use core::fmt::Display;
+
 use miden_objects::{accounts::Account, Word};
 
 pub struct AccountRecord {
@@ -54,6 +56,16 @@ impl AccountStatus {
         match self {
             AccountStatus::New { seed } => Some(seed),
             _ => None,
+        }
+    }
+}
+
+impl Display for AccountStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            AccountStatus::New { .. } => write!(f, "New"),
+            AccountStatus::Tracked => write!(f, "Tracked"),
+            AccountStatus::Locked => write!(f, "Locked"),
         }
     }
 }
