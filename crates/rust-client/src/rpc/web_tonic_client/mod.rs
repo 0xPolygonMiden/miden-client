@@ -26,10 +26,18 @@ use miden_objects::{
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
-use super::{AccountProof, AccountProofs, NoteSyncInfo};
-use crate::rpc::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
+use super::{
+    domain::{
+        accounts::{AccountProof, AccountProofs},
+        notes::{
+            AccountDetails, AccountUpdateSummary, CommittedNote, NoteDetails, NoteInclusionDetails,
+            NoteSyncInfo,
+        },
+        nullifiers::NullifierUpdate,
+        state::StateSyncInfo,
+        transactions::TransactionUpdate,
+    },
+    NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
 
 #[rustfmt::skip]

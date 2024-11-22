@@ -17,3 +17,14 @@ impl TryFrom<Digest> for Nullifier {
         Ok(digest.into())
     }
 }
+
+// NULLIFIER UPDATE
+// ================================================================================================
+
+/// Represents a note that was consumed in the node at a certain block.
+pub struct NullifierUpdate {
+    /// The nullifier of the consumed note.
+    pub nullifier: Nullifier,
+    /// The number of the block in which the note consumption was registered.
+    pub block_num: u32,
+}

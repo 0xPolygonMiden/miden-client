@@ -79,7 +79,7 @@ impl<R: FeltRng> Client<R> {
             return Err(ClientError::NoteNotFoundOnChain(id));
         }
 
-        let note_details: crate::rpc::NoteDetails =
+        let note_details: crate::rpc::domain::notes::NoteDetails =
             chain_notes.pop().expect("chain_notes should have at least one element");
 
         let inclusion_details = note_details.inclusion_details();
@@ -105,8 +105,8 @@ impl<R: FeltRng> Client<R> {
             },
             None => {
                 let node_note = match note_details {
-                    crate::rpc::NoteDetails::Public(note, _) => note,
-                    crate::rpc::NoteDetails::Private(..) => {
+                    crate::rpc::domain::notes::NoteDetails::Public(note, _) => note,
+                    crate::rpc::domain::notes::NoteDetails::Private(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
                         ))

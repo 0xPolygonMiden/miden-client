@@ -17,7 +17,12 @@ use tracing::info;
 use crate::{
     notes::NoteUpdates,
     rpc::{
-        AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
+        domain::{
+            notes::{AccountDetails, CommittedNote, NoteDetails},
+            nullifiers::NullifierUpdate,
+            transactions::TransactionUpdate,
+        },
+        RpcError,
     },
     store::{
         input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,

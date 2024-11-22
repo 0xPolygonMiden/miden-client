@@ -8,6 +8,7 @@ pub mod digest;
 pub mod merkle;
 pub mod notes;
 pub mod nullifiers;
+pub mod state;
 pub mod transactions;
 
 // UTILITIES

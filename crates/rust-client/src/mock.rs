@@ -32,12 +32,16 @@ use uuid::Uuid;
 
 use crate::{
     rpc::{
+        domain::{
+            accounts::AccountProofs,
+            notes::{AccountDetails, NoteDetails, NoteInclusionDetails, NoteSyncInfo},
+            state::StateSyncInfo,
+        },
         generated::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
-        StateSyncInfo,
+        NodeRpcClient, RpcError,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -208,7 +212,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         _block_num: u32,
         _note_tags: &[NoteTag],
-    ) -> Result<crate::rpc::NoteSyncInfo, RpcError> {
+    ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
             chain_tip: self.blocks.len() as u32,
             notes: vec![],

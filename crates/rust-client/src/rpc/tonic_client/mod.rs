@@ -29,9 +29,13 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
-    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
-    NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    domain::{
+        accounts::{AccountProof, AccountProofs},
+        notes::{AccountUpdateSummary, CommittedNote, NoteInclusionDetails},
+        nullifiers::NullifierUpdate,
+        transactions::TransactionUpdate,
+    },
+    AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, StateSyncInfo,
 };
 use crate::{config::RpcConfig, rpc::RpcError};
 #[rustfmt::skip]
