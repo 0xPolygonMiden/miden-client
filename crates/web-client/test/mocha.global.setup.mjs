@@ -72,6 +72,7 @@ before(async () => {
         TestUtils,
         TransactionFilter,
         TransactionRequest,
+        TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
         WebClient,
