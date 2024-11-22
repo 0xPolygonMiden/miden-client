@@ -1,18 +1,21 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    accounts::{Account, AccountId},
     crypto::merkle::MerklePath,
     notes::{Note, NoteExecutionHint, NoteId, NoteMetadata, NoteTag, NoteType},
     BlockHeader, Digest, Felt,
 };
 
-use super::MissingFieldHelper;
+use super::{MissingFieldHelper, RpcConversionError};
 #[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata;
+use crate::rpc::tonic_client::generated::{
+    note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse,
+};
 #[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata;
-use crate::rpc::RpcConversionError;
+use crate::rpc::web_tonic_client::generated::{
+    note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse,
+};
+use crate::rpc::RpcError;
 
 impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
     type Error = RpcConversionError;
@@ -66,6 +69,53 @@ pub struct NoteSyncInfo {
     pub mmr_path: MerklePath,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`.
     pub notes: Vec<CommittedNote>,
+}
+
+impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
+    type Error = RpcError;
+
+    fn try_from(value: SyncNoteResponse) -> Result<Self, Self::Error> {
+        let chain_tip = value.chain_tip;
+
+        // Validate and convert block header
+        let block_header = value
+            .block_header
+            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
+            .try_into()?;
+
+        let mmr_path = value
+            .mmr_path
+            .ok_or(RpcError::ExpectedDataMissing("MmrPath".into()))?
+            .try_into()?;
+
+        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
+        let mut notes = vec![];
+        for note in value.notes {
+            let note_id: Digest = note
+                .note_id
+                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
+                .try_into()?;
+
+            let note_id: NoteId = note_id.into();
+
+            let merkle_path = note
+                .merkle_path
+                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
+                .try_into()?;
+
+            let metadata = note
+                .metadata
+                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
+                .try_into()?;
+
+            let committed_note =
+                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
+
+            notes.push(committed_note);
+        }
+
+        Ok(NoteSyncInfo { chain_tip, block_header, mmr_path, notes })
+    }
 }
 
 // COMMITTED NOTE
@@ -131,41 +181,6 @@ impl NoteInclusionDetails {
     /// Creates a new [NoteInclusionDetails].
     pub fn new(block_num: u32, note_index: u16, merkle_path: MerklePath) -> Self {
         Self { block_num, note_index, merkle_path }
-    }
-}
-
-/// Describes the possible responses from the `GetAccountDetails` endpoint for an account
-pub enum AccountDetails {
-    /// Private accounts are stored off-chain. Only a commitment to the state of the account is
-    /// shared with the network. The full account state is to be tracked locally.
-    Private(AccountId, AccountUpdateSummary),
-    /// Public accounts are recorded on-chain. As such, its state is shared with the network and
-    /// can always be retrieved through the appropriate RPC method.
-    Public(Account, AccountUpdateSummary),
-}
-
-impl AccountDetails {
-    /// Returns the account ID.
-    pub fn account_id(&self) -> AccountId {
-        match self {
-            Self::Private(account_id, _) => *account_id,
-            Self::Public(account, _) => account.id(),
-        }
-    }
-}
-
-/// Contains public updated information about the account requested.
-pub struct AccountUpdateSummary {
-    /// Hash of the account, that represents a commitment to its updated state.
-    pub hash: Digest,
-    /// Block number of last account update.
-    pub last_block_num: u32,
-}
-
-impl AccountUpdateSummary {
-    /// Creates a new [AccountUpdateSummary].
-    pub fn new(hash: Digest, last_block_num: u32) -> Self {
-        Self { hash, last_block_num }
     }
 }
 

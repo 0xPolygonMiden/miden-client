@@ -33,9 +33,9 @@ use uuid::Uuid;
 use crate::{
     rpc::{
         domain::{
-            accounts::AccountProofs,
-            notes::{AccountDetails, NoteDetails, NoteInclusionDetails, NoteSyncInfo},
-            state::StateSyncInfo,
+            accounts::{AccountDetails, AccountProofs},
+            notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
+            sync::StateSyncInfo,
         },
         generated::{
             note::NoteSyncRecord,

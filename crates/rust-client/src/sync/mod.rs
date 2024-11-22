@@ -18,7 +18,8 @@ use crate::{
     notes::NoteUpdates,
     rpc::{
         domain::{
-            notes::{AccountDetails, CommittedNote, NoteDetails},
+            accounts::AccountDetails,
+            notes::{CommittedNote, NoteDetails},
             nullifiers::NullifierUpdate,
             transactions::TransactionUpdate,
         },

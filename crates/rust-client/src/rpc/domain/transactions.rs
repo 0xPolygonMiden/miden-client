@@ -38,9 +38,12 @@ impl TryFrom<ProtoTransactionId> for TransactionId {
     }
 }
 
+// TRANSACTION UPDATE
+// ================================================================================================
+
 /// Represents a transaction that was included in the node at a certain block.
 pub struct TransactionUpdate {
-    /// The transaction Identifier
+    /// The transaction identifier.
     pub transaction_id: TransactionId,
     /// The number of the block in which the transaction was included.
     pub block_num: u32,

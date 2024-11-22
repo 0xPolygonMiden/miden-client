@@ -13,14 +13,13 @@ use generated::{
         GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
         SyncNoteRequest, SyncStateRequest,
     },
-    responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
+    transaction::ProvenTransaction,
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -30,10 +29,8 @@ use tracing::info;
 
 use super::{
     domain::{
-        accounts::{AccountProof, AccountProofs},
-        notes::{AccountUpdateSummary, CommittedNote, NoteInclusionDetails},
-        nullifiers::NullifierUpdate,
-        transactions::TransactionUpdate,
+        accounts::{AccountProof, AccountProofs, AccountUpdateSummary},
+        notes::NoteInclusionDetails,
     },
     AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, StateSyncInfo,
 };
@@ -376,7 +373,7 @@ impl NodeRpcClient for TonicRpcClient {
         &mut self,
         block_num: u32,
         note_tags: &[NoteTag],
-    ) -> Result<super::NoteSyncInfo, RpcError> {
+    ) -> Result<NoteSyncInfo, RpcError> {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncNoteRequest { block_num, note_tags };
@@ -417,174 +414,5 @@ impl NodeRpcClient for TonicRpcClient {
             })
             .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
         Ok(nullifiers)
-    }
-}
-
-// NOTE SYNC INFO CONVERSION
-// ================================================================================================
-
-impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
-    type Error = RpcError;
-
-    fn try_from(value: SyncNoteResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
-        // Validate and convert block header
-        let block_header = value
-            .block_header
-            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
-            .try_into()?;
-
-        let mmr_path = value
-            .mmr_path
-            .ok_or(RpcError::ExpectedDataMissing("MmrPath".into()))?
-            .try_into()?;
-
-        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
-        let mut notes = vec![];
-        for note in value.notes {
-            let note_id: Digest = note
-                .note_id
-                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
-                .try_into()?;
-
-            let note_id: NoteId = note_id.into();
-
-            let merkle_path = note
-                .merkle_path
-                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
-                .try_into()?;
-
-            let metadata = note
-                .metadata
-                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                .try_into()?;
-
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
-
-            notes.push(committed_note);
-        }
-
-        Ok(NoteSyncInfo { chain_tip, block_header, mmr_path, notes })
-    }
-}
-
-// STATE SYNC INFO CONVERSION
-// ================================================================================================
-
-impl TryFrom<SyncStateResponse> for StateSyncInfo {
-    type Error = RpcError;
-
-    fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
-        // Validate and convert block header
-        let block_header: BlockHeader = value
-            .block_header
-            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
-            .try_into()?;
-
-        // Validate and convert MMR Delta
-        let mmr_delta = value
-            .mmr_delta
-            .ok_or(RpcError::ExpectedDataMissing("MmrDelta".into()))?
-            .try_into()?;
-
-        // Validate and convert account hash updates into an (AccountId, Digest) tuple
-        let mut account_hash_updates = vec![];
-        for update in value.accounts {
-            let account_id = update
-                .account_id
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountId".into()))?
-                .try_into()?;
-            let account_hash = update
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountHash".into()))?
-                .try_into()?;
-            account_hash_updates.push((account_id, account_hash));
-        }
-
-        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
-        let mut note_inclusions = vec![];
-        for note in value.notes {
-            let note_id: Digest = note
-                .note_id
-                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
-                .try_into()?;
-
-            let note_id: NoteId = note_id.into();
-
-            let merkle_path = note
-                .merkle_path
-                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
-                .try_into()?;
-
-            let metadata = note
-                .metadata
-                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                .try_into()?;
-
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
-
-            note_inclusions.push(committed_note);
-        }
-
-        let nullifiers = value
-            .nullifiers
-            .iter()
-            .map(|nul_update| {
-                let nullifier_digest = nul_update
-                    .nullifier
-                    .ok_or(RpcError::ExpectedDataMissing("Nullifier".into()))?;
-
-                let nullifier_digest = Digest::try_from(nullifier_digest)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                let nullifier_block_num = nul_update.block_num;
-
-                Ok(NullifierUpdate {
-                    nullifier: nullifier_digest.into(),
-                    block_num: nullifier_block_num,
-                })
-            })
-            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
-
-        let transactions = value
-            .transactions
-            .iter()
-            .map(|transaction_summary| {
-                let transaction_id = transaction_summary.transaction_id.ok_or(
-                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
-                )?;
-                let transaction_id = TransactionId::try_from(transaction_id)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                let transaction_block_num = transaction_summary.block_num;
-
-                let transaction_account_id = transaction_summary.account_id.ok_or(
-                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
-                )?;
-                let transaction_account_id = AccountId::try_from(transaction_account_id)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                Ok(TransactionUpdate {
-                    transaction_id,
-                    block_num: transaction_block_num,
-                    account_id: transaction_account_id,
-                })
-            })
-            .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
-
-        Ok(Self {
-            chain_tip,
-            block_header,
-            mmr_delta,
-            account_hash_updates,
-            note_inclusions,
-            nullifiers,
-            transactions,
-        })
     }
 }

@@ -7,9 +7,9 @@ use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::AccountProofs,
-    notes::{AccountDetails, NoteDetails, NoteSyncInfo},
-    state::StateSyncInfo,
+    accounts::{AccountDetails, AccountProofs},
+    notes::{NoteDetails, NoteSyncInfo},
+    sync::StateSyncInfo,
 };
 
 mod errors;
