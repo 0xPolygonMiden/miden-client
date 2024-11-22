@@ -286,7 +286,7 @@ impl ConsumeNotesCmd {
             list_of_authenticated_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
 
-        if list_of_authenticated_notes.is_empty() {
+        if list_of_authenticated_notes.is_empty() && list_of_unauthenticated_notes.is_empty() {
             return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
         }
 
