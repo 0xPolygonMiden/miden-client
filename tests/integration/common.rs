@@ -16,7 +16,7 @@ use miden_client::{
     },
     sync::SyncSummary,
     transactions::{
-        DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest,
+        DataStoreError, TransactionExecutorError, TransactionRequest,
         TransactionRequestBuilder,
     },
     Client, ClientError,
@@ -62,14 +62,12 @@ pub async fn create_test_client() -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let tx_prover = Arc::new(LocalTransactionProver::default());
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
         Box::new(TonicRpcClient::new(&rpc_config)),
         rng,
         store,
         Arc::new(authenticator),
-        tx_prover,
         true,
     )
 }

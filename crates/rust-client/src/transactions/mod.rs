@@ -4,6 +4,7 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
+    sync::Arc,
     vec::Vec,
 };
 use core::fmt::{self};
@@ -21,7 +22,9 @@ use miden_objects::{
     vm::AdviceInputs,
     AssetError, Digest, Felt, Word, ZERO,
 };
-pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
+pub use miden_tx::{
+    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
@@ -398,25 +401,37 @@ impl<R: FeltRng> Client<R> {
         TransactionResult::new(executed_transaction, screener, future_notes).await
     }
 
-    /// Proves the specified transaction, submits it to the network, and saves the transaction into
-    /// the local database for tracking.
+    /// Proves the specified transaction using a local prover, submits it to the network, and saves
+    /// the transaction into the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let proven_transaction = self.prove_transaction(&tx_result).await?;
+        self.submit_transaction_with_prover(tx_result, self.tx_prover.clone()).await
+    }
+
+    /// Proves the specified transaction using the provided prover, submits it to the network, and
+    /// saves the transaction into the local database for tracking.
+    pub async fn submit_transaction_with_prover(
+        &mut self,
+        tx_result: TransactionResult,
+        tx_prover: Arc<dyn TransactionProver>,
+    ) -> Result<(), ClientError> {
+        let proven_transaction = self.prove_transaction(&tx_result, tx_prover).await?;
         self.submit_proven_transaction(proven_transaction).await?;
         self.apply_transaction(tx_result).await
     }
 
+    /// Proves the specified transaction result using the provided prover.
     async fn prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
+        tx_prover: Arc<dyn TransactionProver>,
     ) -> Result<ProvenTransaction, ClientError> {
         info!("Proving transaction...");
 
         let proven_transaction =
-            self.tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
+            tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
 
         info!("Transaction proven.");
 
@@ -741,7 +756,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        self.prove_transaction(tx_result).await
+        self.prove_transaction(tx_result, self.tx_prover.clone()).await
     }
 
     pub async fn testing_submit_proven_transaction(
