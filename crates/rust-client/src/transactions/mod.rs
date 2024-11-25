@@ -461,7 +461,7 @@ impl<R: FeltRng> Client<R> {
         let account_delta = tx_result.account_delta();
         let account_record = self.get_account(account_id).await?;
 
-        if account_record.locked() {
+        if account_record.is_locked() {
             return Err(ClientError::AccountLocked(account_id));
         }
 

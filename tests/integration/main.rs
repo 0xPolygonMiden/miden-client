@@ -1417,7 +1417,7 @@ async fn test_locked_account() {
 
     // When imported the account shouldn't be locked
     let account_record = client_2.get_account(from_account_id).await.unwrap();
-    assert!(!account_record.locked());
+    assert!(!account_record.is_locked());
 
     // Consume note with private account in client 1
     let note =
@@ -1428,5 +1428,5 @@ async fn test_locked_account() {
     // After sync the private account should be locked in client 2
     client_2.sync_state().await.unwrap();
     let account_record = client_2.get_account(from_account_id).await.unwrap();
-    assert!(account_record.locked());
+    assert!(account_record.is_locked());
 }

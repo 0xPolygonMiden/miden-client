@@ -200,8 +200,8 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
-    /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
-    /// its status.
+    /// Retrieves a full [AccountRecord] object for the specified `account_id`. This result
+    /// represents data for the latest state known to the client, alongside its status.
     ///
     /// # Errors
     ///
@@ -242,7 +242,7 @@ impl<R: FeltRng> Client<R> {
 }
 
 // ACCOUNT UPDATES
-// ------------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Contains account changes to apply to the store.
 pub struct AccountUpdates {

@@ -1,6 +1,5 @@
 // ACCOUNT RECORD
-// --------------------------------------------------------------------------------------------
-
+// ================================================================================================
 use core::fmt::Display;
 
 use miden_objects::{accounts::Account, Word};
@@ -23,8 +22,8 @@ impl AccountRecord {
         &self.status
     }
 
-    pub fn locked(&self) -> bool {
-        self.status.locked()
+    pub fn is_locked(&self) -> bool {
+        self.status.is_locked()
     }
 
     pub fn seed(&self) -> Option<&Word> {
@@ -39,8 +38,7 @@ impl From<AccountRecord> for Account {
 }
 
 // ACCOUNT STATUS
-// --------------------------------------------------------------------------------------------
-
+// ================================================================================================
 pub enum AccountStatus {
     New { seed: Word },
     Tracked,
@@ -48,7 +46,7 @@ pub enum AccountStatus {
 }
 
 impl AccountStatus {
-    pub fn locked(&self) -> bool {
+    pub fn is_locked(&self) -> bool {
         matches!(self, AccountStatus::Locked { .. })
     }
 
