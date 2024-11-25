@@ -4,7 +4,7 @@
 
 ### Changes
 
-* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` (#608).
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` (#608, #610).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 
 ### Fixes
