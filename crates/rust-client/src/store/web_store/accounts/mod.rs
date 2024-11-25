@@ -41,13 +41,13 @@ impl WebStore {
 
     pub(super) async fn get_account_headers(
         &self,
-    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         let promise = idxdb_get_account_headers();
         let js_value = JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("Failed to fetch account headers: {:?}", js_error))
         })?;
 
-        let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> =
+        let account_headers_idxdb: Vec<AccountRecordIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
                     "Failed to deserialize {:?}",
@@ -55,12 +55,9 @@ impl WebStore {
                 )))
             })?;
 
-        let account_headers: Vec<(AccountHeader, Option<Word>)> = account_headers_idxdb
+        let account_headers: Vec<(AccountHeader, AccountStatus)> = account_headers_idxdb
             .into_iter()
-            .map(|idxdb_object| {
-                let (account, seed, _) = parse_account_record_idxdb_object(idxdb_object)?;
-                Ok((account, seed))
-            })
+            .map(parse_account_record_idxdb_object)
             .collect::<Result<Vec<_>, StoreError>>()?;
 
         Ok(account_headers)
@@ -69,7 +66,7 @@ impl WebStore {
     pub(crate) async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>, bool), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_header(account_id_str);
 
@@ -77,7 +74,7 @@ impl WebStore {
             .await
             .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-        let account_header_idxdb: AccountRecordIdxdbOjbect =
+        let account_header_idxdb: AccountRecordIdxdbObject =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
                     "Failed to deserialize {:?}",
@@ -98,13 +95,13 @@ impl WebStore {
 
         let promise = idxdb_get_account_header_by_hash(account_hash_str);
         let js_value = JsFuture::from(promise).await.unwrap();
-        let account_header_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+        let account_header_idxdb: Option<AccountRecordIdxdbObject> = from_value(js_value).unwrap();
 
         let account_header: Result<Option<AccountHeader>, StoreError> = account_header_idxdb
             .map_or(Ok(None), |account_record| {
                 let result = parse_account_record_idxdb_object(account_record);
 
-                result.map(|(account_header, _account_seed, _locked)| Some(account_header))
+                result.map(|(account_header, _status)| Some(account_header))
             });
 
         account_header
@@ -114,7 +111,7 @@ impl WebStore {
         &self,
         account_id: AccountId,
     ) -> Result<AccountRecord, StoreError> {
-        let (account_header, seed, locked) = self.get_account_header(account_id).await?;
+        let (account_header, status) = self.get_account_header(account_id).await?;
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
@@ -129,12 +126,6 @@ impl WebStore {
             account_code,
             account_header.nonce(),
         );
-
-        let status = match (seed, locked) {
-            (_, true) => AccountStatus::Locked,
-            (Some(seed), _) => AccountStatus::New { seed },
-            _ => AccountStatus::Tracked,
-        };
 
         Ok(AccountRecord::new(account, status))
     }

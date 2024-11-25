@@ -32,7 +32,7 @@ pub struct AccountVaultIdxdbObject {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AccountRecordIdxdbOjbect {
+pub struct AccountRecordIdxdbObject {
     pub id: String,
     pub nonce: String,
     pub vault_root: String,

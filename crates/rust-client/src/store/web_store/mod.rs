@@ -11,8 +11,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 
 use super::{
-    AccountRecord, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
-    StoreError, TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
@@ -165,16 +165,15 @@ impl Store for WebStore {
         self.get_account_auth_by_pub_key(pub_key)
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.get_account_headers().await
     }
 
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
-        let (account, seed, _) = self.get_account_header(account_id).await?;
-        Ok((account, seed))
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
+        self.get_account_header(account_id).await
     }
 
     async fn get_account_header_by_hash(

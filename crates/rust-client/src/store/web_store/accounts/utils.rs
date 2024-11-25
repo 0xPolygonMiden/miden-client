@@ -10,7 +10,7 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, models::*};
-use crate::store::StoreError;
+use crate::store::{AccountStatus, StoreError};
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
     let root = account_code.commitment().to_string();
@@ -89,8 +89,8 @@ pub async fn insert_account_record(
 }
 
 pub fn parse_account_record_idxdb_object(
-    account_header_idxdb: AccountRecordIdxdbOjbect,
-) -> Result<(AccountHeader, Option<Word>, bool), StoreError> {
+    account_header_idxdb: AccountRecordIdxdbObject,
+) -> Result<(AccountHeader, AccountStatus), StoreError> {
     let native_account_id: AccountId = AccountId::from_hex(&account_header_idxdb.id).unwrap();
     let native_nonce: u64 = account_header_idxdb
         .nonce
@@ -109,5 +109,11 @@ pub fn parse_account_record_idxdb_object(
         Digest::try_from(&account_header_idxdb.code_root)?,
     );
 
-    Ok((account_header, account_seed, account_header_idxdb.locked))
+    let status = match (account_seed, account_header_idxdb.locked) {
+        (_, true) => AccountStatus::Locked,
+        (Some(seed), _) => AccountStatus::New { seed },
+        _ => AccountStatus::Tracked,
+    };
+
+    Ok((account_header, status))
 }
