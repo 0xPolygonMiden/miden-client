@@ -19,7 +19,10 @@ use miden_objects::{
 };
 
 use super::Client;
-use crate::{store::AccountRecord, ClientError};
+use crate::{
+    store::{AccountRecord, AccountStatus},
+    ClientError,
+};
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
@@ -190,13 +193,13 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
-    /// seeds used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
     pub async fn get_account_headers(
         &self,
-    ) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
+    ) -> Result<Vec<(AccountHeader, AccountStatus)>, ClientError> {
         self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
@@ -210,9 +213,7 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
-    /// used to create it. The seed will be returned if the account is new, otherwise it
-    /// will be `None`.
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
@@ -222,7 +223,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn get_account_header_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), ClientError> {
+    ) -> Result<(AccountHeader, AccountStatus), ClientError> {
         self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 

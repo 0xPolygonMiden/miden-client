@@ -16,8 +16,8 @@ use rusqlite::{vtab::array, Connection};
 use tonic::async_trait;
 
 use super::{
-    AccountRecord, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
-    TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
     store::StoreError,
@@ -249,7 +249,7 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_account_ids).await
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_headers).await
     }
 
@@ -266,7 +266,7 @@ impl Store for SqliteStore {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_header(conn, account_id))
             .await
     }

@@ -205,15 +205,13 @@ pub trait Store: Send + Sync {
     /// Returns the account IDs of all accounts stored in the database
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
-    /// seeds used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError>;
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError>;
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
-    /// used to create it. The seed will be returned if the account is new, otherwise it
-    /// will be `None`.
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
@@ -223,7 +221,7 @@ pub trait Store: Send + Sync {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError>;
+    ) -> Result<(AccountHeader, AccountStatus), StoreError>;
 
     /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
     /// hash. If no account state matches the provided hash, `None` is returned.

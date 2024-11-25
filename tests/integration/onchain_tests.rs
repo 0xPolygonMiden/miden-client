@@ -138,7 +138,8 @@ async fn test_onchain_accounts() {
     let second_client_target_account_id = second_client_first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    let (_, faucet_seed) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap();
+    let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap();
+    let faucet_seed = status.seed().cloned();
     let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap();
     client_2
         .insert_account(&faucet_account_header, faucet_seed, &auth_info)

@@ -18,7 +18,7 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool, String);
-type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
+type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>, bool);
 
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -50,9 +50,9 @@ impl SqliteStore {
 
     pub(super) fn get_account_headers(
         conn: &mut Connection,
-    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         const QUERY: &str =
-            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
+            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed, a.locked \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
@@ -66,9 +66,10 @@ impl SqliteStore {
     pub(crate) fn get_account_header(
         conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+        const QUERY: &str =
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
@@ -84,7 +85,8 @@ impl SqliteStore {
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
-        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+        const QUERY: &str =
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE account_hash = ?";
 
         conn.prepare(QUERY)?
@@ -297,7 +299,7 @@ pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Resul
     Ok(())
 }
 
-/// Parse accounts colums from the provided row into native types
+/// Parse accounts columns from the provided row into native types
 pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
@@ -307,15 +309,23 @@ pub(super) fn parse_accounts_columns(
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
     let account_seed: Option<Vec<u8>> = row.get(5)?;
-    Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
+    let locked: bool = row.get(6)?;
+    Ok((id, nonce, vault_root, storage_root, code_root, account_seed, locked))
 }
 
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountHeader, Option<Word>), StoreError> {
-    let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
+) -> Result<(AccountHeader, AccountStatus), StoreError> {
+    let (id, nonce, vault_root, storage_root, code_root, account_seed, locked) =
+        serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
+
+    let status = match (account_seed, locked) {
+        (_, true) => AccountStatus::Locked,
+        (Some(seed), _) => AccountStatus::New { seed },
+        _ => AccountStatus::Tracked,
+    };
 
     Ok((
         AccountHeader::new(
@@ -327,7 +337,7 @@ pub(super) fn parse_accounts(
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
         ),
-        account_seed,
+        status,
     ))
 }
 
