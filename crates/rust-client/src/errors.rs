@@ -29,6 +29,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AccountLocked(AccountId),
     AssetError(AssetError),
+    AccountAlreadyTracked(AccountId),
     DataDeserializationError(DeserializationError),
     NoteNotFoundOnChain(NoteId),
     HexParseError(HexParseError),
@@ -57,6 +58,9 @@ impl fmt::Display for ClientError {
                 write!(f, "Account with ID {account_id} is locked")
             },
             ClientError::AssetError(err) => write!(f, "Asset error: {err}"),
+            ClientError::AccountAlreadyTracked(account_id) => {
+                write!(f, "Account with ID {account_id} is already being tracked")
+            },
             ClientError::DataDeserializationError(err) => {
                 write!(f, "Data deserialization error: {err}")
             },

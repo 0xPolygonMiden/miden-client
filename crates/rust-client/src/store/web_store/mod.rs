@@ -154,8 +154,8 @@ impl Store for WebStore {
         self.insert_account(account, account_seed, auth_info).await
     }
 
-    async fn update_account(&self, account: &Account) -> Result<(), StoreError> {
-        self.update_account(account).await
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
+        self.update_account(new_account_state).await
     }
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {

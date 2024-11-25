@@ -5,7 +5,6 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::Account,
     transaction::{ExecutedTransaction, ToInputNoteCommitments},
     Digest,
 };
@@ -13,12 +12,7 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::js_bindings::*;
-use crate::store::{
-    web_store::accounts::utils::{
-        insert_account_asset_vault, insert_account_record, insert_account_storage,
-    },
-    StoreError,
-};
+use crate::store::StoreError;
 
 // TYPES
 // ================================================================================================
@@ -106,10 +100,4 @@ pub(super) fn serialize_transaction_data(
         block_num: executed_transaction.block_header().block_num().to_string(),
         commit_height: None,
     })
-}
-
-pub async fn update_account(new_account_state: &Account) -> Result<(), ()> {
-    let _ = insert_account_storage(new_account_state.storage()).await;
-    let _ = insert_account_asset_vault(new_account_state.vault()).await;
-    insert_account_record(new_account_state, None).await
 }

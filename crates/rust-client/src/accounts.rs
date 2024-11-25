@@ -20,7 +20,7 @@ use miden_objects::{
 
 use super::Client;
 use crate::{
-    store::{AccountRecord, AccountStatus},
+    store::{AccountRecord, AccountStatus, StoreError},
     ClientError,
 };
 
@@ -75,11 +75,13 @@ impl<R: FeltRng> Client<R> {
         Ok(account_and_seed)
     }
 
-    /// Saves in the store the [Account] corresponding to `account_data`.
+    /// Saves in the store the [Account] corresponding to `account_data`. If the account is already
+    /// being tracked and `force` is set to `true`, the account will be overwritten.
     ///
     /// # Errors
     ///
-    /// Will return an error if trying to import a new account without providing its seed
+    /// - Trying to import a new account without providing its seed
+    /// - If the account is already tracked and `force` is set to `false`
     ///
     /// # Panics
     ///
@@ -103,12 +105,21 @@ impl<R: FeltRng> Client<R> {
             account_data.account_seed
         };
 
-        if force && self.store.get_account(account_data.account.id()).await.is_ok() {
-            return self
-                .store
-                .update_account(&account_data.account)
-                .await
-                .map_err(ClientError::StoreError);
+        let account_exists = !matches!(
+            self.store.get_account(account_data.account.id()).await,
+            Err(StoreError::AccountDataNotFound(_))
+        );
+
+        if account_exists {
+            if !force {
+                return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
+            } else {
+                return self
+                    .store
+                    .update_account(&account_data.account)
+                    .await
+                    .map_err(ClientError::StoreError);
+            }
         }
 
         self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)

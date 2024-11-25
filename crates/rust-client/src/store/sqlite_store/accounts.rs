@@ -155,6 +155,18 @@ impl SqliteStore {
         conn: &mut Connection,
         new_account_state: &Account,
     ) -> Result<(), StoreError> {
+        let account_id_int: u64 = new_account_state.id().into();
+        const QUERY: &str = "SELECT account_id FROM accounts WHERE account_id = ?";
+        if conn
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
+            .next()
+            .is_none()
+        {
+            return Err(StoreError::AccountDataNotFound(new_account_state.id()));
+        }
+
         let tx = conn.transaction()?;
         update_account(&tx, new_account_state)?;
         Ok(tx.commit()?)
