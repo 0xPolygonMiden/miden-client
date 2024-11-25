@@ -12,14 +12,13 @@ use generated::{
         GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
         SyncNoteRequest, SyncStateRequest,
     },
-    responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
+    transaction::ProvenTransaction,
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -28,14 +27,9 @@ use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
-        accounts::{AccountProof, AccountProofs},
-        notes::{
-            AccountDetails, AccountUpdateSummary, CommittedNote, NoteDetails, NoteInclusionDetails,
-            NoteSyncInfo,
-        },
-        nullifiers::NullifierUpdate,
+        accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
+        notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
         sync::StateSyncInfo,
-        transactions::TransactionUpdate,
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
