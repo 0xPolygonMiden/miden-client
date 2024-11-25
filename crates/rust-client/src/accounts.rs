@@ -85,7 +85,11 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    pub async fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub async fn import_account(
+        &mut self,
+        account_data: AccountData,
+        force: bool,
+    ) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
@@ -98,6 +102,14 @@ impl<R: FeltRng> Client<R> {
         } else {
             account_data.account_seed
         };
+
+        if force && self.store.get_account(account_data.account.id()).await.is_ok() {
+            return self
+                .store
+                .update_account(&account_data.account)
+                .await
+                .map_err(ClientError::StoreError);
+        }
 
         self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
             .await
@@ -350,7 +362,7 @@ pub mod tests {
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data).await.unwrap();
+            client.import_account(account_data, false).await.unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data

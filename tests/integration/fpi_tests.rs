@@ -30,11 +30,14 @@ async fn test_standard_fpi() {
     let foreign_account_id = foreign_account.id();
 
     client
-        .import_account(AccountData::new(
-            foreign_account,
-            Some(foreign_seed),
-            AuthSecretKey::RpoFalcon512(secret_key.clone()),
-        ))
+        .import_account(
+            AccountData::new(
+                foreign_account,
+                Some(foreign_seed),
+                AuthSecretKey::RpoFalcon512(secret_key.clone()),
+            ),
+            false,
+        )
         .await
         .unwrap();
 

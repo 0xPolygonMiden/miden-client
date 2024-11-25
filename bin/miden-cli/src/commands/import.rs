@@ -21,6 +21,9 @@ pub struct ImportCmd {
     /// Paths to the files that contains the account/note data
     #[arg()]
     filenames: Vec<PathBuf>,
+    /// Only relevant for accounts. If set, the account will be overwritten if it already exists.
+    #[clap(short, long, default_value_t = false)]
+    force: bool,
 }
 
 impl ImportCmd {
@@ -34,10 +37,10 @@ impl ImportCmd {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
-                let account_id = import_account(&mut client, filename)
+                let account_id = import_account(&mut client, filename, self.force)
                     .await
                     .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
-                println!("Succesfully imported account {}", account_id);
+                println!("Successfully imported account {}", account_id);
 
                 if account_id.is_regular_account() {
                     maybe_set_default_account(&mut current_config, account_id)?;
@@ -54,6 +57,7 @@ impl ImportCmd {
 async fn import_account(
     client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
+    force: bool,
 ) -> Result<AccountId, String> {
     info!(
         "Attempting to import account data from {}...",
@@ -64,7 +68,7 @@ async fn import_account(
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data).await?;
+    client.import_account(account_data, force).await?;
 
     Ok(account_id)
 }

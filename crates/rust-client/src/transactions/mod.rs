@@ -957,11 +957,14 @@ mod test {
             .unwrap();
 
         client
-            .import_account(AccountData::new(
-                account.clone(),
-                None,
-                miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            ))
+            .import_account(
+                AccountData::new(
+                    account.clone(),
+                    None,
+                    miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
+                ),
+                false,
+            )
             .await
             .unwrap();
         client.sync_state().await.unwrap();
