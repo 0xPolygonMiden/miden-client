@@ -36,7 +36,7 @@ impl fmt::Display for RpcError {
                 write!(f, "RPC API response missing an expected field: {err}")
             },
             RpcError::InvalidResponse(err) => {
-                write!(f, "RPC API response is invalidw: {err}")
+                write!(f, "RPC API response is invalid: {err}")
             },
             RpcError::RequestError(endpoint, err) => {
                 write!(f, "RPC request failed for {endpoint}: {err}")

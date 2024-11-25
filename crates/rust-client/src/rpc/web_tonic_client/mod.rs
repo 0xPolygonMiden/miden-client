@@ -18,7 +18,7 @@ use generated::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -29,7 +29,7 @@ use tonic_web_wasm_client::Client;
 use super::{AccountProof, AccountProofs, NoteSyncInfo};
 use crate::rpc::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
+    NoteDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
 };
 
 #[rustfmt::skip]
@@ -145,7 +145,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
+                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {

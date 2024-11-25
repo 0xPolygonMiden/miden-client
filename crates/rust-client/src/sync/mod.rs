@@ -496,12 +496,6 @@ impl<R: FeltRng> Client<R> {
                 },
                 NoteDetails::Public(note, inclusion_proof) => {
                     info!("Retrieved details for Note ID {}.", note.id());
-                    let inclusion_proof = NoteInclusionProof::new(
-                        block_header.block_num(),
-                        inclusion_proof.note_index,
-                        inclusion_proof.merkle_path,
-                    )
-                    .map_err(ClientError::NoteError)?;
                     let metadata = *note.metadata();
 
                     return_notes.push(InputNoteRecord::new(

@@ -36,8 +36,7 @@ use crate::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
-        StateSyncInfo,
+        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, RpcError, StateSyncInfo,
     },
     store::{sqlite_store::SqliteStore, StoreAuthenticator},
     Client,
@@ -260,21 +259,10 @@ impl NodeRpcClient for MockRpcApi {
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
-            let inclusion_details = NoteInclusionDetails::new(
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .block_num(),
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .node_index_in_block(),
-                note.proof().expect("Note should have an inclusion proof").note_path().clone(),
-            );
             return_notes.push(NoteDetails::Private(
                 note.id(),
                 *note.note().metadata(),
-                inclusion_details,
+                note.proof().expect("Note should have an inclusion proof").clone(),
             ));
         }
         Ok(return_notes)

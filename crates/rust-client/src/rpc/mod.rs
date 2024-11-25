@@ -15,7 +15,7 @@ pub use endpoint::Endpoint;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
-    notes::{Note, NoteId, NoteMetadata, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     BlockHeader, Digest,
 };
@@ -46,19 +46,19 @@ use crate::sync::get_nullifier_prefix;
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note.
 #[allow(clippy::large_enum_variant)]
 pub enum NoteDetails {
-    /// Details for a private note only include its [NoteMetadata] and [NoteInclusionDetails].
+    /// Details for a private note only include its [NoteMetadata] and [NoteInclusionProof].
     /// Other details needed to consume the note are expected to be stored locally, off-chain.
-    Private(NoteId, NoteMetadata, NoteInclusionDetails),
-    /// Contains the full [Note] object alongside its [NoteInclusionDetails].
-    Public(Note, NoteInclusionDetails),
+    Private(NoteId, NoteMetadata, NoteInclusionProof),
+    /// Contains the full [Note] object alongside its [NoteInclusionProof].
+    Public(Note, NoteInclusionProof),
 }
 
 impl NoteDetails {
     /// Returns the note's inclusion details.
-    pub fn inclusion_details(&self) -> &NoteInclusionDetails {
+    pub fn inclusion_proof(&self) -> &NoteInclusionProof {
         match self {
-            NoteDetails::Private(_, _, inclusion_details) => inclusion_details,
-            NoteDetails::Public(_, inclusion_details) => inclusion_details,
+            NoteDetails::Private(_, _, inclusion_proof) => inclusion_proof,
+            NoteDetails::Public(_, inclusion_proof) => inclusion_proof,
         }
     }
 
@@ -111,24 +111,6 @@ impl AccountUpdateSummary {
     /// Creates a new [AccountUpdateSummary].
     pub fn new(hash: Digest, last_block_num: u32) -> Self {
         Self { hash, last_block_num }
-    }
-}
-
-/// Contains information related to the note inclusion, but not related to the block header
-/// that contains the note.
-pub struct NoteInclusionDetails {
-    /// Block number in which the note was included.
-    pub block_num: u32,
-    /// Index of the note in the block's note tree.
-    pub note_index: u16,
-    /// Merkle path to the note root of the block header.
-    pub merkle_path: MerklePath,
-}
-
-impl NoteInclusionDetails {
-    /// Creates a new [NoteInclusionDetails].
-    pub fn new(block_num: u32, note_index: u16, merkle_path: MerklePath) -> Self {
-        Self { block_num, note_index, merkle_path }
     }
 }
 

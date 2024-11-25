@@ -19,7 +19,7 @@ use generated::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -30,8 +30,8 @@ use tracing::info;
 
 use super::{
     AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote, Endpoint,
-    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
-    NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, NullifierUpdate,
+    StateSyncInfo, TransactionUpdate,
 };
 use crate::rpc::RpcError;
 #[rustfmt::skip]
@@ -166,7 +166,7 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
+                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {

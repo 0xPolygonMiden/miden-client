@@ -90,14 +90,7 @@ impl<R: FeltRng> Client<R> {
         let note_details: crate::rpc::NoteDetails =
             chain_notes.pop().expect("chain_notes should have at least one element");
 
-        let inclusion_details = note_details.inclusion_details();
-
-        // Add the inclusion proof to the imported note
-        let inclusion_proof = NoteInclusionProof::new(
-            inclusion_details.block_num,
-            inclusion_details.note_index,
-            inclusion_details.merkle_path.clone(),
-        )?;
+        let inclusion_proof = note_details.inclusion_proof().clone();
 
         match previous_note {
             Some(mut previous_note) => {
