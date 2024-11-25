@@ -4,8 +4,15 @@ use core::fmt::Display;
 
 use miden_objects::{accounts::Account, Word};
 
+/// Represents a stored account state along with its status.
+///
+/// The account should be stored in the database with its parts normalized. Meaning that the
+/// account header, vault, storage and code are stored separately. This is done to avoid data
+/// duplication as the header can reference the same elements if they have equal roots.
 pub struct AccountRecord {
+    /// Full account object.
     account: Account,
+    /// Status of the tracked account.
     status: AccountStatus,
 }
 
@@ -39,9 +46,18 @@ impl From<AccountRecord> for Account {
 
 // ACCOUNT STATUS
 // ================================================================================================
+
+/// Represents the status of an account tracked by the client.
+///
+/// The status of an account may change by local or external factors.
 pub enum AccountStatus {
+    /// The account is new and has not been used yet. The seed used to create the account is
+    /// stored in this state.
     New { seed: Word },
+    /// The account is tracked by the node and was used at least once.
     Tracked,
+    /// The local account state doesn't match the node's state, rendering it unusable. Only used
+    /// for private accounts.
     Locked,
 }
 
