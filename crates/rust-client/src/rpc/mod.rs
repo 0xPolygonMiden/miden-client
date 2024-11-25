@@ -220,6 +220,37 @@ impl fmt::Display for AccountProofError {
     }
 }
 
+// ACCOUNT HEADERS
+// ================================================================================================
+
+pub struct FpiAccountData {
+    account_id: AccountId,
+    merkle_proof: MerklePath,
+    state_headers: StateHeaders,
+}
+
+impl FpiAccountData {
+    pub fn new(
+        account_id: AccountId,
+        merkle_proof: MerklePath,
+        state_headers: StateHeaders,
+    ) -> Self {
+        Self { account_id, merkle_proof, state_headers }
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    pub fn merkle_proof(&self) -> &MerklePath {
+        &self.merkle_proof
+    }
+
+    pub fn state_headers(&self) -> &StateHeaders {
+        &self.state_headers
+    }
+}
+
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
 
@@ -317,6 +348,25 @@ pub trait NodeRpcClient {
             self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+    }
+
+    async fn get_account_fpi_data(
+        &mut self,
+        account_ids: &BTreeSet<AccountId>,
+        code_commitments: &[Digest],
+    ) -> Result<(u32, Vec<FpiAccountData>), RpcError> {
+        let response = self.get_account_proofs(account_ids, code_commitments, true).await?;
+
+        let mut headers = Vec::new();
+        for proof in response.1 {
+            headers.push(FpiAccountData::new(
+                proof.account_id,
+                proof.merkle_proof,
+                proof.state_headers.expect("State headers should be present"),
+            ));
+        }
+
+        Ok((response.0, headers))
     }
 }
 

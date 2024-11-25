@@ -718,12 +718,12 @@ impl<R: FeltRng> Client<R> {
             tracked_code.values().map(|code| code.commitment()).collect();
 
         // Fetch account proofs
-        let (block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(account_ids, &tracked_commitments, true).await?;
+        let (block_num, fpi_data_vec) =
+            self.rpc_api.get_account_fpi_data(account_ids, &tracked_commitments).await?;
 
-        for account_proof in account_proofs.into_iter() {
-            let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
-            let account_code = match account_proof.account_code() {
+        for fpi_data in fpi_data_vec.into_iter() {
+            let account_header = &fpi_data.state_headers().account_header;
+            let account_code = match fpi_data.state_headers().code.as_ref() {
                 Some(account_code) => {
                     self.store
                         .upsert_foreign_account_code(account_header.id(), account_code.clone())
@@ -735,11 +735,12 @@ impl<R: FeltRng> Client<R> {
                     .get(&account_header.id())
                     .expect("Account code should be tracked if it's not in the RPC response"),
             };
-            let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+
+            let storage_header = &fpi_data.state_headers().storage_header;
 
             account_codes.push(account_code.clone());
 
-            let merkle_path = account_proof.merkle_proof();
+            let merkle_path = fpi_data.merkle_proof();
 
             // Extend advice inputs using the extracted data
             extend_advice_inputs_for_account(
