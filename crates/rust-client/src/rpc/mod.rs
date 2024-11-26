@@ -25,10 +25,8 @@ mod errors;
 pub use errors::RpcError;
 
 #[cfg(not(test))]
-#[rustfmt::skip]
 mod generated;
 #[cfg(test)]
-#[rustfmt::skip]
 pub mod generated;
 
 #[cfg(feature = "tonic")]
