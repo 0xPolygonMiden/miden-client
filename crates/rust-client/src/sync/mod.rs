@@ -17,7 +17,7 @@ use tracing::info;
 use crate::{
     notes::NoteUpdates,
     rpc::{
-        AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
+        CommittedNote, NoteDetails, NullifierUpdate, TransactionUpdate,
     },
     store::{
         input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
@@ -541,29 +541,30 @@ impl<R: FeltRng> Client<R> {
         account_updates: &[(AccountId, Digest)],
         current_onchain_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
-        let mut accounts_to_update: Vec<Account> = Vec::new();
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // check if this updated account is tracked by the client
-            let current_account = current_onchain_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        let mismatched_public_accounts = account_updates
+            .iter()
+            .filter_map(|(id, hash)| {
+                current_onchain_accounts
+                    .iter()
+                    .find(|acc| *id == acc.id() && *hash != acc.hash())
+                    .map(|acc| (acc.id(), acc))
+            })
+            .collect::<BTreeMap<_, _>>();
 
-            if let Some(tracked_account) = current_account {
-                info!("Public account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                if let AccountDetails::Public(account, _) = account_details {
-                    // We should only do the update if it's newer, otherwise we ignore it
-                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
-                        accounts_to_update.push(account);
-                    }
-                } else {
-                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
-                        account_details.account_id(),
-                    )
-                    .into());
+        let account_ids = mismatched_public_accounts.keys().cloned().collect::<Vec<_>>();
+        let mut accounts_to_update = self.rpc_api.get_public_accounts(account_ids).await?;
+
+        accounts_to_update.retain(|account| {
+            let account_id = account.id();
+            if let Some(local_account) = mismatched_public_accounts.get(&account_id) {
+                // We should only do the update if it's newer, otherwise we ignore it
+                if account.nonce().as_int() > local_account.nonce().as_int() {
+                    return true;
                 }
             }
-        }
+            false
+        });
+
         Ok(accounts_to_update)
     }
 

@@ -368,6 +368,23 @@ pub trait NodeRpcClient {
 
         Ok((response.0, headers))
     }
+
+    async fn get_public_accounts(
+        &mut self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<Account>, RpcError> {
+        let mut public_accounts = vec![];
+
+        for id in account_ids {
+            let response = self.get_account_update(id).await?;
+
+            if let AccountDetails::Public(account, _) = response {
+                public_accounts.push(account);
+            }
+        }
+
+        Ok(public_accounts)
+    }
 }
 
 // SYNC NOTE
