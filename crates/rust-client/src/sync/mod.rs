@@ -588,6 +588,13 @@ impl<R: FeltRng> Client<R> {
 
     /// Validates account hash updates and returns a vector with all the offchain account
     /// mismatches.
+    ///
+    /// Offchain account mismatches happen when the hash account of the local tracked account
+    /// doesn't match the hash account of the account in the node. This would be an anomaly and may
+    /// happen for two main reasons:
+    /// - A different client made a transaction with the account, changing its state.
+    /// - The local transaction that modified the local state didn't go through, rendering the local
+    ///   account state outdated.
     async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
