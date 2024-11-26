@@ -6,10 +6,9 @@ pub mod api_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
-    use tonic::codegen::http::Uri;
+    use tonic::codegen::{http::Uri, *};
     #[derive(Debug, Clone)]
     pub struct ApiClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -29,10 +28,7 @@ pub mod api_client {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> ApiClient<InterceptedService<T, F>>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> ApiClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -42,9 +38,8 @@ pub mod api_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + core::marker::Send + core::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + core::marker::Send + core::marker::Sync,
         {
             ApiClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -81,21 +76,14 @@ pub mod api_client {
         }
         pub async fn check_nullifiers(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::CheckNullifiersRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::CheckNullifiersRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/CheckNullifiers");
             let mut req = request.into_request();
@@ -104,25 +92,16 @@ pub mod api_client {
         }
         pub async fn check_nullifiers_by_prefix(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::CheckNullifiersByPrefixRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::CheckNullifiersByPrefixRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::CheckNullifiersByPrefixResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/CheckNullifiersByPrefix",
-            );
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/CheckNullifiersByPrefix");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
@@ -130,46 +109,30 @@ pub mod api_client {
         }
         pub async fn get_account_details(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetAccountDetailsRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::GetAccountDetailsRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/GetAccountDetails",
-            );
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountDetails");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_account_proofs(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetAccountProofsRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::GetAccountProofsRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::GetAccountProofsResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountProofs");
             let mut req = request.into_request();
@@ -178,47 +141,30 @@ pub mod api_client {
         }
         pub async fn get_account_state_delta(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetAccountStateDeltaRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::GetAccountStateDeltaRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/GetAccountStateDelta",
-            );
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountStateDelta");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_block_by_number(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetBlockByNumberRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::GetBlockByNumberRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetBlockByNumber");
             let mut req = request.into_request();
@@ -227,25 +173,16 @@ pub mod api_client {
         }
         pub async fn get_block_header_by_number(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::GetBlockHeaderByNumberRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::GetBlockHeaderByNumberRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/GetBlockHeaderByNumber",
-            );
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetBlockHeaderByNumber");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
@@ -258,14 +195,9 @@ pub mod api_client {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetNotesById");
             let mut req = request.into_request();
@@ -274,25 +206,16 @@ pub mod api_client {
         }
         pub async fn submit_proven_transaction(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::SubmitProvenTransactionRequest,
-            >,
+            request: impl tonic::IntoRequest<super::super::requests::SubmitProvenTransactionRequest>,
         ) -> core::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/rpc.Api/SubmitProvenTransaction",
-            );
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SubmitProvenTransaction");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
@@ -305,14 +228,9 @@ pub mod api_client {
             tonic::Response<super::super::responses::SyncNoteResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncNotes");
             let mut req = request.into_request();
@@ -326,14 +244,9 @@ pub mod api_client {
             tonic::Response<super::super::responses::SyncStateResponse>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncState");
             let mut req = request.into_request();

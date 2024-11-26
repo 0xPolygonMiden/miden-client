@@ -11,10 +11,6 @@ use domain::{
     notes::{NoteDetails, NoteSyncInfo},
     sync::StateSyncInfo,
 };
-
-mod errors;
-pub(crate) use errors::RpcConversionError;
-pub use errors::RpcError;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrProof,
@@ -23,15 +19,19 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-#[cfg(all(feature = "tonic", feature = "web-tonic"))]
-compile_error!("features `tonic` and `web-tonic` are mutually exclusive");
-
 pub mod domain;
+
+mod errors;
+pub use errors::RpcError;
+
+#[rustfmt::skip]
+#[cfg(not(test))]
+mod generated;
+#[cfg(test)]
+pub mod generated;
 
 #[cfg(feature = "tonic")]
 mod tonic_client;
-#[cfg(test)]
-pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
 

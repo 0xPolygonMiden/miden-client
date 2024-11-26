@@ -6,11 +6,7 @@ use miden_objects::{
 };
 
 use super::{notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate};
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::responses::SyncStateResponse;
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::responses::SyncStateResponse;
-use crate::rpc::RpcError;
+use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
 
 // STATE SYNC INFO
 // ================================================================================================

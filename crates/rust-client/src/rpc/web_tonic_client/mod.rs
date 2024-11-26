@@ -6,14 +6,6 @@ use alloc::{
 };
 
 use async_trait::async_trait;
-use generated::{
-    requests::{
-        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
-        GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
-        SyncNoteRequest, SyncStateRequest,
-    },
-    rpc::api_client::ApiClient,
-};
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
@@ -31,11 +23,16 @@ use super::{
         notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
         sync::StateSyncInfo,
     },
+    generated::{
+        requests::{
+            CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+            SyncNoteRequest, SyncStateRequest,
+        },
+        rpc::api_client::ApiClient,
+    },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
-
-#[rustfmt::skip]
-pub mod generated;
 
 pub struct WebTonicRpcClient {
     endpoint: String,

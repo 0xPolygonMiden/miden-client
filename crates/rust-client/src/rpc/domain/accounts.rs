@@ -11,20 +11,13 @@ use miden_objects::{
 };
 use miden_tx::utils::Deserializable;
 
-use crate::rpc::RpcError;
-#[cfg(feature = "tonic")]
 use crate::rpc::{
-    tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    tonic_client::generated::account::AccountId as ProtoAccountId,
-    tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
-    RpcConversionError,
-};
-#[cfg(feature = "web-tonic")]
-use crate::rpc::{
-    web_tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    web_tonic_client::generated::account::AccountId as ProtoAccountId,
-    web_tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
-    RpcConversionError,
+    errors::RpcConversionError,
+    generated::{
+        account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
+        responses::AccountStateHeader as ProtoAccountStateHeader,
+    },
+    RpcError,
 };
 
 // ACCOUNT DETAILS
