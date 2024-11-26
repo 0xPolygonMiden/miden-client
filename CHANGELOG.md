@@ -4,6 +4,7 @@
 
 ### Features
 
+* [BREAKING] Support overwrite of accounts when importing (#612).
 * [BREAKING] Added `AccountRecord` with information about the account's status (#600).
 * Added caching for foreign account code (#597).
 
