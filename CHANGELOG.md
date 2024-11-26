@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 (TBD)
+
+### Changes
+
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
+
+### Fixes
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
+
+### Changes
+* [BREAKING] Added per transaction prover support to the client (#599).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features

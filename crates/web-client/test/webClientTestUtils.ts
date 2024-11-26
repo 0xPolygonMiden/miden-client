@@ -32,8 +32,9 @@ export const mintTransaction = async (
       );
 
       if (_sync) {
-        await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state();
+        await window.helpers.waitForTransaction(
+          new_mint_transaction_result.executed_transaction().id().to_hex()
+        );
       }
 
       return {
@@ -90,13 +91,18 @@ export const sendTransaction = async (
       );
       let created_notes = mint_transaction_result.created_notes().notes();
       let created_note_ids = created_notes.map((note) => note.id().to_string());
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
+      await window.helpers.waitForTransaction(
+        mint_transaction_result.executed_transaction().id().to_hex()
+      );
 
       await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
-      await client.new_consume_transaction(senderAccountId, created_note_ids);
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
+      const consume_transaction_result = await client.new_consume_transaction(
+        senderAccountId,
+        created_note_ids
+      );
+      await window.helpers.waitForTransaction(
+        consume_transaction_result.executed_transaction().id().to_hex()
+      );
 
       await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
       let send_transaction_result = await client.new_send_transaction(
@@ -111,8 +117,10 @@ export const sendTransaction = async (
       let send_created_note_ids = send_created_notes.map((note) =>
         note.id().to_string()
       );
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
+
+      await window.helpers.waitForTransaction(
+        send_transaction_result.executed_transaction().id().to_hex()
+      );
 
       return send_created_note_ids;
     },
@@ -143,16 +151,14 @@ export const consumeTransaction = async (
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetId = window.AccountId.from_hex(_faucetId);
 
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
-
       await client.fetch_and_cache_account_auth_by_pub_key(targetAccountId);
       const consumeTransactionResult = await client.new_consume_transaction(
         targetAccountId,
         [_noteId]
       );
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
+      await window.helpers.waitForTransaction(
+        consumeTransactionResult.executed_transaction().id().to_hex()
+      );
 
       const changedTargetAccount = await client.get_account(targetAccountId);
 

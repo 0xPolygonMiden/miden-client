@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
@@ -8,7 +10,8 @@ use miden_client::{
     },
     sync::NoteTagSource,
     transactions::{
-        PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
+        PaymentTransactionData, TransactionExecutorError, TransactionProver,
+        TransactionProverError, TransactionRequest, TransactionStatus,
     },
     ClientError,
 };
@@ -16,10 +19,12 @@ use miden_objects::{
     accounts::{AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset},
     notes::{NoteFile, NoteType},
+    transaction::{ProvenTransaction, TransactionWitness},
 };
 
 mod common;
 use common::*;
+use winter_maybe_async::maybe_async_trait;
 
 mod custom_transactions_tests;
 mod fpi_tests;
@@ -925,7 +930,13 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         println!("Sending transaction to node");
         // May need a few attempts until it gets included
         let note_id = tx_request.expected_output_notes().next().unwrap().id();
-        while client.rpc_api().get_notes_by_id(&[first_note_id]).await.unwrap().is_empty() {
+        while client
+            .test_rpc_api()
+            .get_notes_by_id(&[first_note_id])
+            .await
+            .unwrap()
+            .is_empty()
+        {
             std::thread::sleep(std::time::Duration::from_secs(3));
         }
         client.submit_transaction(transaction_execution_result).await.unwrap();
@@ -955,7 +966,13 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         println!("Sending transaction to node");
         // May need a few attempts until it gets included
         let note_id = tx_request.expected_output_notes().next().unwrap().id();
-        while client.rpc_api().get_notes_by_id(&[second_note_id]).await.unwrap().is_empty() {
+        while client
+            .test_rpc_api()
+            .get_notes_by_id(&[second_note_id])
+            .await
+            .unwrap()
+            .is_empty()
+        {
             std::thread::sleep(std::time::Duration::from_secs(3));
         }
         client.submit_transaction(transaction_execution_result).await.unwrap();
@@ -964,7 +981,13 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
     };
 
     // Wait until the note gets comitted in the node (without syncing)
-    while client.rpc_api().get_notes_by_id(&[third_note_id]).await.unwrap().is_empty() {
+    while client
+        .test_rpc_api()
+        .get_notes_by_id(&[third_note_id])
+        .await
+        .unwrap()
+        .is_empty()
+    {
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
 
@@ -1286,4 +1309,60 @@ async fn test_discarded_transaction() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+}
+
+#[tokio::test]
+async fn test_custom_transaction_prover() {
+    struct AlwaysFailingProver;
+
+    impl AlwaysFailingProver {
+        pub fn new() -> Self {
+            Self
+        }
+    }
+
+    #[maybe_async_trait]
+    impl TransactionProver for AlwaysFailingProver {
+        #[maybe_async]
+        fn prove(
+            &self,
+            _tx_witness: TransactionWitness,
+        ) -> Result<ProvenTransaction, TransactionProverError> {
+            return Err(TransactionProverError::InternalError(
+                "This prover always fails".to_string(),
+            ));
+        }
+    }
+
+    let mut client = create_test_client().await;
+    let (first_regular_account, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
+
+    let from_account_id = first_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+
+    let tx_request = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        from_account_id,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
+
+    let transaction_execution_result =
+        client.new_transaction(faucet_account_id, tx_request.clone()).await.unwrap();
+
+    let result = client
+        .submit_transaction_with_prover(
+            transaction_execution_result,
+            Arc::new(AlwaysFailingProver::new()),
+        )
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(ClientError::TransactionProvingError(TransactionProverError::InternalError(_)))
+    ));
 }
