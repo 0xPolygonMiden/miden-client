@@ -37,21 +37,21 @@ pub struct GetBlockHeaderByNumberRequest {
 }
 /// State synchronization request.
 ///
-/// Specifies state updates the client is interested in. The server will return the first block
-/// which contains a note matching `note_tags` or the chain tip. And the corresponding updates to
+/// Specifies state updates the client is interested in. The server will return the first block which
+/// contains a note matching `note_tags` or the chain tip. And the corresponding updates to
 /// `nullifiers` and `account_ids` for that block range.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateRequest {
-    /// Last block known by the client. The response will contain data starting from the next
-    /// block, until the first block which contains a note of matching the requested tag, or
-    /// the chain tip if there are no notes.
+    /// Last block known by the client. The response will contain data starting from the next block,
+    /// until the first block which contains a note of matching the requested tag, or the chain tip
+    /// if there are no notes.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// Accounts' hash to include in the response.
     ///
     /// An account hash will be included if-and-only-if it is the latest update. Meaning it is
-    /// possible there was an update to the account for the given range, but if it is not the
-    /// latest, it won't be included in the response.
+    /// possible there was an update to the account for the given range, but if it is not the latest,
+    /// it won't be included in the response.
     #[prost(message, repeated, tag = "2")]
     pub account_ids: ::prost::alloc::vec::Vec<super::account::AccountId>,
     /// Specifies the tags which the client is interested in.
@@ -68,8 +68,8 @@ pub struct SyncStateRequest {
 /// contains a note matching `note_tags` or the chain tip.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncNoteRequest {
-    /// Last block known by the client. The response will contain data starting from the next
-    /// block, until the first block which contains a note of matching the requested tag.
+    /// Last block known by the client. The response will contain data starting from the next block,
+    /// until the first block which contains a note of matching the requested tag.
     #[prost(fixed32, tag = "1")]
     pub block_num: u32,
     /// Specifies the tags which the client is interested in.

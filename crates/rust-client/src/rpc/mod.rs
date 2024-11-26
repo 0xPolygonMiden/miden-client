@@ -24,10 +24,11 @@ pub mod domain;
 mod errors;
 pub use errors::RpcError;
 
-#[rustfmt::skip]
 #[cfg(not(test))]
+#[rustfmt::skip]
 mod generated;
 #[cfg(test)]
+#[rustfmt::skip]
 pub mod generated;
 
 #[cfg(feature = "tonic")]

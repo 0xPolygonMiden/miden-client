@@ -40,23 +40,20 @@ pub struct SyncStateResponse {
     /// Block header of the block with the first note matching the specified criteria
     #[prost(message, optional, tag = "2")]
     pub block_header: ::core::option::Option<super::block::BlockHeader>,
-    /// Data needed to update the partial MMR from `request.block_num + 1` to
-    /// `response.block_header.block_num`
+    /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`
     #[prost(message, optional, tag = "3")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
-    /// List of account hashes updated after `request.block_num + 1` but not after
-    /// `response.block_header.block_num`
+    /// List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`
     #[prost(message, repeated, tag = "5")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
-    /// List of transactions executed against requested accounts between `request.block_num + 1`
-    /// and `response.block_header.block_num`
+    /// List of transactions executed against requested accounts between `request.block_num + 1` and
+    /// `response.block_header.block_num`
     #[prost(message, repeated, tag = "6")]
     pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionSummary>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`
     #[prost(message, repeated, tag = "7")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
-    /// List of nullifiers created between `request.block_num + 1` and
-    /// `response.block_header.block_num`
+    /// List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`
     #[prost(message, repeated, tag = "8")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
@@ -112,7 +109,9 @@ pub struct GetBlockInputsResponse {
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierBlockInputRecord>,
     /// The list of requested notes which were found in the database
     #[prost(message, optional, tag = "5")]
-    pub found_unauthenticated_notes: ::core::option::Option<super::note::NoteAuthenticationInfo>,
+    pub found_unauthenticated_notes: ::core::option::Option<
+        super::note::NoteAuthenticationInfo,
+    >,
 }
 /// An account returned as a response to the GetTransactionInputs
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
