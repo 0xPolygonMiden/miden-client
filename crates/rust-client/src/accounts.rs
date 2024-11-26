@@ -254,9 +254,8 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns a [ClientError::StoreError] with a
-    /// [StoreError::AccountDataNotFound](crate::store::StoreError::AccountDataNotFound) if the
-    /// provided ID does not correspond to an existing account.
+    /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound] if the provided
+    /// ID does not correspond to an existing account.
     pub async fn get_account_auth(
         &self,
         account_id: AccountId,

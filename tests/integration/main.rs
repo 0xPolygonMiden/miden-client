@@ -1409,7 +1409,7 @@ async fn test_locked_account() {
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
     client_2
-        .import_account(AccountData::new(private_account, seed.into(), auth))
+        .import_account(AccountData::new(private_account, seed.into(), auth), false)
         .await
         .unwrap();
 
