@@ -1,10 +1,8 @@
 use miden_client::{
     accounts::AccountTemplate,
     notes::NoteExecutionHint,
-    store::StoreError,
     transactions::TransactionRequest,
-    utils::{Deserializable, Serializable},
-    ClientError, ZERO,
+    utils::{Deserializable, Serializable}, ZERO,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageMode},

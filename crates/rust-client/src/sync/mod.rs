@@ -45,6 +45,8 @@ pub struct SyncSummary {
     pub consumed_notes: Vec<NoteId>,
     /// IDs of on-chain accounts that have been updated
     pub updated_accounts: Vec<AccountId>,
+    /// IDs of private accounts that have been locked
+    pub locked_accounts: Vec<AccountId>,
     /// IDs of committed transactions
     pub committed_transactions: Vec<TransactionId>,
 }
@@ -56,6 +58,7 @@ impl SyncSummary {
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
+        locked_accounts: Vec<AccountId>,
         committed_transactions: Vec<TransactionId>,
     ) -> Self {
         Self {
@@ -64,6 +67,7 @@ impl SyncSummary {
             committed_notes,
             consumed_notes,
             updated_accounts,
+            locked_accounts,
             committed_transactions,
         }
     }
@@ -75,6 +79,7 @@ impl SyncSummary {
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
+            locked_accounts: vec![],
             committed_transactions: vec![],
         }
     }
@@ -84,6 +89,7 @@ impl SyncSummary {
             && self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
+            && self.locked_accounts.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
@@ -92,6 +98,7 @@ impl SyncSummary {
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
+        self.locked_accounts.append(&mut other.locked_accounts);
     }
 }
 
@@ -253,6 +260,7 @@ impl<R: FeltRng> Client<R> {
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
 

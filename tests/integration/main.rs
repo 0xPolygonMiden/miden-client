@@ -1426,7 +1426,8 @@ async fn test_locked_account() {
     consume_notes(&mut client_1, from_account_id, &[note]).await;
 
     // After sync the private account should be locked in client 2
-    client_2.sync_state().await.unwrap();
+    let summary = client_2.sync_state().await.unwrap();
+    assert!(summary.locked_accounts.contains(&from_account_id));
     let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(account_record.is_locked());
 }
