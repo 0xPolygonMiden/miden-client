@@ -23,7 +23,7 @@ use crate::{
     accounts::AccountTemplate,
     mock::create_test_client,
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, Store},
+    store::{InputNoteRecord, NoteFilter, Store, StoreError},
     transactions::TransactionRequest,
     ClientError,
 };
@@ -574,5 +574,46 @@ async fn test_import_processing_note_returns_error() {
             .await
             .unwrap_err(),
         ClientError::NoteImportError { .. }
+    ));
+}
+
+#[tokio::test]
+async fn test_no_nonce_change_transaction_request() {
+    let mut client = create_test_client().await.0;
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    };
+
+    client.sync_state().await.unwrap();
+
+    // Insert Account
+    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+
+    // Prepare transaction
+
+    let code = "
+        begin
+            push.1 push.2
+            # => [1, 2]
+            add push.3
+            # => [1+2, 3]
+            assert_eq
+        end
+        ";
+
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
+    let transaction_request = TransactionRequest::new().with_custom_script(tx_script).unwrap();
+
+    let transaction_execution_result =
+        client.new_transaction(regular_account.id(), transaction_request).await.unwrap();
+
+    let result = client.testing_apply_transaction(transaction_execution_result).await;
+
+    assert!(matches!(
+        result,
+        Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
     ));
 }
