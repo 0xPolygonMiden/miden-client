@@ -1,9 +1,8 @@
-
 #[cfg(feature = "std")]
 #[rustfmt::skip]
 mod std;
 #[cfg(feature = "std")]
-pub use std::*;
+pub use self::std::*;
 
 #[cfg(not(feature = "std"))]
 #[rustfmt::skip]
