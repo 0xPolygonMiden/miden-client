@@ -1409,7 +1409,7 @@ async fn test_locked_account() {
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
     client_2
-        .import_account(AccountData::new(private_account, seed.into(), auth), false)
+        .import_account(AccountData::new(private_account, seed.into(), auth.clone()), false)
         .await
         .unwrap();
 
@@ -1430,4 +1430,16 @@ async fn test_locked_account() {
     assert!(summary.locked_accounts.contains(&from_account_id));
     let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(account_record.is_locked());
+
+    // Get updated account from client 1 and import it in client 2 with `force` flag
+    let updated_private_account = client_1.get_account(from_account_id).await.unwrap().into();
+    client_2
+        .import_account(AccountData::new(updated_private_account, None, auth), true)
+        .await
+        .unwrap();
+
+    // After sync the private account shouldn't be locked in client 2
+    client_2.sync_state().await.unwrap();
+    let account_record = client_2.get_account(from_account_id).await.unwrap();
+    assert!(!account_record.is_locked());
 }

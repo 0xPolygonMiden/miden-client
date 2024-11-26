@@ -156,7 +156,7 @@ impl SqliteStore {
         new_account_state: &Account,
     ) -> Result<(), StoreError> {
         let account_id_int: u64 = new_account_state.id().into();
-        const QUERY: &str = "SELECT account_id FROM accounts WHERE account_id = ?";
+        const QUERY: &str = "SELECT id FROM accounts WHERE id = ?";
         if conn
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
