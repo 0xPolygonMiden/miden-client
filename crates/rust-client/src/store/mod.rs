@@ -9,7 +9,7 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -268,6 +268,20 @@ pub trait Store: Send + Sync {
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
+
+    /// Upserts the account code for a foreign account. This value will be used as a cache of known
+    /// script roots and added to the `GetForeignAccountCode` request.
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError>;
+
+    /// Retrieves the cached account code for various foreign accounts.
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------

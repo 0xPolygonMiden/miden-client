@@ -7,7 +7,7 @@ use std::{path::Path, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -293,6 +293,27 @@ impl Store for SqliteStore {
     async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_auth(conn, account_id))
             .await
+    }
+
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::upsert_foreign_account_code(conn, account_id, code)
+        })
+        .await
+    }
+
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_foreign_account_code(conn, account_ids)
+        })
+        .await
     }
 
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {

@@ -2,6 +2,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use std::{collections::BTreeMap, rc::Rc};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
@@ -9,7 +10,7 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, types::Value, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::store::StoreError;
@@ -164,6 +165,54 @@ impl SqliteStore {
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
             .ok_or(StoreError::AccountKeyNotFound(pub_key))?
+    }
+
+    pub fn upsert_foreign_account_code(
+        conn: &mut Connection,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        let tx = conn.transaction()?;
+        let account_id: u64 = account_id.into();
+
+        const QUERY: &str =
+            "INSERT OR REPLACE INTO foreign_account_code (account_id, code_root) VALUES (?, ?)";
+        tx.execute(QUERY, params![account_id, code.commitment().to_string()])?;
+
+        insert_account_code(&tx, &code)?;
+        Ok(tx.commit()?)
+    }
+
+    pub fn get_foreign_account_code(
+        conn: &mut Connection,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        let params: Vec<Value> = account_ids
+            .into_iter()
+            .map(|id| {
+                let id_int: u64 = id.into();
+                Value::from(id_int as i64)
+            })
+            .collect();
+        const QUERY: &str = "
+            SELECT account_id, code
+            FROM foreign_account_code JOIN account_code ON code_root = code_root
+            WHERE account_id IN rarray(?)";
+
+        conn.prepare(QUERY)?
+            .query_map([Rc::new(params)], |row| Ok((row.get(0)?, row.get(1)?)))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |(id, code): (u64, Vec<u8>)| {
+                        Ok((
+                            AccountId::try_from(id).map_err(StoreError::AccountError)?,
+                            AccountCode::from_bytes(&code).map_err(StoreError::AccountError)?,
+                        ))
+                    },
+                )
+            })
+            .collect::<Result<BTreeMap<AccountId, AccountCode>, _>>()
     }
 }
 
