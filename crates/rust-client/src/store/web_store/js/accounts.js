@@ -450,7 +450,7 @@ export async function insertAccountAuth(accountId, authInfo, pubKey) {
   }
 }
 
-export async function updateForeignAccountCode(accountId, code, codeRoot) {
+export async function upsertForeignAccountCode(accountId, code, codeRoot) {
   try {
     await insertAccountCode(codeRoot, code);
 

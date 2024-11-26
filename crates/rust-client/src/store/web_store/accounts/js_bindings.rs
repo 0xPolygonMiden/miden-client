@@ -73,7 +73,7 @@ extern "C" {
         pub_key: Vec<u8>,
     ) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = updateForeignAccountCode)]
+    #[wasm_bindgen(js_name = upsertForeignAccountCode)]
     pub fn idxdb_upsert_foreign_account_code(
         account_id: String,
         code: Vec<u8>,
