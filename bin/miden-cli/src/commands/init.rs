@@ -1,9 +1,11 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use clap::Parser;
-use miden_client::config::Endpoint;
 
-use crate::{config::CliConfig, CLIENT_CONFIG_FILE_NAME};
+use crate::{
+    config::{CliConfig, CliEndpoint},
+    CLIENT_CONFIG_FILE_NAME,
+};
 
 // Init COMMAND
 // ================================================================================================
@@ -42,17 +44,18 @@ impl InitCmd {
         let mut cli_config = CliConfig::default();
 
         if let Some(endpoint) = &self.rpc {
-            let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
+            let endpoint =
+                CliEndpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 
             cli_config.rpc.endpoint = endpoint;
         }
 
         if let Some(path) = &self.store_path {
-            cli_config.store.database_filepath = path.to_string();
+            cli_config.store_filepath = PathBuf::from(path);
         }
 
         cli_config.remote_prover_endpoint = match &self.remote_prover_endpoint {
-            Some(rpc) => Endpoint::try_from(rpc.as_str()).ok(),
+            Some(rpc) => CliEndpoint::try_from(rpc.as_str()).ok(),
             None => None,
         };
 

@@ -2,24 +2,23 @@ use std::{
     env::{self, temp_dir},
     fs::File,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use assert_cmd::Command;
+use config::RpcConfig;
 use miden_client::{
     accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
-    config::RpcConfig,
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        NoteFilter, StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
     Client, Felt,
 };
 use rand::Rng;
 use uuid::Uuid;
+
+mod config;
 
 /// CLI TESTS
 ///
@@ -542,11 +541,10 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub type TestClient = Client<RpoRandomCoin>;
 
 async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
-    let store_config = SqliteStoreConfig::try_from(store_path.to_str().unwrap()).unwrap();
     let rpc_config = RpcConfig::default();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
+        let sqlite_store = SqliteStore::new(PathBuf::from(store_path)).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
@@ -557,7 +555,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(&rpc_config)),
+        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
         rng,
         store,
         std::sync::Arc::new(authenticator),

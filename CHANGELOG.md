@@ -14,6 +14,7 @@
 
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
+* [BREAKING] Removed unused dependencies (#584).
 
 ## 0.6.0 (2024-11-08)
 
