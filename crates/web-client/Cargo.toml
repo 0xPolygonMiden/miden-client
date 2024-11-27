@@ -22,7 +22,7 @@ testing = ["miden-client/testing", "miden-tx-prover/testing"]
 miden-client = { version = "0.6", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-tx-prover = { version = "0.6", default-features = false, features = ["async"] }
+miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-error-send", default-features = false, features = ["async"] }
 rand = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { version = "0.6" }
