@@ -2,15 +2,10 @@ use miden_objects::{
     accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::TransactionId,
 };
 
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::{
-    digest::Digest, transaction::TransactionId as ProtoTransactionId,
+use crate::rpc::{
+    errors::RpcConversionError,
+    generated::{digest::Digest, transaction::TransactionId as ProtoTransactionId},
 };
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::{
-    digest::Digest, transaction::TransactionId as ProtoTransactionId,
-};
-use crate::rpc::RpcConversionError;
 
 // INTO TRANSACTION ID
 // ================================================================================================

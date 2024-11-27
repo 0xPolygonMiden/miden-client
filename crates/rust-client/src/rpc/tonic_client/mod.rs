@@ -7,14 +7,6 @@ use alloc::{
 use std::time::Duration;
 
 use async_trait::async_trait;
-use generated::{
-    requests::{
-        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
-        GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
-        SyncNoteRequest, SyncStateRequest,
-    },
-    rpc::api_client::ApiClient,
-};
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
@@ -32,11 +24,19 @@ use super::{
         accounts::{AccountProof, AccountProofs, AccountUpdateSummary},
         notes::NoteInclusionDetails,
     },
+    generated::{
+        requests::{
+            CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        },
+        rpc::api_client::ApiClient,
+    },
     AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, StateSyncInfo,
 };
-use crate::{config::RpcConfig, rpc::RpcError};
-#[rustfmt::skip]
-pub mod generated;
+use crate::{
+    config::RpcConfig,
+    rpc::{generated::requests::GetBlockHeaderByNumberRequest, RpcError},
+};
 
 // TONIC RPC CLIENT
 // ================================================================================================

@@ -7,15 +7,10 @@ use miden_objects::{
 };
 
 use super::{MissingFieldHelper, RpcConversionError};
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::{
-    note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse,
+use crate::rpc::{
+    generated::{note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse},
+    RpcError,
 };
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::{
-    note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse,
-};
-use crate::rpc::RpcError;
 
 impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
     type Error = RpcConversionError;
