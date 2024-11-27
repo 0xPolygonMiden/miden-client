@@ -12,6 +12,7 @@
 
 ### Changes
 
+* Refactored rpc functions and structs to improve code quality (#616).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
 * [BREAKING] Removed unused dependencies (#584).
