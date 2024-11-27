@@ -424,6 +424,11 @@ pub trait NodeRpcClient {
         let (header, proof) = self.get_block_header_by_number(block_num, true).await?;
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
     }
+
+    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NoteDetails, RpcError> {
+        let notes = self.get_notes_by_id(&[note_id]).await?;
+        notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
+    }
 }
 
 // SYNC NOTE

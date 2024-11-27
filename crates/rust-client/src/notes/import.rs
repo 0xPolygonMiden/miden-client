@@ -6,6 +6,7 @@ use miden_objects::{
 };
 
 use crate::{
+    rpc::RpcError,
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
@@ -82,13 +83,10 @@ impl<R: FeltRng> Client<R> {
         previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
-        let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
-        if chain_notes.is_empty() {
-            return Err(ClientError::NoteNotFoundOnChain(id));
-        }
-
-        let note_details: crate::rpc::NoteDetails =
-            chain_notes.pop().expect("chain_notes should have at least one element");
+        let note_details = self.rpc_api.get_note_by_id(id).await.map_err(|err| match err {
+            RpcError::NoteNotFound(note_id) => ClientError::NoteNotFoundOnChain(note_id),
+            err => ClientError::RpcError(err),
+        })?;
 
         let inclusion_proof = note_details.inclusion_proof().clone();
 

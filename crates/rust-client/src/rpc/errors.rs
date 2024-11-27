@@ -1,7 +1,7 @@
 use alloc::string::{String, ToString};
 use core::fmt;
 
-use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError};
+use miden_objects::{accounts::AccountId, notes::NoteId, utils::DeserializationError, NoteError};
 
 // RPC ERROR
 // ================================================================================================
@@ -13,6 +13,7 @@ pub enum RpcError {
     DeserializationError(String),
     ExpectedDataMissing(String),
     InvalidResponse(String),
+    NoteNotFound(NoteId),
     RequestError(String, String),
 }
 
@@ -37,6 +38,9 @@ impl fmt::Display for RpcError {
             },
             RpcError::InvalidResponse(err) => {
                 write!(f, "RPC API response is invalid: {err}")
+            },
+            RpcError::NoteNotFound(note_id) => {
+                write!(f, "Note with ID {} was not found", note_id.to_hex())
             },
             RpcError::RequestError(endpoint, err) => {
                 write!(f, "RPC request failed for {endpoint}: {err}")
