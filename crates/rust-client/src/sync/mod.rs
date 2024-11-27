@@ -18,7 +18,8 @@ use crate::{
     notes::NoteUpdates,
     rpc::{
         domain::{
-            notes::{AccountDetails, CommittedNote, NoteDetails},
+            accounts::AccountDetails,
+            notes::{CommittedNote, NoteDetails},
             nullifiers::NullifierUpdate,
             transactions::TransactionUpdate,
         },
@@ -116,7 +117,7 @@ impl SyncStatus {
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
     /// The new block header, returned as part of the
-    /// [StateSyncInfo](crate::rpc::domain::state::StateSyncInfo)
+    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
     pub block_header: BlockHeader,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,

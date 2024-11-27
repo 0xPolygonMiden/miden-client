@@ -3,7 +3,7 @@ use std::sync::Arc;
 use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
-    rpc::{domain::notes::AccountDetails, NodeRpcClient, TonicRpcClient},
+    rpc::{domain::accounts::AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
         input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
         NoteFilter, OutputNoteState, TransactionFilter,

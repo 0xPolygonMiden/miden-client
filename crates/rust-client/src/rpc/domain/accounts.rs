@@ -5,27 +5,61 @@ use alloc::{
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
-    accounts::{AccountCode, AccountHeader, AccountId, AccountStorageHeader},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::MerklePath,
     Digest, Felt,
 };
 use miden_tx::utils::Deserializable;
 
-use crate::rpc::RpcError;
-#[cfg(feature = "tonic")]
 use crate::rpc::{
-    tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    tonic_client::generated::account::AccountId as ProtoAccountId,
-    tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
-    RpcConversionError,
+    errors::RpcConversionError,
+    generated::{
+        account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
+        responses::AccountStateHeader as ProtoAccountStateHeader,
+    },
+    RpcError,
 };
-#[cfg(feature = "web-tonic")]
-use crate::rpc::{
-    web_tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    web_tonic_client::generated::account::AccountId as ProtoAccountId,
-    web_tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
-    RpcConversionError,
-};
+
+// ACCOUNT DETAILS
+// ================================================================================================
+
+/// Describes the possible responses from the `GetAccountDetails` endpoint for an account
+pub enum AccountDetails {
+    /// Private accounts are stored off-chain. Only a commitment to the state of the account is
+    /// shared with the network. The full account state is to be tracked locally.
+    Private(AccountId, AccountUpdateSummary),
+    /// Public accounts are recorded on-chain. As such, its state is shared with the network and
+    /// can always be retrieved through the appropriate RPC method.
+    Public(Account, AccountUpdateSummary),
+}
+
+impl AccountDetails {
+    /// Returns the account ID.
+    pub fn account_id(&self) -> AccountId {
+        match self {
+            Self::Private(account_id, _) => *account_id,
+            Self::Public(account, _) => account.id(),
+        }
+    }
+}
+
+// ACCOUNT UPDATE SUMMARY
+// ================================================================================================
+
+/// Contains public updated information about the account requested.
+pub struct AccountUpdateSummary {
+    /// Hash of the account, that represents a commitment to its updated state.
+    pub hash: Digest,
+    /// Block number of last account update.
+    pub last_block_num: u32,
+}
+
+impl AccountUpdateSummary {
+    /// Creates a new [AccountUpdateSummary].
+    pub fn new(hash: Digest, last_block_num: u32) -> Self {
+        Self { hash, last_block_num }
+    }
+}
 
 // ACCOUNT ID
 // ================================================================================================
@@ -203,6 +237,9 @@ impl AccountProof {
         &self.merkle_proof
     }
 }
+
+// ERRORS
+// ================================================================================================
 
 pub enum AccountProofError {
     InconsistentAccountHash,

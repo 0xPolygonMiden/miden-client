@@ -1,22 +1,6 @@
 use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier};
 
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::digest::Digest;
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::digest::Digest;
-use crate::rpc::RpcConversionError;
-
-// INTO NULLIFIER
-// ================================================================================================
-
-impl TryFrom<Digest> for Nullifier {
-    type Error = RpcConversionError;
-
-    fn try_from(value: Digest) -> Result<Self, Self::Error> {
-        let digest: RpoDigest = value.try_into()?;
-        Ok(digest.into())
-    }
-}
+use crate::rpc::{errors::RpcConversionError, generated::digest::Digest};
 
 // NULLIFIER UPDATE
 // ================================================================================================
@@ -27,4 +11,16 @@ pub struct NullifierUpdate {
     pub nullifier: Nullifier,
     /// The number of the block in which the note consumption was registered.
     pub block_num: u32,
+}
+
+// CONVERSIONS
+// ================================================================================================
+
+impl TryFrom<Digest> for Nullifier {
+    type Error = RpcConversionError;
+
+    fn try_from(value: Digest) -> Result<Self, Self::Error> {
+        let digest: RpoDigest = value.try_into()?;
+        Ok(digest.into())
+    }
 }
