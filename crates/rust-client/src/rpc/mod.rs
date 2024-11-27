@@ -38,7 +38,10 @@ mod web_tonic_client;
 #[cfg(feature = "web-tonic")]
 pub use web_tonic_client::WebTonicRpcClient;
 
-use crate::sync::get_nullifier_prefix;
+use crate::{
+    store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
+    sync::get_nullifier_prefix,
+};
 
 // NOTE DETAILS
 // ================================================================================================
@@ -367,6 +370,29 @@ pub trait NodeRpcClient {
         }
 
         Ok((response.0, headers))
+    }
+
+    async fn get_public_note_records(
+        &mut self,
+        note_ids: &[NoteId],
+    ) -> Result<Vec<InputNoteRecord>, RpcError> {
+        let note_details = self.get_notes_by_id(note_ids).await?;
+
+        let mut public_notes = vec![];
+        for detail in note_details {
+            if let NoteDetails::Public(note, inclusion_proof) = detail {
+                let state = UnverifiedNoteState {
+                    metadata: *note.metadata(),
+                    inclusion_proof,
+                }
+                .into();
+                let note = InputNoteRecord::new(note.into(), None, state);
+
+                public_notes.push(note);
+            }
+        }
+
+        Ok(public_notes)
     }
 
     async fn get_public_accounts(

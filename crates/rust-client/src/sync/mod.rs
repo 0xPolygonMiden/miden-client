@@ -16,13 +16,8 @@ use tracing::info;
 
 use crate::{
     notes::NoteUpdates,
-    rpc::{
-        CommittedNote, NoteDetails, NullifierUpdate, TransactionUpdate,
-    },
-    store::{
-        input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
-        StoreError, TransactionFilter,
-    },
+    rpc::{CommittedNote, NullifierUpdate, TransactionUpdate},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError, TransactionFilter},
     Client, ClientError,
 };
 
@@ -485,32 +480,12 @@ impl<R: FeltRng> Client<R> {
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let notes_data = self.rpc_api.get_notes_by_id(query_notes).await?;
-        let mut return_notes = Vec::with_capacity(query_notes.len());
-        for note_data in notes_data {
-            match note_data {
-                NoteDetails::Private(id, ..) => {
-                    // TODO: Is there any benefit to not ignoring these? In any case we do not have
-                    // the recipient which is mandatory right now.
-                    info!("Note {} is private but the client is not tracking it, ignoring.", id);
-                },
-                NoteDetails::Public(note, inclusion_proof) => {
-                    info!("Retrieved details for Note ID {}.", note.id());
-                    let metadata = *note.metadata();
+        let mut return_notes = self.rpc_api.get_public_note_records(query_notes).await?;
 
-                    return_notes.push(InputNoteRecord::new(
-                        note.into(),
-                        None,
-                        CommittedNoteState {
-                            metadata,
-                            inclusion_proof,
-                            block_note_root: block_header.note_root(),
-                        }
-                        .into(),
-                    ))
-                },
-            }
+        for note in return_notes.iter_mut() {
+            note.block_header_received(*block_header)?;
         }
+
         Ok(return_notes)
     }
 
