@@ -276,6 +276,13 @@ pub trait Store: Send + Sync {
         account_ids: Vec<AccountId>,
     ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError>;
 
+    /// Updates an existing [Account] with a new state.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError>;
+
     // SYNC
     // --------------------------------------------------------------------------------------------
 

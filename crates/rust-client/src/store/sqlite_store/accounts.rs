@@ -151,6 +151,15 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
+    pub(crate) fn update_account(
+        conn: &mut Connection,
+        new_account_state: &Account,
+    ) -> Result<(), StoreError> {
+        let tx = conn.transaction()?;
+        update_account(&tx, new_account_state)?;
+        Ok(tx.commit()?)
+    }
+
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
     pub fn get_account_auth_by_pub_key(
         conn: &mut Connection,
