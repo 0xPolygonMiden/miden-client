@@ -2,7 +2,7 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
 
 use async_trait::async_trait;
@@ -223,7 +223,7 @@ impl fmt::Display for AccountProofError {
     }
 }
 
-// ACCOUNT HEADERS
+// FPI ACCOUNT DATA
 // ================================================================================================
 
 pub struct FpiAccountData {
@@ -365,7 +365,9 @@ pub trait NodeRpcClient {
             headers.push(FpiAccountData::new(
                 proof.account_id,
                 proof.merkle_proof,
-                proof.state_headers.expect("State headers should be present"),
+                proof.state_headers.ok_or(RpcError::ExpectedDataMissing(String::from(
+                    "AccountProof.StateHeaders",
+                )))?,
             ));
         }
 
@@ -395,17 +397,20 @@ pub trait NodeRpcClient {
         Ok(public_notes)
     }
 
-    async fn get_public_accounts(
+    async fn get_updated_public_accounts(
         &mut self,
-        account_ids: Vec<AccountId>,
+        local_accounts: Vec<&AccountHeader>,
     ) -> Result<Vec<Account>, RpcError> {
         let mut public_accounts = vec![];
 
-        for id in account_ids {
-            let response = self.get_account_update(id).await?;
+        for local_account in local_accounts {
+            let response = self.get_account_update(local_account.id()).await?;
 
             if let AccountDetails::Public(account, _) = response {
-                public_accounts.push(account);
+                // We should only return an account if it's newer, otherwise we ignore it
+                if account.nonce().as_int() > local_account.nonce().as_int() {
+                    public_accounts.push(account);
+                }
             }
         }
 

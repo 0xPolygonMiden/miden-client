@@ -516,31 +516,22 @@ impl<R: FeltRng> Client<R> {
         account_updates: &[(AccountId, Digest)],
         current_onchain_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
-        let mismatched_public_accounts = account_updates
-            .iter()
-            .filter_map(|(id, hash)| {
-                current_onchain_accounts
-                    .iter()
-                    .find(|acc| *id == acc.id() && *hash != acc.hash())
-                    .map(|acc| (acc.id(), acc))
-            })
-            .collect::<BTreeMap<_, _>>();
+        let mut mismatched_public_accounts = vec![];
 
-        let account_ids = mismatched_public_accounts.keys().cloned().collect::<Vec<_>>();
-        let mut accounts_to_update = self.rpc_api.get_public_accounts(account_ids).await?;
-
-        accounts_to_update.retain(|account| {
-            let account_id = account.id();
-            if let Some(local_account) = mismatched_public_accounts.get(&account_id) {
-                // We should only do the update if it's newer, otherwise we ignore it
-                if account.nonce().as_int() > local_account.nonce().as_int() {
-                    return true;
-                }
+        for (id, hash) in account_updates {
+            // check if this updated account is tracked by the client
+            if let Some(account) = current_onchain_accounts
+                .iter()
+                .find(|acc| *id == acc.id() && *hash != acc.hash())
+            {
+                mismatched_public_accounts.push(account);
             }
-            false
-        });
+        }
 
-        Ok(accounts_to_update)
+        self.rpc_api
+            .get_updated_public_accounts(mismatched_public_accounts)
+            .await
+            .map_err(ClientError::RpcError)
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
