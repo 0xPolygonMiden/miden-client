@@ -416,6 +416,14 @@ pub trait NodeRpcClient {
 
         Ok(public_accounts)
     }
+
+    async fn get_block_header_with_proof(
+        &mut self,
+        block_num: Option<u32>,
+    ) -> Result<(BlockHeader, MmrProof), RpcError> {
+        let (header, proof) = self.get_block_header_by_number(block_num, true).await?;
+        Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
+    }
 }
 
 // SYNC NOTE
