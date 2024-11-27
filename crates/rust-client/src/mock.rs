@@ -25,7 +25,7 @@ use miden_objects::{
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Digest, Felt, Word,
 };
-use miden_tx::testing::mock_chain::MockChain;
+use miden_tx::testing::MockChain;
 use rand::Rng;
 use tonic::Response;
 use uuid::Uuid;
@@ -86,7 +86,7 @@ impl MockRpcApi {
             ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
-        .add_assets([NonFungibleAsset::mock(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, &[1, 2, 3])])
+        .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
         .build(&TransactionKernel::testing_assembler())
         .unwrap();
 
@@ -106,7 +106,7 @@ impl MockRpcApi {
     /// Seals a block with the given notes and nullifiers.
     fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::notes::Nullifier>) {
         for note in notes {
-            self.mock_chain.add_note(note);
+            self.mock_chain.add_pending_note(note);
         }
 
         for nullifier in nullifiers {

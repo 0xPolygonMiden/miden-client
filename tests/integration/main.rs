@@ -269,10 +269,10 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
         &mut client,
         from_account_id,
         tx_request,
-        ClientError::AssetError(miden_objects::AssetError::AssetAmountNotSufficient(
-            MINT_AMOUNT,
-            MINT_AMOUNT + 1,
-        )),
+        ClientError::AssetError(miden_objects::AssetError::FungibleAssetAmountNotSufficient {
+            minuend: MINT_AMOUNT,
+            subtrahend: MINT_AMOUNT + 1,
+        }),
     )
     .await;
 }
