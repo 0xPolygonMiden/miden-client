@@ -28,8 +28,8 @@ use tonic_web_wasm_client::Client;
 
 use super::{AccountProof, AccountProofs, NoteSyncInfo};
 use crate::rpc::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeNote, NodeRpcClient,
+    NodeRpcClientEndpoint, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
 };
 
 #[rustfmt::skip]
@@ -122,7 +122,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
@@ -153,7 +153,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NoteDetails::Public(note, inclusion_details)
+                    NodeNote::Public(note, inclusion_details)
                 },
                 // Off-chain notes do not have details
                 None => {
@@ -166,7 +166,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NodeNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)

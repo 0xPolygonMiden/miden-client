@@ -43,12 +43,12 @@ use crate::{
     sync::get_nullifier_prefix,
 };
 
-// NOTE DETAILS
+// NODE NOTE
 // ================================================================================================
 
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note.
 #[allow(clippy::large_enum_variant)]
-pub enum NoteDetails {
+pub enum NodeNote {
     /// Details for a private note only include its [NoteMetadata] and [NoteInclusionProof].
     /// Other details needed to consume the note are expected to be stored locally, off-chain.
     Private(NoteId, NoteMetadata, NoteInclusionProof),
@@ -56,28 +56,28 @@ pub enum NoteDetails {
     Public(Note, NoteInclusionProof),
 }
 
-impl NoteDetails {
+impl NodeNote {
     /// Returns the note's inclusion details.
     pub fn inclusion_proof(&self) -> &NoteInclusionProof {
         match self {
-            NoteDetails::Private(_, _, inclusion_proof) => inclusion_proof,
-            NoteDetails::Public(_, inclusion_proof) => inclusion_proof,
+            NodeNote::Private(_, _, inclusion_proof) => inclusion_proof,
+            NodeNote::Public(_, inclusion_proof) => inclusion_proof,
         }
     }
 
     /// Returns the note's metadata.
     pub fn metadata(&self) -> &NoteMetadata {
         match self {
-            NoteDetails::Private(_, metadata, _) => metadata,
-            NoteDetails::Public(note, _) => note.metadata(),
+            NodeNote::Private(_, metadata, _) => metadata,
+            NodeNote::Public(note, _) => note.metadata(),
         }
     }
 
     /// Returns the note's ID.
     pub fn id(&self) -> NoteId {
         match self {
-            NoteDetails::Private(id, ..) => *id,
-            NoteDetails::Public(note, _) => note.id(),
+            NodeNote::Private(id, ..) => *id,
+            NodeNote::Public(note, _) => note.id(),
         }
     }
 }
@@ -287,7 +287,7 @@ pub trait NodeRpcClient {
     ///
     /// For any NoteType::Private note, the return data is only the [NoteMetadata], whereas
     /// for NoteType::Onchain notes, the return data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint
@@ -382,7 +382,7 @@ pub trait NodeRpcClient {
 
         let mut public_notes = vec![];
         for detail in note_details {
-            if let NoteDetails::Public(note, inclusion_proof) = detail {
+            if let NodeNote::Public(note, inclusion_proof) = detail {
                 let state = UnverifiedNoteState {
                     metadata: *note.metadata(),
                     inclusion_proof,
@@ -425,7 +425,7 @@ pub trait NodeRpcClient {
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
     }
 
-    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NoteDetails, RpcError> {
+    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NodeNote, RpcError> {
         let notes = self.get_notes_by_id(&[note_id]).await?;
         notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
     }

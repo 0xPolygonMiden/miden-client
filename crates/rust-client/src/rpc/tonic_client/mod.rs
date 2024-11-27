@@ -30,8 +30,8 @@ use tracing::info;
 
 use super::{
     AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote, Endpoint,
-    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, NullifierUpdate,
-    StateSyncInfo, TransactionUpdate,
+    NodeNote, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, NullifierUpdate, StateSyncInfo,
+    TransactionUpdate,
 };
 use crate::rpc::RpcError;
 #[rustfmt::skip]
@@ -145,7 +145,7 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError> {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
@@ -174,7 +174,7 @@ impl NodeRpcClient for TonicRpcClient {
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NoteDetails::Public(note, inclusion_details)
+                    NodeNote::Public(note, inclusion_details)
                 },
                 // Off-chain notes do not have details
                 None => {
@@ -188,7 +188,7 @@ impl NodeRpcClient for TonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NodeNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)
