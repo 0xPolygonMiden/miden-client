@@ -11,7 +11,6 @@ use domain::{
     notes::{NoteDetails, NoteSyncInfo},
     sync::StateSyncInfo,
 };
-
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrProof,
@@ -24,6 +23,9 @@ pub mod domain;
 
 mod errors;
 pub use errors::RpcError;
+
+mod endpoint;
+pub use endpoint::Endpoint;
 
 #[cfg(not(test))]
 mod generated;

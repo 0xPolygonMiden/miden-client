@@ -31,13 +31,10 @@ use super::{
         },
         rpc::api_client::ApiClient,
     },
-    AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo, StateSyncInfo,
+    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo,
+    RpcError, StateSyncInfo,
 };
-use crate::{
-    config::RpcConfig,
-    rpc::{generated::requests::GetBlockHeaderByNumberRequest, RpcError},
-};
-
+use crate::rpc::generated::requests::GetBlockHeaderByNumberRequest;
 
 // TONIC RPC CLIENT
 // ================================================================================================
