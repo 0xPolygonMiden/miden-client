@@ -67,7 +67,7 @@ impl Default for MockRpcApi {
 impl MockRpcApi {
     /// Creates a new `MockRpcApi` instance with pre-populated blocks and notes.
     pub fn new() -> Self {
-        let mock_chain = MockChain::new();
+        let mock_chain = MockChain::empty();
         let mut api = Self {
             notes: BTreeMap::new(),
             blocks: vec![],
