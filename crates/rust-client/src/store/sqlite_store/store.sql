@@ -27,6 +27,14 @@ CREATE TABLE account_auth (
     PRIMARY KEY (account_id)
 );
 
+-- Create foreign_account_code table
+CREATE TABLE foreign_account_code(
+    account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
+    code_root TEXT NOT NULL,               -- Root of the account_code
+    PRIMARY KEY (account_id),
+    FOREIGN KEY (code_root) REFERENCES account_code(root)
+);
+
 -- Create accounts table
 CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- Account ID.
@@ -119,7 +127,7 @@ CREATE TABLE state_sync (
 -- Create tags table
 CREATE TABLE tags (
     tag BLOB NOT NULL,                  -- the serialized tag
-    source BLOB NOT NULL               -- the serialized tag source
+    source BLOB NOT NULL                -- the serialized tag source
 );
 
 -- insert initial row into state_sync table

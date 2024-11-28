@@ -43,10 +43,7 @@ use crate::{
         },
         NodeRpcClient, RpcError,
     },
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, StoreAuthenticator},
     Client,
 };
 
@@ -325,14 +322,7 @@ impl NodeRpcClient for MockRpcApi {
 // ================================================================================================
 
 pub async fn create_test_client() -> (MockClient, MockRpcApi) {
-    let store: SqliteStoreConfig = create_test_store_path()
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .try_into()
-        .unwrap();
-
-    let store = SqliteStore::new(&store).await.unwrap();
+    let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();

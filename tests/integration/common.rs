@@ -1,19 +1,11 @@
-use std::{env::temp_dir, sync::Arc, time::Duration};
+use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 use miden_client::{
     accounts::AccountTemplate,
-    config::RpcConfig,
     crypto::FeltRng,
     notes::create_p2id_note,
-    rpc::{RpcError, TonicRpcClient},
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        NoteFilter, StoreAuthenticator, TransactionFilter,
-    },
+    rpc::{Endpoint, RpcError, TonicRpcClient},
+    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
     transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
     Client, ClientError,
@@ -30,13 +22,14 @@ use miden_objects::{
     Felt, FieldElement,
 };
 use rand::Rng;
+use toml::Table;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -47,10 +40,10 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub async fn create_test_client() -> TestClient {
-    let (rpc_config, store_config) = get_client_config();
+    let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
+        let sqlite_store = SqliteStore::new(store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
@@ -61,7 +54,7 @@ pub async fn create_test_client() -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(&rpc_config)),
+        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
         rng,
         store,
         Arc::new(authenticator),
@@ -69,19 +62,23 @@ pub async fn create_test_client() -> TestClient {
     )
 }
 
-pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
-    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
-        .extract()
-        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
-
-    let store_config = create_test_store_path()
-        .into_os_string()
-        .into_string()
+pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
+    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
-        .try_into()
+        .parse::<Table>()
         .unwrap();
+    let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    (rpc_config, store_config)
+    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
+        + "://"
+        + rpc_endpoint_toml["host"].as_str().unwrap()
+        + ":"
+        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
+    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+
+    let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
+
+    (endpoint, timeout_ms, create_test_store_path())
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

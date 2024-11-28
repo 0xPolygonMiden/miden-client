@@ -11,6 +11,7 @@ use domain::{
     notes::{NoteDetails, NoteSyncInfo},
     sync::StateSyncInfo,
 };
+
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrProof,

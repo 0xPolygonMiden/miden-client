@@ -9,7 +9,6 @@ pub use alloc::boxed::Box;
 extern crate std;
 
 pub mod accounts;
-pub mod config;
 pub mod notes;
 pub mod rpc;
 pub mod store;
