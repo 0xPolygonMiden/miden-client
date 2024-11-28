@@ -2,15 +2,19 @@
 
 ## 0.7.0 (TBD)
 
-### Changes
+### Features
 
-* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
+* Added caching for foreign account code (#597).
 
 ### Fixes
+
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes
+
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
+* [BREAKING] Removed unused dependencies (#584).
 
 ## 0.6.0 (2024-11-08)
 

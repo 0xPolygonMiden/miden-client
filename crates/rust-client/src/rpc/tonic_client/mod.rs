@@ -29,11 +29,11 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
+    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote, Endpoint,
     NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
     NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{config::RpcConfig, rpc::RpcError};
+use crate::rpc::RpcError;
 #[rustfmt::skip]
 pub mod generated;
 
@@ -50,12 +50,13 @@ pub struct TonicRpcClient {
 }
 
 impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config: &RpcConfig) -> TonicRpcClient {
+    /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
+    /// the given timeout in milliseconds
+    pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
-            endpoint: config.endpoint.to_string(),
-            timeout_ms: config.timeout_ms,
+            endpoint: endpoint.to_string(),
+            timeout_ms,
         }
     }
 
