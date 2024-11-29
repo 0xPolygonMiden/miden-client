@@ -8,7 +8,7 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
+    accounts::{AccountId, AccountStorageMode, AccountTemplate},
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
@@ -411,13 +411,10 @@ async fn test_cli_export_import_account() {
 
     // Ensure the account was imported
     let client_2 = create_test_client_with_store_path(&store_path_2).await;
-    assert!(matches!(
-        client_2
-            .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
-            .await
-            .unwrap(),
-        (Account { .. }, _)
-    ));
+    assert!(client_2
+        .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
+        .await
+        .is_ok());
 }
 
 #[test]

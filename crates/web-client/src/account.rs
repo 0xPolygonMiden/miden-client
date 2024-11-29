@@ -1,3 +1,4 @@
+use miden_objects::accounts::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -29,8 +30,9 @@ impl WebClient {
                 .get_account(account_id.into())
                 .await
                 .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
+            let account: NativeAccount = result.into();
 
-            Ok(result.0.into())
+            Ok(account.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

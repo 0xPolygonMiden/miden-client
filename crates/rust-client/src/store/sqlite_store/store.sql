@@ -37,6 +37,7 @@ CREATE TABLE foreign_account_code(
 
 -- Create accounts table
 CREATE TABLE accounts (
+    account_hash TEXT NOT NULL UNIQUE,    -- Account state hash
     id UNSIGNED BIG INT NOT NULL,  -- Account ID.
     code_root TEXT NOT NULL,       -- Root of the account_code
     storage_root TEXT NOT NULL,    -- Root of the account_storage Merkle tree.
@@ -44,8 +45,8 @@ CREATE TABLE accounts (
     nonce BIGINT NOT NULL,         -- Account nonce.
     committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
     account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
-    account_hash TEXT NOT NULL UNIQUE,    -- Account state hash
-    PRIMARY KEY (id, nonce),
+    locked BOOLEAN NOT NULL,       -- True if the account is locked, false if not.
+    PRIMARY KEY (account_hash),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
