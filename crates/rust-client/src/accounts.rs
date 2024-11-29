@@ -105,25 +105,35 @@ impl<R: FeltRng> Client<R> {
             account_data.account_seed
         };
 
-        let account_exists = !matches!(
-            self.store.get_account(account_data.account.id()).await,
-            Err(StoreError::AccountDataNotFound(_))
-        );
+        let tracked_account = self.store.get_account(account_data.account.id()).await;
 
-        if account_exists {
-            if !force {
-                return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
-            } else {
-                return self
-                    .store
+        match tracked_account {
+            Err(StoreError::AccountDataNotFound(_)) => {
+                self.insert_account(
+                    &account_data.account,
+                    account_seed,
+                    &account_data.auth_secret_key,
+                )
+                .await
+            },
+            Err(err) => Err(ClientError::StoreError(err)),
+            Ok(tracked_account) => {
+                if !force {
+                    return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
+                }
+
+                if tracked_account.account().nonce().as_int()
+                    > account_data.account.nonce().as_int()
+                {
+                    return Err(ClientError::AccountNonceTooLow);
+                }
+
+                self.store
                     .update_account(&account_data.account)
                     .await
-                    .map_err(ClientError::StoreError);
-            }
+                    .map_err(ClientError::StoreError)
+            },
         }
-
-        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
-            .await
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data

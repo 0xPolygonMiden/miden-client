@@ -262,7 +262,7 @@ pub(super) fn insert_account_record(
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
+    const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
         params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],

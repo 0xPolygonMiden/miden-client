@@ -29,6 +29,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AccountLocked(AccountId),
     AssetError(AssetError),
+    AccountNonceTooLow,
     AccountAlreadyTracked(AccountId),
     DataDeserializationError(DeserializationError),
     NoteNotFoundOnChain(NoteId),
@@ -58,6 +59,9 @@ impl fmt::Display for ClientError {
                 write!(f, "Account with ID {account_id} is locked")
             },
             ClientError::AssetError(err) => write!(f, "Asset error: {err}"),
+            ClientError::AccountNonceTooLow => {
+                write!(f, "Account nonce is too low to import")
+            },
             ClientError::AccountAlreadyTracked(account_id) => {
                 write!(f, "Account with ID {account_id} is already being tracked")
             },
