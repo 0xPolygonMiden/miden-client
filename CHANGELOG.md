@@ -3,6 +3,7 @@
 ## 0.7.0 (TBD)
 
 ### Features
+
 * [BREAKING] Added `AccountRecord` with information about the account's status (#600).
 * Added caching for foreign account code (#597).
 
