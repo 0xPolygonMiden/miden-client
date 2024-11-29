@@ -13,6 +13,7 @@
 
 ### Changes
 
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
 * [BREAKING] Removed unused dependencies (#584).

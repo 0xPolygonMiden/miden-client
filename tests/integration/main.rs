@@ -4,7 +4,7 @@ use miden_client::{
     accounts::{Account, AccountData, AccountTemplate},
     assets::TokenSymbol,
     notes::NoteRelevance,
-    rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
+    rpc::{domain::accounts::AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
         input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
         NoteFilter, OutputNoteState, TransactionFilter,
