@@ -6,6 +6,7 @@
 
 * [BREAKING] Added `AccountRecord` with information about the account's status (#600).
 * Added caching for foreign account code (#597).
+* Added support for unauthenticated notes consumption in the CLI (#609).
 
 ### Fixes
 
