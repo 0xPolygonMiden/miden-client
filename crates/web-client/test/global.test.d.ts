@@ -30,6 +30,7 @@ import {
   TestUtils,
   TransactionFilter,
   TransactionRequest,
+  TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
   WebClient,
@@ -68,6 +69,7 @@ declare global {
     TestUtils: typeof TestUtils;
     TransactionFilter: typeof TransactionFilter;
     TransactionRequest: typeof TransactionRequest;
+    TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
     create_client: () => Promise<void>;

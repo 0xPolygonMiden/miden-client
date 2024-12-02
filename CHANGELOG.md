@@ -5,11 +5,11 @@
 ### Features
 
 * [BREAKING] Added `AccountRecord` with information about the account's status (#600).
+* [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
 * Added caching for foreign account code (#597).
 * Added support for unauthenticated notes consumption in the CLI (#609).
 
 ### Fixes
-
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes

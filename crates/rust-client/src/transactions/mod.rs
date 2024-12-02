@@ -42,7 +42,7 @@ use crate::{
 mod request;
 pub use request::{
     NoteArgs, PaymentTransactionData, SwapTransactionData, TransactionRequest,
-    TransactionRequestError, TransactionScriptTemplate,
+    TransactionRequestBuilder, TransactionRequestError, TransactionScriptTemplate,
 };
 
 mod script_builder;
@@ -922,8 +922,8 @@ mod test {
         Felt, FieldElement, Word,
     };
 
-    use super::{PaymentTransactionData, TransactionRequest};
-    use crate::mock::create_test_client;
+    use super::PaymentTransactionData;
+    use crate::{mock::create_test_client, transactions::TransactionRequestBuilder};
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
@@ -965,7 +965,7 @@ mod test {
             .await
             .unwrap();
         client.sync_state().await.unwrap();
-        let tx_request = TransactionRequest::pay_to_id(
+        let tx_request = TransactionRequestBuilder::pay_to_id(
             PaymentTransactionData::new(
                 vec![asset_1, asset_2],
                 account.id(),
@@ -975,7 +975,8 @@ mod test {
             NoteType::Private,
             client.rng(),
         )
-        .unwrap();
+        .unwrap()
+        .build();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(tx_result

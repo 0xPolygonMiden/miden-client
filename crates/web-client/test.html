@@ -41,6 +41,7 @@
         OutputNotesArray,
         Rpo256,
         TransactionRequest,
+        TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
         WebClient,
@@ -1410,10 +1411,9 @@
         let note = new Note(noteAssets, noteMetadata, noteRecipient);
 
         // Creating First Custom Transaction Request to Mint the Custom Note
-        let transaction_request =
-          new TransactionRequest().with_own_output_notes(
-            new OutputNotesArray([OutputNote.full(note)])
-          );
+        let transaction_request = new TransactionRequestBuilder()
+          .with_own_output_notes(new OutputNotesArray([OutputNote.full(note)]))
+          .build();
 
         // Execute and Submit Transaction
         await webClient.fetch_and_cache_account_auth_by_pub_key(

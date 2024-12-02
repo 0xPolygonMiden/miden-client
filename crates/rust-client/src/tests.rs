@@ -24,7 +24,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::TransactionRequest,
+    transactions::TransactionRequestBuilder,
     ClientError,
 };
 
@@ -403,13 +403,14 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -434,13 +435,14 @@ async fn test_get_output_notes() {
         .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x0123456789abcdef").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
@@ -500,7 +502,7 @@ async fn test_transaction_request_expiration() {
         .await
         .unwrap();
 
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
@@ -508,7 +510,8 @@ async fn test_transaction_request_expiration() {
     )
     .unwrap()
     .with_expiration_delta(5)
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -543,13 +546,14 @@ async fn test_import_processing_note_returns_error() {
         .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequest::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
 
     let transaction =
         client.new_transaction(faucet.id(), transaction_request.clone()).await.unwrap();
@@ -558,8 +562,9 @@ async fn test_import_processing_note_returns_error() {
     let note_id = transaction_request.expected_output_notes().next().unwrap().id();
     let note = client.get_input_note(note_id).await.unwrap();
 
-    let input = [(note.try_into().unwrap(), None)].into_iter();
-    let consume_note_request = TransactionRequest::new().with_unauthenticated_input_notes(input);
+    let input = [(note.try_into().unwrap(), None)];
+    let consume_note_request =
+        TransactionRequestBuilder::new().with_unauthenticated_input_notes(input).build();
     let transaction = client
         .new_transaction(account.id(), consume_note_request.clone())
         .await
@@ -605,7 +610,8 @@ async fn test_no_nonce_change_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], code).unwrap();
 
-    let transaction_request = TransactionRequest::new().with_custom_script(tx_script).unwrap();
+    let transaction_request =
+        TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap().build();
 
     let transaction_execution_result =
         client.new_transaction(regular_account.id(), transaction_request).await.unwrap();
