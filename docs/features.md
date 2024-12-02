@@ -1,7 +1,3 @@
----
-comments: true
----
-
 The Miden client offers a range of functionality for interacting with the Miden rollup.
 
 ### Transaction execution

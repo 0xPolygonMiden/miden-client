@@ -1,11 +1,7 @@
----
-comments: true
----
-
 The following document lists the commands that the CLI currently supports.
 
-!!! note
-    Use `--help` as a flag on any command for more information.
+> **Note**
+> Use `--help` as a flag on any command for more information.
 
 ## Usage
 
