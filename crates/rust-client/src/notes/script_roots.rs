@@ -5,7 +5,7 @@
 pub const P2ID: &str = "0x5018c4c960777cf3863cbadc46990d22fb29bf0ca4112d0502693e5247298a45";
 
 /// Script root of the P2IDR note script
-pub const P2IDR: &str = "0x5c796e7c46a0a131cd5aa61c6af2c71c93e74ab8bf7d45068a95bd20c0456f55";
+pub const P2IDR: &str = "0x23cff5a38b7bad854def6c285966c16cb9b4464387c62a2c03f11b1a4ddff1a1";
 
 /// Script root of the SWAP note script
 pub const SWAP: &str = "0xba6dc9c022ad9a988c3c8f91e40ad89f4ef736472c79f389397943a1db538bfc";
