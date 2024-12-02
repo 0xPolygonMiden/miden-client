@@ -128,6 +128,12 @@ impl<R: FeltRng> Client<R> {
                     return Err(ClientError::AccountNonceTooLow);
                 }
 
+                if let AccountStatus::Locked { mismatched_node_hash } = tracked_account.status() {
+                    if mismatched_node_hash != &account_data.account.hash() {
+                        return Err(ClientError::AccountHashMismatch(*mismatched_node_hash));
+                    }
+                }
+
                 self.store
                     .update_account(&account_data.account)
                     .await
