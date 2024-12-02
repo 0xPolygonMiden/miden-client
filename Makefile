@@ -13,7 +13,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="mirko/fix/mempool"
+NODE_BRANCH="next"
 NODE_FEATURES_TESTING=--features "testing"
 
 PROVER_DIR="miden-base"
