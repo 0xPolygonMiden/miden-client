@@ -5,7 +5,7 @@ In this section, we show you how to create a new local Miden account and how to 
 The Miden client facilitates interaction with the Miden rollup and provides a way to execute and prove transactions.
 
 > **Tip**
-> Check the [Miden client documentation](https://docs.polygon.technology/miden/miden-client/cli-reference/) for more information.
+> Check the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-reference.html) for more information.
 
 1. If you haven't already done so as part of another tutorial, open your terminal and create a new directory to store the Miden client.
 
@@ -43,7 +43,7 @@ For the --rpc flag, enter the IP that the Miden team supplied.
       ```
       You should see something like this:
 
-      ![Result of listing miden accounts](../../img/get-started/miden-account-list.png)
+      ![Result of listing miden accounts](../../img/tutorials/miden-account-list.png)
 
 Save the account ID for a future step.
 
@@ -84,7 +84,7 @@ Save the account ID for a future step.
 
 4. You should see something like this:
 
-      ![Result of viewing miden notes](../../img/get-started/note-view.png)
+      ![Result of viewing miden notes](../../img/tutorials/note-view.png)
 
 > **Tip**: The importance of syncing
 > - As you can see, the note is listed as `Expected`.
@@ -121,7 +121,7 @@ Commited transactions: 0
 
 2. You should see something like this:
 
-      ![Viewing commit height info](../../img/get-started/commit-height.png)
+      ![Viewing commit height info](../../img/tutorials/commit-height.png)
 
 3. Find your account and note id by listing both `accounts` and `notes`:
 
@@ -138,7 +138,7 @@ Commited transactions: 0
 
 5. You should see a confirmation message like this:
 
-      ![Transaction confirmation message](../../img/get-started/transaction-confirmation.png)
+      ![Transaction confirmation message](../../img/tutorials/transaction-confirmation.png)
 
 6. After confirming you can view the new note status by running the following command:
 
@@ -148,7 +148,7 @@ Commited transactions: 0
 
 7. You should see something like this:
 
-      ![Viewing process info](../../img/get-started/processing-note.png)
+      ![Viewing process info](../../img/tutorials/processing-note.png)
 
 8. The note is `Processing`. This means that the proof of the transaction was sent, but there is no network confirmation yet. You can update your view of the rollup by syncing again:
 
@@ -162,7 +162,7 @@ Commited transactions: 0
       miden notes
       ```
 
-      ![Viewing consumed note](../../img/get-started/consumed-note.png)
+      ![Viewing consumed note](../../img/tutorials/consumed-note.png)
 
 
   Amazing! You just have created a client-side zero-knowledge proof locally on your machine and submitted it to the Miden rollup.
@@ -180,7 +180,7 @@ Commited transactions: 0
 
 6. You should now see your accounts vault containing the funds sent by the faucet. 
 
-      ![Viewing account vault with funds](../../img/get-started/view-account-vault.png)
+      ![Viewing account vault with funds](../../img/tutorials/view-account-vault.png)
 
 ## Congratulations!
 
@@ -188,7 +188,7 @@ You have successfully configured and used the Miden client to interact with a Mi
 
 You have performed basic Miden rollup operations like submitting proofs of transactions, generating and consuming notes.
 
-For more information on the Miden client, refer to the [Miden client documentation](https://docs.polygon.technology/miden/miden-client/).
+For more information on the Miden client, refer to the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/).
 
 ## Debugging tips (clear state and folder)
 

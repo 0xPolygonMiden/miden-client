@@ -7,7 +7,7 @@ In this section, we show you how to execute transactions and send funds to anoth
 ## Create a second client
 
 > **Tip**
-> Remember to use the [Miden client documentation](https://docs.polygon.technology/miden/miden-client/cli-reference/) for clarifications.
+> Remember to use the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-reference.html) for clarifications.
 
 This is an alternative to the [private P2P transactions](p2p-private.md) process.
 
@@ -29,7 +29,7 @@ To do this, we use two terminals with their own state (using their own `miden-cl
     ```
     For the `--rpc` flag, enter the IP that the Miden team supplied.
 
-3. On the new client, create a new [basic account](https://docs.polygon.technology/miden/miden-base/architecture/accounts/#account-types):
+3. On the new client, create a new [basic account](https://0xpolygonmiden.github.io/miden-docs/miden-base/architecture/accounts.html):
 
     ```shell
     miden new-wallet --mutable -s public

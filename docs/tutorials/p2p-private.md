@@ -7,7 +7,7 @@ In this section, we show you how to make private transactions and send funds to 
 ## Create a second account
 
 > **Tip**
-> Remember to use the [Miden client documentation](https://docs.polygon.technology/miden/miden-client/cli-reference/) for clarifications.
+> Remember to use the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-reference.html) for clarifications.
 
 1. Create a second account to send funds with. Previously, we created a type `mutable` account (account A). Now, create another `mutable` (account B) using the following command:
 
@@ -23,7 +23,7 @@ In this section, we show you how to make private transactions and send funds to 
 
 3. You should see two accounts:
 
-      ![Result of listing miden accounts](../../img/get-started/two-accounts.png)
+      ![Result of listing miden accounts](../../img/tutorials/two-accounts.png)
 
 ## Transfer assets between accounts
 
@@ -69,7 +69,7 @@ In this section, we show you how to make private transactions and send funds to 
     miden account --show <regular-account-ID-B>
     ```
 
-    ![Result of listing miden accounts](../../img/get-started/account-b.png)
+    ![Result of listing miden accounts](../../img/tutorials/account-b.png)
 
 6. Check the original account:
 
@@ -77,7 +77,7 @@ In this section, we show you how to make private transactions and send funds to 
     miden account --show <regular-account-ID-A>
     ```
 
-    ![Result of listing miden accounts](../../img/get-started/account-a.png)
+    ![Result of listing miden accounts](../../img/tutorials/account-a.png)
 
 Wanna do more? [Sending public notes](p2p-public.md)
 
@@ -87,7 +87,7 @@ You have successfully configured and used the Miden client to interact with a Mi
 
 You have performed basic Miden rollup operations like submitting proofs of transactions, generating and consuming notes.
 
-For more information on the Miden client, refer to the [Miden client documentation](https://docs.polygon.technology/miden/miden-client/).
+For more information on the Miden client, refer to the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/).
 
 ## Clear data
 
