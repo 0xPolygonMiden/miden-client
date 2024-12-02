@@ -1,4 +1,4 @@
-In this section, we show you how to execute transactions and send funds to another account using the Miden client and [public notes](https://docs.polygon.technology/miden/miden-base/architecture/notes/#note-storage-mode).
+In this section, we show you how to execute transactions and send funds to another account using the Miden client and [public notes](https://0xpolygonmiden.github.io/miden-docs/miden-base/architecture/notes.html#note-storage-mode).
 
 > **Important: Prerequisite steps**
 > - You should have already followed the [prerequisite steps](prerequisites.md) and [get started](create-account-use-faucet.md) documents.
