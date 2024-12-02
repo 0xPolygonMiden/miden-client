@@ -24,7 +24,7 @@ theme:
 nav:
   - Get started: 
       - Prerequisite steps: tutorials/prerequisites.md
-      - Create account and use the faucet: tutorials/create-account.md
+      - Create account and use the faucet: tutorials/create-account-use-faucet.md
       - Private peer-to-peer off-chain txs: tutorials/p2p-private.md
       - Public peer-to-peer note transactions: tutorials/p2p-public.md
   - Overview:
