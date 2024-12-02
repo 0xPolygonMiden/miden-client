@@ -4,16 +4,20 @@
 
 ### Features
 
+* [BREAKING] Added `AccountRecord` with information about the account's status (#600).
 * [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
 * Added caching for foreign account code (#597).
+* Added support for unauthenticated notes consumption in the CLI (#609).
 
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes
 
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
+* [BREAKING] Removed unused dependencies (#584).
 
 ## 0.6.0 (2024-11-08)
 

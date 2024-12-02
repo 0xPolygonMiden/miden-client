@@ -23,6 +23,7 @@ pub enum StoreError {
     AccountCodeDataNotFound(Digest),
     AccountDataNotFound(AccountId),
     AccountError(AccountError),
+    AccountHashAlreadyExists(Digest),
     AccountHashMismatch(AccountId),
     AccountKeyNotFound(Word),
     AccountStorageNotFound(Digest),
@@ -104,6 +105,9 @@ impl fmt::Display for StoreError {
                 write!(f, "Account data was not found for Account Id {account_id}")
             },
             AccountError(err) => write!(f, "error instantiating Account: {err}"),
+            AccountHashAlreadyExists(hash) => {
+                write!(f, "account hash {} already exists", hash)
+            },
             AccountHashMismatch(account_id) => {
                 write!(f, "account hash mismatch for account {account_id}")
             },

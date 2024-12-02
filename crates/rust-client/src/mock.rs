@@ -32,17 +32,18 @@ use uuid::Uuid;
 
 use crate::{
     rpc::{
+        domain::{
+            accounts::{AccountDetails, AccountProofs},
+            notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
+            sync::StateSyncInfo,
+        },
         generated::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
-        StateSyncInfo,
+        NodeRpcClient, RpcError,
     },
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, StoreAuthenticator},
     Client,
 };
 
@@ -208,7 +209,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         _block_num: u32,
         _note_tags: &[NoteTag],
-    ) -> Result<crate::rpc::NoteSyncInfo, RpcError> {
+    ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
             chain_tip: self.blocks.len() as u32,
             notes: vec![],
@@ -321,14 +322,7 @@ impl NodeRpcClient for MockRpcApi {
 // ================================================================================================
 
 pub async fn create_test_client() -> (MockClient, MockRpcApi) {
-    let store: SqliteStoreConfig = create_test_store_path()
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .try_into()
-        .unwrap();
-
-    let store = SqliteStore::new(&store).await.unwrap();
+    let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();

@@ -59,6 +59,7 @@ export async function getAllAccountHeaders() {
           storage_root: record.storageRoot,
           code_root: record.codeRoot,
           account_seed: accountSeedBase64, // Now correctly formatted as Base64
+          locked: record.locked,
         };
       })
     );
@@ -109,6 +110,7 @@ export async function getAccountHeader(accountId) {
       storage_root: mostRecentRecord.storageRoot,
       code_root: mostRecentRecord.codeRoot,
       account_seed: accountSeedBase64,
+      locked: mostRecentRecord.locked,
     };
     return AccountHeader;
   } catch (error) {
@@ -148,6 +150,7 @@ export async function getAccountHeaderByHash(accountHash) {
       storage_root: matchingRecord.storageRoot,
       code_root: matchingRecord.codeRoot,
       account_seed: accountSeedBase64,
+      locked: matchingRecord.locked,
     };
     return AccountHeader;
   } catch (error) {
@@ -419,6 +422,7 @@ export async function insertAccountRecord(
       committed: committed,
       accountSeed: accountSeedBlob,
       accountHash: hash,
+      locked: false,
     };
 
     // Perform the insert using Dexie
@@ -508,6 +512,15 @@ export async function getForeignAccountCode(accountIds) {
   } catch (error) {
     console.error("Error fetching foreign account code:", error);
     throw error; // Re-throw the error for further handling
+  }
+}
+
+export async function lockAccount(accountId) {
+  try {
+    await accounts.where("id").equals(accountId).modify({ locked: true });
+  } catch (error) {
+    console.error(`Error locking account: ${accountId}:`, error);
+    throw error; // Rethrow the error to handle it further up the call chain if needed
   }
 }
 

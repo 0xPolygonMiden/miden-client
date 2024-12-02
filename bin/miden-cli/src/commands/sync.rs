@@ -14,6 +14,7 @@ impl SyncCmd {
         println!("Tracked notes updated: {}", new_details.committed_notes.len());
         println!("Tracked notes consumed: {}", new_details.consumed_notes.len());
         println!("Tracked accounts updated: {}", new_details.updated_accounts.len());
+        println!("Locked accounts: {}", new_details.locked_accounts.len());
         println!("Commited transactions: {}", new_details.committed_transactions.len());
         Ok(())
     }

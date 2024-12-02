@@ -12,8 +12,8 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    chain_data::utils::serialize_chain_mmr_node, notes::utils::apply_note_updates_tx,
-    transactions::utils::update_account, WebStore,
+    accounts::lock_account, chain_data::utils::serialize_chain_mmr_node,
+    notes::utils::apply_note_updates_tx, transactions::utils::update_account, WebStore,
 };
 use crate::{
     store::StoreError,
@@ -105,7 +105,7 @@ impl WebStore {
             transactions_to_commit: committed_transactions,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts,
+            updated_accounts,
             block_has_relevant_notes,
             transactions_to_discard: _transactions_to_discard, /* TODO: Add support for discarded
                                                                 * transactions in web store */
@@ -156,8 +156,12 @@ impl WebStore {
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update onchain accounts on the db that have been updated onchain
-        for account in updated_onchain_accounts {
+        for account in updated_accounts.updated_onchain_accounts() {
             update_account(&account.clone()).await.unwrap();
+        }
+
+        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
+            lock_account(account_id).await.unwrap();
         }
 
         let promise = idxdb_apply_state_sync(

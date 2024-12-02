@@ -27,6 +27,7 @@ use crate::{
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AccountLocked(AccountId),
     AssetError(AssetError),
     DataDeserializationError(DeserializationError),
     NoteNotFoundOnChain(NoteId),
@@ -52,6 +53,9 @@ impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "Account error: {err}"),
+            ClientError::AccountLocked(account_id) => {
+                write!(f, "Account with ID {account_id} is locked")
+            },
             ClientError::AssetError(err) => write!(f, "Asset error: {err}"),
             ClientError::DataDeserializationError(err) => {
                 write!(f, "Data deserialization error: {err}")

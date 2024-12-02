@@ -3,7 +3,7 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
-use std::{path::Path, string::ToString};
+use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
@@ -15,9 +15,9 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 use tonic::async_trait;
 
-use self::config::SqliteStoreConfig;
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
     store::StoreError,
@@ -27,7 +27,6 @@ use crate::{
 
 mod accounts;
 mod chain_data;
-pub mod config;
 mod errors;
 mod notes;
 mod sync;
@@ -49,10 +48,10 @@ impl SqliteStore {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
-    pub async fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
-        let database_exists = Path::new(&config.database_filepath).exists();
+    pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
+        let database_exists = database_filepath.exists();
 
-        let connection_cfg = Config::new(config.database_filepath.clone());
+        let connection_cfg = Config::new(database_filepath);
         let pool = connection_cfg
             .builder(Runtime::Tokio1)
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
@@ -250,7 +249,7 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_account_ids).await
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_headers).await
     }
 
@@ -267,7 +266,7 @@ impl Store for SqliteStore {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_header(conn, account_id))
             .await
     }
@@ -282,10 +281,7 @@ impl Store for SqliteStore {
         .await
     }
 
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
             .await
     }
@@ -327,18 +323,10 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::string::ToString;
-
-    use super::{config::SqliteStoreConfig, SqliteStore};
+    use super::SqliteStore;
     use crate::mock::create_test_store_path;
 
     pub(crate) async fn create_test_store() -> SqliteStore {
-        let temp_file = create_test_store_path();
-
-        SqliteStore::new(&SqliteStoreConfig {
-            database_filepath: temp_file.to_string_lossy().to_string(),
-        })
-        .await
-        .unwrap()
+        SqliteStore::new(create_test_store_path()).await.unwrap()
     }
 }

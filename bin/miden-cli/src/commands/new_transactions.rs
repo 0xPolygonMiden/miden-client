@@ -265,29 +265,38 @@ impl ConsumeNotesCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
-        let mut list_of_notes = Vec::new();
+        let mut authenticated_notes = Vec::new();
+        let mut unauthenticated_notes = Vec::new();
+
         for note_id in &self.list_of_notes {
             let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
                 .map_err(|err| err.to_string())?;
-            list_of_notes.push(note_record.id());
+
+            if note_record.is_authenticated() {
+                authenticated_notes.push(note_record.id());
+            } else {
+                unauthenticated_notes.push((note_record.try_into()?, None));
+            }
         }
 
         let account_id =
             get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()).await?;
 
-        if list_of_notes.is_empty() {
+        if authenticated_notes.is_empty() {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
             let consumable_notes = client.get_consumable_notes(Some(account_id)).await?;
 
-            list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
+            authenticated_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
 
-        if list_of_notes.is_empty() {
+        if authenticated_notes.is_empty() && unauthenticated_notes.is_empty() {
             return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
         }
 
-        let transaction_request = TransactionRequestBuilder::consume_notes(list_of_notes).build();
+        let transaction_request = TransactionRequestBuilder::consume_notes(authenticated_notes)
+            .with_unauthenticated_input_notes(unauthenticated_notes)
+            .build();
 
         execute_transaction(
             &mut client,

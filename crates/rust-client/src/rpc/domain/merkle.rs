@@ -5,11 +5,7 @@ use miden_objects::{
     Digest,
 };
 
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated;
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated;
-use crate::rpc::RpcConversionError;
+use crate::rpc::{errors::RpcConversionError, generated};
 
 // MERKLE PATH
 // ================================================================================================
