@@ -59,7 +59,7 @@ export async function getAllAccountHeaders() {
           storage_root: record.storageRoot,
           code_root: record.codeRoot,
           account_seed: accountSeedBase64, // Now correctly formatted as Base64
-          locked: record.locked,
+          mismatched_node_hash: record.mismatchedNodeHash,
         };
       })
     );
@@ -110,7 +110,7 @@ export async function getAccountHeader(accountId) {
       storage_root: mostRecentRecord.storageRoot,
       code_root: mostRecentRecord.codeRoot,
       account_seed: accountSeedBase64,
-      locked: mostRecentRecord.locked,
+      mismatched_node_hash: mostRecentRecord.mismatchedNodeHash,
     };
     return AccountHeader;
   } catch (error) {
@@ -150,7 +150,7 @@ export async function getAccountHeaderByHash(accountHash) {
       storage_root: matchingRecord.storageRoot,
       code_root: matchingRecord.codeRoot,
       account_seed: accountSeedBase64,
-      locked: matchingRecord.locked,
+      mismatched_node_hash: matchingRecord.mismatchedNodeHash,
     };
     return AccountHeader;
   } catch (error) {
@@ -422,7 +422,7 @@ export async function insertAccountRecord(
       committed: committed,
       accountSeed: accountSeedBlob,
       accountHash: hash,
-      locked: false,
+      mismatchedNodeHash: null,
     };
 
     // Perform the insert using Dexie
@@ -515,9 +515,9 @@ export async function getForeignAccountCode(accountIds) {
   }
 }
 
-export async function lockAccount(accountId) {
+export async function lockAccount(accountId, mismatchedNodeHash) {
   try {
-    await accounts.where("id").equals(accountId).modify({ locked: true });
+    await accounts.where("id").equals(accountId).modify({ mismatchedNodeHash });
   } catch (error) {
     console.error(`Error locking account: ${accountId}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed

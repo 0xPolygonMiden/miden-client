@@ -68,7 +68,7 @@ async fn import_account(
     account_data_file_contents: &[u8],
     force: bool,
 ) -> Result<AccountId, ClientError> {
-    let account_data = AccountData::read_from_bytes(&account_data_file_contents)
+    let account_data = AccountData::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 

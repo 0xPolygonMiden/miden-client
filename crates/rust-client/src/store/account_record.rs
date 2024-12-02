@@ -2,7 +2,7 @@
 // ================================================================================================
 use core::fmt::Display;
 
-use miden_objects::{accounts::Account, Word};
+use miden_objects::{accounts::Account, Digest, Word};
 
 /// Represents a stored account state along with its status.
 ///
@@ -58,7 +58,7 @@ pub enum AccountStatus {
     Tracked,
     /// The local account state doesn't match the node's state, rendering it unusable. Only used
     /// for private accounts.
-    Locked,
+    Locked { mismatched_node_hash: Digest },
 }
 
 impl AccountStatus {
@@ -79,7 +79,7 @@ impl Display for AccountStatus {
         match self {
             AccountStatus::New { .. } => write!(f, "New"),
             AccountStatus::Tracked => write!(f, "Tracked"),
-            AccountStatus::Locked => write!(f, "Locked"),
+            AccountStatus::Locked { .. } => write!(f, "Locked"),
         }
     }
 }

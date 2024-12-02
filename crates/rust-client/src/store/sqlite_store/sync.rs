@@ -137,8 +137,8 @@ impl SqliteStore {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
-            lock_account(&tx, *account_id)?;
+        for (account_id, mismatched_node_hash) in updated_accounts.mismatched_offchain_accounts() {
+            lock_account(&tx, *account_id, *mismatched_node_hash)?;
         }
 
         // Commit the updates
