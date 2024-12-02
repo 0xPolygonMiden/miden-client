@@ -9,7 +9,7 @@ use miden_client::{
     crypto::FeltRng,
     notes::NoteFile,
     utils::Deserializable,
-    Client,
+    Client, ClientError,
 };
 use tracing::info;
 
@@ -37,9 +37,18 @@ impl ImportCmd {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
-                let account_id = import_account(&mut client, filename, self.force)
-                    .await
-                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+                info!(
+                    "Attempting to import account data from {}...",
+                    fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
+                );
+                let account_data_file_contents =
+                    fs::read(filename).map_err(|err| err.to_string())?;
+
+                let account_id =
+                    import_account(&mut client, &account_data_file_contents, self.force)
+                        .await
+                        .map_err(|err| err.to_string())?;
+
                 println!("Successfully imported account {}", account_id);
 
                 if account_id.is_regular_account() {
@@ -56,16 +65,11 @@ impl ImportCmd {
 
 async fn import_account(
     client: &mut Client<impl FeltRng>,
-    filename: &PathBuf,
+    account_data_file_contents: &[u8],
     force: bool,
-) -> Result<AccountId, String> {
-    info!(
-        "Attempting to import account data from {}...",
-        fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
-    );
-    let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
-    let account_data =
-        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+) -> Result<AccountId, ClientError> {
+    let account_data = AccountData::read_from_bytes(&account_data_file_contents)
+        .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
     client.import_account(account_data, force).await?;
