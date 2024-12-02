@@ -1,6 +1,4 @@
-// TRANSACTION REQUEST BUILDER
-// ================================================================================================
-
+//! Contains structures and functions related to transaction creation.
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::ToString,
@@ -22,6 +20,9 @@ use miden_objects::{
 };
 
 use super::{NoteArgs, TransactionRequest, TransactionRequestError, TransactionScriptTemplate};
+
+// TRANSACTION REQUEST BUILDER
+// ================================================================================================
 
 /// A builder for a [TransactionRequest].
 ///

@@ -23,7 +23,7 @@ use crate::{
     accounts::AccountTemplate,
     mock::create_test_client,
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, Store},
+    store::{InputNoteRecord, NoteFilter, Store, StoreError},
     transactions::TransactionRequestBuilder,
     ClientError,
 };
@@ -610,7 +610,8 @@ async fn test_no_nonce_change_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], code).unwrap();
 
-    let transaction_request = TransactionRequest::new().with_custom_script(tx_script).unwrap();
+    let transaction_request =
+        TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap().build();
 
     let transaction_execution_result =
         client.new_transaction(regular_account.id(), transaction_request).await.unwrap();
