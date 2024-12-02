@@ -188,7 +188,7 @@ You have successfully configured and used the Miden client to interact with a Mi
 
 You have performed basic Miden rollup operations like submitting proofs of transactions, generating and consuming notes.
 
-For more information on the Miden client, refer to the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/).
+For more information on the Miden client, refer to the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/index.html).
 
 ## Debugging tips (clear state and folder)
 
