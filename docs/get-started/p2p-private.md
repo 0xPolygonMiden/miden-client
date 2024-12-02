@@ -23,7 +23,7 @@ In this section, we show you how to make private transactions and send funds to 
 
 3. You should see two accounts:
 
-      ![Result of listing miden accounts](../img/tutorials/two-accounts.png)
+      ![Result of listing miden accounts](../img/get-started/two-accounts.png)
 
 ## Transfer assets between accounts
 
@@ -69,7 +69,7 @@ In this section, we show you how to make private transactions and send funds to 
     miden account --show <regular-account-ID-B>
     ```
 
-    ![Result of listing miden accounts](../img/tutorials/account-b.png)
+    ![Result of listing miden accounts](../img/get-started/account-b.png)
 
 6. Check the original account:
 
@@ -77,7 +77,7 @@ In this section, we show you how to make private transactions and send funds to 
     miden account --show <regular-account-ID-A>
     ```
 
-    ![Result of listing miden accounts](../img/tutorials/account-a.png)
+    ![Result of listing miden accounts](../img/get-started/account-a.png)
 
 Wanna do more? [Sending public notes](p2p-public.md)
 
