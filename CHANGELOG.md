@@ -8,6 +8,7 @@
 * [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
 * Added caching for foreign account code (#597).
 * Added support for unauthenticated notes consumption in the CLI (#609).
+* Added foreign procedure invocation support for private accounts (#619).
 
 ### Fixes
 * Added Sync Loop to Integration Tests for Small Speedup (#590).

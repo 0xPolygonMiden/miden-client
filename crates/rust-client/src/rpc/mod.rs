@@ -12,11 +12,11 @@ use domain::{
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountCode, AccountId},
     crypto::merkle::MmrProof,
     notes::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader, Digest,
+    BlockHeader,
 };
 
 pub mod domain;
@@ -126,7 +126,7 @@ pub trait NodeRpcClient {
     async fn get_account_proofs(
         &mut self,
         account_ids: &BTreeSet<AccountId>,
-        code_commitments: &[Digest],
+        known_account_codes: Vec<AccountCode>,
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
