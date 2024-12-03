@@ -256,17 +256,17 @@ async fn test_sync_state() {
     let (mut client, rpc_api) = create_test_client().await;
 
     // Import first mockchain note as expected
-    let expected_note = rpc_api.get_note_at(1).note().clone();
-    Store::upsert_input_notes(client.store.as_ref(), &[expected_note.clone().into()])
-        .await
-        .unwrap();
+    let expected_notes =
+        rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
+    Store::upsert_input_notes(client.store.as_ref(), &expected_notes).await.unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
-    assert_eq!(client.get_input_notes(NoteFilter::Expected).await.unwrap().len(), 1);
+    assert_eq!(
+        client.get_input_notes(NoteFilter::Expected).await.unwrap().len(),
+        expected_notes.len()
+    );
     assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 0);
-
-    let expected_notes = client.get_input_notes(NoteFilter::Expected).await.unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -274,8 +274,8 @@ async fn test_sync_state() {
     // verify that the client is synced to the latest block
     assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
-    // verify that the expected note we had is now committed
-    assert_ne!(client.get_input_notes(NoteFilter::Committed).await.unwrap(), expected_notes);
+    // verify that we now have one committed note after syncing state
+    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);

@@ -628,30 +628,32 @@ impl<R: FeltRng> Client<R> {
             let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
             let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
             if account_asset_amount + incoming_balance < amount {
-                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                    account_asset_amount,
-                    amount,
-                )));
+                return Err(ClientError::AssetError(
+                    AssetError::FungibleAssetAmountNotSufficient {
+                        minuend: account_asset_amount,
+                        subtrahend: amount,
+                    },
+                ));
             }
         }
 
         // Check if the account balance plus incoming assets is greater than or equal to the
         // outgoing non fungible assets
         for non_fungible in non_fungible_set {
-            match account.vault().has_non_fungible_asset(non_fungible.into()) {
+            match account.vault().has_non_fungible_asset(non_fungible) {
                 Ok(true) => (),
                 Ok(false) => {
                     // Check if the non fungible asset is in the incoming assets
                     if !incoming_non_fungible_balance_set.contains(&non_fungible) {
-                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                            0, 1,
-                        )));
+                        return Err(ClientError::AssetError(
+                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                        ));
                     }
                 },
                 _ => {
-                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                        0, 1,
-                    )));
+                    return Err(ClientError::AssetError(
+                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                    ));
                 },
             }
         }
@@ -919,7 +921,7 @@ mod test {
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
         testing::account_component::BASIC_WALLET_CODE,
-        Felt, FieldElement, Word,
+        Word,
     };
 
     use super::PaymentTransactionData;
@@ -947,13 +949,12 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
-        let (account, _) = AccountBuilder::new()
+        let account = AccountBuilder::new()
             .init_seed(Default::default())
-            .nonce(Felt::ONE)
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])
-            .build()
+            .build_existing()
             .unwrap();
 
         client
