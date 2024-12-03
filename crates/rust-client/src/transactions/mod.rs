@@ -75,6 +75,8 @@ impl TransactionResult {
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
         partial_notes: Vec<(NoteDetails, NoteTag)>,
+        current_block_num: u32,
+        current_timestamp: Option<u64>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -82,7 +84,17 @@ impl TransactionResult {
             let account_relevance = note_screener.check_relevance(note).await?;
 
             if !account_relevance.is_empty() {
-                relevant_notes.push(note.clone().into());
+                let metadata = *note.metadata();
+                relevant_notes.push(InputNoteRecord::new(
+                    note.into(),
+                    current_timestamp,
+                    ExpectedNoteState {
+                        metadata: Some(metadata),
+                        after_block_num: current_block_num,
+                        tag: Some(metadata.tag()),
+                    }
+                    .into(),
+                ));
             }
         }
 
@@ -93,7 +105,7 @@ impl TransactionResult {
                 None,
                 ExpectedNoteState {
                     metadata: None,
-                    after_block_num: 0,
+                    after_block_num: current_block_num,
                     tag: Some(*tag),
                 }
                 .into(),
@@ -398,7 +410,14 @@ impl<R: FeltRng> Client<R> {
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener, future_notes).await
+        TransactionResult::new(
+            executed_transaction,
+            screener,
+            future_notes,
+            self.get_sync_height().await?,
+            self.store.get_current_timestamp(),
+        )
+        .await
     }
 
     /// Proves the specified transaction using a local prover, submits it to the network, and saves
@@ -504,7 +523,11 @@ impl<R: FeltRng> Client<R> {
 
         let mut updated_input_notes = vec![];
         for mut input_note_record in consumed_notes {
-            if input_note_record.consumed_locally(account_id, transaction_id)? {
+            if input_note_record.consumed_locally(
+                account_id,
+                transaction_id,
+                self.store.get_current_timestamp(),
+            )? {
                 updated_input_notes.push(input_note_record);
             }
         }

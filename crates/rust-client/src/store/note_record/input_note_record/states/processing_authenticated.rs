@@ -59,6 +59,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         _consumer_account: AccountId,
         _consumer_transaction: TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }

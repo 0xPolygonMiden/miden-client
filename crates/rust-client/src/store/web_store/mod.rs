@@ -42,6 +42,11 @@ impl WebStore {
 }
 #[async_trait(?Send)]
 impl Store for WebStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     // SYNC
     // --------------------------------------------------------------------------------------------
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {

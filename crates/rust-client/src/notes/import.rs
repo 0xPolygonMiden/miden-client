@@ -144,7 +144,7 @@ impl<R: FeltRng> Client<R> {
         let metadata = *note.metadata();
         let mut note_record = previous_note.unwrap_or(InputNoteRecord::new(
             note.into(),
-            None,
+            self.store.get_current_timestamp(),
             ExpectedNoteState {
                 metadata: Some(metadata),
                 after_block_num: inclusion_proof.location().block_num(),
@@ -200,7 +200,7 @@ impl<R: FeltRng> Client<R> {
         let mut note_record = previous_note.unwrap_or({
             InputNoteRecord::new(
                 details,
-                None,
+                self.store.get_current_timestamp(),
                 ExpectedNoteState { metadata: None, after_block_num, tag }.into(),
             )
         });

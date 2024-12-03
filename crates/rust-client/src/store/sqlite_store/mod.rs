@@ -110,6 +110,11 @@ impl SqliteStore {
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 #[async_trait(?Send)]
 impl Store for SqliteStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.interact_with_connection(SqliteStore::get_note_tags).await
     }

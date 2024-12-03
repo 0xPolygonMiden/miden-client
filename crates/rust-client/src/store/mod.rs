@@ -65,6 +65,8 @@ pub use note_record::{
 /// not `&mut self`.
 #[async_trait(?Send)]
 pub trait Store: Send + Sync {
+    fn get_current_timestamp(&self) -> Option<u64>;
+
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
