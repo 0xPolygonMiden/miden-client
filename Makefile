@@ -7,7 +7,7 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_WEB_CLIENT=--features "testing"
-FEATURES_CLIENT=--features "testing, concurrent"
+FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
 FEATURES_CLI=--features "testing, concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
@@ -75,6 +75,10 @@ doc: ## Generate & check rust documentation. You'll need `jq` in order for this 
 
 # --- Testing -------------------------------------------------------------------------------------
 
+.PHONY: test-build
+test: ## Run tests
+	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT) --no-run
+
 .PHONY: test
 test: ## Run tests
 	cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
@@ -87,7 +91,7 @@ test-deps: ## Install dependencies for tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
+	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
@@ -164,10 +168,10 @@ install: ## Install the CLI binary
 # --- Building ------------------------------------------------------------------------------------
 
 build: ## Build the CLI binary and client library in release mode
-	cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
+	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 

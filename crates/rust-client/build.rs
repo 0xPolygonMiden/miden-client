@@ -14,15 +14,12 @@ const STD_PROTO_OUT_DIR: &str = "src/rpc/generated/std";
 const NO_STD_PROTO_OUT_DIR: &str = "src/rpc/generated/nostd";
 
 fn main() -> miette::Result<()> {
-    println!("cargo:rerun-if-changed=Cargo.toml");
-    println!("cargo:rerun-if-changed=Cargo.lock");
-
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
     let dest_path = PathBuf::from(out_dir);
 
     // updates the generated files from protobuf. Only do so when this is not docs.rs building the
     // documentation.
-    if env::var("DOCS_RS").is_err() {
+    if env::var("DOCS_RS").is_err() && env::var("CODEGEN").unwrap_or("0".to_string()) == "1" {
         write_proto(&dest_path).unwrap();
         compile_tonic_client_proto(&dest_path)?;
         replace_no_std_types();

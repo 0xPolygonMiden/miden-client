@@ -6,6 +6,22 @@ on:
     types: [opened, repoened, synchronize]
 
 jobs:
+  test-build:
+    name: Build tests Rust ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu]
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust with ${{matrix.toolchain}} toolchain
+        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - uses: taiki-e/install-action@nextest
+      - name: make - build tests
+        run: make test-build
+
   test:
     name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
     runs-on: ${{matrix.os}}-latest

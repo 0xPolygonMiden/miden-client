@@ -7,9 +7,7 @@ miden-node/
 miden-base/
 dist/
 
-# Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
-# More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
-Cargo.lock
+# Remove web client lockfiles
 /yarn.lock
 package-lock.json
 
