@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use miden_client::{
     accounts::{AccountStorageMode, AccountTemplate},
     assets::TokenSymbol,
@@ -10,12 +10,27 @@ use crate::{
     commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
 };
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum CliAccountStorageMode {
+    Private,
+    Public,
+}
+
+impl From<CliAccountStorageMode> for AccountStorageMode {
+    fn from(cli_mode: CliAccountStorageMode) -> Self {
+        match cli_mode {
+            CliAccountStorageMode::Private => AccountStorageMode::Private,
+            CliAccountStorageMode::Public => AccountStorageMode::Public,
+        }
+    }
+}
+
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account
 pub struct NewFaucetCmd {
-    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
+    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     /// Storage mode of the account
-    storage_mode: AccountStorageMode,
+    storage_mode: CliAccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible)
     non_fungible: bool,
@@ -50,7 +65,7 @@ impl NewFaucetCmd {
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_mode: self.storage_mode,
+            storage_mode: self.storage_mode.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template).await?;
@@ -67,9 +82,9 @@ impl NewFaucetCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a new wallet account
 pub struct NewWalletCmd {
-    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
+    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     /// Storage mode of the account
-    pub storage_mode: AccountStorageMode,
+    pub storage_mode: CliAccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account code is mutable (by default it is not mutable)
     pub mutable: bool,
@@ -79,7 +94,7 @@ impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_mode: self.storage_mode,
+            storage_mode: self.storage_mode.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template).await?;

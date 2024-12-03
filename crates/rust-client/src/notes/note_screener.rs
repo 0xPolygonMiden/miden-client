@@ -162,8 +162,8 @@ impl NoteScreener {
 
             // Check that the account can cover the demanded asset
             match asset {
-                Asset::NonFungible(_non_fungible_asset)
-                    if account.vault().has_non_fungible_asset(asset).expect(
+                Asset::NonFungible(non_fungible_asset)
+                    if account.vault().has_non_fungible_asset(non_fungible_asset).expect(
                         "Should be able to query has_non_fungible_asset for an Asset::NonFungible",
                     ) =>
                 {

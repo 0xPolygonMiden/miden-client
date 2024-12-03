@@ -19,7 +19,7 @@ use super::{
     accounts::update_account, notes::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
 };
 use crate::{
-    rpc::TransactionUpdate,
+    rpc::domain::transactions::TransactionUpdate,
     store::{StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };

@@ -1,6 +1,6 @@
 use core::any::type_name;
 
-use crate::rpc::RpcConversionError;
+use super::errors::RpcConversionError;
 
 pub mod accounts;
 pub mod blocks;
@@ -8,6 +8,7 @@ pub mod digest;
 pub mod merkle;
 pub mod notes;
 pub mod nullifiers;
+pub mod sync;
 pub mod transactions;
 
 // UTILITIES

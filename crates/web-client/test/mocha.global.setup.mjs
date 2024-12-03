@@ -72,6 +72,7 @@ before(async () => {
         TestUtils,
         TransactionFilter,
         TransactionRequest,
+        TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
         WebClient,
@@ -115,6 +116,7 @@ before(async () => {
       window.TestUtils = TestUtils;
       window.TransactionFilter = TransactionFilter;
       window.TransactionRequest = TransactionRequest;
+      window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
 

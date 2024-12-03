@@ -1,7 +1,7 @@
 use miden_client::{
     accounts::AccountTemplate,
     notes::NoteExecutionHint,
-    transactions::TransactionRequest,
+    transactions::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
     ZERO,
 };
@@ -104,11 +104,12 @@ async fn test_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], &failure_code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map.clone())
         .with_custom_script(tx_script)
         .unwrap()
-        .extend_advice_map(advice_map.clone());
+        .extend_advice_map(advice_map.clone())
+        .build();
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(regular_account.id(), transaction_request).await.is_err());
@@ -119,11 +120,12 @@ async fn test_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], &success_code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
-        .extend_advice_map(advice_map);
+        .extend_advice_map(advice_map)
+        .build();
 
     // TEST CUSTOM SCRIPT SERIALIZATION
     let mut buffer = Vec::new();
@@ -220,12 +222,13 @@ async fn test_merkle_store() {
     // Build the transaction
     let tx_script = client.compile_tx_script(vec![], &code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map)
-        .extend_merkle_store(merkle_store.inner_nodes());
+        .extend_merkle_store(merkle_store.inner_nodes())
+        .build();
 
     execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
@@ -241,9 +244,10 @@ async fn mint_custom_note(
     let mut random_coin = RpoRandomCoin::new(Default::default());
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
-        .unwrap();
+        .unwrap()
+        .build();
 
     execute_tx_and_sync(client, faucet_account_id, transaction_request).await;
     note

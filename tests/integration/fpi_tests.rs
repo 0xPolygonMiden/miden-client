@@ -1,7 +1,7 @@
 use miden_client::{
     accounts::{Account, AccountData, AccountTemplate, StorageSlot},
     testing::prepare_word,
-    transactions::{TransactionKernel, TransactionRequest},
+    transactions::{TransactionKernel, TransactionRequestBuilder},
     Felt, Word,
 };
 use miden_lib::accounts::auth::RpoFalcon512;
@@ -55,7 +55,10 @@ async fn test_standard_fpi() {
     let tx = client
         .new_transaction(
             foreign_account_id,
-            TransactionRequest::new().with_custom_script(deployment_tx_script).unwrap(),
+            TransactionRequestBuilder::new()
+                .with_custom_script(deployment_tx_script)
+                .unwrap()
+                .build(),
         )
         .await
         .unwrap();
@@ -112,11 +115,12 @@ async fn test_standard_fpi() {
     let tx_result = client
         .new_transaction(
             native_account.id(),
-            TransactionRequest::new()
+            TransactionRequestBuilder::new()
                 .with_public_foreign_accounts([foreign_account_id])
                 .unwrap()
                 .with_custom_script(tx_script)
-                .unwrap(),
+                .unwrap()
+                .build(),
         )
         .await
         .unwrap();

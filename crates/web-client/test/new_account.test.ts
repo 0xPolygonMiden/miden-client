@@ -238,7 +238,7 @@ describe("new_faucet tests", () => {
         BigInt(10000000)
       )
     ).to.be.rejectedWith(
-      `TokenSymbolError("Token symbol must be between 1 and 6 characters long.")`
+      `token symbol of length 13 is not between 1 and 6 characters long`
     );
   });
 });
