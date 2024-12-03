@@ -10,7 +10,7 @@ use crate::{
     commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
 };
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum CliAccountStorageMode {
     Private,
     Public,
@@ -65,7 +65,7 @@ impl NewFaucetCmd {
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_mode: self.storage_mode.clone().into(),
+            storage_mode: self.storage_mode.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template).await?;
@@ -94,7 +94,7 @@ impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_mode: self.storage_mode.clone().into(),
+            storage_mode: self.storage_mode.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template).await?;
