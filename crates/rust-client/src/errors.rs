@@ -60,7 +60,7 @@ impl fmt::Display for ClientError {
                 write!(f, "Account with ID {account_id} is locked")
             },
             ClientError::AccountHashMismatch(hash) => {
-                write!(f, "Node account hash {hash} doesn't match the imported account hash")
+                write!(f, "Network account hash {hash} doesn't match the imported account hash")
             },
             ClientError::AssetError(err) => write!(f, "Asset error: {err}"),
             ClientError::AccountNonceTooLow => {

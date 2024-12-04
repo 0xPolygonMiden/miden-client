@@ -75,13 +75,17 @@ impl<R: FeltRng> Client<R> {
         Ok(account_and_seed)
     }
 
-    /// Saves in the store the [Account] corresponding to `account_data`. If the account is already
+    /// Saves the [Account] contained in `account_data` in the store. If the account is already
     /// being tracked and `force` is set to `true`, the account will be overwritten.
     ///
     /// # Errors
     ///
     /// - Trying to import a new account without providing its seed
     /// - If the account is already tracked and `force` is set to `false`
+    /// - If `force` is set to `true` and the `account_data` nonce is lower than the one already
+    ///   being tracked
+    /// - If `force` is set to `true` and the `account_data` hash does not match the node's account
+    ///   hash
     ///
     /// # Panics
     ///
@@ -109,6 +113,8 @@ impl<R: FeltRng> Client<R> {
 
         match tracked_account {
             Err(StoreError::AccountDataNotFound(_)) => {
+                // If the account is not being tracked, insert it into the store regardless of the
+                // `force` flag
                 self.insert_account(
                     &account_data.account,
                     account_seed,
@@ -119,16 +125,20 @@ impl<R: FeltRng> Client<R> {
             Err(err) => Err(ClientError::StoreError(err)),
             Ok(tracked_account) => {
                 if !force {
+                    // Only overwrite the account if the `force` flag is set to `true`
                     return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
                 }
 
                 if tracked_account.account().nonce().as_int()
                     > account_data.account.nonce().as_int()
                 {
+                    // If the new account is older than the one being tracked, return an error
                     return Err(ClientError::AccountNonceTooLow);
                 }
 
                 if let AccountStatus::Locked { mismatched_node_hash } = tracked_account.status() {
+                    // If the tracked account is locked, check that the account hash matches the one
+                    // in the node
                     if mismatched_node_hash != &account_data.account.hash() {
                         return Err(ClientError::AccountHashMismatch(*mismatched_node_hash));
                     }
