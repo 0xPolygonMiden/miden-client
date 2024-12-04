@@ -70,7 +70,7 @@ impl From<RpcConversionError> for RpcError {
 // RPC CONVERSION ERROR
 // ================================================================================================
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum RpcConversionError {
     NotAValidFelt,
     NoteTypeError(NoteError),
@@ -95,8 +95,6 @@ impl core::fmt::Display for RpcConversionError {
         }
     }
 }
-
-impl Eq for RpcConversionError {}
 
 impl From<NoteError> for RpcConversionError {
     fn from(error: NoteError) -> Self {

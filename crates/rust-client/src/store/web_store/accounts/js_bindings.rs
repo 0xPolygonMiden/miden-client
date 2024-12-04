@@ -82,4 +82,10 @@ extern "C" {
 
     #[wasm_bindgen(js_name = getForeignAccountCode)]
     pub fn idxdb_get_foreign_account_code(account_ids: Vec<String>) -> js_sys::Promise;
+
+    // UPDATES
+    // ================================================================================================
+
+    #[wasm_bindgen(js_name = lockAccount)]
+    pub fn idxdb_lock_account(account_id: String) -> js_sys::Promise;
 }

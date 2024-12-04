@@ -14,7 +14,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::store::StoreError;
+use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 mod js_bindings;
 use js_bindings::*;
@@ -41,13 +41,13 @@ impl WebStore {
 
     pub(super) async fn get_account_headers(
         &self,
-    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         let promise = idxdb_get_account_headers();
         let js_value = JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("Failed to fetch account headers: {:?}", js_error))
         })?;
 
-        let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> =
+        let account_headers_idxdb: Vec<AccountRecordIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
                     "Failed to deserialize {:?}",
@@ -55,7 +55,7 @@ impl WebStore {
                 )))
             })?;
 
-        let account_headers: Vec<(AccountHeader, Option<Word>)> = account_headers_idxdb
+        let account_headers: Vec<(AccountHeader, AccountStatus)> = account_headers_idxdb
             .into_iter()
             .map(parse_account_record_idxdb_object)
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -66,7 +66,7 @@ impl WebStore {
     pub(crate) async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_header(account_id_str);
 
@@ -74,7 +74,7 @@ impl WebStore {
             .await
             .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-        let account_header_idxdb: AccountRecordIdxdbOjbect =
+        let account_header_idxdb: AccountRecordIdxdbObject =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
                     "Failed to deserialize {:?}",
@@ -95,13 +95,13 @@ impl WebStore {
 
         let promise = idxdb_get_account_header_by_hash(account_hash_str);
         let js_value = JsFuture::from(promise).await.unwrap();
-        let account_header_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+        let account_header_idxdb: Option<AccountRecordIdxdbObject> = from_value(js_value).unwrap();
 
         let account_header: Result<Option<AccountHeader>, StoreError> = account_header_idxdb
             .map_or(Ok(None), |account_record| {
                 let result = parse_account_record_idxdb_object(account_record);
 
-                result.map(|(account_header, _account_seed)| Some(account_header))
+                result.map(|(account_header, _status)| Some(account_header))
             });
 
         account_header
@@ -110,8 +110,8 @@ impl WebStore {
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_header, seed) = self.get_account_header(account_id).await?;
+    ) -> Result<AccountRecord, StoreError> {
+        let (account_header, status) = self.get_account_header(account_id).await?;
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
@@ -127,7 +127,7 @@ impl WebStore {
             account_header.nonce(),
         );
 
-        Ok((account, seed))
+        Ok(AccountRecord::new(account, status))
     }
 
     pub(super) async fn get_account_code(&self, root: Digest) -> Result<AccountCode, StoreError> {
@@ -320,4 +320,12 @@ impl WebStore {
 
         Ok(foreign_account_code)
     }
+}
+
+pub async fn lock_account(account_id: &AccountId) -> Result<(), ()> {
+    let account_id_str = account_id.to_string();
+    let promise = idxdb_lock_account(account_id_str);
+    let _ = JsFuture::from(promise).await;
+
+    Ok(())
 }

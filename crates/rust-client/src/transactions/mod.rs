@@ -33,7 +33,7 @@ use crate::{
     notes::{NoteScreener, NoteUpdates},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, TransactionFilter,
+        OutputNoteRecord, StoreError, TransactionFilter,
     },
     sync::NoteTagRecord,
     ClientError,
@@ -42,7 +42,7 @@ use crate::{
 mod request;
 pub use request::{
     NoteArgs, PaymentTransactionData, SwapTransactionData, TransactionRequest,
-    TransactionRequestError, TransactionScriptTemplate,
+    TransactionRequestBuilder, TransactionRequestError, TransactionScriptTemplate,
 };
 
 mod script_builder;
@@ -459,9 +459,20 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let (mut account, _seed) = self.get_account(account_id).await?;
+        let account_record = self.get_account(account_id).await?;
 
+        if account_record.is_locked() {
+            return Err(ClientError::AccountLocked(account_id));
+        }
+
+        let mut account: Account = account_record.into();
         account.apply_delta(account_delta)?;
+
+        if self.store.get_account_header_by_hash(account.hash()).await?.is_some() {
+            return Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(
+                account.hash(),
+            )));
+        }
 
         // Save only input notes that we care for (based on the note screener assessment)
         let created_input_notes = tx_result.relevant_notes().to_vec();
@@ -617,30 +628,32 @@ impl<R: FeltRng> Client<R> {
             let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
             let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
             if account_asset_amount + incoming_balance < amount {
-                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                    account_asset_amount,
-                    amount,
-                )));
+                return Err(ClientError::AssetError(
+                    AssetError::FungibleAssetAmountNotSufficient {
+                        minuend: account_asset_amount,
+                        subtrahend: amount,
+                    },
+                ));
             }
         }
 
         // Check if the account balance plus incoming assets is greater than or equal to the
         // outgoing non fungible assets
         for non_fungible in non_fungible_set {
-            match account.vault().has_non_fungible_asset(non_fungible.into()) {
+            match account.vault().has_non_fungible_asset(non_fungible) {
                 Ok(true) => (),
                 Ok(false) => {
                     // Check if the non fungible asset is in the incoming assets
                     if !incoming_non_fungible_balance_set.contains(&non_fungible) {
-                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                            0, 1,
-                        )));
+                        return Err(ClientError::AssetError(
+                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                        ));
                     }
                 },
                 _ => {
-                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                        0, 1,
-                    )));
+                    return Err(ClientError::AssetError(
+                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                    ));
                 },
             }
         }
@@ -658,7 +671,8 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (account, _) = self.get_account(account_id).await?;
+        let account: Account = self.get_account(account_id).await?.into();
+
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
             Ok(())
@@ -672,7 +686,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account = self.get_account(account_id).await?.0;
+        let account: Account = self.get_account(account_id).await?.into();
         let account_auth = self.get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
@@ -908,11 +922,11 @@ mod test {
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
         testing::account_component::BASIC_WALLET_CODE,
-        Felt, FieldElement, Word,
+        Word,
     };
 
-    use super::{PaymentTransactionData, TransactionRequest};
-    use crate::mock::create_test_client;
+    use super::PaymentTransactionData;
+    use crate::{mock::create_test_client, transactions::TransactionRequestBuilder};
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
@@ -936,13 +950,12 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
-        let (account, _) = AccountBuilder::new()
+        let account = AccountBuilder::new()
             .init_seed(Default::default())
-            .nonce(Felt::ONE)
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])
-            .build()
+            .build_existing()
             .unwrap();
 
         client
@@ -954,7 +967,7 @@ mod test {
             .await
             .unwrap();
         client.sync_state().await.unwrap();
-        let tx_request = TransactionRequest::pay_to_id(
+        let tx_request = TransactionRequestBuilder::pay_to_id(
             PaymentTransactionData::new(
                 vec![asset_1, asset_2],
                 account.id(),
@@ -964,7 +977,8 @@ mod test {
             NoteType::Private,
             client.rng(),
         )
-        .unwrap();
+        .unwrap()
+        .build();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(tx_result

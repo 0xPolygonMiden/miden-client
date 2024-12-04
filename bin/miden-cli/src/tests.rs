@@ -8,7 +8,7 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
+    accounts::{AccountId, AccountStorageMode, AccountTemplate},
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
@@ -411,13 +411,10 @@ async fn test_cli_export_import_account() {
 
     // Ensure the account was imported
     let client_2 = create_test_client_with_store_path(&store_path_2).await;
-    assert!(matches!(
-        client_2
-            .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
-            .await
-            .unwrap(),
-        (Account { .. }, _)
-    ));
+    assert!(client_2
+        .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
+        .await
+        .is_ok());
 }
 
 #[test]
@@ -445,6 +442,66 @@ fn test_cli_empty_commands() {
 
     let mut swam_cmd = Command::cargo_bin("miden").unwrap();
     assert_command_fails_but_does_not_panic(swam_cmd.args(["swap"]));
+}
+
+#[tokio::test]
+async fn test_consume_unauthenticated_note() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "public"]);
+    create_wallet_cmd.current_dir(&temp_dir).assert().success();
+
+    let wallet_account_id = {
+        let client = create_test_client_with_store_path(&store_path).await;
+        let accounts = client.get_account_headers().await.unwrap();
+
+        accounts[0].0.id().to_hex()
+    };
+
+    // Create faucet account
+    let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
+    create_faucet_cmd.args([
+        "new-faucet",
+        "-s",
+        "public",
+        "-t",
+        "BTC",
+        "-d",
+        "8",
+        "-m",
+        "1000000000000",
+    ]);
+    create_faucet_cmd.current_dir(&temp_dir).assert().success();
+
+    let fungible_faucet_account_id = {
+        let client = create_test_client_with_store_path(&store_path).await;
+        let accounts = client.get_account_headers().await.unwrap();
+
+        accounts[1].0.id().to_hex()
+    };
+
+    sync_cli(&temp_dir);
+
+    // Mint
+    mint_cli(&temp_dir, &wallet_account_id, &fungible_faucet_account_id);
+
+    // Get consumable note to consume without authentication
+    let client = create_test_client_with_store_path(&store_path).await;
+    let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
+
+    let note_id = output_notes.first().unwrap().id().to_hex();
+
+    // Consume the note, internally this checks that the note was consumed correctly
+    consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
 }
 
 // HELPERS

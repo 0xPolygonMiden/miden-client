@@ -15,9 +15,12 @@ use miden_objects::{
 use tracing::info;
 
 use crate::{
+    accounts::AccountUpdates,
     notes::NoteUpdates,
-    rpc::{CommittedNote, NullifierUpdate, TransactionUpdate},
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError, TransactionFilter},
+    rpc::domain::{
+        notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
+    },
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 
@@ -39,6 +42,8 @@ pub struct SyncSummary {
     pub consumed_notes: Vec<NoteId>,
     /// IDs of on-chain accounts that have been updated
     pub updated_accounts: Vec<AccountId>,
+    /// IDs of private accounts that have been locked
+    pub locked_accounts: Vec<AccountId>,
     /// IDs of committed transactions
     pub committed_transactions: Vec<TransactionId>,
 }
@@ -50,6 +55,7 @@ impl SyncSummary {
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
+        locked_accounts: Vec<AccountId>,
         committed_transactions: Vec<TransactionId>,
     ) -> Self {
         Self {
@@ -58,6 +64,7 @@ impl SyncSummary {
             committed_notes,
             consumed_notes,
             updated_accounts,
+            locked_accounts,
             committed_transactions,
         }
     }
@@ -69,6 +76,7 @@ impl SyncSummary {
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
+            locked_accounts: vec![],
             committed_transactions: vec![],
         }
     }
@@ -78,6 +86,7 @@ impl SyncSummary {
             && self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
+            && self.locked_accounts.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
@@ -86,6 +95,7 @@ impl SyncSummary {
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
+        self.locked_accounts.append(&mut other.locked_accounts);
     }
 }
 
@@ -105,7 +115,8 @@ impl SyncStatus {
 
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
+    /// The new block header, returned as part of the
+    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
     pub block_header: BlockHeader,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
@@ -119,8 +130,8 @@ pub struct StateSyncUpdate {
     /// New authentications nodes that are meant to be stored in order to authenticate block
     /// headers.
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Updated public accounts.
-    pub updated_onchain_accounts: Vec<Account>,
+    /// Information abount account changes after the sync.
+    pub updated_accounts: AccountUpdates,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
     /// Tag records that are no longer relevant
@@ -221,7 +232,8 @@ impl<R: FeltRng> Client<R> {
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        let mismatched_offchain_accounts = self
+            .validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
             .await?;
 
         // Build PartialMmr with current data and apply updates
@@ -246,6 +258,7 @@ impl<R: FeltRng> Client<R> {
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
 
@@ -255,7 +268,10 @@ impl<R: FeltRng> Client<R> {
             transactions_to_commit,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts: updated_onchain_accounts.clone(),
+            updated_accounts: AccountUpdates::new(
+                updated_onchain_accounts,
+                mismatched_offchain_accounts,
+            ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             transactions_to_discard,
             tags_to_remove,
@@ -534,30 +550,40 @@ impl<R: FeltRng> Client<R> {
             .map_err(ClientError::RpcError)
     }
 
-    /// Validates account hash updates and returns an error if there is a mismatch.
+    /// Validates account hash updates and returns a vector with all the offchain account
+    /// mismatches.
+    ///
+    /// Offchain account mismatches happen when the hash account of the local tracked account
+    /// doesn't match the hash account of the account in the node. This would be an anomaly and may
+    /// happen for two main reasons:
+    /// - A different client made a transaction with the account, changing its state.
+    /// - The local transaction that modified the local state didn't go through, rendering the local
+    ///   account state outdated.
     async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountHeader],
-    ) -> Result<(), ClientError> {
+    ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
+        let mut mismatched_accounts = vec![];
+
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let mismatched_accounts = current_offchain_accounts
+            let mismatched_account = current_offchain_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
             // OffChain accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
-            if mismatched_accounts.is_some() {
+            if mismatched_account.is_some() {
                 let account_by_hash =
                     self.store.get_account_header_by_hash(*remote_account_hash).await?;
 
                 if account_by_hash.is_none() {
-                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                    mismatched_accounts.push((*remote_account_id, *remote_account_hash));
                 }
             }
         }
-        Ok(())
+        Ok(mismatched_accounts)
     }
 }
 

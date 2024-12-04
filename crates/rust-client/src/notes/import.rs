@@ -6,7 +6,7 @@ use miden_objects::{
 };
 
 use crate::{
-    rpc::{NodeNote, RpcError},
+    rpc::{domain::notes::NodeNote, RpcError},
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
