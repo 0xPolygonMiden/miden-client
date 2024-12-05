@@ -87,5 +87,5 @@ extern "C" {
     // ================================================================================================
 
     #[wasm_bindgen(js_name = lockAccount)]
-    pub fn idxdb_lock_account(account_id: String, mismatched_node_hash: String) -> js_sys::Promise;
+    pub fn idxdb_lock_account(account_id: String) -> js_sys::Promise;
 }

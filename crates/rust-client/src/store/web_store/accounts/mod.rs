@@ -338,12 +338,9 @@ impl WebStore {
     }
 }
 
-pub async fn lock_account(
-    account_id: &AccountId,
-    mismatched_node_account: &Digest,
-) -> Result<(), ()> {
+pub async fn lock_account(account_id: &AccountId) -> Result<(), ()> {
     let account_id_str = account_id.to_string();
-    let promise = idxdb_lock_account(account_id_str, mismatched_node_account.to_string());
+    let promise = idxdb_lock_account(account_id_str);
     let _ = JsFuture::from(promise).await;
 
     Ok(())

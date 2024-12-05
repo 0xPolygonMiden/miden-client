@@ -162,8 +162,8 @@ impl WebStore {
             update_account(&account.clone()).await.unwrap();
         }
 
-        for (account_id, mismatched_node_hash) in updated_accounts.mismatched_offchain_accounts() {
-            lock_account(account_id, mismatched_node_hash).await.unwrap();
+        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
+            lock_account(account_id).await.unwrap();
         }
 
         let promise = idxdb_apply_state_sync(

@@ -18,7 +18,7 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool, String);
-type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>, Option<String>);
+type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>, bool);
 
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -29,8 +29,7 @@ type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts =
-    (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, Option<String>);
+type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -53,7 +52,7 @@ impl SqliteStore {
         conn: &mut Connection,
     ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         const QUERY: &str =
-            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed, a.mismatched_node_hash \
+            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed, a.locked \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
@@ -70,7 +69,7 @@ impl SqliteStore {
     ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, mismatched_node_hash \
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
@@ -87,7 +86,7 @@ impl SqliteStore {
     ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
         const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, mismatched_node_hash \
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE account_hash = ?";
 
         conn.prepare(QUERY)?
@@ -105,7 +104,7 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<AccountRecord, StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.mismatched_node_hash \
+        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked \
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
                             JOIN account_storage ON accounts.storage_root = account_storage.root \
@@ -263,7 +262,7 @@ pub(super) fn insert_account_record(
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, mismatched_node_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)";
+    const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
         params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
@@ -315,13 +314,9 @@ pub(super) fn insert_account_auth(
     Ok(())
 }
 
-pub(super) fn lock_account(
-    tx: &Transaction<'_>,
-    account_id: AccountId,
-    node_account_hash: Digest,
-) -> Result<(), StoreError> {
-    const QUERY: &str = "UPDATE accounts SET mismatched_node_hash = ? WHERE id = ?";
-    tx.execute(QUERY, params![node_account_hash.to_string(), u64::from(account_id) as i64])?;
+pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Result<(), StoreError> {
+    const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = ?";
+    tx.execute(QUERY, params![u64::from(account_id) as i64])?;
     Ok(())
 }
 
@@ -335,30 +330,20 @@ pub(super) fn parse_accounts_columns(
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
     let account_seed: Option<Vec<u8>> = row.get(5)?;
-    let mismatched_node_hash: Option<String> = row.get(6)?;
-    Ok((
-        id,
-        nonce,
-        vault_root,
-        storage_root,
-        code_root,
-        account_seed,
-        mismatched_node_hash,
-    ))
+    let locked: bool = row.get(6)?;
+    Ok((id, nonce, vault_root, storage_root, code_root, account_seed, locked))
 }
 
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
 ) -> Result<(AccountHeader, AccountStatus), StoreError> {
-    let (id, nonce, vault_root, storage_root, code_root, account_seed, mismatched_node_hash) =
+    let (id, nonce, vault_root, storage_root, code_root, account_seed, locked) =
         serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
 
-    let status = match (account_seed, mismatched_node_hash) {
-        (_, Some(mismatched_node_hash)) => AccountStatus::Locked {
-            mismatched_node_hash: Digest::try_from(&mismatched_node_hash)?,
-        },
+    let status = match (account_seed, locked) {
+        (_, true) => AccountStatus::Locked,
         (Some(seed), _) => AccountStatus::New { seed },
         _ => AccountStatus::Tracked,
     };
@@ -381,8 +366,7 @@ pub(super) fn parse_accounts(
 pub(super) fn parse_account(
     serialized_account_parts: SerializedFullAccountParts,
 ) -> Result<AccountRecord, StoreError> {
-    let (id, nonce, account_seed, code, storage, assets, mismatched_node_hash) =
-        serialized_account_parts;
+    let (id, nonce, account_seed, code, storage, assets, locked) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
     let account_id: AccountId = (id as u64)
         .try_into()
@@ -398,10 +382,8 @@ pub(super) fn parse_account(
         Felt::new(nonce as u64),
     );
 
-    let status = match (account_seed, mismatched_node_hash) {
-        (_, Some(mismatched_node_hash)) => AccountStatus::Locked {
-            mismatched_node_hash: Digest::try_from(&mismatched_node_hash)?,
-        },
+    let status = match (account_seed, locked) {
+        (_, true) => AccountStatus::Locked,
         (Some(seed), _) => AccountStatus::New { seed },
         _ => AccountStatus::Tracked,
     };
@@ -495,9 +477,9 @@ pub(super) fn parse_account_columns(
     let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
     let assets: Vec<u8> = row.get(5)?;
-    let mismatched_node_hash: Option<String> = row.get(6)?;
+    let locked: bool = row.get(6)?;
 
-    Ok((id, nonce, account_seed, code, storage, assets, mismatched_node_hash))
+    Ok((id, nonce, account_seed, code, storage, assets, locked))
 }
 
 #[cfg(test)]

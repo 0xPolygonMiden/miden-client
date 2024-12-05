@@ -109,10 +109,8 @@ pub fn parse_account_record_idxdb_object(
         Digest::try_from(&account_header_idxdb.code_root)?,
     );
 
-    let status = match (account_seed, account_header_idxdb.mismatched_node_hash) {
-        (_, Some(mismatched_node_hash)) => AccountStatus::Locked {
-            mismatched_node_hash: Digest::try_from(&mismatched_node_hash)?,
-        },
+    let status = match (account_seed, account_header_idxdb.locked) {
+        (_, true) => AccountStatus::Locked,
         (Some(seed), _) => AccountStatus::New { seed },
         _ => AccountStatus::Tracked,
     };

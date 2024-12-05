@@ -40,7 +40,7 @@ pub struct AccountRecordIdxdbObject {
     pub code_root: String,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub account_seed: Option<Vec<u8>>,
-    pub mismatched_node_hash: Option<String>,
+    pub locked: bool,
 }
 
 #[derive(Serialize, Deserialize)]
