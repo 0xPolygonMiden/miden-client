@@ -23,7 +23,7 @@ pub struct ImportCmd {
     filenames: Vec<PathBuf>,
     /// Only relevant for accounts. If set, the account will be overwritten if it already exists.
     #[clap(short, long, default_value_t = false)]
-    force: bool,
+    overwrite: bool,
 }
 
 impl ImportCmd {
@@ -45,7 +45,7 @@ impl ImportCmd {
                     fs::read(filename).map_err(|err| err.to_string())?;
 
                 let account_id =
-                    import_account(&mut client, &account_data_file_contents, self.force)
+                    import_account(&mut client, &account_data_file_contents, self.overwrite)
                         .await
                         .map_err(|err| err.to_string())?;
 
@@ -66,13 +66,13 @@ impl ImportCmd {
 async fn import_account(
     client: &mut Client<impl FeltRng>,
     account_data_file_contents: &[u8],
-    force: bool,
+    overwrite: bool,
 ) -> Result<AccountId, ClientError> {
     let account_data = AccountData::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data, force).await?;
+    client.import_account(account_data, overwrite).await?;
 
     Ok(account_id)
 }

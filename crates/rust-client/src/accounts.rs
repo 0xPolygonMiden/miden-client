@@ -76,16 +76,16 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Saves the [Account] contained in `account_data` in the store. If the account is already
-    /// being tracked and `force` is set to `true`, the account will be overwritten.
+    /// being tracked and `overwrite` is set to `true`, the account will be overwritten.
     ///
     /// # Errors
     ///
     /// - Trying to import a new account without providing its seed
-    /// - If the account is already tracked and `force` is set to `false`
-    /// - If `force` is set to `true` and the `account_data` nonce is lower than the one already
+    /// - If the account is already tracked and `overwrite` is set to `false`
+    /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked
-    /// - If `force` is set to `true` and the `account_data` hash does not match the node's account
-    ///   hash
+    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the node's
+    ///   account hash
     ///
     /// # Panics
     ///
@@ -94,7 +94,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn import_account(
         &mut self,
         account_data: AccountData,
-        force: bool,
+        overwrite: bool,
     ) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
@@ -114,7 +114,7 @@ impl<R: FeltRng> Client<R> {
         match tracked_account {
             Err(StoreError::AccountDataNotFound(_)) => {
                 // If the account is not being tracked, insert it into the store regardless of the
-                // `force` flag
+                // `overwrite` flag
                 self.insert_account(
                     &account_data.account,
                     account_seed,
@@ -124,8 +124,8 @@ impl<R: FeltRng> Client<R> {
             },
             Err(err) => Err(ClientError::StoreError(err)),
             Ok(tracked_account) => {
-                if !force {
-                    // Only overwrite the account if the `force` flag is set to `true`
+                if !overwrite {
+                    // Only overwrite the account if the flag is set to `true`
                     return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
                 }
 

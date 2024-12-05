@@ -1453,7 +1453,7 @@ async fn test_locked_account() {
     let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(account_record.is_locked());
 
-    // Get updated account from client 1 and import it in client 2 with `force` flag
+    // Get updated account from client 1 and import it in client 2 with `overwrite` flag
     let updated_private_account = client_1.get_account(from_account_id).await.unwrap().into();
     client_2
         .import_account(AccountData::new(updated_private_account, None, auth), true)
