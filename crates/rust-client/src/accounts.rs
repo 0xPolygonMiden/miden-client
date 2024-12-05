@@ -84,7 +84,7 @@ impl<R: FeltRng> Client<R> {
     /// - If the account is already tracked and `overwrite` is set to `false`
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked
-    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the node's
+    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
     ///   account hash
     ///
     /// # Panics
