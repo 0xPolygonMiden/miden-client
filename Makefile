@@ -76,7 +76,7 @@ doc: ## Generate & check rust documentation. You'll need `jq` in order for this 
 # --- Testing -------------------------------------------------------------------------------------
 
 .PHONY: test-build
-test: ## Run tests
+test-build: ## Run tests
 	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT) --no-run
 
 .PHONY: test
