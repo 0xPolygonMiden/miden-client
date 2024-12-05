@@ -34,7 +34,7 @@ use crate::{
     rpc::{
         domain::{
             accounts::{AccountDetails, AccountProofs},
-            notes::{NodeNote, NoteSyncInfo},
+            notes::{NetworkNote, NoteSyncInfo},
             sync::StateSyncInfo,
         },
         generated::{
@@ -259,12 +259,12 @@ impl NodeRpcClient for MockRpcApi {
         Ok((block.header(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         // assume all off-chain notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
-            return_notes.push(NodeNote::Private(
+            return_notes.push(NetworkNote::Private(
                 note.id(),
                 *note.note().metadata(),
                 note.proof().expect("Note should have an inclusion proof").clone(),

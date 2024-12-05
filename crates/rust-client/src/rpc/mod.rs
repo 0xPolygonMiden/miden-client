@@ -8,7 +8,7 @@ use core::fmt;
 use async_trait::async_trait;
 use domain::{
     accounts::{AccountDetails, AccountProofs, FpiAccountData},
-    notes::{NodeNote, NoteSyncInfo},
+    notes::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
 use miden_objects::{
@@ -81,7 +81,7 @@ pub trait NodeRpcClient {
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError>;
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint
@@ -158,14 +158,15 @@ pub trait NodeRpcClient {
         account_ids: &BTreeSet<AccountId>,
         code_commitments: &[Digest],
     ) -> Result<(u32, Vec<FpiAccountData>), RpcError> {
-        let response = self.get_account_proofs(account_ids, code_commitments, true).await?;
+        let (block_num, account_proofs) =
+            self.get_account_proofs(account_ids, code_commitments, true).await?;
 
         let mut headers = Vec::new();
-        for proof in response.1 {
+        for proof in account_proofs {
             headers.push(proof.try_into()?);
         }
 
-        Ok((response.0, headers))
+        Ok((block_num, headers))
     }
 
     /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with
@@ -181,7 +182,7 @@ pub trait NodeRpcClient {
 
         let mut public_notes = vec![];
         for detail in note_details {
-            if let NodeNote::Public(note, inclusion_proof) = detail {
+            if let NetworkNote::Public(note, inclusion_proof) = detail {
                 let state = UnverifiedNoteState {
                     metadata: *note.metadata(),
                     inclusion_proof,
@@ -240,7 +241,7 @@ pub trait NodeRpcClient {
     /// - [RpcError::NoteNotFound] if the note with the specified ID is not found.
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
-    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NodeNote, RpcError> {
+    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
         let notes = self.get_notes_by_id(&[note_id]).await?;
         notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
     }

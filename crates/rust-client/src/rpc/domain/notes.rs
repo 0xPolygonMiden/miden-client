@@ -166,7 +166,7 @@ impl CommittedNote {
 
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note.
 #[allow(clippy::large_enum_variant)]
-pub enum NodeNote {
+pub enum NetworkNote {
     /// Details for a private note only include its [NoteMetadata] and [NoteInclusionProof].
     /// Other details needed to consume the note are expected to be stored locally, off-chain.
     Private(NoteId, NoteMetadata, NoteInclusionProof),
@@ -174,28 +174,28 @@ pub enum NodeNote {
     Public(Note, NoteInclusionProof),
 }
 
-impl NodeNote {
+impl NetworkNote {
     /// Returns the note's inclusion details.
     pub fn inclusion_proof(&self) -> &NoteInclusionProof {
         match self {
-            NodeNote::Private(_, _, inclusion_proof) => inclusion_proof,
-            NodeNote::Public(_, inclusion_proof) => inclusion_proof,
+            NetworkNote::Private(_, _, inclusion_proof) => inclusion_proof,
+            NetworkNote::Public(_, inclusion_proof) => inclusion_proof,
         }
     }
 
     /// Returns the note's metadata.
     pub fn metadata(&self) -> &NoteMetadata {
         match self {
-            NodeNote::Private(_, metadata, _) => metadata,
-            NodeNote::Public(note, _) => note.metadata(),
+            NetworkNote::Private(_, metadata, _) => metadata,
+            NetworkNote::Public(note, _) => note.metadata(),
         }
     }
 
     /// Returns the note's ID.
     pub fn id(&self) -> NoteId {
         match self {
-            NodeNote::Private(id, ..) => *id,
-            NodeNote::Public(note, _) => note.id(),
+            NetworkNote::Private(id, ..) => *id,
+            NetworkNote::Public(note, _) => note.id(),
         }
     }
 }

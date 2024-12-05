@@ -20,7 +20,7 @@ use tonic_web_wasm_client::Client;
 use super::{
     domain::{
         accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::{NodeNote, NoteSyncInfo},
+        notes::{NetworkNote, NoteSyncInfo},
         sync::StateSyncInfo,
     },
     generated::{
@@ -121,7 +121,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NodeNote>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
@@ -152,7 +152,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NodeNote::Public(note, inclusion_details)
+                    NetworkNote::Public(note, inclusion_details)
                 },
                 // Off-chain notes do not have details
                 None => {
@@ -165,7 +165,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NodeNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)

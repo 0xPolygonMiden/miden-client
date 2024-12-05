@@ -6,7 +6,7 @@ use miden_objects::{
 };
 
 use crate::{
-    rpc::{domain::notes::NodeNote, RpcError},
+    rpc::{domain::notes::NetworkNote, RpcError},
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
@@ -102,8 +102,8 @@ impl<R: FeltRng> Client<R> {
             },
             None => {
                 let node_note = match node_note {
-                    NodeNote::Public(note, _) => note,
-                    NodeNote::Private(..) => {
+                    NetworkNote::Public(note, _) => note,
+                    NetworkNote::Private(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
                         ))
