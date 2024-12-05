@@ -285,7 +285,7 @@ impl Default for TransactionRequestBuilder {
 // Errors related to a [TransactionRequest]
 #[derive(Debug, Error)]
 pub enum TransactionRequestError {
-    #[error("tequested foreign account with id {0} is not public")]
+    #[error("tequested foreign account with id {0} isn't public")]
     InvalidForeignAccountId(AccountId),
     #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
     InputNoteNotAuthenticated,
@@ -307,21 +307,9 @@ pub enum TransactionRequestError {
     #[error("note not found: {0}")]
     NoteNotFound(String),
     #[error("note creation error")]
-    NoteCreationError(#[source] NoteError),
+    NoteCreationError(#[from] NoteError),
     #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[source] TransactionScriptBuilderError),
-}
-
-impl From<TransactionScriptBuilderError> for TransactionRequestError {
-    fn from(err: TransactionScriptBuilderError) -> Self {
-        Self::TransactionScriptBuilderError(err)
-    }
-}
-
-impl From<NoteError> for TransactionRequestError {
-    fn from(err: NoteError) -> Self {
-        Self::NoteCreationError(err)
-    }
+    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
 }
 
 // TESTS

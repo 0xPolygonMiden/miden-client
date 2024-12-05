@@ -244,12 +244,12 @@ impl AccountProof {
 
 #[derive(Debug, Error)]
 pub enum AccountProofError {
-    #[error("the received account hash does not match the received account header's account hash")]
+    #[error("the received account hash doesn't match the received account header's hash")]
     InconsistentAccountHash,
-    #[error("the received account id does not match the received account header's id")]
+    #[error("the received account id doesn't match the received account header's id")]
     InconsistentAccountId,
     #[error(
-        "the received code commitment does not match the received account header's code commitment"
+        "the received code commitment doesn't match the received account header's code commitment"
     )]
     InconsistentCodeCommitment,
 }

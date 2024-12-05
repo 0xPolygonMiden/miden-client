@@ -207,21 +207,9 @@ impl NoteScreener {
 #[derive(Debug, Error)]
 pub enum NoteScreenerError {
     #[error("error while processing note inputs")]
-    InvalidNoteInputsError(#[source] InvalidNoteInputsError),
+    InvalidNoteInputsError(#[from] InvalidNoteInputsError),
     #[error("error while fetching data from the store")]
-    StoreError(#[source] StoreError),
-}
-
-impl From<InvalidNoteInputsError> for NoteScreenerError {
-    fn from(error: InvalidNoteInputsError) -> Self {
-        Self::InvalidNoteInputsError(error)
-    }
-}
-
-impl From<StoreError> for NoteScreenerError {
-    fn from(error: StoreError) -> Self {
-        Self::StoreError(error)
-    }
+    StoreError(#[from] StoreError),
 }
 
 #[derive(Debug, Error)]

@@ -42,8 +42,8 @@ pub enum NoteRecordError {
     #[error("note record conversion error: {0}")]
     ConversionError(String),
     /// Invalid underlying note object.
-    #[error("note error: {0}")]
-    NoteError(#[source] NoteError),
+    #[error("note error")]
+    NoteError(#[from] NoteError),
     /// Note record is not consumable.
     #[error("note not consumable: {0}")]
     NoteNotConsumable(String),
@@ -56,12 +56,6 @@ pub enum NoteRecordError {
     /// Error generated during a state transition.
     #[error("state transition error: {0}")]
     StateTransitionError(String),
-}
-
-impl From<NoteError> for NoteRecordError {
-    fn from(error: NoteError) -> Self {
-        NoteRecordError::NoteError(error)
-    }
 }
 
 impl From<NoteRecordError> for String {

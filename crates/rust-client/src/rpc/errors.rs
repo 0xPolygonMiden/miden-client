@@ -48,16 +48,10 @@ pub enum RpcConversionError {
     #[error("value is not in the range 0..modulus")]
     NotAValidFelt,
     #[error("invalid note type value")]
-    NoteTypeError(#[source] NoteError),
-    #[error("field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    NoteTypeError(#[from] NoteError),
+    #[error("field `{field_name}` expected to be present in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,
         field_name: &'static str,
     },
-}
-
-impl From<NoteError> for RpcConversionError {
-    fn from(error: NoteError) -> Self {
-        RpcConversionError::NoteTypeError(error)
-    }
 }

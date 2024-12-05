@@ -27,13 +27,13 @@ use crate::{
 #[derive(Debug, Error)]
 pub enum ClientError {
     #[error("account error")]
-    AccountError(#[source] AccountError),
+    AccountError(#[from] AccountError),
     #[error("account with id {0} is locked")]
     AccountLocked(AccountId),
     #[error("asset error")]
     AssetError(#[source] AssetError),
     #[error("data deserialization error")]
-    DataDeserializationError(#[source] DeserializationError),
+    DataDeserializationError(#[from] DeserializationError),
     #[error("note with id {0} not found on chain")]
     NoteNotFoundOnChain(NoteId),
     #[error("error parsing hex: {0}")]
@@ -44,30 +44,30 @@ pub enum ClientError {
     #[error("error with merkle path: {0}")]
     //TODO: use source in this error when possible
     MerkleError(MerkleError),
-    #[error("the transaction did not produce the expected notes corresponding to note ids")]
+    #[error("the transaction didn't produce the expected notes corresponding to note ids")]
     MissingOutputNotes(Vec<NoteId>),
     #[error("note error")]
-    NoteError(#[source] NoteError),
+    NoteError(#[from] NoteError),
     #[error("note import error: {0}")]
     NoteImportError(String),
     #[error("note record error")]
-    NoteRecordError(#[source] NoteRecordError),
+    NoteRecordError(#[from] NoteRecordError),
     #[error("no consumable note for account {0}")]
     NoConsumableNoteForAccount(AccountId),
     #[error("rpc api error")]
-    RpcError(#[source] RpcError),
+    RpcError(#[from] RpcError),
     #[error("note screener error")]
-    NoteScreenerError(#[source] NoteScreenerError),
+    NoteScreenerError(#[from] NoteScreenerError),
     #[error("store error")]
-    StoreError(#[source] StoreError),
+    StoreError(#[from] StoreError),
     #[error("transaction executor error")]
-    TransactionExecutorError(#[source] TransactionExecutorError),
+    TransactionExecutorError(#[from] TransactionExecutorError),
     #[error("transaction prover error")]
-    TransactionProvingError(#[source] TransactionProverError),
+    TransactionProvingError(#[from] TransactionProverError),
     #[error("transaction request error")]
-    TransactionRequestError(#[source] TransactionRequestError),
+    TransactionRequestError(#[from] TransactionRequestError),
     #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[source] TransactionScriptBuilderError),
+    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
     #[error("transaction script error")]
     TransactionScriptError(#[source] TransactionScriptError),
 }
@@ -75,33 +75,9 @@ pub enum ClientError {
 // CONVERSIONS
 // ================================================================================================
 
-impl From<AccountError> for ClientError {
-    fn from(err: AccountError) -> Self {
-        Self::AccountError(err)
-    }
-}
-
-impl From<DeserializationError> for ClientError {
-    fn from(err: DeserializationError) -> Self {
-        Self::DataDeserializationError(err)
-    }
-}
-
 impl From<HexParseError> for ClientError {
     fn from(err: HexParseError) -> Self {
         Self::HexParseError(err)
-    }
-}
-
-impl From<NoteError> for ClientError {
-    fn from(err: NoteError) -> Self {
-        Self::NoteError(err)
-    }
-}
-
-impl From<NoteRecordError> for ClientError {
-    fn from(err: NoteRecordError) -> Self {
-        Self::NoteRecordError(err)
     }
 }
 
@@ -111,51 +87,9 @@ impl From<MerkleError> for ClientError {
     }
 }
 
-impl From<RpcError> for ClientError {
-    fn from(err: RpcError) -> Self {
-        Self::RpcError(err)
-    }
-}
-
-impl From<StoreError> for ClientError {
-    fn from(err: StoreError) -> Self {
-        Self::StoreError(err)
-    }
-}
-
-impl From<TransactionExecutorError> for ClientError {
-    fn from(err: TransactionExecutorError) -> Self {
-        Self::TransactionExecutorError(err)
-    }
-}
-
-impl From<TransactionProverError> for ClientError {
-    fn from(err: TransactionProverError) -> Self {
-        Self::TransactionProvingError(err)
-    }
-}
-
-impl From<NoteScreenerError> for ClientError {
-    fn from(err: NoteScreenerError) -> Self {
-        Self::NoteScreenerError(err)
-    }
-}
-
-impl From<TransactionRequestError> for ClientError {
-    fn from(err: TransactionRequestError) -> Self {
-        Self::TransactionRequestError(err)
-    }
-}
-
 impl From<ClientError> for String {
     fn from(err: ClientError) -> String {
         err.to_string()
-    }
-}
-
-impl From<TransactionScriptBuilderError> for ClientError {
-    fn from(err: TransactionScriptBuilderError) -> Self {
-        Self::TransactionScriptBuilderError(err)
     }
 }
 
