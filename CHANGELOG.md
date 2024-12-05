@@ -14,6 +14,7 @@
 
 ### Changes
 
+* [BREAKING] Use `thiserror` 2.0 to derive errors (#623).
 * [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
 * [BREAKING] Added per transaction prover support to the client (#599).
