@@ -136,11 +136,13 @@ impl<R: FeltRng> Client<R> {
                     return Err(ClientError::AccountNonceTooLow);
                 }
 
-                if let AccountStatus::Locked { mismatched_node_hash } = tracked_account.status() {
+                if tracked_account.is_locked() {
                     // If the tracked account is locked, check that the account hash matches the one
-                    // in the node
-                    if mismatched_node_hash != &account_data.account.hash() {
-                        return Err(ClientError::AccountHashMismatch(*mismatched_node_hash));
+                    // in the network
+                    let network_account_hash =
+                        self.rpc_api.get_account_update(account_data.account.id()).await?.hash();
+                    if network_account_hash != account_data.account.hash() {
+                        return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
                 }
 

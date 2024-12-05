@@ -41,6 +41,12 @@ impl AccountDetails {
             Self::Public(account, _) => account.id(),
         }
     }
+
+    pub fn hash(&self) -> Digest {
+        match self {
+            Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
+        }
+    }
 }
 
 // ACCOUNT UPDATE SUMMARY
