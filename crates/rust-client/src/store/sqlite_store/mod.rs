@@ -245,6 +245,13 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn update_account(&self, account: &Account) -> Result<(), StoreError> {
+        let account = account.clone();
+
+        self.interact_with_connection(move |conn| SqliteStore::update_account(conn, &account))
+            .await
+    }
+
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_ids).await
     }

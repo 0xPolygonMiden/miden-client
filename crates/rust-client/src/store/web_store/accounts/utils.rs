@@ -117,3 +117,9 @@ pub fn parse_account_record_idxdb_object(
 
     Ok((account_header, status))
 }
+
+pub async fn update_account(new_account_state: &Account) -> Result<(), ()> {
+    insert_account_storage(new_account_state.storage()).await?;
+    insert_account_asset_vault(new_account_state.vault()).await?;
+    insert_account_record(new_account_state, None).await
+}

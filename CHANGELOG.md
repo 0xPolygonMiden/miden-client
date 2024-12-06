@@ -4,6 +4,7 @@
 
 ### Features
 
+* [BREAKING] Implemented support for overwriting of accounts when importing (#612).
 * [BREAKING] Added `AccountRecord` with information about the account's status (#600).
 * [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
 * Added caching for foreign account code (#597).
