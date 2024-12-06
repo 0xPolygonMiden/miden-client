@@ -45,9 +45,7 @@ export async function insertChainMmrNodes(ids, nodes) {
   try {
     // Check if the arrays are not of the same length
     if (ids.length !== nodes.length) {
-      throw new Error(
-        "ids and nodes arrays must be of the same length"
-      );
+      throw new Error("ids and nodes arrays must be of the same length");
     }
 
     if (ids.length === 0) {
@@ -61,10 +59,12 @@ export async function insertChainMmrNodes(ids, nodes) {
     }));
 
     // Get all existing IDs from the database
-    const existingIds = new Set(await chainMmrNodes.where('id').anyOf(ids).primaryKeys());
+    const existingIds = new Set(
+      await chainMmrNodes.where("id").anyOf(ids).primaryKeys()
+    );
 
     // Filter out data where the id already exists
-    const newData = data.filter(item => !existingIds.has(item.id));
+    const newData = data.filter((item) => !existingIds.has(item.id));
 
     // Use bulkAdd to add the new entries
     await chainMmrNodes.bulkAdd(newData);
