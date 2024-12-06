@@ -32,6 +32,14 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
+"@demox-labs/miden-sdk@file:../../../../AppData/Roaming/nvm/v20.17.0/node_modules/@demox-labs/miden-sdk":
+  version "0.0.20"
+  resolved "file:../../../../AppData/Roaming/nvm/v20.17.0/node_modules/@demox-labs/miden-sdk"
+  dependencies:
+    chai-as-promised "^8.0.0"
+    dexie "^4.0.1"
+    glob "^11.0.0"
+
 "@iarna/toml@^2.2.5":
   version "2.2.5"
   resolved "https://registry.npmjs.org/@iarna/toml/-/toml-2.2.5.tgz"
@@ -842,11 +850,6 @@ fs.realpath@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz"
   integrity sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==
-
-fsevents@~2.3.2:
-  version "2.3.3"
-  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
-  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
 
 function-bind@^1.1.2:
   version "1.1.2"

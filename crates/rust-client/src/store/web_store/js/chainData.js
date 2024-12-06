@@ -43,14 +43,31 @@ export async function insertBlockHeader(
 
 export async function insertChainMmrNodes(ids, nodes) {
   try {
-    const data = nodes.map((node, index) => {
-      return {
-        id: ids[index],
-        node: node,
-      };
-    });
+    // Check if the arrays are not of the same length
+    if (ids.length !== nodes.length) {
+      throw new Error(
+        "ids and nodes arrays must be of the same length"
+      );
+    }
 
-    await chainMmrNodes.bulkAdd(data);
+    if (ids.length === 0) {
+      return;
+    }
+
+    // Create array of objects with id and node
+    const data = nodes.map((node, index) => ({
+      id: ids[index],
+      node: node,
+    }));
+
+    // Get all existing IDs from the database
+    const existingIds = new Set(await chainMmrNodes.where('id').anyOf(ids).primaryKeys());
+
+    // Filter out data where the id already exists
+    const newData = data.filter(item => !existingIds.has(item.id));
+
+    // Use bulkAdd to add the new entries
+    await chainMmrNodes.bulkAdd(newData);
   } catch (err) {
     console.error("Failed to insert chain mmr nodes: ", err);
     throw err;
