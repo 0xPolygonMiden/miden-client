@@ -36,6 +36,7 @@ struct SerializedInputNoteData {
     pub nullifier: String,
     pub state_discriminant: u8,
     pub state: Vec<u8>,
+    pub created_at: u64,
 }
 
 /// Represents an `OutputNoteRecord` serialized to be stored in the database
@@ -341,6 +342,7 @@ pub(super) fn upsert_input_note_tx(
         nullifier,
         state_discriminant,
         state,
+        created_at,
     } = serialize_input_note(note)?;
 
     const SCRIPT_QUERY: &str =
@@ -367,7 +369,7 @@ pub(super) fn upsert_input_note_tx(
             :nullifier,
             :state_discriminant,
             :state,
-            unixepoch(current_timestamp));
+            :created_at);
     ";
 
     tx.execute(
@@ -381,6 +383,7 @@ pub(super) fn upsert_input_note_tx(
             ":nullifier": nullifier,
             ":state_discriminant": state_discriminant,
             ":state": state,
+            ":created_at": created_at,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -493,6 +496,7 @@ fn parse_input_note(
 fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
     let id = note.id().inner().to_string();
     let nullifier = note.nullifier().to_hex();
+    let created_at = note.created_at().unwrap_or(0);
 
     let details = note.details();
     let assets = details.assets().to_bytes();
@@ -517,6 +521,7 @@ fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteDat
         nullifier,
         state_discriminant,
         state,
+        created_at,
     })
 }
 

@@ -64,6 +64,10 @@ impl InputNoteRecord {
         self.details.assets()
     }
 
+    pub fn created_at(&self) -> Option<u64> {
+        self.created_at
+    }
+
     pub fn state(&self) -> &InputNoteState {
         &self.state
     }
@@ -191,8 +195,13 @@ impl InputNoteRecord {
         &mut self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<bool, NoteRecordError> {
-        let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
+        let new_state = self.state.consumed_locally(
+            consumer_account,
+            consumer_transaction,
+            current_timestamp,
+        )?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)

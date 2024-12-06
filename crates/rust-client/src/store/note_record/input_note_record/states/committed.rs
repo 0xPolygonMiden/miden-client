@@ -61,9 +61,10 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         consumer_account: miden_objects::accounts::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         let submission_data = NoteSubmissionData {
-            submitted_at: None,
+            submitted_at: current_timestamp,
             consumer_account,
             consumer_transaction,
         };

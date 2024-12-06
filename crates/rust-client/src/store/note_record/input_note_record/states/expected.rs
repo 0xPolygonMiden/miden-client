@@ -56,6 +56,7 @@ impl NoteStateHandler for ExpectedNoteState {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         match self.metadata {
             None => Err(NoteRecordError::NoteNotConsumable(
@@ -63,7 +64,7 @@ impl NoteStateHandler for ExpectedNoteState {
             )),
             Some(metadata) => {
                 let submission_data = NoteSubmissionData {
-                    submitted_at: None,
+                    submitted_at: current_timestamp,
                     consumer_account,
                     consumer_transaction,
                 };
