@@ -11,6 +11,7 @@
 * Added support for unauthenticated notes consumption in the CLI (#609).
 
 ### Fixes
+* Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes
