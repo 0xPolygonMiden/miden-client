@@ -183,7 +183,7 @@ impl SqliteStore {
             .query_map(params![pub_key_bytes], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
-            .ok_or(StoreError::AccountKeyNotFound(pub_key))?
+            .ok_or(StoreError::AccountKeyNotFound(Digest::from(pub_key).to_string()))?
     }
 
     pub fn upsert_foreign_account_code(

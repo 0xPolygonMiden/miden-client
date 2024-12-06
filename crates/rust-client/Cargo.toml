@@ -40,6 +40,7 @@ rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
 serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
 tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }

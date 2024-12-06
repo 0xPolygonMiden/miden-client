@@ -7,6 +7,7 @@ use miden_objects::{
     notes::{Note, NoteId},
     AccountError, AssetError, Word,
 };
+use thiserror::Error;
 
 use super::script_roots::{P2ID, P2IDR, SWAP};
 use crate::store::{Store, StoreError};
@@ -203,68 +204,22 @@ impl NoteScreener {
 // ================================================================================================
 
 /// Error when screening notes to check relevance to a client
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum NoteScreenerError {
-    InvalidNoteInputsError(InvalidNoteInputsError),
-    StoreError(StoreError),
+    #[error("error while processing note inputs")]
+    InvalidNoteInputsError(#[from] InvalidNoteInputsError),
+    #[error("error while fetching data from the store")]
+    StoreError(#[from] StoreError),
 }
 
-impl From<InvalidNoteInputsError> for NoteScreenerError {
-    fn from(error: InvalidNoteInputsError) -> Self {
-        Self::InvalidNoteInputsError(error)
-    }
-}
-
-impl From<StoreError> for NoteScreenerError {
-    fn from(error: StoreError) -> Self {
-        Self::StoreError(error)
-    }
-}
-
-impl fmt::Display for NoteScreenerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NoteScreenerError::InvalidNoteInputsError(note_inputs_err) => {
-                write!(f, "error while processing note inputs: {note_inputs_err}")
-            },
-            NoteScreenerError::StoreError(store_error) => {
-                write!(f, "error while fetching data from the store: {store_error}")
-            },
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InvalidNoteInputsError {
+    #[error("account error for note with id {0}: {1}")]
     AccountError(NoteId, AccountError),
+    #[error("asset error for note with id {0}: {1}")]
     AssetError(NoteId, AssetError),
+    #[error("expected {1} note inputs for note with id {0}")]
     WrongNumInputs(NoteId, usize),
+    #[error("note input representing block with value {1} for note with id {0}")]
     BlockNumberError(NoteId, u64),
-}
-
-impl fmt::Display for InvalidNoteInputsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            InvalidNoteInputsError::AccountError(note_id, account_error) => {
-                write!(f, "account error for note with ID {}: {account_error}", note_id.to_hex())
-            },
-            InvalidNoteInputsError::AssetError(note_id, asset_error) => {
-                write!(f, "asset error for note with ID {}: {asset_error}", note_id.to_hex())
-            },
-            InvalidNoteInputsError::WrongNumInputs(note_id, expected_num_inputs) => {
-                write!(
-                    f,
-                    "expected {expected_num_inputs} note inputs for note with ID {}",
-                    note_id.to_hex()
-                )
-            },
-            InvalidNoteInputsError::BlockNumberError(note_id, read_height) => {
-                write!(
-                    f,
-                    "note input representing block with value {read_height} for note with ID {}",
-                    note_id.to_hex()
-                )
-            },
-        }
-    }
 }

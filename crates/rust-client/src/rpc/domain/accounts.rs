@@ -10,6 +10,7 @@ use miden_objects::{
     Digest, Felt,
 };
 use miden_tx::utils::Deserializable;
+use thiserror::Error;
 
 use crate::rpc::{
     errors::RpcConversionError,
@@ -247,18 +248,14 @@ impl AccountProof {
 // ERRORS
 // ================================================================================================
 
+#[derive(Debug, Error)]
 pub enum AccountProofError {
+    #[error("the received account hash doesn't match the received account header's hash")]
     InconsistentAccountHash,
+    #[error("the received account id doesn't match the received account header's id")]
     InconsistentAccountId,
+    #[error(
+        "the received code commitment doesn't match the received account header's code commitment"
+    )]
     InconsistentCodeCommitment,
-}
-
-impl fmt::Display for AccountProofError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AccountProofError::InconsistentAccountHash => write!(f,"The received account hash does not match the received account header's account hash"),
-            AccountProofError::InconsistentAccountId => write!(f,"The received account ID does not match the received account header's ID"),
-            AccountProofError::InconsistentCodeCommitment => write!(f,"The received code commitment does not match the received account header's code commitment"),
-        }
-    }
 }

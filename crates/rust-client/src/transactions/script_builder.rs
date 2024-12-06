@@ -11,6 +11,7 @@ use miden_objects::{
     Felt, TransactionScriptError,
 };
 use miden_tx::TransactionExecutorError;
+use thiserror::Error;
 
 use super::prepare_word;
 
@@ -216,29 +217,14 @@ impl TransactionScriptBuilder {
 // ============================================================================================
 
 /// Errors related to building a transaction script.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TransactionScriptBuilderError {
+    #[error("invalid asset: {0}")]
     InvalidAsset(AccountId),
-    InvalidTransactionScript(TransactionScriptError),
+    #[error("invalid transaction script")]
+    InvalidTransactionScript(#[source] TransactionScriptError),
+    #[error("invalid sender account: {0}")]
     InvalidSenderAccount(AccountId),
-    TransactionExecutorError(TransactionExecutorError),
-}
-
-impl core::fmt::Display for TransactionScriptBuilderError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            TransactionScriptBuilderError::InvalidAsset(account_id) => {
-                write!(f, "Invalid asset: {}", account_id)
-            },
-            TransactionScriptBuilderError::InvalidTransactionScript(err) => {
-                write!(f, "Invalid transaction script: {}", err)
-            },
-            TransactionScriptBuilderError::InvalidSenderAccount(account_id) => {
-                write!(f, "Invalid sender account: {}", account_id)
-            },
-            TransactionScriptBuilderError::TransactionExecutorError(err) => {
-                write!(f, "Transaction executor error: {}", err)
-            },
-        }
-    }
+    #[error("transaction executor error")]
+    TransactionExecutorError(#[source] TransactionExecutorError),
 }
