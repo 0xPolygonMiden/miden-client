@@ -736,8 +736,8 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.get_account_fpi_data(account_ids, &tracked_commitments).await?;
 
         for fpi_data in fpi_data_vec.into_iter() {
-            let account_header = &fpi_data.state_headers().account_header;
-            let account_code = match fpi_data.state_headers().code.as_ref() {
+            let account_header = fpi_data.account_header();
+            let account_code = match fpi_data.code() {
                 Some(account_code) => {
                     self.store
                         .upsert_foreign_account_code(account_header.id(), account_code.clone())
@@ -750,7 +750,7 @@ impl<R: FeltRng> Client<R> {
                     .expect("Account code should be tracked if it's not in the RPC response"),
             };
 
-            let storage_header = &fpi_data.state_headers().storage_header;
+            let storage_header = fpi_data.storage_header();
 
             account_codes.push(account_code.clone());
 

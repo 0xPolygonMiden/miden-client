@@ -247,17 +247,29 @@ pub struct FpiAccountData {
     account_id: AccountId,
     /// Authentication path from the `account_root` of the block header to the account.
     merkle_proof: MerklePath,
-    /// State headers of public accounts.
-    state_headers: StateHeaders,
+    /// Header that describes the state of the account components.
+    account_header: AccountHeader,
+    /// Header that describes the state of the account storage.
+    storage_header: AccountStorageHeader,
+    /// Code of the account.
+    code: Option<AccountCode>,
 }
 
 impl FpiAccountData {
     pub fn new(
         account_id: AccountId,
         merkle_proof: MerklePath,
-        state_headers: StateHeaders,
+        account_header: AccountHeader,
+        storage_header: AccountStorageHeader,
+        code: Option<AccountCode>,
     ) -> Self {
-        Self { account_id, merkle_proof, state_headers }
+        Self {
+            account_id,
+            merkle_proof,
+            account_header,
+            storage_header,
+            code,
+        }
     }
 
     pub fn account_id(&self) -> AccountId {
@@ -268,8 +280,16 @@ impl FpiAccountData {
         &self.merkle_proof
     }
 
-    pub fn state_headers(&self) -> &StateHeaders {
-        &self.state_headers
+    pub fn account_header(&self) -> &AccountHeader {
+        &self.account_header
+    }
+
+    pub fn storage_header(&self) -> &AccountStorageHeader {
+        &self.storage_header
+    }
+
+    pub fn code(&self) -> Option<&AccountCode> {
+        self.code.as_ref()
     }
 }
 
@@ -277,13 +297,14 @@ impl TryFrom<AccountProof> for FpiAccountData {
     type Error = RpcError;
 
     fn try_from(proof: AccountProof) -> Result<Self, Self::Error> {
-        Ok(Self::new(
-            proof.account_id(),
-            proof.merkle_proof,
-            proof
-                .state_headers
-                .ok_or(RpcError::ExpectedDataMissing(String::from("AccountProof.StateHeaders")))?,
-        ))
+        let AccountProof {
+            account_id, merkle_proof, state_headers, ..
+        } = proof;
+
+        let StateHeaders { account_header, storage_header, code } = state_headers
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountProof.StateHeaders")))?;
+
+        Ok(Self::new(account_id, merkle_proof, account_header, storage_header, code))
     }
 }
 
