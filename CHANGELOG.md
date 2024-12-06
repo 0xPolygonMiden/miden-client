@@ -3,6 +3,7 @@
 ## 0.7.0 (TBD)
 
 ### Fixes
+* Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ## 0.6.0 (2024-11-08)
