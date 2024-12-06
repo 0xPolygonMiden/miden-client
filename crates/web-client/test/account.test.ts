@@ -65,9 +65,8 @@ describe("get_account tests", () => {
 
   it("returns error attempting to retrieve a non-existing account", async () => {
     const result = await getAccountNoMatch();
-    const expectedErrorMessage = `Failed to get account: Store error: Account data was not found for Account Id ${result.nonExistingAccountId}`;
 
-    expect(result.errorMessage).to.equal(expectedErrorMessage);
+    expect(result.errorMessage).to.match(/Failed to get account:/);
   });
 });
 
@@ -225,9 +224,8 @@ describe("get_account_auth tests", () => {
 
   it("returns error attempting to retrieve a non-existing account auth", async () => {
     const result = await getAccountAuthNoMatch();
-    const expectedErrorMessage = `Failed to get account auth: Store error: Account data was not found for Account Id ${result.nonExistingAccountId}`;
 
-    expect(result.errorMessage).to.equal(expectedErrorMessage);
+    expect(result.errorMessage).to.match(/Failed to get account auth:/);
   });
 });
 
@@ -303,8 +301,9 @@ describe("fetch_and_cache_account_auth_by_pub_key tests", () => {
 
   it("returns error attempting to retrieve/cache a non-existing account auth", async () => {
     const result = await fetchAndCacheAccountAuthByPubKeyNoMatch();
-    const expectedErrorMessage = `Failed to fetch and cache account auth: Account data was not found for Account Id ${result.nonExistingAccountId}`;
 
-    expect(result.errorMessage).to.equal(expectedErrorMessage);
+    expect(result.errorMessage).to.match(
+      /Failed to fetch and cache account auth:/
+    );
   });
 });

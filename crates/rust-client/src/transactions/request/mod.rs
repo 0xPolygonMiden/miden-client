@@ -5,7 +5,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt;
 
 use miden_objects::{
     accounts::AccountId,
@@ -17,6 +16,7 @@ use miden_objects::{
     Digest, Felt, NoteError, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use thiserror::Error;
 
 use super::{
     script_builder::{AccountCapabilities, TransactionScriptBuilder},
@@ -200,6 +200,9 @@ impl TransactionRequest {
     }
 }
 
+// SERIALIZATION
+// ================================================================================================
+
 impl Serializable for TransactionRequest {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.unauthenticated_input_notes.write_into(target);
@@ -223,9 +226,6 @@ impl Serializable for TransactionRequest {
         self.expiration_delta.write_into(target);
     }
 }
-
-// SERIALIZATION
-// ================================================================================================
 
 impl Deserializable for TransactionRequest {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
@@ -282,54 +282,35 @@ impl Default for TransactionRequestBuilder {
 // TRANSACTION REQUEST ERROR
 // ================================================================================================
 
-/// Errors related to a [TransactionRequest]
-#[derive(Debug)]
+// Errors related to a [TransactionRequest]
+#[derive(Debug, Error)]
 pub enum TransactionRequestError {
+    #[error("tequested foreign account with id {0} isn't public")]
     InvalidForeignAccountId(AccountId),
+    #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
     InputNoteNotAuthenticated,
+    #[error(
+        "the input notes map should include keys for all provided unauthenticated input notes"
+    )]
     InputNotesMapMissingUnauthenticatedNotes,
+    #[error("own notes shouldn't be of the header variant")]
     InvalidNoteVariant,
+    #[error("invalid sender account id: {0}")]
     InvalidSenderAccount(AccountId),
+    #[error("invalid transaction script")]
+    //TODO: use source in this error when possible
     InvalidTransactionScript(AssemblyError),
+    #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
+    #[error("transaction script template error: {0}")]
     ScriptTemplateError(String),
+    #[error("note not found: {0}")]
     NoteNotFound(String),
-    NoteCreationError(NoteError),
-    TransactionScriptBuilderError(TransactionScriptBuilderError),
+    #[error("note creation error")]
+    NoteCreationError(#[from] NoteError),
+    #[error("transaction script builder error")]
+    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
 }
-
-impl From<TransactionScriptBuilderError> for TransactionRequestError {
-    fn from(err: TransactionScriptBuilderError) -> Self {
-        Self::TransactionScriptBuilderError(err)
-    }
-}
-
-impl fmt::Display for TransactionRequestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidForeignAccountId(acc_id) => write!(f, "Requested foreign account with ID {acc_id} is not public"),
-            Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
-            Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
-            Self::InvalidNoteVariant => write!(f, "Own notes should be either full or partial, but not header"),
-            Self::InvalidSenderAccount(account_id) => write!(f, "Invalid sender account ID: {}", account_id),
-            Self::InvalidTransactionScript(err) => write!(f, "Invalid transaction script: {}", err),
-            Self::NoInputNotes => write!(f, "A transaction without output notes must have at least one input note"),
-            Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
-            Self::NoteNotFound(err) => write!(f, "Note not found: {}", err),
-            Self::NoteCreationError(err) => write!(f, "Note creation error: {}", err),
-            Self::TransactionScriptBuilderError(err) => write!(f, "Transaction script builder error: {}", err),
-        }
-    }
-}
-
-impl From<NoteError> for TransactionRequestError {
-    fn from(err: NoteError) -> Self {
-        Self::NoteCreationError(err)
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for TransactionRequestError {}
 
 // TESTS
 // ================================================================================================
