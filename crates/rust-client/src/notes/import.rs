@@ -4,7 +4,6 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
-use wasm_bindgen::JsValue;
 
 use crate::{
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
@@ -48,10 +47,8 @@ impl<R: FeltRng> Client<R> {
         };
 
         if let Some(note) = note {
-            web_sys::console::log_1(&"note is Some".into());
             if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
             {
-                web_sys::console::log_1(&"tag is Some".into());
                 self.store
                     .add_note_tag(NoteTagRecord::with_note_source(*tag, note.id()))
                     .await?;
@@ -191,10 +188,7 @@ impl<R: FeltRng> Client<R> {
         after_block_num: u32,
         tag: Option<NoteTag>,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
-        web_sys::console::log_1(&"import_note_record_by_details called".into());
-
         let mut note_record = previous_note.unwrap_or({
-            web_sys::console::log_1(&"has previous note".into());
             InputNoteRecord::new(
                 details,
                 None,
@@ -203,10 +197,8 @@ impl<R: FeltRng> Client<R> {
         });
 
         let committed_note_data = if let Some(tag) = tag {
-            web_sys::console::log_1(&"has tag... checking expected note".into());
             self.check_expected_note(after_block_num, tag, note_record.details()).await?
         } else {
-            web_sys::console::log_1(&"no tag... committed_note_data is None".into());
             None
         };
 
@@ -222,11 +214,8 @@ impl<R: FeltRng> Client<R> {
 
                 let note_changed =
                     note_record.inclusion_proof_received(inclusion_proof, metadata)?;
-                // log note_changed bool with web_sys
-                web_sys::console::log_1(&format!("note_changed: {}", note_changed).into());
 
                 if note_record.block_header_received(block_header)? | note_changed {
-                    web_sys::console::log_1(&"block_header_received if statement... removing tag and returning note_record with changes to state".into());
                     self.store
                         .remove_note_tag(NoteTagRecord::with_note_source(
                             metadata.tag(),
@@ -236,14 +225,10 @@ impl<R: FeltRng> Client<R> {
 
                     Ok(Some(note_record))
                 } else {
-                    web_sys::console::log_1(&"block_header_received else statement... import_note_record_by_details returning None".into());
                     Ok(None)
                 }
             },
-            None => {
-                web_sys::console::log_1(&"No metadata/inclusion proof... None statement... returning note_record without changes to state".into());
-                Ok(Some(note_record))
-            },
+            None => Ok(Some(note_record)),
         }
     }
 
@@ -256,25 +241,15 @@ impl<R: FeltRng> Client<R> {
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
     ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
-        web_sys::console::log_1(&"check_expected_note called".into());
         let current_block_num = self.get_sync_height().await?;
-        // print current_block_num with web_sys
-        web_sys::console::log_1(&"before loop".into());
-        web_sys::console::log_1(&format!("request_block_num: {}", request_block_num).into());
-        web_sys::console::log_1(&format!("current_block_num: {}", current_block_num).into());
         loop {
-            web_sys::console::log_1(&"loop start".into());
-            web_sys::console::log_1(&format!("request_block_num: {}", request_block_num).into());
-            web_sys::console::log_1(&format!("current_block_num: {}", current_block_num).into());
             if request_block_num > current_block_num {
-                web_sys::console::log_1(&"request_block_num > current_block_num... returning Ok(None)".into());
                 return Ok(None);
             };
 
             let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
 
             if sync_notes.block_header.block_num() == sync_notes.chain_tip {
-                web_sys::console::log_1(&"sync_notes.block_header.block_num() == sync_notes.chain_tip... returning Ok(None)".into());
                 return Ok(None);
             }
 
@@ -284,14 +259,11 @@ impl<R: FeltRng> Client<R> {
                 sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
 
             if let Some(note) = committed_note {
-                web_sys::console::log_1(&"committed_note note found".into());
                 // This means that a note with the same id was found.
                 // Therefore, we should mark the note as committed.
                 let note_block_num = sync_notes.block_header.block_num();
-                web_sys::console::log_1(&format!("note_block_num: {}", note_block_num).into());
 
                 if note_block_num > current_block_num {
-                    web_sys::console::log_1(&"note_block_num > current_block_num... returning Ok(None)".into());
                     return Ok(None);
                 };
 
@@ -301,11 +273,8 @@ impl<R: FeltRng> Client<R> {
                     note.merkle_path().clone(),
                 )?;
 
-                web_sys::console::log_1(&"returning Ok(Some((note.metadata(), note_inclusion_proof)))".into());
-
                 return Ok(Some((note.metadata(), note_inclusion_proof)));
             } else {
-                web_sys::console::log_1(&"committed_note note not found... changing request block_num".into());
                 // This means that a note with the same id was not found.
                 // Therefore, we should request again for sync_notes with the same note_tag
                 // and with the block_num of the last block header
