@@ -1,12 +1,13 @@
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{AccountCode, AccountTemplate, AccountType, StorageSlot},
     notes::NoteExecutionHint,
     transactions::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
+    accounts::{AccountComponent, AccountId, AccountStorageMode},
+    assembly::Assembler,
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         hash::rpo::Rpo256,
@@ -241,7 +242,7 @@ async fn test_set_account_code() {
     wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
-        mutable_code: false,
+        mutable_code: true,
         storage_mode: AccountStorageMode::Private,
     };
 
@@ -250,20 +251,30 @@ async fn test_set_account_code() {
 
     client.sync_state().await.unwrap();
 
-    let code = "
-        use.miden::account
+    let code1 = "export.foo add end";
+    let library1 = Assembler::default().assemble_library([code1]).unwrap();
+    let code2 = "export.bar sub end";
+    let library2 = Assembler::default().assemble_library([code2]).unwrap();
 
-        begin
-            ## Update account code
-            ## ------------------------------------------------------------------------------------
-            push.0.1.2.3 call.account::set_code dropw
-        end
-        ";
+    let component1 =
+        AccountComponent::new(library1, vec![StorageSlot::Value(Word::default()); 250])
+            .unwrap()
+            .with_supports_all_types();
+    let component2 = AccountComponent::new(library2, vec![StorageSlot::Value(Word::default()); 5])
+        .unwrap()
+        .with_supports_all_types();
 
-    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+    // This is fine as the offset+size for component 2 is <= 255.
+    let account_code = AccountCode::from_components(
+        &[component1.clone(), component2.clone()],
+        AccountType::RegularAccountUpdatableCode,
+    )
+    .unwrap();
 
-    let transaction_request =
-        TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap().build();
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_account_code_update(account_code)
+        .unwrap()
+        .build();
 
     execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 

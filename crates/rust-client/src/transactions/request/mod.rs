@@ -7,7 +7,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountCode, AccountId},
     assembly::AssemblyError,
     crypto::merkle::MerkleStore,
     notes::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
@@ -45,6 +45,7 @@ pub enum TransactionScriptTemplate {
     /// depend on the capabilities of the account the transaction request will be applied to.
     /// For example, for Basic Wallets, this may involve invoking `create_note` procedure.
     SendNotes(Vec<PartialNote>),
+    AccountCodeUpdate(AccountCode),
 }
 
 /// Specifies a transaction request that can be executed by an account.
@@ -186,6 +187,12 @@ impl TransactionRequest {
 
                 Ok(tx_script_builder.send_notes(notes)?.build()?)
             },
+            Some(TransactionScriptTemplate::AccountCodeUpdate(account_code)) => {
+                let tx_script_builder =
+                    TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
+
+                Ok(tx_script_builder.update_account_code(account_code)?.build()?)
+            },
             None => {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
@@ -217,6 +224,10 @@ impl Serializable for TransactionRequest {
                 target.write_u8(2);
                 notes.write_into(target);
             },
+            Some(TransactionScriptTemplate::AccountCodeUpdate(account_code)) => {
+                target.write_u8(3);
+                account_code.write_into(target);
+            },
         }
         self.expected_output_notes.write_into(target);
         self.expected_future_notes.write_into(target);
@@ -241,6 +252,10 @@ impl Deserializable for TransactionRequest {
             2 => {
                 let notes = Vec::<PartialNote>::read_from(source)?;
                 Some(TransactionScriptTemplate::SendNotes(notes))
+            },
+            3 => {
+                let account_code = AccountCode::read_from(source)?;
+                Some(TransactionScriptTemplate::AccountCodeUpdate(account_code))
             },
             _ => {
                 return Err(DeserializationError::InvalidValue(

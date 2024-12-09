@@ -1,4 +1,6 @@
 //! Contains structures and functions related to transaction creation.
+use std::println;
+
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::ToString,
@@ -7,7 +9,7 @@ use alloc::{
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountCode, AccountId},
     assets::{Asset, FungibleAsset},
     crypto::{
         merkle::{InnerNodeInfo, MerkleStore},
@@ -229,6 +231,23 @@ impl TransactionRequestBuilder {
         }
 
         self.expiration_delta = Some(expiration_delta);
+        Ok(self)
+    }
+
+    pub fn with_account_code_update(
+        mut self,
+        account_code: AccountCode,
+    ) -> Result<Self, TransactionRequestError> {
+        if self.script_template.is_some() {
+            return Err(TransactionRequestError::ScriptTemplateError(
+                "Cannot set account code update when a script template is already set".to_string(),
+            ));
+        }
+        println!("advice map code: {:?}", account_code.commitment().to_hex());
+        self.advice_map
+            .extend(vec![(account_code.commitment(), account_code.as_elements())]);
+
+        self.script_template = Some(TransactionScriptTemplate::AccountCodeUpdate(account_code));
         Ok(self)
     }
 

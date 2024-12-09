@@ -1,3 +1,5 @@
+use std::println;
+
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -5,7 +7,7 @@ use alloc::{
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AuthSecretKey},
+    accounts::{AccountCode, AccountId, AuthSecretKey},
     notes::PartialNote,
     transaction::TransactionScript,
     Felt, TransactionScriptError,
@@ -168,6 +170,25 @@ impl TransactionScriptBuilder {
             .send_note_procedure(self.account_capabilities.account_id, output_notes)?;
 
         self.sections.push(send_notes_procedure);
+
+        Ok(self)
+    }
+
+    pub fn update_account_code(
+        mut self,
+        new_account_code: &AccountCode,
+    ) -> Result<Self, TransactionScriptBuilderError> {
+        self.includes.push("miden::account".to_string());
+
+        println!("new_account_code: {:?}", new_account_code.commitment().to_hex());
+
+        self.sections.push(format!(
+            "
+            push.{code_root}
+            exec.account::set_code
+            ",
+            code_root = new_account_code.commitment().to_hex(),
+        ));
 
         Ok(self)
     }
