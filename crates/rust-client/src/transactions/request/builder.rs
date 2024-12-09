@@ -1,6 +1,4 @@
 //! Contains structures and functions related to transaction creation.
-use std::println;
-
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::ToString,
@@ -243,7 +241,7 @@ impl TransactionRequestBuilder {
                 "Cannot set account code update when a script template is already set".to_string(),
             ));
         }
-        println!("advice map code: {:?}", account_code.commitment().to_hex());
+
         self.advice_map
             .extend(vec![(account_code.commitment(), account_code.as_elements())]);
 

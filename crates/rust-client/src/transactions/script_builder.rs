@@ -1,5 +1,3 @@
-use std::println;
-
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -179,8 +177,6 @@ impl TransactionScriptBuilder {
         new_account_code: &AccountCode,
     ) -> Result<Self, TransactionScriptBuilderError> {
         self.includes.push("miden::account".to_string());
-
-        println!("new_account_code: {:?}", new_account_code.commitment().to_hex());
 
         self.sections.push(format!(
             "
