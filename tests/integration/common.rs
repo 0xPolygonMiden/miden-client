@@ -268,7 +268,7 @@ pub async fn mint_note(
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap();
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
     note.try_into().unwrap()
 }
 

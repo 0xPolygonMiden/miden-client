@@ -69,7 +69,7 @@ async fn test_onchain_notes_flow() {
 
     // Assert that the note is the same
     let received_note: InputNote =
-        client_2.get_input_note(note.id()).await.unwrap().try_into().unwrap();
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
@@ -251,7 +251,7 @@ async fn test_onchain_accounts() {
     client_1.sync_state().await.unwrap();
 
     // Check that the client doesn't know who consumed the note
-    let input_note = client_1.get_input_note(notes[0].id()).await.unwrap();
+    let input_note = client_1.get_input_note(notes[0].id()).await.unwrap().unwrap();
     assert!(matches!(input_note.state(), InputNoteState::ConsumedExternal { .. }));
 
     let new_from_account_balance = client_1
@@ -333,7 +333,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Assert that the note is the same
     let received_note: InputNote =
-        client_2.get_input_note(note.id()).await.unwrap().try_into().unwrap();
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());

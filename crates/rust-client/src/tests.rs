@@ -86,7 +86,7 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap();
+    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap().unwrap();
 
     let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -560,7 +560,7 @@ async fn test_import_processing_note_returns_error() {
     client.submit_transaction(transaction).await.unwrap();
 
     let note_id = transaction_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap();
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
 
     let input = [(note.try_into().unwrap(), None)];
     let consume_note_request =

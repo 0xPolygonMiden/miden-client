@@ -99,20 +99,10 @@ pub trait Store: Send + Sync {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    ///
-    /// # Errors
-    ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
     async fn get_input_notes(&self, filter: NoteFilter)
         -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    ///
-    /// # Errors
-    ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
     async fn get_output_notes(
         &self,
         filter: NoteFilter,

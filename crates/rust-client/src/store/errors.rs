@@ -3,7 +3,6 @@ use alloc::string::{String, ToString};
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrError,
-    notes::NoteId,
     utils::{DeserializationError, HexParseError},
     AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
@@ -46,8 +45,6 @@ pub enum StoreError {
     #[error("error parsing hex: {0}")]
     //TODO: use source in this error when possible
     HexParseError(HexParseError),
-    #[error("note with id {0} not found")]
-    NoteNotFound(NoteId),
     #[error("note record error")]
     NoteRecordError(#[from] NoteRecordError),
     #[error("error constructing mmr: {0}")]
@@ -86,7 +83,6 @@ impl From<StoreError> for DataStoreError {
                 DataStoreError::AccountNotFound(account_id)
             },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }

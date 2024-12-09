@@ -361,7 +361,8 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Export note from client 1 to client 2
-    let output_note = client1.get_output_note(expected_output_notes[0].id()).await.unwrap();
+    let output_note =
+        client1.get_output_note(expected_output_notes[0].id()).await.unwrap().unwrap();
 
     let tag =
         build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
