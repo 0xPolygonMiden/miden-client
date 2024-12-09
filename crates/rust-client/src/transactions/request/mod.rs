@@ -184,7 +184,7 @@ impl TransactionRequest {
                 let tx_script_builder =
                     TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
 
-                Ok(tx_script_builder.build_send_notes_script(notes)?)
+                Ok(tx_script_builder.send_notes(notes)?.build()?)
             },
             None => {
                 if self.input_notes.is_empty() {
@@ -193,7 +193,7 @@ impl TransactionRequest {
                     let tx_script_builder =
                         TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
 
-                    Ok(tx_script_builder.build_auth_script()?)
+                    Ok(tx_script_builder.build()?)
                 }
             },
         }

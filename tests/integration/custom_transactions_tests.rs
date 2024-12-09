@@ -235,6 +235,41 @@ async fn test_merkle_store() {
     client.sync_state().await.unwrap();
 }
 
+#[tokio::test]
+async fn test_set_account_code() {
+    let mut client = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    };
+
+    // Insert Account
+    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+
+    client.sync_state().await.unwrap();
+
+    let code = "
+        use.miden::account
+
+        begin
+            ## Update account code
+            ## ------------------------------------------------------------------------------------
+            push.0.1.2.3 call.account::set_code dropw
+        end
+        ";
+
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
+    let transaction_request =
+        TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap().build();
+
+    execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
+
+    client.sync_state().await.unwrap();
+}
+
 async fn mint_custom_note(
     client: &mut TestClient,
     faucet_account_id: AccountId,

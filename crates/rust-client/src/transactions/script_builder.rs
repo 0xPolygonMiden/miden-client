@@ -109,11 +109,11 @@ impl AccountInterface {
         Ok(body)
     }
 
-    fn script_includes(&self) -> &str {
+    fn script_includes(&self) -> String {
         match self {
-            AccountInterface::BasicWallet => "use.miden::contracts::wallets::basic->wallet\n",
+            AccountInterface::BasicWallet => "miden::contracts::wallets::basic->wallet".to_string(),
             AccountInterface::BasicFungibleFaucet => {
-                "use.miden::contracts::faucets::basic_fungible->faucet\n"
+                "miden::contracts::faucets::basic_fungible->faucet".to_string()
             },
         }
     }
@@ -128,30 +128,48 @@ pub(crate) struct TransactionScriptBuilder {
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
+    sections: Vec<String>,
+    includes: Vec<String>,
 }
 
 impl TransactionScriptBuilder {
     pub fn new(account_capabilities: AccountCapabilities, expiration_delta: Option<u16>) -> Self {
-        Self { account_capabilities, expiration_delta }
+        let mut includes = vec![];
+
+        match account_capabilities.auth {
+            AuthSecretKey::RpoFalcon512(_) => {
+                includes.push("miden::contracts::auth::basic->auth_tx".to_string());
+            },
+        }
+
+        if expiration_delta.is_some() {
+            includes.push("miden::tx".to_string());
+        }
+
+        Self {
+            account_capabilities,
+            expiration_delta,
+            sections: vec![],
+            includes,
+        }
     }
 
     /// Builds a transaction script which sends the specified notes with the corresponding
     /// authentication.
-    pub fn build_send_notes_script(
-        &self,
+    pub fn send_notes(
+        mut self,
         output_notes: &[PartialNote],
-    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
-        let send_note_procedure = self
+    ) -> Result<Self, TransactionScriptBuilderError> {
+        self.includes.push(self.account_capabilities.interfaces.script_includes());
+
+        let send_notes_procedure = self
             .account_capabilities
             .interfaces
             .send_note_procedure(self.account_capabilities.account_id, output_notes)?;
 
-        self.build_script_with_sections(vec![send_note_procedure])
-    }
+        self.sections.push(send_notes_procedure);
 
-    /// Builds a simple authentication script for the transaction that doesn't send any notes.
-    pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
-        self.build_script_with_sections(vec![])
+        Ok(self)
     }
 
     /// Builds a transaction script with the specified sections.
@@ -159,15 +177,12 @@ impl TransactionScriptBuilder {
     /// The `sections` parameter is a vector of strings, where each string represents a distinct
     /// part of the script body. The script includes, authentication, and expiration sections are
     /// automatically added to the script.
-    fn build_script_with_sections(
-        &self,
-        sections: Vec<String>,
-    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
+    pub fn build(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let script = format!(
             "{} begin {} {} {} end",
             self.script_includes(),
             self.script_expiration(),
-            sections.join(" "),
+            self.sections.join("\n"),
             self.script_authentication()
         );
 
@@ -177,20 +192,11 @@ impl TransactionScriptBuilder {
         Ok(tx_script)
     }
 
-    /// Returns a string with the needed include instructions for the script.
     fn script_includes(&self) -> String {
         let mut includes = String::new();
 
-        includes.push_str(self.account_capabilities.interfaces.script_includes());
-
-        match self.account_capabilities.auth {
-            AuthSecretKey::RpoFalcon512(_) => {
-                includes.push_str("use.miden::contracts::auth::basic->auth_tx\n");
-            },
-        }
-
-        if self.expiration_delta.is_some() {
-            includes.push_str("use.miden::tx\n");
+        for include in self.includes.iter() {
+            includes.push_str(format!("use.{}\n", include).as_str());
         }
 
         includes
