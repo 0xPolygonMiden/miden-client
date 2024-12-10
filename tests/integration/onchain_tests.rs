@@ -140,9 +140,9 @@ async fn test_onchain_accounts() {
     let second_client_target_account_id = second_client_first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap();
+    let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
-    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap();
+    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap().unwrap();
     client_2
         .insert_account(&faucet_account_header, faucet_seed, &auth_info)
         .await
@@ -157,10 +157,16 @@ async fn test_onchain_accounts() {
     // between clients
     client_2.sync_state().await.unwrap();
 
-    let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
-    let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
+    let (client_1_faucet, _) = client_1
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
+    let (client_2_faucet, _) = client_2
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -191,10 +197,16 @@ async fn test_onchain_accounts() {
     )
     .await;
 
-    let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
-    let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
+    let (client_1_faucet, _) = client_1
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
+    let (client_2_faucet, _) = client_2
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -207,6 +219,7 @@ async fn test_onchain_accounts() {
         .get_account(from_account_id)
         .await
         .unwrap()
+        .unwrap()
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -214,6 +227,7 @@ async fn test_onchain_accounts() {
     let to_account_balance = client_2
         .get_account(to_account_id)
         .await
+        .unwrap()
         .unwrap()
         .account()
         .vault()
@@ -258,6 +272,7 @@ async fn test_onchain_accounts() {
         .get_account(from_account_id)
         .await
         .unwrap()
+        .unwrap()
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -265,6 +280,7 @@ async fn test_onchain_accounts() {
     let new_to_account_balance = client_2
         .get_account(to_account_id)
         .await
+        .unwrap()
         .unwrap()
         .account()
         .vault()

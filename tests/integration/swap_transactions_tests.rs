@@ -178,7 +178,7 @@ async fn test_swap_fully_onchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().unwrap().into();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -204,7 +204,7 @@ async fn test_swap_fully_onchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().unwrap().into();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();
@@ -402,7 +402,7 @@ async fn test_swap_offchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().unwrap().into();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -428,7 +428,7 @@ async fn test_swap_offchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().unwrap().into();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();

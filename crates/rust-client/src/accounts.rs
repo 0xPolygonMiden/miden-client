@@ -20,7 +20,7 @@ use miden_objects::{
 
 use super::Client;
 use crate::{
-    store::{AccountRecord, AccountStatus, StoreError},
+    store::{AccountRecord, AccountStatus},
     ClientError,
 };
 
@@ -109,10 +109,10 @@ impl<R: FeltRng> Client<R> {
             account_data.account_seed
         };
 
-        let tracked_account = self.store.get_account(account_data.account.id()).await;
+        let tracked_account = self.store.get_account(account_data.account.id()).await?;
 
         match tracked_account {
-            Err(StoreError::AccountDataNotFound(_)) => {
+            None => {
                 // If the account is not being tracked, insert it into the store regardless of the
                 // `overwrite` flag
                 self.insert_account(
@@ -122,8 +122,7 @@ impl<R: FeltRng> Client<R> {
                 )
                 .await
             },
-            Err(err) => Err(ClientError::StoreError(err)),
-            Ok(tracked_account) => {
+            Some(tracked_account) => {
                 if !overwrite {
                     // Only overwrite the account if the flag is set to `true`
                     return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
@@ -256,38 +255,28 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves a full [AccountRecord] object for the specified `account_id`. This result
     /// represents data for the latest state known to the client, alongside its status.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    pub async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, ClientError> {
+    pub async fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AccountRecord>, ClientError> {
         self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     pub async fn get_account_header_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), ClientError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, ClientError> {
         self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound] if the provided
-    /// ID does not correspond to an existing account.
     pub async fn get_account_auth(
         &self,
         account_id: AccountId,
-    ) -> Result<AuthSecretKey, ClientError> {
+    ) -> Result<Option<AuthSecretKey>, ClientError> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 }

@@ -62,7 +62,11 @@ impl AccountCmd {
                                 .map_err(|_| "Input number was not a valid Account Id")?;
 
                             // Check whether we're tracking that account
-                            let (account, _) = client.get_account_header_by_id(account_id).await?;
+                            let (account, _) =
+                                client
+                                    .get_account_header_by_id(account_id)
+                                    .await?
+                                    .ok_or(format!("Account with ID {account_id} not found"))?;
 
                             Some(account.id())
                         };
@@ -95,7 +99,12 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
     let mut table =
         create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce", "Status"]);
     for (acc, _acc_seed) in accounts.iter() {
-        let status = client.get_account(acc.id()).await?.status().to_string();
+        let status = client
+            .get_account(acc.id())
+            .await?
+            .expect("Account should be in store")
+            .status()
+            .to_string();
 
         table.add_row(vec![
             acc.id().to_string(),
@@ -114,7 +123,11 @@ pub async fn show_account<R: FeltRng>(
     client: Client<R>,
     account_id: AccountId,
 ) -> Result<(), String> {
-    let account: Account = client.get_account(account_id).await?.into();
+    let account: Account = client
+        .get_account(account_id)
+        .await?
+        .ok_or(format!("Account with ID {account_id} not found"))?
+        .into();
 
     let mut table = create_dynamic_table(&[
         "Account ID",

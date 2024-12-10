@@ -213,14 +213,10 @@ pub trait Store: Send + Sync {
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError>;
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError>;
 
     /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
     /// hash. If no account state matches the provided hash, `None` is returned.
@@ -231,27 +227,21 @@ pub trait Store: Send + Sync {
 
     /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
     /// its status.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError>;
+    async fn get_account(&self, account_id: AccountId)
+        -> Result<Option<AccountRecord>, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
     /// This is mainly used for authentication in transactions.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
-    async fn get_account_auth_by_pub_key(&self, pub_key: Word)
-        -> Result<AuthSecretKey, StoreError>;
+    async fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<Option<AuthSecretKey>, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
     async fn insert_account(

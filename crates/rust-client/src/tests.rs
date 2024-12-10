@@ -112,7 +112,7 @@ async fn insert_basic_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -149,7 +149,7 @@ async fn insert_faucet_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -215,7 +215,7 @@ async fn test_account_code() {
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .await
         .unwrap();
-    let retrieved_acc = client.get_account(account.id()).await.unwrap();
+    let retrieved_acc = client.get_account(account.id()).await.unwrap().unwrap();
     assert_eq!(*account.code(), *retrieved_acc.account().code());
 }
 
@@ -239,7 +239,7 @@ async fn test_get_account_by_id() {
 
     // Retrieving an existing account should succeed
     let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {
-        Ok(account) => account,
+        Ok(account) => account.unwrap(),
         Err(err) => panic!("Error retrieving account: {}", err),
     };
     assert_eq!(AccountHeader::from(account), acc_from_db);
