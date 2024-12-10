@@ -1,11 +1,10 @@
 use miden_client::{
-    accounts::AccountTemplate,
     store::{InputNoteState, NoteFilter},
     transactions::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset, TokenSymbol},
+    assets::{Asset, FungibleAsset},
     notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
@@ -23,33 +22,19 @@ async fn test_onchain_notes_flow() {
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
-    let (faucet_account, _) = client_1
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     // Create regular accounts
-    let (basic_wallet_1, _) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (basic_wallet_1, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     // Create regular accounts
-    let (basic_wallet_2, _) = client_3
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (basic_wallet_2, _) =
+        insert_new_wallet(&mut client_3, AccountStorageMode::Private).await.unwrap();
+
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
@@ -288,15 +273,10 @@ async fn test_onchain_notes_sync_with_tag() {
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
-    let (faucet_account, _) = client_1
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();

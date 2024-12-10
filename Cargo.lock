@@ -1933,6 +1933,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde-wasm-bindgen",
+ "thiserror 2.0.4",
  "tokio",
  "tonic",
  "tonic-build",

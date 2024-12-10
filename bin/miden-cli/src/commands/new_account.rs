@@ -1,9 +1,11 @@
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::{AccountStorageMode, AccountTemplate},
+    accounts::{AccountStorageMode, AccountType},
     assets::TokenSymbol,
-    crypto::FeltRng,
-    Client,
+    auth::{AuthScheme, AuthSecretKey},
+    crypto::{FeltRng, SecretKey},
+    utils::{create_basic_fungible_faucet, create_basic_wallet},
+    Client, Felt,
 };
 
 use crate::{
@@ -60,15 +62,31 @@ impl NewFaucetCmd {
         let decimals = self.decimals.expect("decimals must be provided");
         let token_symbol = self.token_symbol.clone().expect("token symbol must be provided");
 
-        let client_template = AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new(token_symbol.as_str())
+        let key_pair = SecretKey::with_rng(client.rng());
+
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
+
+        let mut init_seed = [0u8; 32];
+        client.rng().fill_bytes(&mut init_seed);
+
+        let (new_account, seed) = create_basic_fungible_faucet(
+            init_seed,
+            TokenSymbol::new(token_symbol.as_str())
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
-            max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_mode: self.storage_mode.into(),
-        };
+            Felt::try_from(
+                self.max_supply.expect("max supply must be provided").to_le_bytes().as_slice(),
+            )
+            .expect("u64 can be safely converted to a field element"),
+            self.storage_mode.into(),
+            auth_scheme,
+        )
+        .map_err(|err| format!("error: failed to create faucet: {}", err))?;
 
-        let (new_account, _account_seed) = client.new_account(client_template).await?;
+        client
+            .insert_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
+
         println!("Succesfully created new faucet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
@@ -92,12 +110,27 @@ pub struct NewWalletCmd {
 
 impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
-        let client_template = AccountTemplate::BasicWallet {
-            mutable_code: self.mutable,
-            storage_mode: self.storage_mode.into(),
+        let key_pair = SecretKey::with_rng(client.rng());
+
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
+
+        let mut init_seed = [0u8; 32];
+        client.rng().fill_bytes(&mut init_seed);
+
+        let account_type = if self.mutable {
+            AccountType::RegularAccountUpdatableCode
+        } else {
+            AccountType::RegularAccountImmutableCode
         };
 
-        let (new_account, _account_seed) = client.new_account(client_template).await?;
+        let (new_account, seed) =
+            create_basic_wallet(init_seed, auth_scheme, account_type, self.storage_mode.into())
+                .map_err(|err| format!("error: failed to create wallet: {}", err))?;
+
+        client
+            .insert_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
+
         println!("Succesfully created new wallet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",

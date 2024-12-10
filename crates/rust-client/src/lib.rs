@@ -39,6 +39,7 @@ pub mod assets {
 /// Provides authentication-related types and functionalities for the Miden
 /// rollup network.
 pub mod auth {
+    pub use miden_lib::AuthScheme;
     pub use miden_objects::accounts::AuthSecretKey;
     pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
@@ -54,6 +55,7 @@ pub mod blocks {
 pub mod crypto {
     pub use miden_objects::{
         crypto::{
+            dsa::rpo_falcon512::SecretKey,
             merkle::{
                 InOrderIndex, LeafIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof, SmtLeaf,
                 SmtProof,
@@ -70,6 +72,9 @@ pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
+    pub use miden_lib::accounts::{
+        faucets::create_basic_fungible_faucet, wallets::create_basic_wallet,
+    };
     pub use miden_tx::utils::{
         bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
         Serializable,

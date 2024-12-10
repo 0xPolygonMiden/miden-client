@@ -6,17 +6,11 @@
 
 use alloc::vec::Vec;
 
-use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
     Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
-use miden_objects::{
-    accounts::AuthSecretKey,
-    assets::TokenSymbol,
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    Digest, Felt, Word,
-};
+use miden_objects::{accounts::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
 use super::Client;
 use crate::{
@@ -24,56 +18,9 @@ use crate::{
     ClientError,
 };
 
-/// Defines templates for creating different types of Miden accounts.
-pub enum AccountTemplate {
-    /// The `BasicWallet` variant represents a regular wallet account.
-    BasicWallet {
-        /// A boolean indicating whether the account's code can be modified after creation.
-        mutable_code: bool,
-        /// Specifies the type of storage used by the account. This is defined by the
-        /// `AccountStorageMode` enum.
-        storage_mode: AccountStorageMode,
-    },
-
-    /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
-    FungibleFaucet {
-        /// The symbol of the token being issued by the faucet.
-        token_symbol: TokenSymbol,
-        /// The number of decimal places used by the token.
-        decimals: u8,
-        /// The maximum supply of tokens that the faucet can issue.
-        max_supply: u64,
-        /// Specifies the type of storage used by the account.
-        storage_mode: AccountStorageMode,
-    },
-}
-
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
-
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
-    /// new tag derived from the account will start being tracked by the client.
-    pub async fn new_account(
-        &mut self,
-        template: AccountTemplate,
-    ) -> Result<(Account, Word), ClientError> {
-        let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
-                self.new_basic_wallet(mutable_code, storage_mode).await
-            },
-            AccountTemplate::FungibleFaucet {
-                token_symbol,
-                decimals,
-                max_supply,
-                storage_mode,
-            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
-        }?;
-
-        self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
-
-        Ok(account_and_seed)
-    }
 
     /// Saves the [Account] contained in `account_data` in the store. If the account is already
     /// being tracked and `overwrite` is set to `true`, the account will be overwritten.
@@ -154,71 +101,6 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Creates a new regular account and saves it in the store along with its seed and auth data
-    async fn new_basic_wallet(
-        &mut self,
-        mutable_code: bool,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<(Account, Word), ClientError> {
-        let key_pair = SecretKey::with_rng(&mut self.rng);
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
-        // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8; 32];
-        self.rng.fill_bytes(&mut init_seed);
-
-        let (account, seed) = if !mutable_code {
-            miden_lib::accounts::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountImmutableCode,
-                account_storage_mode,
-            )
-        } else {
-            miden_lib::accounts::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountUpdatableCode,
-                account_storage_mode,
-            )
-        }?;
-
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
-            .await?;
-        Ok((account, seed))
-    }
-
-    async fn new_fungible_faucet(
-        &mut self,
-        token_symbol: TokenSymbol,
-        decimals: u8,
-        max_supply: u64,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<(Account, Word), ClientError> {
-        let key_pair = SecretKey::with_rng(&mut self.rng);
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
-        // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8; 32];
-        self.rng.fill_bytes(&mut init_seed);
-
-        let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
-            init_seed,
-            token_symbol,
-            decimals,
-            Felt::try_from(max_supply.to_le_bytes().as_slice())
-                .expect("u64 can be safely converted to a field element"),
-            account_storage_mode,
-            auth_scheme,
-        )?;
-
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
-            .await?;
-        Ok((account, seed))
-    }
-
     /// Inserts a new account into the client's store.
     ///
     /// # Errors
@@ -234,6 +116,8 @@ impl<R: FeltRng> Client<R> {
         if account.is_new() && account_seed.is_none() {
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
+
+        self.store.add_note_tag(account.try_into()?).await?;
 
         self.store
             .insert_account(account, account_seed, auth_info)
