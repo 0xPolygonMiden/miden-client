@@ -64,7 +64,7 @@ async fn test_multiple_tx_on_same_block() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
     consume_notes(&mut client, from_account_id, &[note]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
@@ -153,7 +153,7 @@ async fn test_p2id_transfer() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
     consume_notes(&mut client, from_account_id, &[note]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
@@ -242,7 +242,7 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
     consume_notes(&mut client, from_account_id, &[note]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
@@ -281,7 +281,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
     println!("about to consume");
 
@@ -386,7 +386,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
 
     consume_notes(&mut client, from_account_id, &[note]).await;
@@ -478,7 +478,7 @@ async fn test_get_consumable_notes() {
     //No consumable notes initially
     assert!(client.get_consumable_notes(None).await.unwrap().is_empty());
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
 
     // Check that note is consumable by the account that minted
@@ -542,7 +542,7 @@ async fn test_get_output_notes() {
     // No output notes initially
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
 
     // Check that there was an output note but it wasn't consumed
@@ -825,7 +825,7 @@ async fn test_sync_detail_values() {
     let to_account_id = second_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First Mint necessary token
     let note = mint_note(&mut client1, from_account_id, faucet_account_id, NoteType::Private).await;
     consume_notes(&mut client1, from_account_id, &[note]).await;
     assert_account_has_single_asset(&client1, from_account_id, faucet_account_id, MINT_AMOUNT)

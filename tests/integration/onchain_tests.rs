@@ -145,7 +145,7 @@ async fn test_onchain_accounts() {
         .await
         .unwrap();
 
-    // First Mint necesary token
+    // First Mint necessary token
     println!("First client consuming note");
     let note =
         mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;

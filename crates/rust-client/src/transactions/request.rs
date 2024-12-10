@@ -126,7 +126,7 @@ impl TransactionRequest {
     }
 
     /// Specifies the output notes that should be created in the transaction script and will
-    /// be used as a transaction script template. These notes will also be added the the expected
+    /// be used as a transaction script template. These notes will also be added the expected
     /// output notes of the transaction.
     ///
     /// If a transaction script template is already set (e.g. by calling `with_custom_script`), this
