@@ -247,7 +247,7 @@ async fn test_get_account_by_id() {
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_header_by_id(invalid_id).await.is_err());
+    assert!(client.get_account_header_by_id(invalid_id).await.unwrap().is_none());
 }
 
 #[tokio::test]

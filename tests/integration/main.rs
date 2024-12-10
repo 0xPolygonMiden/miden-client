@@ -594,13 +594,13 @@ async fn test_get_output_notes() {
     let output_note_id = tx_request.expected_output_notes().next().unwrap().id();
 
     // Before executing, the output note is not found
-    assert!(client.get_output_note(output_note_id).await.is_err());
+    assert!(client.get_output_note(output_note_id).await.unwrap().is_none());
 
     execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
 
     // After executing, the note is only found in output notes
-    assert!(client.get_output_note(output_note_id).await.is_ok());
-    assert!(client.get_input_note(output_note_id).await.is_err());
+    assert!(client.get_output_note(output_note_id).await.unwrap().is_some());
+    assert!(client.get_input_note(output_note_id).await.unwrap().is_none());
 }
 
 #[tokio::test]
