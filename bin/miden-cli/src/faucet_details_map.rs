@@ -138,7 +138,7 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 /// Converts a decimal number, represented as a string, into an integer by shifting
 /// the decimal point to the right by a specified number of decimal places.
 ///
-/// The MAX_DECIMALS is 12
+/// The MAX_DECIMALS is 12.
 // TODO: import that constant from the main code and add checks.
 // https://github.com/0xPolygonMiden/miden-client/issues/476
 fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, String> {

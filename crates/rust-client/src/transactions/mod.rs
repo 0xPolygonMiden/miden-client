@@ -69,7 +69,7 @@ pub struct TransactionResult {
 
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
-    /// [TransactionResult]
+    /// [TransactionResult].
     pub async fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
@@ -161,7 +161,7 @@ impl From<TransactionResult> for ExecutedTransaction {
 // TRANSACTION RECORD
 // --------------------------------------------------------------------------------------------
 
-/// Describes a transaction that has been executed and is being tracked on the Client
+/// Describes a transaction that has been executed and is being tracked on the Client.
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
@@ -205,14 +205,14 @@ impl TransactionRecord {
     }
 }
 
-/// Represents the status of a transaction
+/// Represents the status of a transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
-    /// Transaction has been submitted but not yet committed
+    /// Transaction has been submitted but not yet committed.
     Pending,
-    /// Transaction has been committed and included at the specified block number
+    /// Transaction has been committed and included at the specified block number.
     Committed(u32),
-    /// Transaction has been discarded and isn't included in the node
+    /// Transaction has been discarded and isn't included in the node.
     Discarded,
 }
 
@@ -234,13 +234,13 @@ impl fmt::Display for TransactionStatus {
 /// Represents the changes that need to be applied to the client store as a result of a
 /// transaction execution.
 pub struct TransactionStoreUpdate {
-    /// Details of the executed transaction to be inserted
+    /// Details of the executed transaction to be inserted.
     executed_transaction: ExecutedTransaction,
-    /// Updated account state after the [AccountDelta] has been applied
+    /// Updated account state after the [AccountDelta] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
     note_updates: NoteUpdates,
-    /// New note tags to be tracked
+    /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
 
@@ -541,7 +541,7 @@ impl<R: FeltRng> Client<R> {
         Ok(())
     }
 
-    /// Compiles the provided transaction script source and inputs into a [TransactionScript]
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript].
     pub fn compile_tx_script<T>(
         &self,
         inputs: T,
@@ -920,10 +920,10 @@ pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }
 
-/// Extracts notes from [OutputNotes]
+/// Extracts notes from [OutputNotes].
 /// Used for:
-/// - checking the relevance of notes to save them as input notes
-/// - validate hashes versus expected output notes after a transaction is executed
+/// - Checking the relevance of notes to save them as input notes.
+/// - Validate hashes versus expected output notes after a transaction is executed.
 pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()

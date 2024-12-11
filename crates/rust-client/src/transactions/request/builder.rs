@@ -401,7 +401,7 @@ impl PaymentTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [PaymentTransactionData]
+    /// Creates a new [PaymentTransactionData].
     pub fn new(
         assets: Vec<Asset>,
         sender_account_id: AccountId,
@@ -414,17 +414,17 @@ impl PaymentTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId]
+    /// Returns the executor [AccountId].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the target [AccountId]
+    /// Returns the target [AccountId].
     pub fn target_account_id(&self) -> AccountId {
         self.target_account_id
     }
 
-    /// Returns the transaction's list of [Asset]
+    /// Returns the transaction's list of [Asset].
     pub fn assets(&self) -> &Vec<Asset> {
         &self.assets
     }
@@ -452,7 +452,7 @@ impl SwapTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [SwapTransactionData]
+    /// Creates a new [SwapTransactionData].
     pub fn new(
         sender_account_id: AccountId,
         offered_asset: Asset,
@@ -465,17 +465,17 @@ impl SwapTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId]
+    /// Returns the executor [AccountId].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the transaction offered [Asset]
+    /// Returns the transaction offered [Asset].
     pub fn offered_asset(&self) -> Asset {
         self.offered_asset
     }
 
-    /// Returns the transaction requested [Asset]
+    /// Returns the transaction requested [Asset].
     pub fn requested_asset(&self) -> Asset {
         self.requested_asset
     }

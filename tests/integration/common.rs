@@ -32,7 +32,7 @@ pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OF
 pub type TestClient = Client<RpoRandomCoin>;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
-/// Creates a `TestClient`
+/// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
 /// random temporary location, so the store section of the config file is ignored.
@@ -40,7 +40,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 /// # Panics
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
-/// deserialized into a [ClientConfig]
+/// deserialized into a [ClientConfig].
 pub async fn create_test_client() -> TestClient {
     let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
@@ -173,7 +173,7 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
 /// # Panics
 ///
 /// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
-/// receive an error other than a connection related error
+/// receive an error other than a connection related error.
 pub async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
@@ -198,7 +198,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 pub const MINT_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
 
-/// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
+/// Sets up a basic client and returns (basic_account, basic_account, faucet_account).
 pub async fn setup(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
@@ -245,7 +245,7 @@ pub async fn setup(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
-/// with 1000 units of the corresponding fungible asset
+/// with 1000 units of the corresponding fungible asset.
 pub async fn mint_note(
     client: &mut TestClient,
     basic_account_id: AccountId,
@@ -272,8 +272,8 @@ pub async fn mint_note(
     note.try_into().unwrap()
 }
 
-/// Consumes and wait until the transaction gets committed
-/// This assumes the notes contain assets
+/// Consumes and wait until the transaction gets committed.
+/// This assumes the notes contain assets.
 pub async fn consume_notes(
     client: &mut TestClient,
     account_id: AccountId,

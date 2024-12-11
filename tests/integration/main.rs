@@ -890,7 +890,7 @@ async fn test_sync_detail_values() {
 }
 
 /// This test runs 3 mint transactions that get included in different blocks so that once we sync
-/// we can check that each transaction gets marked as committed in the corresponding block
+/// we can check that each transaction gets marked as committed in the corresponding block.
 #[tokio::test]
 async fn test_multiple_transactions_can_be_committed_in_different_blocks_without_sync() {
     let mut client = create_test_client().await;

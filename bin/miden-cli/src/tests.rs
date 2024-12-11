@@ -20,8 +20,9 @@ use uuid::Uuid;
 
 mod config;
 
-/// CLI TESTS
-///
+// CLI TESTS
+// ================================================================================================
+
 /// This Module contains integration tests that test against the miden CLI directly. In order to do
 /// that we use [assert_cmd](https://github.com/assert-rs/assert_cmd?tab=readme-ov-file) which aids
 /// in the process of spawning commands.
@@ -570,7 +571,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
     send_cmd.current_dir(cli_path).assert().success();
 }
 
-/// Syncs until there are no input notes satisfying the provided filter
+/// Syncs until there are no input notes satisfying the provided filter.
 async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
     let client = create_test_client_with_store_path(store_path).await;
 

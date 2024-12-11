@@ -84,41 +84,41 @@ pub trait Store: Send + Sync {
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Applies a transaction, atomically updating the current state based on the
-    /// [TransactionStoreUpdate]
+    /// [TransactionStoreUpdate].
     ///
     /// An update involves:
-    /// - Updating the stored account which is being modified by the transaction
+    /// - Updating the stored account which is being modified by the transaction.
     /// - Storing new input/output notes and payback note details as a result of the transaction
-    ///   execution
-    /// - Updating the input notes that are being processed by the transaction
-    /// - Inserting the new tracked tags into the store
-    /// - Inserting the transaction into the store to track
+    ///   execution.
+    /// - Updating the input notes that are being processed by the transaction.
+    /// - Inserting the new tracked tags into the store.
+    /// - Inserting the transaction into the store to track.
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
 
-    /// Retrieves the input notes from the store
+    /// Retrieves the input notes from the store.
     ///
     /// # Errors
     ///
     /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
+    /// Note with the provided ID.
     async fn get_input_notes(&self, filter: NoteFilter)
         -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves the output notes from the store
+    /// Retrieves the output notes from the store.
     ///
     /// # Errors
     ///
     /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
+    /// Note with the provided ID.
     async fn get_output_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
-    /// Returns the nullifiers of all unspent input notes
+    /// Returns the nullifiers of all unspent input notes.
     ///
     /// The default implementation of this method uses [Store::get_input_notes].
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
@@ -181,7 +181,7 @@ pub trait Store: Send + Sync {
 
     /// Inserts MMR authentication nodes.
     ///
-    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored
+    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored.
     async fn insert_chain_mmr_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
@@ -189,7 +189,7 @@ pub trait Store: Send + Sync {
 
     /// Returns peaks information from the blockchain by a specific block number.
     ///
-    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
+    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks].
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
         block_num: u32,
@@ -211,7 +211,7 @@ pub trait Store: Send + Sync {
     // ACCOUNT
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the account IDs of all accounts stored in the database
+    /// Returns the account IDs of all accounts stored in the database.
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
     /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
@@ -263,7 +263,7 @@ pub trait Store: Send + Sync {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
 
-    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
+    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey].
     async fn insert_account(
         &self,
         account: &Account,
@@ -289,7 +289,7 @@ pub trait Store: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID.
     async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError>;
 
     // SYNC
@@ -320,12 +320,12 @@ pub trait Store: Send + Sync {
 
     /// Applies the state sync update to the store. An update involves:
     ///
-    /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the corresponding tracked input/output notes
-    /// - Removing note tags that are no longer relevant
-    /// - Updating transactions in the store, marking as `committed` or `discarded`
-    /// - Storing new MMR authentication nodes
-    /// - Updating the tracked on-chain accounts
+    /// - Inserting the new block header to the store alongside new MMR peaks information.
+    /// - Updating the corresponding tracked input/output notes.
+    /// - Removing note tags that are no longer relevant.
+    /// - Updating transactions in the store, marking as `committed` or `discarded`.
+    /// - Storing new MMR authentication nodes.
+    /// - Updating the tracked on-chain accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
 

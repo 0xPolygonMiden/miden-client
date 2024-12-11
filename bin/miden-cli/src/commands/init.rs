@@ -14,12 +14,11 @@ use crate::{
 #[clap(about = "Initialize the client")]
 pub struct InitCmd {
     /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
-    /// optional. If not provided user will be
-    /// asked for input
+    /// optional. If not provided user will be asked for input.
     #[clap(long)]
     rpc: Option<String>,
 
-    /// Store file path
+    /// Store file path.
     #[clap(long)]
     store_path: Option<String>,
 

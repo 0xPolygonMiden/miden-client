@@ -23,7 +23,7 @@ is a symbol tracked in the token symbol map file.
 For example, `100::0xabcdef0123456789` or `1.23::POL`";
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client
-/// config
+/// config.
 pub(crate) async fn get_input_acc_id_by_prefix_or_default(
     client: &Client<impl FeltRng>,
     account_id: Option<String>,
@@ -41,16 +41,16 @@ pub(crate) async fn get_input_acc_id_by_prefix_or_default(
     parse_account_id(client, &account_id_str).await
 }
 
-/// Parses a user provided account id string and returns the corresponding `AccountId`
+/// Parses a user provided account ID string and returns the corresponding `AccountId`.
 ///
 /// `account_id` can fall into two categories:
 ///
-/// - it's a prefix of an account id of an account tracked by the client
-/// - it's a full account id
+/// - It's a prefix of an account ID of an account tracked by the client.
+/// - It's a full account ID.
 ///
 /// # Errors
 ///
-/// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
+/// - Will return a `IdPrefixFetchError` if the provided account ID string can't be parsed as an
 ///   `AccountId` and doesn't correspond to an account tracked by the client either.
 pub(crate) async fn parse_account_id(
     client: &Client<impl FeltRng>,
@@ -86,7 +86,7 @@ pub(crate) fn update_config(config_path: &Path, client_config: CliConfig) -> Res
     Ok(())
 }
 
-/// Loads config file from current directory and default filename and returns it alongside its path
+/// Loads config file from current directory and default filename and returns it alongside its path.
 ///
 /// This function will look for the configuration file at the provided path. If the path is
 /// relative, searches in parent directories all the way to the root as well.

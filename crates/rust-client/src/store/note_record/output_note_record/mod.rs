@@ -181,7 +181,7 @@ impl OutputNoteRecord {
     /// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
     /// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
     /// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way
-    /// to filter the full and partial output notes
+    /// to filter the full and partial output notes.
     pub fn try_from_output_note(
         output_note: OutputNote,
         expected_height: u32,
@@ -224,13 +224,13 @@ impl TryFrom<OutputNoteRecord> for Note {
     }
 }
 
-/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord]
+/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord].
 pub enum NoteExportType {
-    /// Export only the note id
+    /// Export only the note ID.
     NoteId,
-    /// Export the partial note with minimal details
+    /// Export the partial note with minimal details.
     NoteDetails,
-    /// Export the full note with inclusion proof
+    /// Export the full note with inclusion proof.
     NoteWithProof,
 }
 
