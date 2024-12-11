@@ -48,6 +48,7 @@ pub enum AccountTemplate {
     },
 }
 
+/// Account management methods
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
@@ -219,7 +220,12 @@ impl<R: FeltRng> Client<R> {
         Ok((account, seed))
     }
 
-    /// Inserts a new account into the client's store.
+    /// Inserts a new [Account] into the client's store along with the [AuthSecretKey] used to create it. If the account is new, its seed must be
+    /// provided.
+    ///
+    /// The secret key is stored in client but it is never exposed. It is used to authenticate
+    /// transactions against the account. The seed is used when notifying the network about a new
+    /// account and is not used for any other purpose.
     ///
     /// # Errors
     ///

@@ -12,6 +12,7 @@ use crate::{
     Client, ClientError,
 };
 
+/// Note importing methods
 impl<R: FeltRng> Client<R> {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------

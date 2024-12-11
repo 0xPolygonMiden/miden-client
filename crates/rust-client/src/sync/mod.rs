@@ -153,6 +153,7 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
+/// Client syncronization methods
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
@@ -162,10 +163,17 @@ impl<R: FeltRng> Client<R> {
         self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
-    /// Syncs the client's state with the current state of the Miden network.
-    /// Before doing so, it ensures the genesis block exists in the local store.
+    /// Syncs the client's state with the current state of the Miden network. Returns the block number the client has been synced to.
     ///
-    /// Returns the block number the client has been synced to.
+    /// The sync process is done in multiple steps:
+    /// 1. A request is sent to the node to get the state updates. This request includes tracked account IDs and the tags of notes that might have changed or that might be of interest to the client.
+    /// 2. A response is received with the current state of the network. The response includes information about new/committed/consumed notes, updated accounts, and committed transactions.
+    /// 3. Notes are updated with their new states.
+    /// 4. New notes are checked, only relevant notes are stored.
+    /// 5. Transactions are updated with their new states.
+    /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node state.
+    /// 7. The MMR is updated with the new peaks and authentication nodes.
+    /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0);

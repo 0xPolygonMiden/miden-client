@@ -289,6 +289,7 @@ impl TransactionStoreUpdate {
     }
 }
 
+/// Transaction management methods
 impl<R: FeltRng> Client<R> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
