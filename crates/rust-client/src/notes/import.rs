@@ -189,7 +189,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Builds a note record from the note details. If a note with the same id was already stored it
+    /// Builds a note record from the note details. If a note with the same ID was already stored it
     /// is passed via `previous_note` so it can be updated.
     async fn import_note_record_by_details(
         &mut self,
@@ -242,7 +242,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Checks if a note with the given note_tag and id is present in the chain between the
+    /// Checks if a note with the given note_tag and ID is present in the chain between the
     /// `request_block_num` and the current block. If found it returns its metadata and inclusion
     /// proof.
     async fn check_expected_note(

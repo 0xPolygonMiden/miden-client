@@ -86,7 +86,7 @@ pub trait NodeRpcClient {
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
     ///   note of matching the requested tag, or the chain tip if there are no notes.
-    /// - `account_ids` is a list of account ids and determines the accounts the client is
+    /// - `account_ids` is a list of account IDs and determines the accounts the client is
     ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
     ///   serves as a "note group" filter. Notice that you can't filter by a specific note ID.
@@ -103,7 +103,7 @@ pub trait NodeRpcClient {
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint.
     ///
-    /// - `account_id` is the id of the wanted account.
+    /// - `account_id` is the ID of the wanted account.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,

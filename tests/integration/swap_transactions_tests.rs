@@ -492,7 +492,7 @@ fn build_swap_tag(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id with 1000 units of the corresponding
-/// fungible asset, waits for inclusion and returns the note id.
+/// fungible asset, waits for inclusion and returns the note ID.
 ///
 /// `basic_account_id` doesn't need to be tracked by the client, but `faucet_account_id` does.
 async fn mint(
