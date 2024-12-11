@@ -103,7 +103,7 @@ impl OutputNoteRecord {
         matches!(self.state, OutputNoteState::Consumed { .. })
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a inclusion proof but is not
+    /// Returns true if the note is in a committed state (i.e. it has a inclusion proof but isn't
     /// consumed) regardless of whether it is full or partial.
     pub fn is_committed(&self) -> bool {
         matches!(
@@ -240,7 +240,7 @@ impl OutputNoteRecord {
     ///
     /// # Errors
     ///
-    /// Will return an error if there is not enough information to create the requested [NoteFile]
+    /// Will return an error if there isn't enough information to create the requested [NoteFile]
     /// variant.
     pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
         match export_type {

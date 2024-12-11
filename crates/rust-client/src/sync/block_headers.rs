@@ -17,7 +17,7 @@ use crate::{
 /// Network information management methods
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
-    /// imported with an inclusion proof, but its block header is not tracked.
+    /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
@@ -139,7 +139,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
     ///
-    /// If the store already contains MMR data for the requested block number, the request is not
+    /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,

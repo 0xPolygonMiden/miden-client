@@ -51,7 +51,7 @@ pub(crate) async fn get_input_acc_id_by_prefix_or_default(
 /// # Errors
 ///
 /// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
-///   `AccountId` and does not correspond to an account tracked by the client either.
+///   `AccountId` and doesn't correspond to an account tracked by the client either.
 pub(crate) async fn parse_account_id(
     client: &Client<impl FeltRng>,
     account_id: &str,

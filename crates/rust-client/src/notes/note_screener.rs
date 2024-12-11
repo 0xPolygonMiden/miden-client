@@ -55,7 +55,7 @@ impl NoteScreener {
     /// accounts monitored by this screener.
     ///
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
-    /// unable to execute notes that are not committed so a slow check for other scripts is
+    /// unable to execute notes that aren't committed so a slow check for other scripts is
     /// currently not available.
     pub async fn check_relevance(
         &self,
