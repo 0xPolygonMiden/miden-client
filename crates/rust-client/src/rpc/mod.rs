@@ -130,7 +130,7 @@ pub trait NodeRpcClient {
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
-    /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
+    /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].

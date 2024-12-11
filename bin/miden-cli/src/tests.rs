@@ -88,7 +88,7 @@ fn test_init_with_params() {
 // TX TESTS
 // ================================================================================================
 
-/// This test tries to run a mint TX using the CLI for an account that is not tracked.
+/// This test tries to run a mint TX using the CLI for an account that isn't tracked.
 #[tokio::test]
 async fn test_mint_with_untracked_account() {
     let store_path = create_test_store_path();

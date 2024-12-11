@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
-/// [Store]. This is not public because it's an implementation detail to instantiate the executor.
+/// [Store]. This isn't public because it's an implementation detail to instantiate the executor.
 ///
 /// The user is tasked with creating a [Store] which the client will wrap into a [ClientDataStore]
 /// at creation time.
@@ -157,7 +157,7 @@ pub trait Store: Send + Sync {
     /// The default implementation of this method uses [Store::get_block_headers].
     ///
     /// # Errors
-    /// Returns a [StoreError::BlockHeaderNotFound] if the block was not found.
+    /// Returns a [StoreError::BlockHeaderNotFound] if the block wasn't found.
     async fn get_block_header_by_num(
         &self,
         block_number: u32,
@@ -311,7 +311,7 @@ pub trait Store: Send + Sync {
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
-    /// If the tag was not present in the store returns false since no tag was actually removed.
+    /// If the tag wasn't present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
     async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError>;
 
@@ -348,7 +348,7 @@ pub enum ChainMmrNodeFilter {
 pub enum TransactionFilter {
     /// Return all transactions.
     All,
-    /// Filter by transactions that have not yet been committed to the blockchain as per the last
+    /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
     Uncomitted,
 }
@@ -369,7 +369,7 @@ pub enum NoteFilter {
     /// used as inputs in transactions.
     Consumed,
     /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
-    /// notes for which the store does not have anchor data.
+    /// notes for which the store doesn't have anchor data.
     Expected,
     /// Return a list containing any notes that match with the provided [NoteId] vector.
     List(Vec<NoteId>),
@@ -379,7 +379,7 @@ pub enum NoteFilter {
     /// output notes.
     Processing,
     /// Return a list containing the note that matches with the provided [NoteId]. The query will
-    /// return an error if the note is not found.
+    /// return an error if the note isn't found.
     Unique(NoteId),
     /// Return a list containing notes that haven't been nullified yet, this includes expected,
     /// committed, processing and unverified notes.

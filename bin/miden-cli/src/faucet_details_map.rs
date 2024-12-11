@@ -72,9 +72,9 @@ impl FaucetDetailsMap {
     ///
     /// Will return an error if:
     /// - The provided `arg` doesn't match one of the expected formats.
-    /// - A faucet ID was provided but the amount is not in base units.
+    /// - A faucet ID was provided but the amount isn't in base units.
     /// - The amount has more than the allowed number of decimals.
-    /// - The token symbol is not present in the token symbol map file.
+    /// - The token symbol isn't present in the token symbol map file.
     pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, String> {
         let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
         let (faucet_id, amount) = if asset.starts_with("0x") {
@@ -101,7 +101,7 @@ impl FaucetDetailsMap {
     /// values depend on whether the faucet is tracked by the token symbol map file or not:
     /// - If the faucet is tracked, the token symbol is returned along with the amount in the
     ///   token's decimals.
-    /// - If the faucet is not tracked, the faucet ID is returned along with the amount in base
+    /// - If the faucet isn't tracked, the faucet ID is returned along with the amount in base
     ///   units.
     pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> Result<(String, String), String> {
         if let Some(token_symbol) = self.get_token_symbol(&asset.faucet_id()) {

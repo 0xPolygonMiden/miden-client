@@ -212,7 +212,7 @@ pub enum TransactionStatus {
     Pending,
     /// Transaction has been committed and included at the specified block number
     Committed(u32),
-    /// Transaction has been discarded and is not included in the node
+    /// Transaction has been discarded and isn't included in the node
     Discarded,
 }
 
@@ -305,10 +305,10 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Creates and executes a transaction specified by the request against the specified account,
-    /// but does not change the local database.
+    /// but doesn't change the local database.
     ///
-    /// If the transaction utilizes foreign account data, there is a chance that the client does
-    /// not have the required block header in the local database. In these scenarios, a sync to
+    /// If the transaction utilizes foreign account data, there is a chance that the client doesn't
+    /// have the required block header in the local database. In these scenarios, a sync to
     /// the chain tip is performed, and the required block header is retrieved.
     ///
     /// # Errors
@@ -560,7 +560,7 @@ impl<R: FeltRng> Client<R> {
     /// Helper to get the account outgoing assets.
     ///
     /// Any outgoing assets resulting from executing note scripts but not present in expected output
-    /// notes would not be included.
+    /// notes wouldn't be included.
     fn get_outgoing_assets(
         &self,
         transaction_request: &TransactionRequest,

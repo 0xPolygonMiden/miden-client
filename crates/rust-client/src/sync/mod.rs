@@ -507,7 +507,7 @@ impl<R: FeltRng> Client<R> {
         ))
     }
 
-    /// Queries the node for all received notes that are not being locally tracked in the client
+    /// Queries the node for all received notes that aren't being locally tracked in the client
     ///
     /// The client can receive metadata for private notes that it's not tracking. In this case,
     /// notes are ignored for now as they become useless until details are imported.

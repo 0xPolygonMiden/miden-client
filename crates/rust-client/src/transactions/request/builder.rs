@@ -33,7 +33,7 @@ use super::{
 /// and setting other transaction parameters.
 #[derive(Clone, Debug)]
 pub struct TransactionRequestBuilder {
-    /// Notes to be consumed by the transaction that are not authenticated.
+    /// Notes to be consumed by the transaction that aren't authenticated.
     unauthenticated_input_notes: Vec<Note>,
     /// Notes to be consumed by the transaction together with their (optional) arguments. This
     /// includes both authenticated and unauthenticated notes.
@@ -197,7 +197,7 @@ impl TransactionRequestBuilder {
     ///
     /// The set of specified notes is treated as a subset of the notes that may be created by a
     /// transaction. That is, the transaction must create all the specified expected notes, but it
-    /// may also create other notes which are not included in the set of expected notes.
+    /// may also create other notes which aren't included in the set of expected notes.
     pub fn with_expected_output_notes(mut self, notes: Vec<Note>) -> Self {
         self.expected_output_notes =
             BTreeMap::from_iter(notes.into_iter().map(|note| (note.id(), note)));

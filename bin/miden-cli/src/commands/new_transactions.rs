@@ -109,7 +109,7 @@ pub struct SendCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
-    /// Set the recall height for the transaction. If the note was not consumed by this height, the
+    /// Set the recall height for the transaction. If the note wasn't consumed by this height, the
     /// sender may consume it back.
     ///
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.

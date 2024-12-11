@@ -86,7 +86,7 @@ pub struct NewWalletCmd {
     /// Storage mode of the account
     pub storage_mode: CliAccountStorageMode,
     #[clap(short, long)]
-    /// Defines if the account code is mutable (by default it is not mutable)
+    /// Defines if the account code is mutable (by default it isn't mutable)
     pub mutable: bool,
 }
 

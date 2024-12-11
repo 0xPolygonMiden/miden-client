@@ -122,8 +122,8 @@ impl InputNoteRecord {
         )
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but is
-    /// not consumed or being processed).
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but isn't
+    /// consumed or being processed).
     pub fn is_committed(&self) -> bool {
         matches!(self.state, InputNoteState::Committed { .. })
     }
@@ -168,7 +168,7 @@ impl InputNoteRecord {
     /// external transaction. Returns `true` if the state was changed.
     ///
     /// Errors:
-    /// - If the nullifier does not match the expected value.
+    /// - If the nullifier doesn't match the expected value.
     pub(crate) fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
