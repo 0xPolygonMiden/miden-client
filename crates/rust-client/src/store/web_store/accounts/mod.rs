@@ -66,7 +66,7 @@ impl WebStore {
     pub(crate) async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_header(account_id_str);
 
@@ -74,7 +74,7 @@ impl WebStore {
             .await
             .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-        let account_header_idxdb: AccountRecordIdxdbObject =
+        let account_header_idxdb: Option<AccountRecordIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
                     "Failed to deserialize {:?}",
@@ -82,9 +82,15 @@ impl WebStore {
                 )))
             })?;
 
-        let parsed_account_record = parse_account_record_idxdb_object(account_header_idxdb)?;
+        match account_header_idxdb {
+            None => Ok(None),
+            Some(account_header_idxdb) => {
+                let parsed_account_record =
+                    parse_account_record_idxdb_object(account_header_idxdb)?;
 
-        Ok(parsed_account_record)
+                Ok(Some(parsed_account_record))
+            },
+        }
     }
 
     pub(crate) async fn get_account_header_by_hash(
@@ -110,8 +116,11 @@ impl WebStore {
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<AccountRecord, StoreError> {
-        let (account_header, status) = self.get_account_header(account_id).await?;
+    ) -> Result<Option<AccountRecord>, StoreError> {
+        let (account_header, status) = match self.get_account_header(account_id).await? {
+            None => return Ok(None),
+            Some((account_header, status)) => (account_header, status),
+        };
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
@@ -127,7 +136,7 @@ impl WebStore {
             account_header.nonce(),
         );
 
-        Ok(AccountRecord::new(account, status))
+        Ok(Some(AccountRecord::new(account, status)))
     }
 
     pub(super) async fn get_account_code(&self, root: Digest) -> Result<AccountCode, StoreError> {
@@ -173,7 +182,7 @@ impl WebStore {
     pub(crate) async fn get_account_auth(
         &self,
         account_id: AccountId,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_auth(account_id_str);
 
@@ -181,22 +190,26 @@ impl WebStore {
             .await
             .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).map_err(|err| {
-            StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                "Failed to deserialize {:?}",
-                err
-            )))
-        })?;
-
-        let auth_info =
-            AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info).map_err(|err| {
+        let account_auth_idxdb: Option<AccountAuthIdxdbObject> =
+            from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to read auth info: {:?}",
+                    "Failed to deserialize {:?}",
                     err
                 )))
             })?;
 
-        Ok(auth_info)
+        match account_auth_idxdb {
+            None => Ok(None),
+            Some(account_auth_idxdb) => {
+                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)
+                    .map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to read auth info: {:?}", err),
+                        ))
+                    })?;
+                Ok(Some(auth_info))
+            },
+        }
     }
 
     pub(crate) async fn insert_account(
@@ -235,16 +248,23 @@ impl WebStore {
     }
 
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
-    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+    pub fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
 
         let js_value = idxdb_get_account_auth_by_pub_key(pub_key_bytes);
-        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).unwrap();
+        let account_auth_idxdb: Option<AccountAuthIdxdbObject> = from_value(js_value).unwrap();
 
-        // Convert the auth_info to the appropriate AuthInfo enum variant
-        let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
-
-        Ok(auth_info)
+        match account_auth_idxdb {
+            Some(account_auth_idxdb) => {
+                // Convert the auth_info to the appropriate AuthInfo enum variant
+                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
+                Ok(Some(auth_info))
+            },
+            None => Ok(None),
+        }
     }
 
     /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the

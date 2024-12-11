@@ -86,7 +86,7 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap();
+    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap().unwrap();
 
     let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -112,7 +112,7 @@ async fn insert_basic_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -149,7 +149,7 @@ async fn insert_faucet_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -215,7 +215,7 @@ async fn test_account_code() {
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .await
         .unwrap();
-    let retrieved_acc = client.get_account(account.id()).await.unwrap();
+    let retrieved_acc = client.get_account(account.id()).await.unwrap().unwrap();
     assert_eq!(*account.code(), *retrieved_acc.account().code());
 }
 
@@ -239,7 +239,7 @@ async fn test_get_account_by_id() {
 
     // Retrieving an existing account should succeed
     let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {
-        Ok(account) => account,
+        Ok(account) => account.unwrap(),
         Err(err) => panic!("Error retrieving account: {}", err),
     };
     assert_eq!(AccountHeader::from(account), acc_from_db);
@@ -247,7 +247,7 @@ async fn test_get_account_by_id() {
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_header_by_id(invalid_id).await.is_err());
+    assert!(client.get_account_header_by_id(invalid_id).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -560,7 +560,7 @@ async fn test_import_processing_note_returns_error() {
     client.submit_transaction(transaction).await.unwrap();
 
     let note_id = transaction_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap();
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
 
     let input = [(note.try_into().unwrap(), None)];
     let consume_note_request =

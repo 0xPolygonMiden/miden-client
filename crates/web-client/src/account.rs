@@ -29,7 +29,8 @@ impl WebClient {
             let result = client
                 .get_account(account_id.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
+                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?
+                .ok_or(JsValue::from_str("Account not found"))?;
             let account: NativeAccount = result.into();
 
             Ok(account.into())
@@ -43,10 +44,11 @@ impl WebClient {
         account_id: &AccountId,
     ) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_auth_secret_key =
-                client.get_account_auth(account_id.into()).await.map_err(|err| {
-                    JsValue::from_str(&format!("Failed to get account auth: {}", err))
-                })?;
+            let native_auth_secret_key = client
+                .get_account_auth(account_id.into())
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get account auth: {}", err)))?
+                .ok_or(JsValue::from_str("Account not found"))?;
 
             Ok(native_auth_secret_key.into())
         } else {
