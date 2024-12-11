@@ -129,7 +129,7 @@ impl NoteScreener {
         .collect())
     }
 
-    /// Checks if a swap note can be consumed by any account whose id is in `account_ids`.
+    /// Checks if a swap note can be consumed by any account whose ID is in `account_ids`.
     ///
     /// This implementation serves as a placeholder as we're currently not able to create, execute
     /// and send SWAP NOTES. Hence, it's also untested. The main logic should be the same: for each

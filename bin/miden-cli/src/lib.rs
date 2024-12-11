@@ -162,9 +162,9 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 pub(crate) async fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
     note_id_prefix: &str,
@@ -210,9 +210,9 @@ pub(crate) async fn get_output_note_with_id_prefix(
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
-///   `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its ID.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
-///   `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its ID.
 async fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,
