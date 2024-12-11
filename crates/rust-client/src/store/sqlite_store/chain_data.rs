@@ -303,7 +303,7 @@ mod test {
         let mut store = create_test_store().await;
         let block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_header = Store::get_block_header_by_num(&store, 3).await.unwrap();
+        let block_header = Store::get_block_header_by_num(&store, 3).await.unwrap().unwrap();
         assert_eq!(block_headers[3], block_header.0);
     }
 

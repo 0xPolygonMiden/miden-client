@@ -34,8 +34,6 @@ pub enum StoreError {
     AccountKeyNotFound(String),
     #[error("account storage data with root {0} not found")]
     AccountStorageNotFound(Digest),
-    #[error("block header for block {0} not found")]
-    BlockHeaderNotFound(u32),
     #[error("chain mmr node at index {0} not found")]
     ChainMmrNodeNotFound(u64),
     #[error("error deserializing data from the store")]
@@ -82,7 +80,6 @@ impl From<StoreError> for DataStoreError {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
             },
-            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }

@@ -68,7 +68,11 @@ impl DataStore for ClientDataStore {
         let account: Account = account_record.into();
 
         // Get header data
-        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;
+        let (block_header, _had_notes) = self
+            .store
+            .get_block_header_by_num(block_num)
+            .await?
+            .ok_or(DataStoreError::BlockNotFound(block_num))?;
 
         let mut list_of_notes = vec![];
         let mut notes_blocks: Vec<u32> = vec![];

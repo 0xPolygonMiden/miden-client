@@ -142,22 +142,17 @@ pub trait Store: Send + Sync {
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
     /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
-    /// that represents whether the block contains notes relevant to the client.
+    /// that represents whether the block contains notes relevant to the client. Returns `None` if
+    /// the block is not found.
     ///
     /// The default implementation of this method uses [Store::get_block_headers].
-    ///
-    /// # Errors
-    /// Returns a [StoreError::BlockHeaderNotFound] if the block was not found.
     async fn get_block_header_by_num(
         &self,
         block_number: u32,
-    ) -> Result<(BlockHeader, bool), StoreError> {
+    ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(&[block_number])
             .await
             .map(|block_headers_list| block_headers_list.first().cloned())
-            .and_then(|block_header| {
-                block_header.ok_or(StoreError::BlockHeaderNotFound(block_number))
-            })
     }
 
     /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
