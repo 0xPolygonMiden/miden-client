@@ -11,6 +11,8 @@
 * Added support for unauthenticated notes consumption in the CLI (#609).
 
 ### Fixes
+
+* Fixed client bugs where some note metadata was not being updated (#625).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 
 ### Changes
