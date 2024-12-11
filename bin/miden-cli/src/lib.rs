@@ -34,13 +34,13 @@ mod faucet_details_map;
 mod info;
 mod utils;
 
-/// Config file name
+/// Config file name.
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
-/// Client binary name
+/// Client binary name.
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
-/// Root CLI struct
+/// Root CLI struct.
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
@@ -53,7 +53,7 @@ pub struct Cli {
     debug: bool,
 }
 
-/// CLI actions
+/// CLI actions.
 #[derive(Debug, Parser)]
 pub enum Command {
     Account(AccountCmd),
@@ -64,7 +64,7 @@ pub enum Command {
     Init(InitCmd),
     Notes(NotesCmd),
     Sync(SyncCmd),
-    /// View a summary of the current client state
+    /// View a summary of the current client state.
     Info,
     Tags(TagsCmd),
     #[clap(name = "tx")]
@@ -75,7 +75,7 @@ pub enum Command {
     ConsumeNotes(ConsumeNotesCmd),
 }
 
-/// CLI entry point
+/// CLI entry point.
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
@@ -157,7 +157,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns the client output note whose ID starts with `note_id_prefix`
+/// Returns the client output note whose ID starts with `note_id_prefix`.
 ///
 /// # Errors
 ///
@@ -205,7 +205,7 @@ pub(crate) async fn get_output_note_with_id_prefix(
         .expect("input_note_records should always have one element"))
 }
 
-/// Returns the client account whose ID starts with `account_id_prefix`
+/// Returns the client account whose ID starts with `account_id_prefix`.
 ///
 /// # Errors
 ///

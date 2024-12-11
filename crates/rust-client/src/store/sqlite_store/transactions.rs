@@ -37,7 +37,7 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
 // ================================================================================================
 
 impl TransactionFilter {
-    /// Returns a [String] containing the query for this Filter
+    /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
             tx.input_notes, tx.output_notes, tx.script_hash, script.script, tx.block_num, tx.commit_height, \
@@ -80,7 +80,7 @@ impl SqliteStore {
             .collect::<Result<Vec<TransactionRecord>, _>>()
     }
 
-    /// Inserts a transaction and updates the current state based on the `tx_result` changes
+    /// Inserts a transaction and updates the current state based on the `tx_result` changes.
     pub fn apply_transaction(
         conn: &mut Connection,
         tx_update: TransactionStoreUpdate,
@@ -105,7 +105,7 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Set the provided transactions as committed
+    /// Set the provided transactions as committed.
     ///
     /// # Errors
     ///
@@ -131,7 +131,7 @@ impl SqliteStore {
         Ok(rows)
     }
 
-    /// Set the provided transactions as committed
+    /// Set the provided transactions as committed.
     ///
     /// # Errors
     ///

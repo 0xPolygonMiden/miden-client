@@ -10,7 +10,7 @@ use rand::Rng;
 
 use super::Store;
 
-/// Represents an authenticator based on a [Store]
+/// Represents an authenticator based on a [Store].
 pub struct StoreAuthenticator<R> {
     store: Arc<dyn Store>,
     rng: Arc<RwLock<R>>,

@@ -119,7 +119,7 @@ pub struct Client<R: FeltRng> {
     tx_executor: TransactionExecutor,
 }
 
-/// Construction and access methods
+/// Construction and access methods.
 impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------

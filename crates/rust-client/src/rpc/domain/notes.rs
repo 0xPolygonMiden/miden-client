@@ -59,7 +59,7 @@ pub struct NoteSyncInfo {
     ///
     /// More specifically, the full proof consists of `forest`, `position` and `path` components.
     /// This value constitutes the `path`. The other two components can be obtained as follows:
-    ///    - `position` is simply `resopnse.block_header.block_num`
+    ///    - `position` is simply `resopnse.block_header.block_num`.
     ///    - `forest` is the same as `response.chain_tip + 1`.
     pub mmr_path: MerklePath,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`.

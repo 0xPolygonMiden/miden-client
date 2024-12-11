@@ -41,7 +41,7 @@ impl From<&NoteType> for MidenNoteType {
 #[derive(Debug, Parser, Clone)]
 /// Mint tokens from a fungible faucet to a wallet.
 pub struct MintCmd {
-    /// Target account ID or its hex prefix
+    /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
@@ -51,11 +51,11 @@ pub struct MintCmd {
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(long, default_value_t = false)]
     force: bool,
 
-    /// Flag to delegate proving to the remote prover specified in the config file
+    /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
 }
@@ -93,10 +93,10 @@ impl MintCmd {
 /// Create a pay-to-id transaction.
 pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
-    /// instead
+    /// instead.
     #[clap(short = 's', long = "sender")]
     sender_account_id: Option<String>,
-    /// Target account ID or its hex prefix
+    /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
@@ -164,25 +164,25 @@ impl SendCmd {
 /// Create a swap transaction.
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
-    /// instead
+    /// instead.
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// Asset offered
+    /// Asset offered.
     #[clap(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     offered_asset: String,
 
-    /// Asset requested
+    /// Asset requested.
     #[clap(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     requested_asset: String,
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(long, default_value_t = false)]
     force: bool,
 
-    /// Flag to delegate proving to the remote prover specified in the config file
+    /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
 }
@@ -247,16 +247,16 @@ impl SwapCmd {
 /// that are identified to be owned by the account ID are consumed.
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
-    /// default account's ID is used instead
+    /// default account's ID is used instead.
     #[clap(short = 'a', long = "account")]
     account_id: Option<String>,
-    /// A list of note IDs or the hex prefixes of their corresponding IDs
+    /// A list of note IDs or the hex prefixes of their corresponding IDs.
     list_of_notes: Vec<String>,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(short, long, default_value_t = false)]
     force: bool,
 
-    /// Flag to delegate proving to the remote prover specified in the config file
+    /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
 }

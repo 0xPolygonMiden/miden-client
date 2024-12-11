@@ -39,9 +39,9 @@ use crate::rpc::generated::requests::GetBlockHeaderByNumberRequest;
 // TONIC RPC CLIENT
 // ================================================================================================
 
-/// Client for the Node RPC API using tonic
+/// Client for the Node RPC API using tonic.
 ///
-/// Wraps the ApiClient which defers establishing a connection with a node until necessary
+/// Wraps the ApiClient which defers establishing a connection with a node until necessary.
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
@@ -50,7 +50,7 @@ pub struct TonicRpcClient {
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
-    /// the given timeout in milliseconds
+    /// the given timeout in milliseconds.
     pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
@@ -60,7 +60,7 @@ impl TonicRpcClient {
     }
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
-    /// to the inner ApiClient
+    /// to the inner ApiClient.
     async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcError> {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
@@ -231,10 +231,10 @@ impl NodeRpcClient for TonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - There was an error sending the request to the node
+    /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
     ///   details).
-    /// - There is an error during [Account] deserialization
+    /// - There is an error during [Account] deserialization.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,

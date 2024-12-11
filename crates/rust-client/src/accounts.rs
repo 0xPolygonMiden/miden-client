@@ -48,7 +48,7 @@ pub enum AccountTemplate {
     },
 }
 
-/// Account management methods
+/// Account management methods.
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
@@ -81,17 +81,17 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// - Trying to import a new account without providing its seed
-    /// - If the account is already tracked and `overwrite` is set to `false`
+    /// - Trying to import a new account without providing its seed.
+    /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
-    ///   being tracked
+    ///   being tracked.
     /// - If `overwrite` is set to `true` and the `account_data` hash doesn't match the network's
-    ///   account hash
+    ///   account hash.
     ///
     /// # Panics
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
-    /// isn't currently implemented
+    /// isn't currently implemented.
     pub async fn import_account(
         &mut self,
         account_data: AccountData,

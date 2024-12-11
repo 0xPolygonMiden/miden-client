@@ -28,7 +28,7 @@ pub use states::{
 /// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
 /// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
-/// `metadata` and `inclusion_proof` fields if possible)
+/// `metadata` and `inclusion_proof` fields if possible).
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     /// Details of a note consisting of assets, script, inputs, and a serial number.
@@ -211,7 +211,7 @@ impl InputNoteRecord {
     }
 
     /// Modifies the state of the note record to reflect that the transaction currently consuming
-    /// the note was committed. Returns `true` if the state was changed.3
+    /// the note was committed. Returns `true` if the state was changed.
     pub(crate) fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,

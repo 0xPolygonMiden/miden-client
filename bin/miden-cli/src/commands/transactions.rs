@@ -7,7 +7,7 @@ use crate::{create_dynamic_table, Parser};
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "Manage and view transactions. Defaults to `list` command.")]
 pub struct TransactionCmd {
-    /// List currently tracked transactions
+    /// List currently tracked transactions.
     #[clap(short, long, group = "action")]
     list: bool,
 }
