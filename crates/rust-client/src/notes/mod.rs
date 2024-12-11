@@ -95,11 +95,7 @@ impl<R: FeltRng> Client<R> {
             .map_err(|err| err.into())
     }
 
-    /// Retrieves the input note given a [NoteId]
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if there is no Note with the provided ID
+    /// Retrieves the input note given a [NoteId]. Returns `None` if the note is not found.
     pub async fn get_input_note(
         &self,
         note_id: NoteId,
@@ -118,7 +114,7 @@ impl<R: FeltRng> Client<R> {
         self.store.get_output_notes(filter).await.map_err(|err| err.into())
     }
 
-    /// Returns the output note with the specified hash.
+    /// Retrieves the output note given a [NoteId]. Returns `None` if the note is not found.
     pub async fn get_output_note(
         &self,
         note_id: NoteId,

@@ -211,6 +211,7 @@ pub trait Store: Send + Sync {
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError>;
 
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
+    /// Returns `None` if the account is not found.
     ///
     /// Said account's state is the state according to the last sync performed.
     async fn get_account_header(
@@ -226,18 +227,20 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<AccountHeader>, StoreError>;
 
     /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
-    /// its status.
+    /// its status. Returns `None` if the account is not found.
     async fn get_account(&self, account_id: AccountId)
         -> Result<Option<AccountRecord>, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
-    /// This is mainly used for authentication in transactions.
+    /// This is mainly used for authentication in transactions. Returns `None` if the account is not
+    /// found.
     async fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
     ) -> Result<Option<AuthSecretKey>, StoreError>;
 
-    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
+    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account. Returns `None`
+    /// if the account is not found.
     async fn get_account_auth(
         &self,
         account_id: AccountId,
