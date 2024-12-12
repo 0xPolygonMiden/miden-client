@@ -48,7 +48,12 @@ impl WebClient {
             };
 
             match client
-                .insert_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+                .import_account(
+                    &new_account,
+                    Some(seed),
+                    &AuthSecretKey::RpoFalcon512(key_pair),
+                    false,
+                )
                 .await
             {
                 Ok(_) => Ok(new_account.into()),
@@ -100,7 +105,12 @@ impl WebClient {
             };
 
             match client
-                .insert_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+                .import_account(
+                    &new_account,
+                    Some(seed),
+                    &AuthSecretKey::RpoFalcon512(key_pair),
+                    false,
+                )
                 .await
             {
                 Ok(_) => Ok(new_account.into()),

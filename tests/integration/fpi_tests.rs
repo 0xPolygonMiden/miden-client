@@ -1,5 +1,5 @@
 use miden_client::{
-    accounts::{Account, AccountData, StorageSlot},
+    accounts::{Account, StorageSlot},
     testing::prepare_word,
     transactions::{TransactionKernel, TransactionRequestBuilder},
     Felt, Word,
@@ -31,11 +31,9 @@ async fn test_standard_fpi() {
 
     client
         .import_account(
-            AccountData::new(
-                foreign_account,
-                Some(foreign_seed),
-                AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            ),
+            &foreign_account,
+            Some(foreign_seed),
+            &AuthSecretKey::RpoFalcon512(secret_key.clone()),
             false,
         )
         .await

@@ -111,7 +111,7 @@ pub async fn insert_new_wallet<R: FeltRng>(
     .unwrap();
 
     client
-        .insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
         .await?;
 
     Ok((account, seed))
@@ -140,7 +140,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     )?;
 
     client
-        .insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await?;
     Ok((account, seed))
 }

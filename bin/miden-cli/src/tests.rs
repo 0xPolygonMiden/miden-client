@@ -117,7 +117,7 @@ async fn test_mint_with_untracked_account() {
         .unwrap();
 
         client
-            .insert_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .import_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
             .await
             .unwrap();
 

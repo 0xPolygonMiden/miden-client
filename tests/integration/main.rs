@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    accounts::{Account, AccountData},
+    accounts::Account,
     notes::NoteRelevance,
     rpc::{domain::accounts::AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
@@ -1382,7 +1382,7 @@ async fn test_locked_account() {
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
     client_2
-        .import_account(AccountData::new(private_account, seed.into(), auth.clone()), false)
+        .import_account(&private_account, seed.into(), &auth, false)
         .await
         .unwrap();
 
@@ -1407,7 +1407,7 @@ async fn test_locked_account() {
     // Get updated account from client 1 and import it in client 2 with `overwrite` flag
     let updated_private_account = client_1.get_account(from_account_id).await.unwrap().into();
     client_2
-        .import_account(AccountData::new(updated_private_account, None, auth), true)
+        .import_account(&updated_private_account, None, &auth, true)
         .await
         .unwrap();
 

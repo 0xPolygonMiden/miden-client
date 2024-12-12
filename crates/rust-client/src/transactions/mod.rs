@@ -915,7 +915,7 @@ mod test {
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
-            AccountBuilder, AccountComponent, AccountData, StorageMap, StorageSlot,
+            AccountBuilder, AccountComponent, StorageMap, StorageSlot,
         },
         assets::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
@@ -959,11 +959,9 @@ mod test {
 
         client
             .import_account(
-                AccountData::new(
-                    account.clone(),
-                    None,
-                    miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-                ),
+                &account,
+                None,
+                &miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
                 false,
             )
             .await

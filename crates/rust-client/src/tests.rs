@@ -48,7 +48,7 @@ async fn insert_new_wallet<R: FeltRng>(
     .unwrap();
 
     client
-        .insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
         .await?;
 
     Ok((account, seed))
@@ -77,7 +77,7 @@ async fn insert_new_fungible_faucet<R: FeltRng>(
     )?;
 
     client
-        .insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await?;
     Ok((account, seed))
 }
@@ -215,15 +215,21 @@ async fn insert_same_account_twice_fails() {
     let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(
+        .import_account(
             &account,
             Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair.clone())
+            &AuthSecretKey::RpoFalcon512(key_pair.clone()),
+            false
         )
         .await
         .is_ok());
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .import_account(
+            &account,
+            Some(Word::default()),
+            &AuthSecretKey::RpoFalcon512(key_pair),
+            false
+        )
         .await
         .is_err());
 }
@@ -249,7 +255,12 @@ async fn test_account_code() {
     assert_eq!(*account_code, reconstructed_code);
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .import_account(
+            &account,
+            Some(Word::default()),
+            &AuthSecretKey::RpoFalcon512(key_pair),
+            false,
+        )
         .await
         .unwrap();
     let retrieved_acc = client.get_account(account.id()).await.unwrap();
@@ -270,7 +281,12 @@ async fn test_get_account_by_id() {
     let key_pair = SecretKey::new();
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .import_account(
+            &account,
+            Some(Word::default()),
+            &AuthSecretKey::RpoFalcon512(key_pair),
+            false,
+        )
         .await
         .unwrap();
 

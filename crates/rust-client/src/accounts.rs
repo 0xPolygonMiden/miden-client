@@ -33,18 +33,14 @@ impl<R: FeltRng> Client<R> {
     ///   being tracked
     /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
     ///   account hash
-    ///
-    /// # Panics
-    ///
-    /// Will panic when trying to import a non-new account without a seed since this functionality
-    /// is not currently implemented
     pub async fn import_account(
         &mut self,
-        account_data: AccountData,
+        account: &Account,
+        account_seed: Option<Word>,
+        auth_secret_key: &AuthSecretKey,
         overwrite: bool,
     ) -> Result<(), ClientError> {
-        let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
-        {
+        let account_seed = if !account.is_new() && account_seed.is_some() {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
             // Ignore the seed since it's not a new account
 
@@ -53,32 +49,34 @@ impl<R: FeltRng> Client<R> {
             // approach seems a little bit more incorrect
             None
         } else {
-            account_data.account_seed
+            account_seed
         };
 
-        let tracked_account = self.store.get_account(account_data.account.id()).await;
+        if account.is_new() && account_seed.is_none() {
+            return Err(ClientError::ImportNewAccountWithoutSeed);
+        }
+
+        let tracked_account = self.store.get_account(account.id()).await;
 
         match tracked_account {
             Err(StoreError::AccountDataNotFound(_)) => {
                 // If the account is not being tracked, insert it into the store regardless of the
                 // `overwrite` flag
-                self.insert_account(
-                    &account_data.account,
-                    account_seed,
-                    &account_data.auth_secret_key,
-                )
-                .await
+                self.store.add_note_tag((account).try_into()?).await?;
+
+                self.store
+                    .insert_account(account, account_seed, auth_secret_key)
+                    .await
+                    .map_err(ClientError::StoreError)
             },
             Err(err) => Err(ClientError::StoreError(err)),
             Ok(tracked_account) => {
                 if !overwrite {
                     // Only overwrite the account if the flag is set to `true`
-                    return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
+                    return Err(ClientError::AccountAlreadyTracked(account.id()));
                 }
 
-                if tracked_account.account().nonce().as_int()
-                    > account_data.account.nonce().as_int()
-                {
+                if tracked_account.account().nonce().as_int() > account.nonce().as_int() {
                     // If the new account is older than the one being tracked, return an error
                     return Err(ClientError::AccountNonceTooLow);
                 }
@@ -87,42 +85,15 @@ impl<R: FeltRng> Client<R> {
                     // If the tracked account is locked, check that the account hash matches the one
                     // in the network
                     let network_account_hash =
-                        self.rpc_api.get_account_update(account_data.account.id()).await?.hash();
-                    if network_account_hash != account_data.account.hash() {
+                        self.rpc_api.get_account_update(account.id()).await?.hash();
+                    if network_account_hash != account.hash() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
                 }
 
-                self.store
-                    .update_account(&account_data.account)
-                    .await
-                    .map_err(ClientError::StoreError)
+                self.store.update_account(account).await.map_err(ClientError::StoreError)
             },
         }
-    }
-
-    /// Inserts a new account into the client's store.
-    ///
-    /// # Errors
-    ///
-    /// If an account is new and no seed is provided, the function errors out because the client
-    /// cannot execute transactions against new accounts for which it does not know the seed.
-    pub async fn insert_account(
-        &mut self,
-        account: &Account,
-        account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
-    ) -> Result<(), ClientError> {
-        if account.is_new() && account_seed.is_none() {
-            return Err(ClientError::ImportNewAccountWithoutSeed);
-        }
-
-        self.store.add_note_tag(account.try_into()?).await?;
-
-        self.store
-            .insert_account(account, account_seed, auth_info)
-            .await
-            .map_err(ClientError::StoreError)
     }
 
     // ACCOUNT DATA RETRIEVAL
@@ -267,11 +238,16 @@ pub mod tests {
         let key_pair = SecretKey::new();
 
         assert!(client
-            .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+            .import_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
             .await
             .is_err());
         assert!(client
-            .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+            .import_account(
+                &account,
+                Some(Word::default()),
+                &AuthSecretKey::RpoFalcon512(key_pair),
+                false
+            )
             .await
             .is_ok());
     }
@@ -284,7 +260,15 @@ pub mod tests {
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data, false).await.unwrap();
+            client
+                .import_account(
+                    &account_data.account,
+                    account_data.account_seed,
+                    &account_data.auth_secret_key,
+                    false,
+                )
+                .await
+                .unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data
