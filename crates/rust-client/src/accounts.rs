@@ -220,8 +220,8 @@ impl<R: FeltRng> Client<R> {
         Ok((account, seed))
     }
 
-    /// Inserts a new [Account] into the client's store along with the [AuthSecretKey] used to create it. If the account is new, its seed must be
-    /// provided.
+    /// Inserts a new [Account] into the client's store along with the [AuthSecretKey] used to
+    /// create it. If the account is new, its seed must be provided.
     ///
     /// The secret key is stored in client but it is never exposed. It is used to authenticate
     /// transactions against the account. The seed is used when notifying the network about a new
