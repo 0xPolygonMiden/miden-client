@@ -122,8 +122,8 @@ impl InputNoteRecord {
         )
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but isn't
-    /// consumed or being processed).
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but
+    /// isn't consumed or being processed).
     pub fn is_committed(&self) -> bool {
         matches!(self.state, InputNoteState::Committed { .. })
     }
