@@ -171,16 +171,8 @@ async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
       node: node,
     }));
 
-    // Get all existing IDs from the database
-    const existingIds = new Set(
-      await chainMmrNodes.where("id").anyOf(nodeIndexes).primaryKeys()
-    );
-
-    // Filter out data where the id already exists
-    const newData = data.filter((item) => !existingIds.has(item.id));
-
-    // Use bulkAdd to add the new entries
-    await tx.chainMmrNodes.bulkAdd(newData);
+    // Use bulkPut to add/overwrite the entries
+    await tx.chainMmrNodes.bulkPut(data);
   } catch (err) {
     console.error("Failed to update chain mmr nodes: ", err);
     throw err;
