@@ -10,23 +10,23 @@ use crate::{get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]
 pub struct ExportCmd {
-    /// ID (or a valid prefix) of the output note or account to export
+    /// ID (or a valid prefix) of the output note or account to export.
     #[clap()]
     id: String,
 
-    /// Desired filename for the binary file. Defaults to the note ID if not provided
+    /// Desired filename for the binary file. Defaults to the note ID if not provided.
     #[clap(short, long)]
     filename: Option<PathBuf>,
 
-    /// Export account data (cannot be used with --note)
+    /// Export account data (cannot be used with --note).
     #[arg(long, conflicts_with = "note")]
     account: bool,
 
-    /// Export note data (cannot be used with --account)
+    /// Export note data (cannot be used with --account).
     #[arg(long, requires = "export_type", conflicts_with = "account")]
     note: bool,
 
-    /// Exported note type
+    /// Exported note type.
     #[clap(short, long, value_enum, conflicts_with = "account")]
     export_type: Option<ExportType>,
 }

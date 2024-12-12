@@ -463,7 +463,7 @@ async fn test_swap_offchain() {
 ///
 /// Network execution hint for the returned tag is set to `Local`.
 ///
-/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
+/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>).
 fn build_swap_tag(
     note_type: NoteType,
     offered_asset_faucet_id: AccountId,
@@ -492,9 +492,9 @@ fn build_swap_tag(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id with 1000 units of the corresponding
-/// fungible asset, waits for inclusion and returns the note id.
+/// fungible asset, waits for inclusion and returns the note ID.
 ///
-/// `basic_account_id` does not need to be tracked by the client, but `faucet_account_id` does
+/// `basic_account_id` doesn't need to be tracked by the client, but `faucet_account_id` does.
 async fn mint(
     client: &mut TestClient,
     basic_account_id: AccountId,

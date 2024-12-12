@@ -18,7 +18,7 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CliConfig {
-    /// Describes settings related to the RPC endpoint
+    /// Describes settings related to the RPC endpoint.
     pub rpc: RpcConfig,
     /// Path to the sqlite store file.
     pub store_filepath: PathBuf,
@@ -26,7 +26,7 @@ pub struct CliConfig {
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
-    /// RPC endpoint for the proving service. If this is not present, a local prover will be used.
+    /// RPC endpoint for the proving service. If this isn't present, a local prover will be used.
     pub remote_prover_endpoint: Option<CliEndpoint>,
 }
 

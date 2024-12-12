@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
-/// [Store]. This is not public because it's an implementation detail to instantiate the executor.
+/// [Store]. This isn't public because it's an implementation detail to instantiate the executor.
 ///
 /// The user is tasked with creating a [Store] which the client will wrap into a [ClientDataStore]
 /// at creation time.
@@ -84,41 +84,41 @@ pub trait Store: Send + Sync {
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Applies a transaction, atomically updating the current state based on the
-    /// [TransactionStoreUpdate]
+    /// [TransactionStoreUpdate].
     ///
     /// An update involves:
-    /// - Updating the stored account which is being modified by the transaction
+    /// - Updating the stored account which is being modified by the transaction.
     /// - Storing new input/output notes and payback note details as a result of the transaction
-    ///   execution
-    /// - Updating the input notes that are being processed by the transaction
-    /// - Inserting the new tracked tags into the store
-    /// - Inserting the transaction into the store to track
+    ///   execution.
+    /// - Updating the input notes that are being processed by the transaction.
+    /// - Inserting the new tracked tags into the store.
+    /// - Inserting the transaction into the store to track.
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
 
-    /// Retrieves the input notes from the store
+    /// Retrieves the input notes from the store.
     ///
     /// # Errors
     ///
     /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
+    /// Note with the provided ID.
     async fn get_input_notes(&self, filter: NoteFilter)
         -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves the output notes from the store
+    /// Retrieves the output notes from the store.
     ///
     /// # Errors
     ///
     /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
+    /// Note with the provided ID.
     async fn get_output_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
-    /// Returns the nullifiers of all unspent input notes
+    /// Returns the nullifiers of all unspent input notes.
     ///
     /// The default implementation of this method uses [Store::get_input_notes].
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
@@ -157,7 +157,7 @@ pub trait Store: Send + Sync {
     /// The default implementation of this method uses [Store::get_block_headers].
     ///
     /// # Errors
-    /// Returns a [StoreError::BlockHeaderNotFound] if the block was not found.
+    /// Returns a [StoreError::BlockHeaderNotFound] if the block wasn't found.
     async fn get_block_header_by_num(
         &self,
         block_number: u32,
@@ -181,7 +181,7 @@ pub trait Store: Send + Sync {
 
     /// Inserts MMR authentication nodes.
     ///
-    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored
+    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored.
     async fn insert_chain_mmr_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
@@ -189,7 +189,7 @@ pub trait Store: Send + Sync {
 
     /// Returns peaks information from the blockchain by a specific block number.
     ///
-    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
+    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks].
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
         block_num: u32,
@@ -211,7 +211,7 @@ pub trait Store: Send + Sync {
     // ACCOUNT
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the account IDs of all accounts stored in the database
+    /// Returns the account IDs of all accounts stored in the database.
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
     /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
@@ -263,7 +263,7 @@ pub trait Store: Send + Sync {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
 
-    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
+    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey].
     async fn insert_account(
         &self,
         account: &Account,
@@ -289,7 +289,7 @@ pub trait Store: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID.
     async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError>;
 
     // SYNC
@@ -311,7 +311,7 @@ pub trait Store: Send + Sync {
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
-    /// If the tag was not present in the store returns false since no tag was actually removed.
+    /// If the tag wasn't present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
     async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError>;
 
@@ -320,12 +320,12 @@ pub trait Store: Send + Sync {
 
     /// Applies the state sync update to the store. An update involves:
     ///
-    /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the corresponding tracked input/output notes
-    /// - Removing note tags that are no longer relevant
-    /// - Updating transactions in the store, marking as `committed` or `discarded`
-    /// - Storing new MMR authentication nodes
-    /// - Updating the tracked on-chain accounts
+    /// - Inserting the new block header to the store alongside new MMR peaks information.
+    /// - Updating the corresponding tracked input/output notes.
+    /// - Removing note tags that are no longer relevant.
+    /// - Updating transactions in the store, marking as `committed` or `discarded`.
+    /// - Storing new MMR authentication nodes.
+    /// - Updating the tracked on-chain accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
 
@@ -348,7 +348,7 @@ pub enum ChainMmrNodeFilter {
 pub enum TransactionFilter {
     /// Return all transactions.
     All,
-    /// Filter by transactions that have not yet been committed to the blockchain as per the last
+    /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
     Uncomitted,
 }
@@ -369,7 +369,7 @@ pub enum NoteFilter {
     /// used as inputs in transactions.
     Consumed,
     /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
-    /// notes for which the store does not have anchor data.
+    /// notes for which the store doesn't have anchor data.
     Expected,
     /// Return a list containing any notes that match with the provided [NoteId] vector.
     List(Vec<NoteId>),
@@ -379,7 +379,7 @@ pub enum NoteFilter {
     /// output notes.
     Processing,
     /// Return a list containing the note that matches with the provided [NoteId]. The query will
-    /// return an error if the note is not found.
+    /// return an error if the note isn't found.
     Unique(NoteId),
     /// Return a list containing notes that haven't been nullified yet, this includes expected,
     /// committed, processing and unverified notes.

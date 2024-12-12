@@ -19,17 +19,17 @@ use crate::{
 #[derive(Default, Debug, Clone, Parser)]
 /// View and manage accounts. Defaults to `list` command.
 pub struct AccountCmd {
-    /// List all accounts monitored by this client (default action)
+    /// List all accounts monitored by this client (default action).
     #[clap(short, long, group = "action")]
     list: bool,
-    /// Show details of the account for the specified ID or hex prefix
+    /// Show details of the account for the specified ID or hex prefix.
     #[clap(short, long, group = "action", value_name = "ID")]
     show: Option<String>,
-    /// Manages default account for transaction execution
+    /// Manages default account for transaction execution.
     ///
     /// If no ID is provided it will display the current default account ID.
-    /// If "none" is provided it will remove the default account else
-    /// it will set the default account to the provided ID
+    /// If "none" is provided it will remove the default account else it will set the default
+    /// account to the provided ID.
     #[clap(short, long, group = "action", value_name = "ID")]
     default: Option<Option<String>>,
 }
@@ -217,7 +217,7 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     })
 }
 
-/// Loads config file and displays current default account ID
+/// Loads config file and displays current default account ID.
 fn display_default_account_id() -> Result<(), String> {
     let (cli_config, _) = load_config_file()?;
 

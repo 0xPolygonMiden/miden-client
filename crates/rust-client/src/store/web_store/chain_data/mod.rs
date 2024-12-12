@@ -152,7 +152,7 @@ impl WebStore {
         Ok(())
     }
 
-    /// This function is not used in this crate, rather it is used in the 'miden-client' crate.
+    /// This function isn't used in this crate, rather it is used in the 'miden-client' crate.
     /// https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105
     /// It is duplicated here due to its reliance on the store.
     #[allow(dead_code)]

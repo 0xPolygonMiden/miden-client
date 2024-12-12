@@ -33,7 +33,7 @@ pub use miden_objects::{
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 
-/// Note retrieval methods
+/// Note retrieval methods.
 impl<R: FeltRng> Client<R> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ impl<R: FeltRng> Client<R> {
     /// # Errors
     ///
     /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID
+    /// Note with the provided ID.
     pub async fn get_input_notes(
         &self,
         filter: NoteFilter,
@@ -93,11 +93,11 @@ impl<R: FeltRng> Client<R> {
             .map_err(|err| err.into())
     }
 
-    /// Retrieves the input note given a [NoteId]
+    /// Retrieves the input note given a [NoteId].
     ///
     /// # Errors
     ///
-    /// Returns an error if there is no Note with the provided ID
+    /// Returns an error if there is no Note with the provided ID.
     pub async fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
         Ok(self
             .store
@@ -135,14 +135,14 @@ impl<R: FeltRng> Client<R> {
     }
 }
 
-/// Returns the client input note whose ID starts with `note_id_prefix`
+/// Returns the client input note whose ID starts with `note_id_prefix`.
 ///
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 pub async fn get_input_note_with_id_prefix<R: FeltRng>(
     client: &Client<R>,
     note_id_prefix: &str,
@@ -188,18 +188,18 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 
 /// Contains note changes to apply to the store.
 pub struct NoteUpdates {
-    /// A list of new input notes
+    /// A list of new input notes.
     new_input_notes: Vec<InputNoteRecord>,
-    /// A list of new output notes
+    /// A list of new output notes.
     new_output_notes: Vec<OutputNoteRecord>,
-    /// A list of updated input note records corresponding to locally-tracked input notes
+    /// A list of updated input note records corresponding to locally-tracked input notes.
     updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of updated output note records corresponding to locally-tracked output notes
+    /// A list of updated output note records corresponding to locally-tracked output notes.
     updated_output_notes: Vec<OutputNoteRecord>,
 }
 
 impl NoteUpdates {
-    /// Creates a [NoteUpdates]
+    /// Creates a [NoteUpdates].
     pub fn new(
         new_input_notes: Vec<InputNoteRecord>,
         new_output_notes: Vec<OutputNoteRecord>,
@@ -246,7 +246,7 @@ impl NoteUpdates {
         &self.updated_output_notes
     }
 
-    /// Returns whether no new note-related information has been retrieved
+    /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
         self.updated_input_notes.is_empty()
             && self.updated_output_notes.is_empty()
@@ -254,7 +254,7 @@ impl NoteUpdates {
             && self.new_output_notes.is_empty()
     }
 
-    /// Returns the IDs of all notes that have been committed
+    /// Returns the IDs of all notes that have been committed.
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
