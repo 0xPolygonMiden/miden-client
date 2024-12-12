@@ -21,11 +21,26 @@ const FPI_STORAGE_VALUE: Word =
     [Felt::new(9u64), Felt::new(12u64), Felt::new(18u64), Felt::new(30u64)];
 
 #[tokio::test]
-async fn test_standard_fpi() {
+async fn test_standard_fpi_public() {
+    test_standard_fpi(AccountStorageMode::Public).await;
+}
+
+#[tokio::test]
+async fn test_standard_fpi_private() {
+    test_standard_fpi(AccountStorageMode::Private).await;
+}
+
+/// Tests the standard FPI functionality for the given storage mode.
+///
+/// This function sets up a foreign account with a custom component that retrieves a value from its
+/// storage. It then deploys the foreign account and creates a native account to execute a
+/// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
+/// foreign account's code is correctly cached after the transaction.
+async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let (foreign_account, foreign_seed, secret_key, proc_root) = foreign_account();
+    let (foreign_account, foreign_seed, secret_key, proc_root) = foreign_account(storage_mode);
 
     let foreign_account_id = foreign_account.id();
 
@@ -112,35 +127,45 @@ async fn test_standard_fpi() {
         .unwrap();
     assert!(foreign_accounts.is_empty());
 
-    let tx_result = client
-        .new_transaction(
-            native_account.id(),
-            TransactionRequestBuilder::new()
-                .with_public_foreign_accounts([foreign_account_id])
-                .unwrap()
-                .with_custom_script(tx_script)
-                .unwrap()
-                .build(),
-        )
-        .await
-        .unwrap();
+    // Create tx request with FPI
+
+    let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
+    let tx_request = if storage_mode == AccountStorageMode::Public {
+        builder.with_public_foreign_accounts([foreign_account_id]).unwrap().build()
+    } else {
+        // Get foreign account current state (after 1st deployment tx)
+        let foreign_account = client.get_account(foreign_account_id).await.unwrap();
+        builder
+            .with_private_foreign_accounts([foreign_account.account().clone()])
+            .unwrap()
+            .build()
+    };
+
+    let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();
 
-    // After the transaction the foreign account should be cached
-    let foreign_accounts = client
-        .test_store()
-        .get_foreign_account_code(vec![foreign_account_id])
-        .await
-        .unwrap();
-    assert_eq!(foreign_accounts.len(), 1);
+    // After the transaction the foreign account should be cached (for public accounts only)
+    if storage_mode == AccountStorageMode::Public {
+        let foreign_accounts = client
+            .test_store()
+            .get_foreign_account_code(vec![foreign_account_id])
+            .await
+            .unwrap();
+        assert_eq!(foreign_accounts.len(), 1);
+    }
 }
 
-/// Builds an account using the auth component and a custom component which just retrieves the
-/// value stored in its first slot.
-/// This function also returns the seed, the secret key and the procedure root for this custom
-/// component's procedure, used for FPI on a separate account.
-pub fn foreign_account() -> (Account, Word, SecretKey, Digest) {
+/// Builds a foreign account with a custom component that retrieves a value from its storage.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - `Account` - The constructed foreign account.
+/// - `Word` - The seed used to initialize the account.
+/// - `SecretKey` - The secret key associated with the account's authentication component.
+/// - `Digest` - The procedure root of the custom component's procedure.
+pub fn foreign_account(storage_mode: AccountStorageMode) -> (Account, Word, SecretKey, Digest) {
     let get_item_component = AccountComponent::compile(
         "
         export.get_fpi_item
@@ -162,7 +187,7 @@ pub fn foreign_account() -> (Account, Word, SecretKey, Digest) {
         .init_seed(Default::default())
         .with_component(get_item_component.clone())
         .with_component(auth_component)
-        .storage_mode(AccountStorageMode::Public)
+        .storage_mode(storage_mode)
         .build()
         .unwrap();
 

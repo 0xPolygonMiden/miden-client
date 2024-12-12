@@ -26,6 +26,9 @@ use super::{
 mod builder;
 pub use builder::{PaymentTransactionData, SwapTransactionData, TransactionRequestBuilder};
 
+mod foreign;
+pub use foreign::{ForeignAccount, ForeignAccountInputs};
+
 // TRANSACTION REQUEST
 // ================================================================================================
 
@@ -72,10 +75,10 @@ pub struct TransactionRequest {
     advice_map: AdviceMap,
     /// Initial state of the `MerkleStore` that provides data during runtime.
     merkle_store: MerkleStore,
-    /// Foreign account data requirements. At execution time, account state will be retrieved from
+    /// Foreign account data requirements. At execution time, account data will be retrieved from
     /// the network, and injected as advice inputs. Additionally, the account's code will be
     /// added to the executor and prover.
-    foreign_account_ids: BTreeSet<AccountId>,
+    foreign_accounts: BTreeSet<ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
@@ -151,8 +154,8 @@ impl TransactionRequest {
     }
 
     /// Returns the IDs of the required foreign accounts for the transaction request.
-    pub fn foreign_accounts(&self) -> &BTreeSet<AccountId> {
-        &self.foreign_account_ids
+    pub fn foreign_accounts(&self) -> &BTreeSet<ForeignAccount> {
+        &self.foreign_accounts
     }
 
     /// Converts the [TransactionRequest] into [TransactionArgs] in order to be executed by a Miden
@@ -222,7 +225,7 @@ impl Serializable for TransactionRequest {
         self.expected_future_notes.write_into(target);
         self.advice_map.clone().into_iter().collect::<Vec<_>>().write_into(target);
         self.merkle_store.write_into(target);
-        self.foreign_account_ids.write_into(target);
+        self.foreign_accounts.write_into(target);
         self.expiration_delta.write_into(target);
     }
 }
@@ -256,7 +259,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
-        let foreign_account_ids = BTreeSet::<AccountId>::read_from(source)?;
+        let foreign_accounts = BTreeSet::<ForeignAccount>::read_from(source)?;
         let expiration_delta = Option::<u16>::read_from(source)?;
 
         Ok(TransactionRequest {
@@ -267,8 +270,8 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
-            foreign_account_ids,
             expiration_delta,
+            foreign_accounts,
         })
     }
 }
@@ -285,7 +288,9 @@ impl Default for TransactionRequestBuilder {
 // Errors related to a [TransactionRequest]
 #[derive(Debug, Error)]
 pub enum TransactionRequestError {
-    #[error("tequested foreign account with id {0} isn't public")]
+    #[error("foreign account data missing in the account proof")]
+    ForeignAccountDataMissing,
+    #[error("requested foreign account with ID {0} does not have an expected storage mode")]
     InvalidForeignAccountId(AccountId),
     #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
     InputNoteNotAuthenticated,
@@ -319,12 +324,13 @@ pub enum TransactionRequestError {
 mod tests {
     use std::vec::Vec;
 
-    use miden_lib::notes::create_p2id_note;
+    use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountId, AccountType},
+        accounts::{AccountBuilder, AccountId, AccountType},
         assets::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
         notes::{NoteExecutionMode, NoteTag, NoteType},
+        testing::account_component::AccountMockComponent,
         transaction::OutputNote,
         Digest, Felt, ZERO,
     };
@@ -358,6 +364,16 @@ mod tests {
             advice_vec.push((Digest::new(rng.draw_word()), vec![Felt::new(i)]));
         }
 
+        let account = AccountBuilder::new()
+            .init_seed(Default::default())
+            .with_component(
+                AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),
+            )
+            .account_type(AccountType::RegularAccountImmutableCode)
+            .storage_mode(miden_objects::accounts::AccountStorageMode::Private)
+            .build_existing()
+            .unwrap();
+
         // This transaction request wouldn't be valid in a real scenario, it's intended for testing
         let tx_request = TransactionRequestBuilder::new()
             .with_authenticated_input_notes(vec![(notes.pop().unwrap().id(), None)])
@@ -369,6 +385,8 @@ mod tests {
             )])
             .extend_advice_map(advice_vec)
             .with_public_foreign_accounts([target_id])
+            .unwrap()
+            .with_private_foreign_accounts([account])
             .unwrap()
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),
