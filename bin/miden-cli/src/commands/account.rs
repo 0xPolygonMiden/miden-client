@@ -28,7 +28,8 @@ pub struct AccountCmd {
     /// Manages default account for transaction execution.
     ///
     /// If no ID is provided it will display the current default account ID.
-    /// If "none" is provided it will remove the default account else it will set the default account to the provided ID.
+    /// If "none" is provided it will remove the default account else it will set the default
+    /// account to the provided ID.
     #[clap(short, long, group = "action", value_name = "ID")]
     default: Option<Option<String>>,
 }
