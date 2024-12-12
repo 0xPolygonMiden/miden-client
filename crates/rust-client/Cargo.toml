@@ -18,19 +18,18 @@ crate-type = ["lib"]
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = []
-idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
 tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
-web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
+web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client"]
 
 [dependencies]
 async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.9", features = ["rt_tokio_1"], optional = true }
-getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4", optional = true }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
@@ -39,10 +38,9 @@ pollster = { version = "0.4" }
 prost = { version = "0.13", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
-thiserror = { version = "1.0", optional = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
 tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }
@@ -54,13 +52,12 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
-uuid = { version = "1.10", features = ["serde", "v4"] }
 tokio = { workspace = true }
+uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
-console_error_panic_hook = "0.1.6"
 
 [build-dependencies]
-miden-rpc-proto = { version = "0.6" }
+miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
 miden-lib = { workspace = true }
 miette = { version = "7.2", features = ["fancy"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }

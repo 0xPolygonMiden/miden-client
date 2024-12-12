@@ -9,7 +9,7 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -42,6 +42,8 @@ pub mod sqlite_store;
 #[cfg(feature = "idxdb")]
 pub mod web_store;
 
+mod account_record;
+pub use account_record::{AccountRecord, AccountStatus};
 mod note_record;
 pub use note_record::{
     input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
@@ -63,6 +65,15 @@ pub use note_record::{
 /// not `&mut self`.
 #[async_trait(?Send)]
 pub trait Store: Send + Sync {
+    /// Returns the current timestamp tracked by the store, measured in non-leap seconds since
+    /// Unix epoch. If the store implementation is incapable of tracking time, it should return
+    /// `None`.
+    ///
+    /// This method is used to add time metadata to notes' states. This information doesn't have a
+    /// functional impact on the client's operation, it's shown to the user for informational
+    /// purposes.
+    fn get_current_timestamp(&self) -> Option<u64>;
+
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
@@ -203,15 +214,13 @@ pub trait Store: Send + Sync {
     /// Returns the account IDs of all accounts stored in the database
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
-    /// seeds used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError>;
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError>;
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
-    /// used to create it. The seed will be returned if the account is new, otherwise it
-    /// will be `None`.
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
@@ -221,7 +230,7 @@ pub trait Store: Send + Sync {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError>;
+    ) -> Result<(AccountHeader, AccountStatus), StoreError>;
 
     /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
     /// hash. If no account state matches the provided hash, `None` is returned.
@@ -230,20 +239,13 @@ pub trait Store: Send + Sync {
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError>;
 
-    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
-    /// otherwise it will be `None`.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
+    /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
+    /// its status.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError>;
+    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
     /// This is mainly used for authentication in transactions.
@@ -268,6 +270,27 @@ pub trait Store: Send + Sync {
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
+
+    /// Upserts the account code for a foreign account. This value will be used as a cache of known
+    /// script roots and added to the `GetForeignAccountCode` request.
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError>;
+
+    /// Retrieves the cached account code for various foreign accounts.
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError>;
+
+    /// Updates an existing [Account] with a new state.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------

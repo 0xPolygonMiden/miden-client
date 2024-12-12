@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
@@ -7,17 +7,19 @@ use miden_client::{
     crypto::{Digest, FeltRng},
     notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
     transactions::{
-        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionResult,
+        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
+        TransactionResult,
     },
     Client,
 };
+use miden_tx_prover::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{
     create_dynamic_table,
     utils::{
-        get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id,
-        SHARED_TOKEN_DOCUMENTATION,
+        get_input_acc_id_by_prefix_or_default, load_config_file, load_faucet_details_map,
+        parse_account_id, SHARED_TOKEN_DOCUMENTATION,
     },
 };
 
@@ -52,6 +54,10 @@ pub struct MintCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl MintCmd {
@@ -63,16 +69,23 @@ impl MintCmd {
 
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
-        let transaction_request = TransactionRequest::mint_fungible_asset(
+        let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
             fungible_asset,
             target_account_id,
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
-        execute_transaction(&mut client, fungible_asset.faucet_id(), transaction_request, force)
-            .await
+        execute_transaction(
+            &mut client,
+            fungible_asset.faucet_id(),
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -102,6 +115,10 @@ pub struct SendCmd {
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
     #[clap(short, long)]
     recall_height: Option<u32>,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SendCmd {
@@ -123,15 +140,23 @@ impl SendCmd {
             target_account_id,
         );
 
-        let transaction_request = TransactionRequest::pay_to_id(
+        let transaction_request = TransactionRequestBuilder::pay_to_id(
             payment_transaction,
             self.recall_height,
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -156,6 +181,10 @@ pub struct SwapCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SwapCmd {
@@ -179,14 +208,22 @@ impl SwapCmd {
             requested_fungible_asset.into(),
         );
 
-        let transaction_request = TransactionRequest::swap(
+        let transaction_request = TransactionRequestBuilder::swap(
             swap_transaction.clone(),
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .build();
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await?;
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await?;
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
@@ -218,37 +255,57 @@ pub struct ConsumeNotesCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(short, long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl ConsumeNotesCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
-        let mut list_of_notes = Vec::new();
+        let mut authenticated_notes = Vec::new();
+        let mut unauthenticated_notes = Vec::new();
+
         for note_id in &self.list_of_notes {
             let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
                 .map_err(|err| err.to_string())?;
-            list_of_notes.push(note_record.id());
+
+            if note_record.is_authenticated() {
+                authenticated_notes.push(note_record.id());
+            } else {
+                unauthenticated_notes.push((note_record.try_into()?, None));
+            }
         }
 
         let account_id =
             get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()).await?;
 
-        if list_of_notes.is_empty() {
+        if authenticated_notes.is_empty() {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
             let consumable_notes = client.get_consumable_notes(Some(account_id)).await?;
 
-            list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
+            authenticated_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
 
-        if list_of_notes.is_empty() {
+        if authenticated_notes.is_empty() && unauthenticated_notes.is_empty() {
             return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
         }
 
-        let transaction_request = TransactionRequest::consume_notes(list_of_notes);
+        let transaction_request = TransactionRequestBuilder::consume_notes(authenticated_notes)
+            .with_unauthenticated_input_notes(unauthenticated_notes)
+            .build();
 
-        execute_transaction(&mut client, account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -260,6 +317,7 @@ async fn execute_transaction(
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,
+    delegated_proving: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
     let transaction_execution_result =
@@ -287,9 +345,22 @@ async fn execute_transaction(
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    client.submit_transaction(transaction_execution_result).await?;
+    if delegated_proving {
+        let (cli_config, _) = load_config_file()?;
+        let remote_prover_endpoint = cli_config
+            .remote_prover_endpoint
+            .as_ref()
+            .ok_or("Remote prover endpoint not found in config file")?;
+        let remote_prover =
+            Arc::new(RemoteTransactionProver::new(&remote_prover_endpoint.to_string()));
+        client
+            .submit_transaction_with_prover(transaction_execution_result, remote_prover)
+            .await?;
+    } else {
+        client.submit_transaction(transaction_execution_result).await?;
+    }
 
-    println!("Succesfully created transaction.");
+    println!("Successfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
 
     if output_notes.is_empty() {

@@ -32,7 +32,7 @@ pub struct AccountVaultIdxdbObject {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AccountRecordIdxdbOjbect {
+pub struct AccountRecordIdxdbObject {
     pub id: String,
     pub nonce: String,
     pub vault_root: String,
@@ -40,6 +40,14 @@ pub struct AccountRecordIdxdbOjbect {
     pub code_root: String,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub account_seed: Option<Vec<u8>>,
+    pub locked: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ForeignAcountCodeIdxdbObject {
+    pub account_id: String,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
+    pub code: Vec<u8>,
 }
 
 fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>

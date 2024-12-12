@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::Nullifier,
     BlockHeader, Digest, Word,
@@ -11,8 +11,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
-    TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
@@ -42,6 +42,11 @@ impl WebStore {
 }
 #[async_trait(?Send)]
 impl Store for WebStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     // SYNC
     // --------------------------------------------------------------------------------------------
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -154,6 +159,10 @@ impl Store for WebStore {
         self.insert_account(account, account_seed, auth_info).await
     }
 
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
+        self.update_account(new_account_state).await
+    }
+
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids().await
     }
@@ -165,14 +174,14 @@ impl Store for WebStore {
         self.get_account_auth_by_pub_key(pub_key)
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.get_account_headers().await
     }
 
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
         self.get_account_header(account_id).await
     }
 
@@ -183,15 +192,27 @@ impl Store for WebStore {
         self.get_account_header_by_hash(account_hash).await
     }
 
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError> {
         self.get_account(account_id).await
     }
 
     async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id).await
+    }
+
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        self.upsert_foreign_account_code(account_id, code).await
+    }
+
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        self.get_foreign_account_code(account_ids).await
     }
 
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {

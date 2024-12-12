@@ -38,11 +38,11 @@ db.version(1).stores({
   [Table.AccountVaults]: indexes("root"),
   [Table.AccountAuth]: indexes("accountId", "pubKey"),
   [Table.Accounts]: indexes(
-    "[id+nonce]",
+    "&accountHash",
+    "id",
     "codeRoot",
     "storageRoot",
-    "vaultRoot",
-    "accountHash"
+    "vaultRoot"
   ),
   [Table.Transactions]: indexes("id"),
   [Table.TransactionScripts]: indexes("scriptHash"),
@@ -58,6 +58,7 @@ db.version(1).stores({
   [Table.BlockHeaders]: indexes("blockNum", "hasClientNotes"),
   [Table.ChainMmrNodes]: indexes("id"),
   [Table.Tags]: indexes("id++", "tag", "source_note_id", "source_account_id"),
+  [Table.ForeignAccountCode]: indexes("accountId"),
 });
 
 function indexes(...items) {
@@ -83,6 +84,7 @@ const stateSync = db.table(Table.StateSync);
 const blockHeaders = db.table(Table.BlockHeaders);
 const chainMmrNodes = db.table(Table.ChainMmrNodes);
 const tags = db.table(Table.Tags);
+const foreignAccountCode = db.table(Table.ForeignAccountCode);
 
 export {
   db,
@@ -100,4 +102,5 @@ export {
   blockHeaders,
   chainMmrNodes,
   tags,
+  foreignAccountCode,
 };

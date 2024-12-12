@@ -2,9 +2,26 @@
 
 ## 0.7.0 (TBD)
 
+### Features
+
+* [BREAKING] Implemented support for overwriting of accounts when importing (#612).
+* [BREAKING] Added `AccountRecord` with information about the account's status (#600).
+* [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
+* Added caching for foreign account code (#597).
+* Added support for unauthenticated notes consumption in the CLI (#609).
+
 ### Fixes
 * Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
+* Fixed client bugs where some note metadata was not being updated (#625).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
+
+### Changes
+
+* [BREAKING] Use `thiserror` 2.0 to derive errors (#623).
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
+* [BREAKING] Added per transaction prover support to the client (#599).
+* [BREAKING] Removed unused dependencies (#584).
 
 ## 0.6.0 (2024-11-08)
 

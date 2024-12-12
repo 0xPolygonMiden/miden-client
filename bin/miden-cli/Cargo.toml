@@ -37,10 +37,8 @@ figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.6", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { workspace = true }
-tonic = { version = "0.12" }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
-miden-tx-prover = { version = "0.6", features = ["async"] }
+miden-tx-prover =  { workspace = true }

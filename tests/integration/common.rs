@@ -1,22 +1,14 @@
-use std::{env::temp_dir, sync::Arc, time::Duration};
+use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 use miden_client::{
     accounts::AccountTemplate,
-    config::RpcConfig,
     crypto::FeltRng,
     notes::create_p2id_note,
-    rpc::{RpcError, TonicRpcClient},
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        NoteFilter, StoreAuthenticator, TransactionFilter,
-    },
+    rpc::{Endpoint, RpcError, TonicRpcClient},
+    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
     transactions::{
-        DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest,
+        DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
     Client, ClientError,
 };
@@ -32,13 +24,14 @@ use miden_objects::{
     Felt, FieldElement,
 };
 use rand::Rng;
+use toml::Table;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -49,10 +42,10 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub async fn create_test_client() -> TestClient {
-    let (rpc_config, store_config) = get_client_config();
+    let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
+        let sqlite_store = SqliteStore::new(store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
@@ -61,31 +54,33 @@ pub async fn create_test_client() -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let tx_prover = Arc::new(LocalTransactionProver::default());
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(&rpc_config)),
+        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
         rng,
         store,
         Arc::new(authenticator),
-        tx_prover,
         true,
     )
 }
 
-pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
-    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
-        .extract()
-        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
-
-    let store_config = create_test_store_path()
-        .into_os_string()
-        .into_string()
+pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
+    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
-        .try_into()
+        .parse::<Table>()
         .unwrap();
+    let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    (rpc_config, store_config)
+    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
+        + "://"
+        + rpc_endpoint_toml["host"].as_str().unwrap()
+        + ":"
+        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
+    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+
+    let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
+
+    (endpoint, timeout_ms, create_test_store_path())
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
@@ -260,13 +255,14 @@ pub async fn mint_note(
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request = TransactionRequest::mint_fungible_asset(
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
         fungible_asset,
         basic_account_id,
         note_type,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .build();
     execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
@@ -285,7 +281,8 @@ pub async fn consume_notes(
 ) {
     println!("Consuming Note...");
     let tx_request =
-        TransactionRequest::consume_notes(input_notes.iter().map(|n| n.id()).collect());
+        TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
+            .build();
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
@@ -295,7 +292,7 @@ pub async fn assert_account_has_single_asset(
     asset_account_id: AccountId,
     expected_amount: u64,
 ) {
-    let (regular_account, _seed) = client.get_account(account_id).await.unwrap();
+    let regular_account: Account = client.get_account(account_id).await.unwrap().into();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
@@ -317,7 +314,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    let tx_request = TransactionRequest::consume_notes(vec![note_to_consume_id]);
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id]).build();
     match client.new_transaction(consuming_account_id, tx_request).await {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
@@ -352,5 +349,5 @@ pub fn mint_multiple_fungible_asset(
         })
         .collect::<Vec<OutputNote>>();
 
-    TransactionRequest::new().with_own_output_notes(notes).unwrap()
+    TransactionRequestBuilder::new().with_own_output_notes(notes).unwrap().build()
 }

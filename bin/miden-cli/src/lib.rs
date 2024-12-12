@@ -10,10 +10,8 @@ use miden_client::{
         sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
         StoreAuthenticator,
     },
-    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
-use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
 mod commands;
 use commands::{
@@ -101,7 +99,9 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store).await.map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(cli_config.store_filepath.clone())
+            .await
+            .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
@@ -110,17 +110,14 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
-        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.remote_prover_endpoint {
-            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
-            None => Arc::new(LocalTransactionProver::new(Default::default())),
-        };
-
         let client = Client::new(
-            Box::new(TonicRpcClient::new(&cli_config.rpc)),
+            Box::new(TonicRpcClient::new(
+                cli_config.rpc.endpoint.clone().into(),
+                cli_config.rpc.timeout_ms,
+            )),
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),
-            tx_prover as Arc<dyn TransactionProver>,
             in_debug_mode,
         );
 

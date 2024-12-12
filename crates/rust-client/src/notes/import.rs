@@ -6,6 +6,7 @@ use miden_objects::{
 };
 
 use crate::{
+    rpc::domain::notes::NoteDetails as RpcNoteDetails,
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
@@ -34,6 +35,14 @@ impl<R: FeltRng> Client<R> {
         };
 
         let previous_note = self.get_input_note(id).await.ok();
+
+        // If the note is already in the store and is in the state processing we return an error.
+        if let Some(true) = previous_note.as_ref().map(|note| note.is_processing()) {
+            return Err(ClientError::NoteImportError(format!(
+                "Can't overwrite note with id {} as it's currently being processed",
+                id
+            )));
+        }
 
         let note = match note_file {
             NoteFile::NoteId(id) => self.import_note_record_by_id(previous_note, id).await?,
@@ -79,7 +88,7 @@ impl<R: FeltRng> Client<R> {
             return Err(ClientError::NoteNotFoundOnChain(id));
         }
 
-        let note_details: crate::rpc::NoteDetails =
+        let note_details: RpcNoteDetails =
             chain_notes.pop().expect("chain_notes should have at least one element");
 
         let inclusion_details = note_details.inclusion_details();
@@ -105,8 +114,8 @@ impl<R: FeltRng> Client<R> {
             },
             None => {
                 let node_note = match note_details {
-                    crate::rpc::NoteDetails::Public(note, _) => note,
-                    crate::rpc::NoteDetails::Private(..) => {
+                    RpcNoteDetails::Public(note, _) => note,
+                    RpcNoteDetails::Private(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
                         ))
@@ -135,7 +144,7 @@ impl<R: FeltRng> Client<R> {
         let metadata = *note.metadata();
         let mut note_record = previous_note.unwrap_or(InputNoteRecord::new(
             note.into(),
-            None,
+            self.store.get_current_timestamp(),
             ExpectedNoteState {
                 metadata: Some(metadata),
                 after_block_num: inclusion_proof.location().block_num(),
@@ -191,7 +200,7 @@ impl<R: FeltRng> Client<R> {
         let mut note_record = previous_note.unwrap_or({
             InputNoteRecord::new(
                 details,
-                None,
+                self.store.get_current_timestamp(),
                 ExpectedNoteState { metadata: None, after_block_num, tag }.into(),
             )
         });

@@ -10,19 +10,16 @@ use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
 
-const TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/tonic_client/generated";
-const WEB_TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/web_tonic_client/generated";
+const STD_PROTO_OUT_DIR: &str = "src/rpc/generated/std";
+const NO_STD_PROTO_OUT_DIR: &str = "src/rpc/generated/nostd";
 
 fn main() -> miette::Result<()> {
-    println!("cargo:rerun-if-changed=Cargo.toml");
-    println!("cargo:rerun-if-changed=Cargo.lock");
-
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
     let dest_path = PathBuf::from(out_dir);
 
     // updates the generated files from protobuf. Only do so when this is not docs.rs building the
     // documentation.
-    if env::var("DOCS_RS").is_err() {
+    if env::var("DOCS_RS").is_err() && env::var("CODEGEN").unwrap_or("0".to_string()) == "1" {
         write_proto(&dest_path).unwrap();
         compile_tonic_client_proto(&dest_path)?;
         replace_no_std_types();
@@ -59,7 +56,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .build_server(false)
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
-        .out_dir(WEB_TONIC_CLIENT_PROTO_OUT_DIR)
+        .out_dir(NO_STD_PROTO_OUT_DIR)
         .compile_protos_with_config(web_tonic_prost_config, protos, includes)
         .into_diagnostic()?;
 
@@ -67,7 +64,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .build_server(false)
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
-        .out_dir(TONIC_CLIENT_PROTO_OUT_DIR)
+        .out_dir(STD_PROTO_OUT_DIR)
         .compile_protos_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
 
@@ -78,7 +75,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
 /// for the web tonic client. This is needed as `tonic_build` doesn't generate `no_std` compatible
 /// files and we want to build wasm without `std`.
 fn replace_no_std_types() {
-    let path = WEB_TONIC_CLIENT_PROTO_OUT_DIR.to_string() + "/rpc.rs";
+    let path = NO_STD_PROTO_OUT_DIR.to_string() + "/rpc.rs";
     let file_str = fs::read_to_string(&path).unwrap();
     let new_file_str = file_str
         .replace("std::result", "core::result")

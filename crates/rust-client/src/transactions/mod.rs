@@ -4,6 +4,7 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
+    sync::Arc,
     vec::Vec,
 };
 use core::fmt::{self};
@@ -21,7 +22,9 @@ use miden_objects::{
     vm::AdviceInputs,
     AssetError, Digest, Felt, Word, ZERO,
 };
-pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
+pub use miden_tx::{
+    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
@@ -30,7 +33,7 @@ use crate::{
     notes::{NoteScreener, NoteUpdates},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, TransactionFilter,
+        OutputNoteRecord, StoreError, TransactionFilter,
     },
     sync::NoteTagRecord,
     ClientError,
@@ -39,7 +42,7 @@ use crate::{
 mod request;
 pub use request::{
     NoteArgs, PaymentTransactionData, SwapTransactionData, TransactionRequest,
-    TransactionRequestError, TransactionScriptTemplate,
+    TransactionRequestBuilder, TransactionRequestError, TransactionScriptTemplate,
 };
 
 mod script_builder;
@@ -72,6 +75,8 @@ impl TransactionResult {
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
         partial_notes: Vec<(NoteDetails, NoteTag)>,
+        current_block_num: u32,
+        current_timestamp: Option<u64>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -79,7 +84,17 @@ impl TransactionResult {
             let account_relevance = note_screener.check_relevance(note).await?;
 
             if !account_relevance.is_empty() {
-                relevant_notes.push(note.clone().into());
+                let metadata = *note.metadata();
+                relevant_notes.push(InputNoteRecord::new(
+                    note.into(),
+                    current_timestamp,
+                    ExpectedNoteState {
+                        metadata: Some(metadata),
+                        after_block_num: current_block_num,
+                        tag: Some(metadata.tag()),
+                    }
+                    .into(),
+                ));
             }
         }
 
@@ -90,7 +105,7 @@ impl TransactionResult {
                 None,
                 ExpectedNoteState {
                     metadata: None,
-                    after_block_num: 0,
+                    after_block_num: current_block_num,
                     tag: Some(*tag),
                 }
                 .into(),
@@ -395,28 +410,47 @@ impl<R: FeltRng> Client<R> {
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener, future_notes).await
+        TransactionResult::new(
+            executed_transaction,
+            screener,
+            future_notes,
+            self.get_sync_height().await?,
+            self.store.get_current_timestamp(),
+        )
+        .await
     }
 
-    /// Proves the specified transaction, submits it to the network, and saves the transaction into
-    /// the local database for tracking.
+    /// Proves the specified transaction using a local prover, submits it to the network, and saves
+    /// the transaction into the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let proven_transaction = self.prove_transaction(&tx_result).await?;
+        self.submit_transaction_with_prover(tx_result, self.tx_prover.clone()).await
+    }
+
+    /// Proves the specified transaction using the provided prover, submits it to the network, and
+    /// saves the transaction into the local database for tracking.
+    pub async fn submit_transaction_with_prover(
+        &mut self,
+        tx_result: TransactionResult,
+        tx_prover: Arc<dyn TransactionProver>,
+    ) -> Result<(), ClientError> {
+        let proven_transaction = self.prove_transaction(&tx_result, tx_prover).await?;
         self.submit_proven_transaction(proven_transaction).await?;
         self.apply_transaction(tx_result).await
     }
 
+    /// Proves the specified transaction result using the provided prover.
     async fn prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
+        tx_prover: Arc<dyn TransactionProver>,
     ) -> Result<ProvenTransaction, ClientError> {
         info!("Proving transaction...");
 
         let proven_transaction =
-            self.tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
+            tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
 
         info!("Transaction proven.");
 
@@ -444,9 +478,20 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let (mut account, _seed) = self.get_account(account_id).await?;
+        let account_record = self.get_account(account_id).await?;
 
+        if account_record.is_locked() {
+            return Err(ClientError::AccountLocked(account_id));
+        }
+
+        let mut account: Account = account_record.into();
         account.apply_delta(account_delta)?;
+
+        if self.store.get_account_header_by_hash(account.hash()).await?.is_some() {
+            return Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(
+                account.hash(),
+            )));
+        }
 
         // Save only input notes that we care for (based on the note screener assessment)
         let created_input_notes = tx_result.relevant_notes().to_vec();
@@ -478,7 +523,11 @@ impl<R: FeltRng> Client<R> {
 
         let mut updated_input_notes = vec![];
         for mut input_note_record in consumed_notes {
-            if input_note_record.consumed_locally(account_id, transaction_id)? {
+            if input_note_record.consumed_locally(
+                account_id,
+                transaction_id,
+                self.store.get_current_timestamp(),
+            )? {
                 updated_input_notes.push(input_note_record);
             }
         }
@@ -602,30 +651,32 @@ impl<R: FeltRng> Client<R> {
             let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
             let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
             if account_asset_amount + incoming_balance < amount {
-                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                    account_asset_amount,
-                    amount,
-                )));
+                return Err(ClientError::AssetError(
+                    AssetError::FungibleAssetAmountNotSufficient {
+                        minuend: account_asset_amount,
+                        subtrahend: amount,
+                    },
+                ));
             }
         }
 
         // Check if the account balance plus incoming assets is greater than or equal to the
         // outgoing non fungible assets
         for non_fungible in non_fungible_set {
-            match account.vault().has_non_fungible_asset(non_fungible.into()) {
+            match account.vault().has_non_fungible_asset(non_fungible) {
                 Ok(true) => (),
                 Ok(false) => {
                     // Check if the non fungible asset is in the incoming assets
                     if !incoming_non_fungible_balance_set.contains(&non_fungible) {
-                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                            0, 1,
-                        )));
+                        return Err(ClientError::AssetError(
+                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                        ));
                     }
                 },
                 _ => {
-                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                        0, 1,
-                    )));
+                    return Err(ClientError::AssetError(
+                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                    ));
                 },
             }
         }
@@ -643,7 +694,8 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (account, _) = self.get_account(account_id).await?;
+        let account: Account = self.get_account(account_id).await?.into();
+
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
             Ok(())
@@ -657,7 +709,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account = self.get_account(account_id).await?.0;
+        let account: Account = self.get_account(account_id).await?.into();
         let account_auth = self.get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
@@ -693,13 +745,33 @@ impl<R: FeltRng> Client<R> {
             return Ok((AdviceInputs::default(), vec![], None));
         }
 
+        // Get tracked commitments
+        let tracked_code = self
+            .store
+            .get_foreign_account_code(account_ids.iter().cloned().collect())
+            .await?;
+
+        let tracked_commitments: Vec<Digest> =
+            tracked_code.values().map(|code| code.commitment()).collect();
+
         // Fetch account proofs
         let (block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(account_ids, &[], true).await?;
+            self.rpc_api.get_account_proofs(account_ids, &tracked_commitments, true).await?;
 
         for account_proof in account_proofs.into_iter() {
             let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
-            let account_code = account_proof.account_code().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+            let account_code = match account_proof.account_code() {
+                Some(account_code) => {
+                    self.store
+                        .upsert_foreign_account_code(account_header.id(), account_code.clone())
+                        .await?;
+
+                    account_code
+                },
+                None => tracked_code
+                    .get(&account_header.id())
+                    .expect("Account code should be tracked if it's not in the RPC response"),
+            };
             let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
 
             account_codes.push(account_code.clone());
@@ -741,7 +813,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        self.prove_transaction(tx_result).await
+        self.prove_transaction(tx_result, self.tx_prover.clone()).await
     }
 
     pub async fn testing_submit_proven_transaction(
@@ -872,11 +944,11 @@ mod test {
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
         testing::account_component::BASIC_WALLET_CODE,
-        Felt, FieldElement, Word,
+        Word,
     };
 
-    use super::{PaymentTransactionData, TransactionRequest};
-    use crate::mock::create_test_client;
+    use super::PaymentTransactionData;
+    use crate::{mock::create_test_client, transactions::TransactionRequestBuilder};
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
@@ -900,25 +972,27 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
-        let (account, _) = AccountBuilder::new()
+        let account = AccountBuilder::new()
             .init_seed(Default::default())
-            .nonce(Felt::ONE)
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])
-            .build()
+            .build_existing()
             .unwrap();
 
         client
-            .import_account(AccountData::new(
-                account.clone(),
-                None,
-                miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            ))
+            .import_account(
+                AccountData::new(
+                    account.clone(),
+                    None,
+                    miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
+                ),
+                false,
+            )
             .await
             .unwrap();
         client.sync_state().await.unwrap();
-        let tx_request = TransactionRequest::pay_to_id(
+        let tx_request = TransactionRequestBuilder::pay_to_id(
             PaymentTransactionData::new(
                 vec![asset_1, asset_2],
                 account.id(),
@@ -928,7 +1002,8 @@ mod test {
             NoteType::Private,
             client.rng(),
         )
-        .unwrap();
+        .unwrap()
+        .build();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(tx_result

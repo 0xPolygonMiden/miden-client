@@ -27,17 +27,26 @@ CREATE TABLE account_auth (
     PRIMARY KEY (account_id)
 );
 
+-- Create foreign_account_code table
+CREATE TABLE foreign_account_code(
+    account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
+    code_root TEXT NOT NULL,               -- Root of the account_code
+    PRIMARY KEY (account_id),
+    FOREIGN KEY (code_root) REFERENCES account_code(root)
+);
+
 -- Create accounts table
 CREATE TABLE accounts (
-    id UNSIGNED BIG INT NOT NULL,  -- Account ID.
-    code_root TEXT NOT NULL,       -- Root of the account_code
-    storage_root TEXT NOT NULL,    -- Root of the account_storage Merkle tree.
-    vault_root TEXT NOT NULL,      -- Root of the account_vault Merkle tree.
-    nonce BIGINT NOT NULL,         -- Account nonce.
-    committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
-    account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
-    account_hash TEXT NOT NULL UNIQUE,    -- Account state hash
-    PRIMARY KEY (id, nonce),
+    account_hash TEXT NOT NULL UNIQUE,  -- Account state hash
+    id UNSIGNED BIG INT NOT NULL,       -- Account ID.
+    code_root TEXT NOT NULL,            -- Root of the account_code
+    storage_root TEXT NOT NULL,         -- Root of the account_storage Merkle tree.
+    vault_root TEXT NOT NULL,           -- Root of the account_vault Merkle tree.
+    nonce BIGINT NOT NULL,              -- Account nonce.
+    committed BOOLEAN NOT NULL,         -- True if recorded, false if not.
+    account_seed BLOB NULL,             -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
+    locked BOOLEAN NOT NULL,            -- True if the account is locked, false if not.
+    PRIMARY KEY (account_hash),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
@@ -119,7 +128,7 @@ CREATE TABLE state_sync (
 -- Create tags table
 CREATE TABLE tags (
     tag BLOB NOT NULL,                  -- the serialized tag
-    source BLOB NOT NULL               -- the serialized tag source
+    source BLOB NOT NULL                -- the serialized tag source
 );
 
 -- insert initial row into state_sync table

@@ -1,48 +1,25 @@
 use alloc::string::{String, ToString};
-use core::fmt;
 
 use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError};
+use thiserror::Error;
 
 // RPC ERROR
 // ================================================================================================
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RpcError {
+    #[error("rpc api response contained an update for a private account: {0}")]
     AccountUpdateForPrivateAccountReceived(AccountId),
+    #[error("failed to connect to the api server: {0}")]
     ConnectionError(String),
+    #[error("failed to deserialize rpc data: {0}")]
     DeserializationError(String),
+    #[error("rpc api response missing an expected field: {0}")]
     ExpectedDataMissing(String),
+    #[error("rpc api response is invalid: {0}")]
     InvalidResponse(String),
+    #[error("rpc request failed for {0}: {1}")]
     RequestError(String, String),
-}
-
-impl fmt::Display for RpcError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RpcError::AccountUpdateForPrivateAccountReceived(account_id) => {
-                write!(
-                    f,
-                    "RPC API response contained an update for a private account: {}",
-                    account_id.to_hex()
-                )
-            },
-            RpcError::ConnectionError(err) => {
-                write!(f, "failed to connect to the API server: {err}")
-            },
-            RpcError::DeserializationError(err) => {
-                write!(f, "failed to deserialize RPC data: {err}")
-            },
-            RpcError::ExpectedDataMissing(err) => {
-                write!(f, "RPC API response missing an expected field: {err}")
-            },
-            RpcError::InvalidResponse(err) => {
-                write!(f, "RPC API response is invalidw: {err}")
-            },
-            RpcError::RequestError(endpoint, err) => {
-                write!(f, "RPC request failed for {endpoint}: {err}")
-            },
-        }
-    }
 }
 
 impl From<DeserializationError> for RpcError {
@@ -66,36 +43,15 @@ impl From<RpcConversionError> for RpcError {
 // RPC CONVERSION ERROR
 // ================================================================================================
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Error)]
 pub enum RpcConversionError {
+    #[error("value is not in the range 0..modulus")]
     NotAValidFelt,
-    NoteTypeError(NoteError),
+    #[error("invalid note type value")]
+    NoteTypeError(#[from] NoteError),
+    #[error("field `{field_name}` expected to be present in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,
         field_name: &'static str,
     },
-}
-
-impl core::fmt::Display for RpcConversionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RpcConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
-            RpcConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
-            RpcConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => {
-                write!(
-                    f,
-                    "Field `{}` required to be filled in protobuf representation of {}",
-                    field_name, entity
-                )
-            },
-        }
-    }
-}
-
-impl Eq for RpcConversionError {}
-
-impl From<NoteError> for RpcConversionError {
-    fn from(error: NoteError) -> Self {
-        RpcConversionError::NoteTypeError(error)
-    }
 }

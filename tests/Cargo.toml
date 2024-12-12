@@ -11,7 +11,7 @@ rust-version.workspace = true
 edition.workspace = true
 
 [dev-dependencies]
-figment = { version = "0.10", features = ["toml", "env"] }
+async-trait = { version = "0.1" }
 miden-client = { path = "../crates/rust-client", features = [
     "concurrent",
     "testing",
@@ -22,9 +22,10 @@ miden-client = { path = "../crates/rust-client", features = [
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
-rand_chacha = { version = "0.3", default-features = false}
 tokio = { workspace = true }
+toml = { version = "0.8" }
 uuid = { version = "1.10", features = ["serde", "v4"] }
+winter-maybe-async = { version = "0.10" }
 
 [[test]]
 name = "integration"

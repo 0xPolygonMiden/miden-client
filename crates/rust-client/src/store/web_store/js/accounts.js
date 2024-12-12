@@ -4,6 +4,7 @@ import {
   accountVaults,
   accountAuths,
   accounts,
+  foreignAccountCode,
 } from "./schema.js";
 
 // GET FUNCTIONS
@@ -58,6 +59,7 @@ export async function getAllAccountHeaders() {
           storage_root: record.storageRoot,
           code_root: record.codeRoot,
           account_seed: accountSeedBase64, // Now correctly formatted as Base64
+          locked: record.locked,
         };
       })
     );
@@ -108,6 +110,7 @@ export async function getAccountHeader(accountId) {
       storage_root: mostRecentRecord.storageRoot,
       code_root: mostRecentRecord.codeRoot,
       account_seed: accountSeedBase64,
+      locked: mostRecentRecord.locked,
     };
     return AccountHeader;
   } catch (error) {
@@ -147,6 +150,7 @@ export async function getAccountHeaderByHash(accountHash) {
       storage_root: matchingRecord.storageRoot,
       code_root: matchingRecord.codeRoot,
       account_seed: accountSeedBase64,
+      locked: matchingRecord.locked,
     };
     return AccountHeader;
   } catch (error) {
@@ -418,6 +422,7 @@ export async function insertAccountRecord(
       committed: committed,
       accountSeed: accountSeedBlob,
       accountHash: hash,
+      locked: false,
     };
 
     // Perform the insert using Dexie
@@ -445,6 +450,76 @@ export async function insertAccountAuth(accountId, authInfo, pubKey) {
     await accountAuths.add(data);
   } catch (error) {
     console.error(`Error inserting auth for account: ${accountId}:`, error);
+    throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
+export async function upsertForeignAccountCode(accountId, code, codeRoot) {
+  try {
+    await insertAccountCode(codeRoot, code);
+
+    const data = {
+      accountId,
+      codeRoot,
+    };
+
+    await foreignAccountCode.put(data);
+  } catch (error) {
+    console.error(
+      `Error updating foreign account code: (${accountId}, ${codeRoot}):`,
+      error
+    );
+    throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
+export async function getForeignAccountCode(accountIds) {
+  try {
+    const foreignAccounts = await foreignAccountCode
+      .where("accountId")
+      .anyOf(accountIds)
+      .toArray();
+
+    if (foreignAccounts.length === 0) {
+      console.log("No records found for the given account IDs.");
+      return null; // No records found
+    }
+
+    let codeRoots = foreignAccounts.map((account) => account.codeRoot);
+
+    const accountCode = await accountCodes
+      .where("root")
+      .anyOf(codeRoots)
+      .toArray();
+
+    const processedCode = foreignAccounts.map(async (foreignAccount) => {
+      const matchingCode = accountCode.find(
+        (code) => code.root === foreignAccount.codeRoot
+      );
+
+      // Convert the code Blob to an ArrayBuffer
+      const codeArrayBuffer = await matchingCode.code.arrayBuffer();
+      const codeArray = new Uint8Array(codeArrayBuffer);
+      const codeBase64 = uint8ArrayToBase64(codeArray);
+
+      return {
+        accountId: foreignAccount.accountId,
+        code: codeBase64,
+      };
+    });
+
+    return processedCode;
+  } catch (error) {
+    console.error("Error fetching foreign account code:", error);
+    throw error; // Re-throw the error for further handling
+  }
+}
+
+export async function lockAccount(accountId) {
+  try {
+    await accounts.where("id").equals(accountId).modify({ locked: true });
+  } catch (error) {
+    console.error(`Error locking account: ${accountId}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
   }
 }

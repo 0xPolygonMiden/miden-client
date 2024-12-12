@@ -76,6 +76,7 @@ impl NoteStateHandler for UnverifiedNoteState {
         &self,
         consumer_account: miden_objects::accounts::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         let submission_data = NoteSubmissionData {
             submitted_at: None,

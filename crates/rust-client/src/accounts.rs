@@ -15,11 +15,14 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    Felt, Word,
+    Digest, Felt, Word,
 };
 
 use super::Client;
-use crate::ClientError;
+use crate::{
+    store::{AccountRecord, AccountStatus, StoreError},
+    ClientError,
+};
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
@@ -72,17 +75,27 @@ impl<R: FeltRng> Client<R> {
         Ok(account_and_seed)
     }
 
-    /// Saves in the store the [Account] corresponding to `account_data`.
+    /// Saves the [Account] contained in `account_data` in the store. If the account is already
+    /// being tracked and `overwrite` is set to `true`, the account will be overwritten.
     ///
     /// # Errors
     ///
-    /// Will return an error if trying to import a new account without providing its seed
+    /// - Trying to import a new account without providing its seed
+    /// - If the account is already tracked and `overwrite` is set to `false`
+    /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
+    ///   being tracked
+    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
+    ///   account hash
     ///
     /// # Panics
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    pub async fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub async fn import_account(
+        &mut self,
+        account_data: AccountData,
+        overwrite: bool,
+    ) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
@@ -96,8 +109,49 @@ impl<R: FeltRng> Client<R> {
             account_data.account_seed
         };
 
-        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
-            .await
+        let tracked_account = self.store.get_account(account_data.account.id()).await;
+
+        match tracked_account {
+            Err(StoreError::AccountDataNotFound(_)) => {
+                // If the account is not being tracked, insert it into the store regardless of the
+                // `overwrite` flag
+                self.insert_account(
+                    &account_data.account,
+                    account_seed,
+                    &account_data.auth_secret_key,
+                )
+                .await
+            },
+            Err(err) => Err(ClientError::StoreError(err)),
+            Ok(tracked_account) => {
+                if !overwrite {
+                    // Only overwrite the account if the flag is set to `true`
+                    return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
+                }
+
+                if tracked_account.account().nonce().as_int()
+                    > account_data.account.nonce().as_int()
+                {
+                    // If the new account is older than the one being tracked, return an error
+                    return Err(ClientError::AccountNonceTooLow);
+                }
+
+                if tracked_account.is_locked() {
+                    // If the tracked account is locked, check that the account hash matches the one
+                    // in the network
+                    let network_account_hash =
+                        self.rpc_api.get_account_update(account_data.account.id()).await?.hash();
+                    if network_account_hash != account_data.account.hash() {
+                        return Err(ClientError::AccountHashMismatch(network_account_hash));
+                    }
+                }
+
+                self.store
+                    .update_account(&account_data.account)
+                    .await
+                    .map_err(ClientError::StoreError)
+            },
+        }
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
@@ -190,36 +244,27 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
-    /// seeds used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
     pub async fn get_account_headers(
         &self,
-    ) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
+    ) -> Result<Vec<(AccountHeader, AccountStatus)>, ClientError> {
         self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
-    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
-    /// otherwise it will be `None`.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
+    /// Retrieves a full [AccountRecord] object for the specified `account_id`. This result
+    /// represents data for the latest state known to the client, alongside its status.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    pub async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), ClientError> {
+    pub async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, ClientError> {
         self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
-    /// used to create it. The seed will be returned if the account is new, otherwise it
-    /// will be `None`.
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
@@ -229,7 +274,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn get_account_header_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), ClientError> {
+    ) -> Result<(AccountHeader, AccountStatus), ClientError> {
         self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
@@ -237,14 +282,47 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns a [ClientError::StoreError] with a
-    /// [StoreError::AccountDataNotFound](crate::store::StoreError::AccountDataNotFound) if the
-    /// provided ID does not correspond to an existing account.
+    /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound] if the provided
+    /// ID does not correspond to an existing account.
     pub async fn get_account_auth(
         &self,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, ClientError> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
+    }
+}
+
+// ACCOUNT UPDATES
+// ================================================================================================
+
+/// Contains account changes to apply to the store.
+pub struct AccountUpdates {
+    /// Updated public accounts.
+    updated_onchain_accounts: Vec<Account>,
+    /// Node account hashes that do not match the tracked information.
+    mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+}
+
+impl AccountUpdates {
+    /// Creates a new instance of `AccountUpdates`.
+    pub fn new(
+        updated_onchain_accounts: Vec<Account>,
+        mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+    ) -> Self {
+        Self {
+            updated_onchain_accounts,
+            mismatched_offchain_accounts,
+        }
+    }
+
+    /// Returns the updated public accounts.
+    pub fn updated_onchain_accounts(&self) -> &[Account] {
+        &self.updated_onchain_accounts
+    }
+
+    /// Returns the mismatched offchain accounts.
+    pub fn mismatched_offchain_accounts(&self) -> &[(AccountId, Digest)] {
+        &self.mismatched_offchain_accounts
     }
 }
 
@@ -322,7 +400,7 @@ pub mod tests {
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data).await.unwrap();
+            client.import_account(account_data, false).await.unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data
