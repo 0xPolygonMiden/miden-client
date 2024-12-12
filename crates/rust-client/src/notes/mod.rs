@@ -33,9 +33,7 @@ pub use miden_objects::{
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 
-// MIDEN CLIENT
-// ================================================================================================
-
+/// Note retrieval methods
 impl<R: FeltRng> Client<R> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------

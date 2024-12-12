@@ -35,6 +35,8 @@ pub use unverified::UnverifiedNoteState;
 use super::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
+
+/// The possible states of a tracked note.
 pub enum InputNoteState {
     /// Tracked by the client but without a chain inclusion proof.
     Expected(ExpectedNoteState),

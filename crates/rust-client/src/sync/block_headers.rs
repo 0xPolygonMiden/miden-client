@@ -14,6 +14,7 @@ use crate::{
     Client, ClientError,
 };
 
+/// Network information management methods
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
