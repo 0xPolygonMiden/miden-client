@@ -11,8 +11,8 @@ FEATURES_CLIENT=--features "testing, concurrent"
 FEATURES_CLI=--features "testing, concurrent"
 NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="next"
-PROVER_BRANCH="next"
+NODE_BRANCH="main"
+PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
