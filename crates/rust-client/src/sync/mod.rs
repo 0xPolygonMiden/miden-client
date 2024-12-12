@@ -527,7 +527,7 @@ impl<R: FeltRng> Client<R> {
 
                     return_notes.push(InputNoteRecord::new(
                         note.into(),
-                        None,
+                        self.store.get_current_timestamp(),
                         CommittedNoteState {
                             metadata,
                             inclusion_proof,

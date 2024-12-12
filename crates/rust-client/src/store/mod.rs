@@ -65,6 +65,15 @@ pub use note_record::{
 /// not `&mut self`.
 #[async_trait(?Send)]
 pub trait Store: Send + Sync {
+    /// Returns the current timestamp tracked by the store, measured in non-leap seconds since
+    /// Unix epoch. If the store implementation is incapable of tracking time, it should return
+    /// `None`.
+    ///
+    /// This method is used to add time metadata to notes' states. This information doesn't have a
+    /// functional impact on the client's operation, it's shown to the user for informational
+    /// purposes.
+    fn get_current_timestamp(&self) -> Option<u64>;
+
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 

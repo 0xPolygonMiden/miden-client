@@ -442,7 +442,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         matches!(
             err,
             ClientError::TransactionExecutorError(
-                TransactionExecutorError::ExecuteTransactionProgramFailed(_)
+                TransactionExecutorError::TransactionProgramExecutionFailed(_)
             )
         )
     }));
@@ -1314,9 +1314,7 @@ async fn test_custom_transaction_prover() {
             &self,
             _tx_witness: TransactionWitness,
         ) -> Result<ProvenTransaction, TransactionProverError> {
-            return Err(TransactionProverError::InternalError(
-                "This prover always fails".to_string(),
-            ));
+            return Err(TransactionProverError::other("This prover always fails"));
         }
     }
 
@@ -1350,7 +1348,10 @@ async fn test_custom_transaction_prover() {
 
     assert!(matches!(
         result,
-        Err(ClientError::TransactionProvingError(TransactionProverError::InternalError(_)))
+        Err(ClientError::TransactionProvingError(TransactionProverError::Other {
+            error_msg: _,
+            source: _
+        }))
     ));
 }
 

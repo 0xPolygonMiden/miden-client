@@ -151,8 +151,10 @@ impl InputNoteState {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
-        self.inner().consumed_locally(consumer_account, consumer_transaction)
+        self.inner()
+            .consumed_locally(consumer_account, consumer_transaction, current_timestamp)
     }
 
     /// Returns a new state to reflect that the transaction currently consuming the note was
@@ -318,6 +320,7 @@ pub trait NoteStateHandler {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn transaction_committed(
