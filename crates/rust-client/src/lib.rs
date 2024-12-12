@@ -73,8 +73,11 @@ pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 /// client library.
 pub mod utils {
     pub use miden_lib::accounts::{
-        faucets::create_basic_fungible_faucet, wallets::create_basic_wallet,
+        auth::RpoFalcon512 as RpoFalcon512Component,
+        faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
+        wallets::BasicWallet as BasicWalletComponent,
     };
+    pub use miden_objects::accounts::AccountBuilder;
     pub use miden_tx::utils::{
         bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
         Serializable,

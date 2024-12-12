@@ -2,9 +2,11 @@ use clap::{Parser, ValueEnum};
 use miden_client::{
     accounts::{AccountStorageMode, AccountType},
     assets::TokenSymbol,
-    auth::{AuthScheme, AuthSecretKey},
+    auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
-    utils::{create_basic_fungible_faucet, create_basic_wallet},
+    utils::{
+        AccountBuilder, BasicFungibleFaucetComponent, BasicWalletComponent, RpoFalcon512Component,
+    },
     Client, Felt,
 };
 
@@ -64,24 +66,27 @@ impl NewFaucetCmd {
 
         let key_pair = SecretKey::with_rng(client.rng());
 
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
         let mut init_seed = [0u8; 32];
         client.rng().fill_bytes(&mut init_seed);
 
-        let (new_account, seed) = create_basic_fungible_faucet(
-            init_seed,
-            TokenSymbol::new(token_symbol.as_str())
-                .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-            decimals,
-            Felt::try_from(
-                self.max_supply.expect("max supply must be provided").to_le_bytes().as_slice(),
-            )
-            .expect("u64 can be safely converted to a field element"),
-            self.storage_mode.into(),
-            auth_scheme,
+        let symbol = TokenSymbol::new(token_symbol.as_str())
+            .map_err(|err| format!("error: token symbol is invalid: {}", err))?;
+        let max_supply = Felt::try_from(
+            self.max_supply.expect("max supply must be provided").to_le_bytes().as_slice(),
         )
-        .map_err(|err| format!("error: failed to create faucet: {}", err))?;
+        .expect("u64 can be safely converted to a field element");
+
+        let (new_account, seed) = AccountBuilder::new()
+            .init_seed(init_seed)
+            .account_type(AccountType::FungibleFaucet)
+            .storage_mode(self.storage_mode.into())
+            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+            .with_component(
+                BasicFungibleFaucetComponent::new(symbol, decimals, max_supply)
+                    .map_err(|err| format!("error: failed to create faucet: {}", err))?,
+            )
+            .build()
+            .map_err(|err| format!("error: failed to create faucet: {}", err))?;
 
         client
             .import_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
@@ -112,8 +117,6 @@ impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let key_pair = SecretKey::with_rng(client.rng());
 
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
         let mut init_seed = [0u8; 32];
         client.rng().fill_bytes(&mut init_seed);
 
@@ -123,9 +126,14 @@ impl NewWalletCmd {
             AccountType::RegularAccountImmutableCode
         };
 
-        let (new_account, seed) =
-            create_basic_wallet(init_seed, auth_scheme, account_type, self.storage_mode.into())
-                .map_err(|err| format!("error: failed to create wallet: {}", err))?;
+        let (new_account, seed) = AccountBuilder::new()
+            .init_seed(init_seed)
+            .account_type(account_type)
+            .storage_mode(self.storage_mode.into())
+            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+            .with_component(BasicWalletComponent)
+            .build()
+            .map_err(|err| format!("error: failed to create wallet: {}", err))?;
 
         client
             .import_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)

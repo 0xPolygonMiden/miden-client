@@ -2,10 +2,11 @@ use miden_client::{
     accounts::AccountType,
     auth::AuthSecretKey,
     crypto::SecretKey,
-    utils::{create_basic_fungible_faucet, create_basic_wallet},
+    utils::{
+        AccountBuilder, BasicFungibleFaucetComponent, BasicWalletComponent, RpoFalcon512Component,
+    },
     Felt,
 };
-use miden_lib::AuthScheme;
 use miden_objects::assets::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
@@ -22,9 +23,6 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
 
-            let auth_scheme: AuthScheme =
-                AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
             let mut init_seed = [0u8; 32];
             client.rng().fill_bytes(&mut init_seed);
 
@@ -34,12 +32,14 @@ impl WebClient {
                 AccountType::RegularAccountImmutableCode
             };
 
-            let (new_account, seed) = match create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                account_type,
-                storage_mode.into(),
-            ) {
+            let (new_account, seed) = match AccountBuilder::new()
+                .init_seed(init_seed)
+                .account_type(account_type)
+                .storage_mode(storage_mode.into())
+                .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+                .with_component(BasicWalletComponent)
+                .build()
+            {
                 Ok(result) => result,
                 Err(err) => {
                     let error_message = format!("Failed to create new wallet: {:?}", err);
@@ -82,21 +82,30 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
 
-            let auth_scheme: AuthScheme =
-                AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
             let mut init_seed = [0u8; 32];
             client.rng().fill_bytes(&mut init_seed);
 
-            let (new_account, seed) = match create_basic_fungible_faucet(
-                init_seed,
-                TokenSymbol::new(token_symbol).map_err(|e| JsValue::from_str(&e.to_string()))?,
-                decimals,
-                Felt::try_from(max_supply.to_le_bytes().as_slice())
-                    .expect("u64 can be safely converted to a field element"),
-                storage_mode.into(),
-                auth_scheme,
-            ) {
+            let symbol =
+                TokenSymbol::new(token_symbol).map_err(|e| JsValue::from_str(&e.to_string()))?;
+            let max_supply = Felt::try_from(max_supply.to_le_bytes().as_slice())
+                .expect("u64 can be safely converted to a field element");
+
+            let (new_account, seed) = match AccountBuilder::new()
+                .init_seed(init_seed)
+                .account_type(AccountType::FungibleFaucet)
+                .storage_mode(storage_mode.into())
+                .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+                .with_component(
+                    BasicFungibleFaucetComponent::new(symbol, decimals, max_supply).map_err(
+                        |err| {
+                            JsValue::from_str(
+                                format!("Failed to create new faucet: {}", err).as_str(),
+                            )
+                        },
+                    )?,
+                )
+                .build()
+            {
                 Ok(result) => result,
                 Err(err) => {
                     let error_message = format!("Failed to create new faucet: {:?}", err);
