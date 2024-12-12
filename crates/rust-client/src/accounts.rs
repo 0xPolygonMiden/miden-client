@@ -6,8 +6,13 @@
 
 use alloc::vec::Vec;
 
+pub use miden_lib::accounts::{
+    auth::RpoFalcon512 as RpoFalcon512Component,
+    faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
+    wallets::BasicWallet as BasicWalletComponent,
+};
 pub use miden_objects::accounts::{
-    Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
 use miden_objects::{accounts::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
@@ -22,8 +27,10 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Saves the [Account] contained in `account_data` in the store. If the account is already
-    /// being tracked and `overwrite` is set to `true`, the account will be overwritten.
+    /// Saves the [Account] in the store so it can start being tracked by the client. If the account
+    /// is already being tracked and `overwrite` is set to `true`, the account will be
+    /// overwritten. The `account_seed` should be provided if the account is newly created. The
+    /// `auth_secret_key` is used to authenticate the account, it's stored but not exposed.
     ///
     /// # Errors
     ///
@@ -62,7 +69,7 @@ impl<R: FeltRng> Client<R> {
             Err(StoreError::AccountDataNotFound(_)) => {
                 // If the account is not being tracked, insert it into the store regardless of the
                 // `overwrite` flag
-                self.store.add_note_tag((account).try_into()?).await?;
+                self.store.add_note_tag(account.try_into()?).await?;
 
                 self.store
                     .insert_account(account, account_seed, auth_secret_key)

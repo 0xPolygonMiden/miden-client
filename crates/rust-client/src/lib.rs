@@ -72,12 +72,6 @@ pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
-    pub use miden_lib::accounts::{
-        auth::RpoFalcon512 as RpoFalcon512Component,
-        faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
-        wallets::BasicWallet as BasicWalletComponent,
-    };
-    pub use miden_objects::accounts::AccountBuilder;
     pub use miden_tx::utils::{
         bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
         Serializable,

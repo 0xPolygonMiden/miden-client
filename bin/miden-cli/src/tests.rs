@@ -8,13 +8,16 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    accounts::{AccountId, AccountStorageMode, AccountType},
+    self,
+    accounts::{
+        AccountBuilder, AccountId, AccountStorageMode, AccountType, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
     auth::AuthSecretKey,
     crypto::{RpoRandomCoin, SecretKey},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
-    utils::{AccountBuilder, BasicWalletComponent, RpoFalcon512Component},
     Client, Felt,
 };
 use rand::Rng;

@@ -1,10 +1,10 @@
 use miden_client::{
-    accounts::AccountType,
+    accounts::{
+        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
     auth::AuthSecretKey,
     crypto::SecretKey,
-    utils::{
-        AccountBuilder, BasicFungibleFaucetComponent, BasicWalletComponent, RpoFalcon512Component,
-    },
     Felt,
 };
 use miden_objects::assets::TokenSymbol;

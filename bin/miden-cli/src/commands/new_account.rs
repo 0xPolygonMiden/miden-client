@@ -1,12 +1,12 @@
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::{AccountStorageMode, AccountType},
+    accounts::{
+        AccountBuilder, AccountStorageMode, AccountType, BasicFungibleFaucetComponent,
+        BasicWalletComponent, RpoFalcon512Component,
+    },
     assets::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
-    utils::{
-        AccountBuilder, BasicFungibleFaucetComponent, BasicWalletComponent, RpoFalcon512Component,
-    },
     Client, Felt,
 };
 
