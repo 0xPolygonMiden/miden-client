@@ -6,17 +6,16 @@
 
 use alloc::vec::Vec;
 
-use miden_lib::AuthScheme;
+pub use miden_lib::accounts::{
+    auth::RpoFalcon512 as RpoFalcon512Component,
+    faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
+    wallets::BasicWallet as BasicWalletComponent,
+};
 pub use miden_objects::accounts::{
-    Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
-use miden_objects::{
-    accounts::AuthSecretKey,
-    assets::TokenSymbol,
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    Digest, Felt, Word,
-};
+use miden_objects::{accounts::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
 use super::Client;
 use crate::{
@@ -24,59 +23,14 @@ use crate::{
     ClientError,
 };
 
-/// Defines templates for creating different types of Miden accounts.
-pub enum AccountTemplate {
-    /// The `BasicWallet` variant represents a regular wallet account.
-    BasicWallet {
-        /// A boolean indicating whether the account's code can be modified after creation.
-        mutable_code: bool,
-        /// Specifies the type of storage used by the account. This is defined by the
-        /// `AccountStorageMode` enum.
-        storage_mode: AccountStorageMode,
-    },
-
-    /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
-    FungibleFaucet {
-        /// The symbol of the token being issued by the faucet.
-        token_symbol: TokenSymbol,
-        /// The number of decimal places used by the token.
-        decimals: u8,
-        /// The maximum supply of tokens that the faucet can issue.
-        max_supply: u64,
-        /// Specifies the type of storage used by the account.
-        storage_mode: AccountStorageMode,
-    },
-}
-
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
-    /// new tag derived from the account will start being tracked by the client.
-    pub async fn new_account(
-        &mut self,
-        template: AccountTemplate,
-    ) -> Result<(Account, Word), ClientError> {
-        let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
-                self.new_basic_wallet(mutable_code, storage_mode).await
-            },
-            AccountTemplate::FungibleFaucet {
-                token_symbol,
-                decimals,
-                max_supply,
-                storage_mode,
-            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
-        }?;
-
-        self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
-
-        Ok(account_and_seed)
-    }
-
-    /// Saves the [Account] contained in `account_data` in the store. If the account is already
-    /// being tracked and `overwrite` is set to `true`, the account will be overwritten.
+    /// Saves the [Account] in the store so it can start being tracked by the client. If the account
+    /// is already being tracked and `overwrite` is set to `true`, the account will be
+    /// overwritten. The `account_seed` should be provided if the account is newly created. The
+    /// `auth_secret_key` is used to authenticate the account, it's stored but not exposed.
     ///
     /// # Errors
     ///
@@ -86,18 +40,14 @@ impl<R: FeltRng> Client<R> {
     ///   being tracked
     /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
     ///   account hash
-    ///
-    /// # Panics
-    ///
-    /// Will panic when trying to import a non-new account without a seed since this functionality
-    /// is not currently implemented
     pub async fn import_account(
         &mut self,
-        account_data: AccountData,
+        account: &Account,
+        account_seed: Option<Word>,
+        auth_secret_key: &AuthSecretKey,
         overwrite: bool,
     ) -> Result<(), ClientError> {
-        let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
-        {
+        let account_seed = if !account.is_new() && account_seed.is_some() {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
             // Ignore the seed since it's not a new account
 
@@ -106,32 +56,34 @@ impl<R: FeltRng> Client<R> {
             // approach seems a little bit more incorrect
             None
         } else {
-            account_data.account_seed
+            account_seed
         };
 
-        let tracked_account = self.store.get_account(account_data.account.id()).await;
+        if account.is_new() && account_seed.is_none() {
+            return Err(ClientError::ImportNewAccountWithoutSeed);
+        }
+
+        let tracked_account = self.store.get_account(account.id()).await;
 
         match tracked_account {
             Err(StoreError::AccountDataNotFound(_)) => {
                 // If the account is not being tracked, insert it into the store regardless of the
                 // `overwrite` flag
-                self.insert_account(
-                    &account_data.account,
-                    account_seed,
-                    &account_data.auth_secret_key,
-                )
-                .await
+                self.store.add_note_tag(account.try_into()?).await?;
+
+                self.store
+                    .insert_account(account, account_seed, auth_secret_key)
+                    .await
+                    .map_err(ClientError::StoreError)
             },
             Err(err) => Err(ClientError::StoreError(err)),
             Ok(tracked_account) => {
                 if !overwrite {
                     // Only overwrite the account if the flag is set to `true`
-                    return Err(ClientError::AccountAlreadyTracked(account_data.account.id()));
+                    return Err(ClientError::AccountAlreadyTracked(account.id()));
                 }
 
-                if tracked_account.account().nonce().as_int()
-                    > account_data.account.nonce().as_int()
-                {
+                if tracked_account.account().nonce().as_int() > account.nonce().as_int() {
                     // If the new account is older than the one being tracked, return an error
                     return Err(ClientError::AccountNonceTooLow);
                 }
@@ -140,105 +92,15 @@ impl<R: FeltRng> Client<R> {
                     // If the tracked account is locked, check that the account hash matches the one
                     // in the network
                     let network_account_hash =
-                        self.rpc_api.get_account_update(account_data.account.id()).await?.hash();
-                    if network_account_hash != account_data.account.hash() {
+                        self.rpc_api.get_account_update(account.id()).await?.hash();
+                    if network_account_hash != account.hash() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
                 }
 
-                self.store
-                    .update_account(&account_data.account)
-                    .await
-                    .map_err(ClientError::StoreError)
+                self.store.update_account(account).await.map_err(ClientError::StoreError)
             },
         }
-    }
-
-    /// Creates a new regular account and saves it in the store along with its seed and auth data
-    async fn new_basic_wallet(
-        &mut self,
-        mutable_code: bool,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<(Account, Word), ClientError> {
-        let key_pair = SecretKey::with_rng(&mut self.rng);
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
-        // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8; 32];
-        self.rng.fill_bytes(&mut init_seed);
-
-        let (account, seed) = if !mutable_code {
-            miden_lib::accounts::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountImmutableCode,
-                account_storage_mode,
-            )
-        } else {
-            miden_lib::accounts::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountUpdatableCode,
-                account_storage_mode,
-            )
-        }?;
-
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
-            .await?;
-        Ok((account, seed))
-    }
-
-    async fn new_fungible_faucet(
-        &mut self,
-        token_symbol: TokenSymbol,
-        decimals: u8,
-        max_supply: u64,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<(Account, Word), ClientError> {
-        let key_pair = SecretKey::with_rng(&mut self.rng);
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
-        // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8; 32];
-        self.rng.fill_bytes(&mut init_seed);
-
-        let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
-            init_seed,
-            token_symbol,
-            decimals,
-            Felt::try_from(max_supply.to_le_bytes().as_slice())
-                .expect("u64 can be safely converted to a field element"),
-            account_storage_mode,
-            auth_scheme,
-        )?;
-
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
-            .await?;
-        Ok((account, seed))
-    }
-
-    /// Inserts a new account into the client's store.
-    ///
-    /// # Errors
-    ///
-    /// If an account is new and no seed is provided, the function errors out because the client
-    /// cannot execute transactions against new accounts for which it does not know the seed.
-    pub async fn insert_account(
-        &mut self,
-        account: &Account,
-        account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
-    ) -> Result<(), ClientError> {
-        if account.is_new() && account_seed.is_none() {
-            return Err(ClientError::ImportNewAccountWithoutSeed);
-        }
-
-        self.store
-            .insert_account(account, account_seed, auth_info)
-            .await
-            .map_err(ClientError::StoreError)
     }
 
     // ACCOUNT DATA RETRIEVAL
@@ -383,11 +245,16 @@ pub mod tests {
         let key_pair = SecretKey::new();
 
         assert!(client
-            .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+            .import_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
             .await
             .is_err());
         assert!(client
-            .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+            .import_account(
+                &account,
+                Some(Word::default()),
+                &AuthSecretKey::RpoFalcon512(key_pair),
+                false
+            )
             .await
             .is_ok());
     }
@@ -400,7 +267,15 @@ pub mod tests {
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data, false).await.unwrap();
+            client
+                .import_account(
+                    &account_data.account,
+                    account_data.account_seed,
+                    &account_data.auth_secret_key,
+                    false,
+                )
+                .await
+                .unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data

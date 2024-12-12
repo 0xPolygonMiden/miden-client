@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountId},
@@ -26,11 +26,6 @@ impl<R: FeltRng> Client<R> {
     /// retrieved automatically by the client when syncing.
     pub async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
         self.store.get_note_tags().await.map_err(|err| err.into())
-    }
-
-    /// Returns the unique note tags (without source) that the client is interested in.
-    pub async fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
-        self.store.get_unique_note_tags().await.map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
