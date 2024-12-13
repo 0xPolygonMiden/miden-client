@@ -7,16 +7,14 @@ use miden_client::{
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
+    testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transactions::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
     Client, ClientError,
 };
 use miden_objects::{
-    accounts::{
-        account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
-        AccountId, AccountStorageMode,
-    },
+    accounts::{Account, AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
@@ -27,7 +25,7 @@ use rand::Rng;
 use toml::Table;
 use uuid::Uuid;
 
-pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
+pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<RpoRandomCoin>;
 

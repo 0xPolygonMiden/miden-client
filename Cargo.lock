@@ -1885,7 +1885,7 @@ dependencies = [
  "comfy-table",
  "figment",
  "miden-client",
- "miden-tx-prover",
+ "miden-tx-prover 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "rand",
  "serde",
  "tokio",
@@ -1905,10 +1905,10 @@ dependencies = [
  "deadpool-sqlite",
  "hex",
  "miden-client",
- "miden-lib",
- "miden-objects",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "miden-rpc-proto",
- "miden-tx",
+ "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "miette",
  "pollster",
  "prost",
@@ -1936,8 +1936,8 @@ version = "0.6.0"
 dependencies = [
  "async-trait",
  "miden-client",
- "miden-lib",
- "miden-objects",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "rand",
  "tokio",
  "toml",
@@ -1951,9 +1951,9 @@ version = "0.6.0"
 dependencies = [
  "console_error_panic_hook",
  "miden-client",
- "miden-lib",
- "miden-objects",
- "miden-tx-prover",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-tx-prover 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
  "rand",
  "serde",
  "serde-wasm-bindgen",
@@ -2016,7 +2016,20 @@ version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#7dfc1c3d96c5604a4d453c4ca72ba7a21759b94f"
 dependencies = [
  "miden-assembly",
- "miden-objects",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-stdlib",
+ "regex",
+ "thiserror 2.0.6",
+ "walkdir",
+]
+
+[[package]]
+name = "miden-lib"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor#1421ada51b9d94525d49061e19b0706dbfd3825b"
+dependencies = [
+ "miden-assembly",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "miden-stdlib",
  "regex",
  "thiserror 2.0.6",
@@ -2069,6 +2082,22 @@ dependencies = [
 name = "miden-objects"
 version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#7dfc1c3d96c5604a4d453c4ca72ba7a21759b94f"
+dependencies = [
+ "getrandom",
+ "miden-assembly",
+ "miden-core",
+ "miden-crypto",
+ "miden-processor",
+ "miden-verifier",
+ "rand",
+ "thiserror 2.0.6",
+ "winter-rand-utils",
+]
+
+[[package]]
+name = "miden-objects"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor#1421ada51b9d94525d49061e19b0706dbfd3825b"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2146,8 +2175,25 @@ version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#7dfc1c3d96c5604a4d453c4ca72ba7a21759b94f"
 dependencies = [
  "async-trait",
- "miden-lib",
- "miden-objects",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-processor",
+ "miden-prover",
+ "miden-verifier",
+ "rand",
+ "rand_chacha",
+ "thiserror 2.0.6",
+ "winter-maybe-async",
+]
+
+[[package]]
+name = "miden-tx"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor#1421ada51b9d94525d49061e19b0706dbfd3825b"
+dependencies = [
+ "async-trait",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "miden-processor",
  "miden-prover",
  "miden-verifier",
@@ -2163,12 +2209,44 @@ version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#7dfc1c3d96c5604a4d453c4ca72ba7a21759b94f"
 dependencies = [
  "async-trait",
+ "clap 4.5.23",
+ "figment",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miette",
+ "once_cell",
+ "pingora",
+ "pingora-core",
+ "pingora-limits",
+ "pingora-proxy",
+ "prost",
+ "prost-build",
+ "protox",
+ "reqwest",
+ "serde",
+ "serde_qs",
+ "toml",
+ "tonic",
+ "tonic-build",
+ "tonic-health",
+ "tonic-web-wasm-client",
+ "uuid",
+ "winter-maybe-async",
+]
+
+[[package]]
+name = "miden-tx-prover"
+version = "0.7.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor#1421ada51b9d94525d49061e19b0706dbfd3825b"
+dependencies = [
+ "async-trait",
  "axum",
  "clap 4.5.23",
  "figment",
- "miden-lib",
- "miden-objects",
- "miden-tx",
+ "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
+ "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=pgackst-account-id-refactor)",
  "miette",
  "once_cell",
  "pingora",

@@ -15,7 +15,7 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    Digest, Felt, Word,
+    BlockHeader, Digest, Felt, Word,
 };
 
 use super::Client;
@@ -58,16 +58,22 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
+        let sync_height = self.get_sync_height().await?;
+        let (block, _) = self.store.get_block_header_by_num(sync_height).await?;
+
         let account_and_seed = match template {
             AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
-                self.new_basic_wallet(mutable_code, storage_mode).await
+                self.new_basic_wallet(mutable_code, storage_mode, &block).await
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
                 storage_mode,
-            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
+            } => {
+                self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode, &block)
+                    .await
+            },
         }?;
 
         self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
@@ -159,6 +165,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         mutable_code: bool,
         account_storage_mode: AccountStorageMode,
+        anchor_block: &BlockHeader,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -171,6 +178,7 @@ impl<R: FeltRng> Client<R> {
         let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
+                anchor_block,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
                 account_storage_mode,
@@ -178,6 +186,7 @@ impl<R: FeltRng> Client<R> {
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
+                anchor_block,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
                 account_storage_mode,
@@ -195,6 +204,7 @@ impl<R: FeltRng> Client<R> {
         decimals: u8,
         max_supply: u64,
         account_storage_mode: AccountStorageMode,
+        anchor_block: &BlockHeader,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -206,6 +216,7 @@ impl<R: FeltRng> Client<R> {
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
+            anchor_block,
             token_symbol,
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
@@ -335,19 +346,17 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-            },
-            Account, AccountData, AuthSecretKey,
-        },
+        accounts::{Account, AccountData, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
+        testing::account_id::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        },
         Felt, Word,
     };
 
     use crate::mock::create_test_client;
 
-    fn create_account_data(account_id: u64) -> AccountData {
+    fn create_account_data(account_id: u128) -> AccountData {
         let account =
             Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 

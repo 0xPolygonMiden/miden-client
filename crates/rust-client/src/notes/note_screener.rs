@@ -79,15 +79,18 @@ impl NoteScreener {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
+        let account_id_first_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 1))?;
+            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
+        let account_id_second_felt = note_inputs_iter
+            .next()
+            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 1).into());
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
         }
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id = AccountId::try_from([*account_id_first_felt, *account_id_second_felt])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         if !account_ids.contains(&account_id) {
@@ -101,15 +104,18 @@ impl NoteScreener {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
+        let account_id_first_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
+            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 3))?;
+        let account_id_second_felt = note_inputs_iter
+            .next()
+            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 3))?;
         let recall_height_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
+            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 3))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 3).into());
         }
 
         let sender = note.metadata().sender();
@@ -117,7 +123,7 @@ impl NoteScreener {
             InvalidNoteInputsError::BlockNumberError(note.id(), recall_height_felt.as_int())
         })?;
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id = AccountId::try_from([*account_id_first_felt, *account_id_second_felt])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         Ok(vec![
@@ -153,8 +159,6 @@ impl NoteScreener {
             Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
                 .try_into()
                 .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
-        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])
-            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         let mut accounts_with_relevance = Vec::new();
 
@@ -170,14 +174,16 @@ impl NoteScreener {
                 {
                     accounts_with_relevance.push((*account_id, NoteRelevance::Always))
                 },
-                Asset::Fungible(fungible_asset)
+                Asset::Fungible(fungible_asset) => {
+                    let asset_faucet_id = fungible_asset.faucet_id();
                     if account
                         .vault()
                         .get_balance(asset_faucet_id)
                         .expect("Should be able to query get_balance for an Asset::Fungible")
-                        >= fungible_asset.amount() =>
-                {
-                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                        >= fungible_asset.amount()
+                    {
+                        accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                    }
                 },
                 _ => {},
             }
