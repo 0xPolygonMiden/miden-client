@@ -474,7 +474,10 @@ mod tests {
     use miden_objects::{
         accounts::{AccountCode, AccountComponent, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
-        testing::account_component::BASIC_WALLET_CODE,
+        testing::{
+            account_component::BASIC_WALLET_CODE,
+            account_id::ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        },
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -546,7 +549,8 @@ mod tests {
 
         let store = create_test_store().await;
 
-        let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
+        let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN)
+            .expect("account id is valid");
         {
             let exp_key_pair_clone = exp_key_pair.clone();
             store

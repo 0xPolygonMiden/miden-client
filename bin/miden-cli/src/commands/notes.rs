@@ -223,9 +223,11 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 
                 ("Fungible Asset", faucet, amount)
             },
-            Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
-            },
+            Asset::NonFungible(non_fungible_asset) => (
+                "Non Fungible Asset",
+                non_fungible_asset.faucet_id().to_string(),
+                1.0.to_string(),
+            ),
         };
         table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
     }

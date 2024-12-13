@@ -326,7 +326,7 @@ mod tests {
 
     use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountBuilder, AccountId, AccountType},
+        accounts::{AccountBuilder, AccountId, AccountStorageMode, AccountType},
         assets::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
         notes::{NoteExecutionMode, NoteTag, NoteType},
@@ -340,9 +340,21 @@ mod tests {
 
     #[test]
     fn transaction_request_serialization() {
-        let sender_id = AccountId::new_dummy([0u8; 32], AccountType::RegularAccountImmutableCode);
-        let target_id = AccountId::new_dummy([1u8; 32], AccountType::RegularAccountImmutableCode);
-        let faucet_id = AccountId::new_dummy([2u8; 32], AccountType::FungibleFaucet);
+        let sender_id = AccountId::new_dummy(
+            [0u8; 15],
+            AccountType::RegularAccountImmutableCode,
+            AccountStorageMode::Private,
+        );
+        let target_id = AccountId::new_dummy(
+            [1u8; 15],
+            AccountType::RegularAccountImmutableCode,
+            AccountStorageMode::Private,
+        );
+        let faucet_id = AccountId::new_dummy(
+            [2u8; 15],
+            AccountType::FungibleFaucet,
+            AccountStorageMode::Private,
+        );
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];

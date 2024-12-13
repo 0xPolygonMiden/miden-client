@@ -270,7 +270,9 @@ fn create_custom_note(
         .replace("{mem_address_2}", &(mem_addr + 1).to_string());
     let note_script = client.compile_note_script(&note_script).unwrap();
 
-    let inputs = NoteInputs::new(vec![target_account_id.into()]).unwrap();
+    let inputs =
+        NoteInputs::new(vec![target_account_id.first_felt(), target_account_id.second_felt()])
+            .unwrap();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
