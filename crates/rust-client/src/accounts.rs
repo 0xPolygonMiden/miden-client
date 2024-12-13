@@ -58,12 +58,11 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
-        let sync_height = self.get_sync_height().await?;
-        let (block, _) = self.store.get_block_header_by_num(sync_height).await?;
+        let anchor_block = self.get_anchor_block().await?;
 
         let account_and_seed = match template {
             AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
-                self.new_basic_wallet(mutable_code, storage_mode, &block).await
+                self.new_basic_wallet(mutable_code, storage_mode, &anchor_block).await
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
@@ -71,8 +70,14 @@ impl<R: FeltRng> Client<R> {
                 max_supply,
                 storage_mode,
             } => {
-                self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode, &block)
-                    .await
+                self.new_fungible_faucet(
+                    token_symbol,
+                    decimals,
+                    max_supply,
+                    storage_mode,
+                    &anchor_block,
+                )
+                .await
             },
         }?;
 

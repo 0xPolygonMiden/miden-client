@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
+    block::Block,
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -176,6 +177,25 @@ impl<R: FeltRng> Client<R> {
         self.store.insert_chain_mmr_nodes(&path_nodes).await?;
 
         Ok(block_header)
+    }
+
+    pub async fn get_anchor_block(&mut self) -> Result<BlockHeader, ClientError> {
+        self.ensure_genesis_in_place().await?;
+
+        let sync_height = self.get_sync_height().await?;
+        let anchor_epoch = sync_height >> BlockHeader::EPOCH_LENGTH_EXPONENT;
+        let anchor_block_number = anchor_epoch << BlockHeader::EPOCH_LENGTH_EXPONENT;
+
+        if anchor_block_number == 0 {
+            return Ok(self.store.get_block_header_by_num(0).await?.0);
+        }
+
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let anchor_block = self
+            .get_and_store_authenticated_block(anchor_block_number, &mut current_partial_mmr)
+            .await?;
+
+        Ok(anchor_block)
     }
 }
 
