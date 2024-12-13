@@ -68,6 +68,12 @@ impl DataStore for ClientDataStore {
         let mut list_of_notes = vec![];
         let mut block_nums: Vec<u32> = vec![];
 
+        // Add anchor block to partial MMR
+        let anchor_block = (account_id.anchor_epoch() as u32) << BlockHeader::EPOCH_LENGTH_EXPONENT;
+        if anchor_block != block_num {
+            block_nums.push(anchor_block);
+        }
+
         for (_note_id, note_record) in input_note_records {
             let input_note: InputNote =
                 note_record.try_into().map_err(|err: NoteRecordError| {
@@ -89,9 +95,6 @@ impl DataStore for ClientDataStore {
             }
         }
 
-        // Add anchor block to partial MMR
-        block_nums.push(account_id.anchor_epoch() as u32 >> BlockHeader::EPOCH_LENGTH_EXPONENT);
-
         let block_headers: Vec<BlockHeader> = self
             .store
             .get_block_headers(&block_nums)
@@ -101,8 +104,8 @@ impl DataStore for ClientDataStore {
             .collect();
 
         let partial_mmr =
-            build_partial_mmr_with_paths(&self.store, block_num, &block_headers).await;
-        let chain_mmr = ChainMmr::new(partial_mmr?, block_headers).map_err(|err| {
+            build_partial_mmr_with_paths(&self.store, block_num, &block_headers).await?;
+        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
             DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
         })?;
 
@@ -138,7 +141,8 @@ async fn build_partial_mmr_with_paths(
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
             .track(header.block_num() as usize, header.hash(), path)
-            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))?;
+            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))
+            .unwrap();
     }
 
     Ok(partial_mmr)

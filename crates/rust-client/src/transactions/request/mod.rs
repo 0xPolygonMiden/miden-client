@@ -348,7 +348,7 @@ mod tests {
         let target_id = AccountId::new_dummy(
             [1u8; 15],
             AccountType::RegularAccountImmutableCode,
-            AccountStorageMode::Private,
+            AccountStorageMode::Public,
         );
         let faucet_id = AccountId::new_dummy(
             [2u8; 15],

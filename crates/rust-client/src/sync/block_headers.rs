@@ -2,7 +2,6 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    block::Block,
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -63,7 +62,7 @@ impl<R: FeltRng> Client<R> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false).await?;
+        self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
         Ok(())
     }
 

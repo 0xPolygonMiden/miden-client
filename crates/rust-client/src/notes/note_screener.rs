@@ -79,10 +79,10 @@ impl NoteScreener {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_first_felt = note_inputs_iter
+        let account_id_second_felt = note_inputs_iter
             .next()
             .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
-        let account_id_second_felt = note_inputs_iter
+        let account_id_first_felt = note_inputs_iter
             .next()
             .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
 
@@ -104,10 +104,10 @@ impl NoteScreener {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_first_felt = note_inputs_iter
+        let account_id_second_felt = note_inputs_iter
             .next()
             .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 3))?;
-        let account_id_second_felt = note_inputs_iter
+        let account_id_first_felt = note_inputs_iter
             .next()
             .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 3))?;
         let recall_height_felt = note_inputs_iter
