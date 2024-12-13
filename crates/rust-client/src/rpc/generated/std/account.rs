@@ -6,7 +6,9 @@ pub struct AccountId {
     /// the first word of a hash digest. For this reason account ids can be considered as random
     /// values, because of that the encoding below uses fixed 64 bits, instead of zig-zag encoding.
     #[prost(fixed64, tag = "1")]
-    pub id: u64,
+    pub id1: u64,
+    #[prost(fixed64, tag = "2")]
+    pub id2: u64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct AccountSummary {

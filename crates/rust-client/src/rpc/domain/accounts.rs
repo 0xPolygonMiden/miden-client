@@ -74,7 +74,7 @@ impl AccountUpdateSummary {
 
 impl Display for ProtoAccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("0x{:x}", self.id))
+        f.write_fmt(format_args!("0x{:x}{:x}", self.id1, self.id2))
     }
 }
 
@@ -89,7 +89,10 @@ impl Debug for ProtoAccountId {
 
 impl From<AccountId> for ProtoAccountId {
     fn from(account_id: AccountId) -> Self {
-        Self { id: account_id.into() }
+        Self {
+            id1: account_id.first_felt().into(),
+            id2: account_id.second_felt().into(),
+        }
     }
 }
 
@@ -100,7 +103,8 @@ impl TryFrom<ProtoAccountId> for AccountId {
     type Error = RpcConversionError;
 
     fn try_from(account_id: ProtoAccountId) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| RpcConversionError::NotAValidFelt)
+        AccountId::try_from([Felt::new(account_id.id1), Felt::new(account_id.id2)])
+            .map_err(|_| RpcConversionError::NotAValidFelt)
     }
 }
 
