@@ -11,26 +11,25 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        Account, AccountCode, AccountDelta, AccountHeader, AccountId, AccountStorageHeader,
-        AccountType,
-    },
+    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountType},
     assets::{Asset, NonFungibleAsset},
     crypto::merkle::MerklePath,
     notes::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    vm::AdviceInputs,
     AssetError, Digest, Felt, Word, ZERO,
 };
+use miden_tx::TransactionExecutor;
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
 };
+use request::{ForeignAccount, ForeignAccountInputs};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
     notes::{NoteScreener, NoteUpdates},
+    rpc::domain::accounts::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -365,17 +364,12 @@ impl<R: FeltRng> Client<R> {
         let tx_script = transaction_request
             .build_transaction_script(self.get_account_capabilities(account_id).await?)?;
 
-        // Inject foreign account data
-        let (foreign_data_advice_inputs, foreign_account_codes, fpi_block_num) =
-            self.get_foreign_account_inputs(transaction_request.foreign_accounts()).await?;
+        let foreign_accounts = transaction_request.foreign_accounts().clone();
+        let mut tx_args = transaction_request.into_transaction_args(tx_script);
 
-        let tx_args = transaction_request
-            .into_transaction_args(tx_script)
-            .with_advice_inputs(foreign_data_advice_inputs);
-
-        foreign_account_codes
-            .iter()
-            .for_each(|code| self.tx_executor.load_account_code(code));
+        // Inject state and code of foreign accounts
+        let fpi_block_num =
+            self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
 
         let block_num = if let Some(block_num) = fpi_block_num {
             block_num
@@ -742,63 +736,74 @@ impl<R: FeltRng> Client<R> {
         })
     }
 
-    /// Fetches foreign public account data as needed and returns advice inputs and account codes.
-    /// Additionally, it returns the block number pertinent to the foreign data.
+    /// Injects foreign account data inputs into `tx_args` (account proof, code commitment and
+    /// storage data). Additionally loads the account code into the transaction executor.
+    ///
+    /// For any [ForeignAccount::Public] in `foreing_accounts`, these pieces of data are retrieved
+    /// from the network. For any [ForeignAccount::Private] account, inner data is used.
     ///
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
     /// retrieve it.
-    async fn get_foreign_account_inputs(
+    async fn inject_foreign_account_inputs(
         &mut self,
-        account_ids: &BTreeSet<AccountId>,
-    ) -> Result<(AdviceInputs, Vec<AccountCode>, Option<u32>), ClientError> {
-        let mut advice_inputs = AdviceInputs::default();
-        let mut account_codes = Vec::new();
-
-        if account_ids.is_empty() {
-            return Ok((AdviceInputs::default(), vec![], None));
+        foreign_accounts: BTreeSet<ForeignAccount>,
+        tx_args: &mut TransactionArgs,
+    ) -> Result<Option<u32>, ClientError> {
+        if foreign_accounts.is_empty() {
+            return Ok(None);
         }
 
-        // Get tracked commitments
-        let tracked_code = self
-            .store
-            .get_foreign_account_code(account_ids.iter().cloned().collect())
-            .await?;
+        let account_ids = foreign_accounts.iter().map(|acc| acc.account_id());
+        let known_account_codes =
+            self.store.get_foreign_account_code(account_ids.clone().collect()).await?;
 
-        let tracked_commitments: Vec<Digest> =
-            tracked_code.values().map(|code| code.commitment()).collect();
+        let known_account_codes: Vec<AccountCode> = known_account_codes.into_values().collect();
 
         // Fetch account proofs
-        let (block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(account_ids, &tracked_commitments, true).await?;
+        let (block_num, account_proofs) = self
+            .rpc_api
+            .get_account_proofs(&account_ids.collect(), known_account_codes, true)
+            .await?;
 
-        for account_proof in account_proofs.into_iter() {
-            let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
-            let account_code = match account_proof.account_code() {
-                Some(account_code) => {
+        let mut account_proofs: BTreeMap<AccountId, AccountProof> =
+            account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
+
+        for foreign_account in foreign_accounts.into_iter() {
+            let (foreign_account_inputs, merkle_path) = match foreign_account {
+                ForeignAccount::Public(account_id) => {
+                    let account_proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+
+                    let (foreign_account_inputs, merkle_path) = account_proof.try_into()?;
+
+                    // Update our foreign account code cache
                     self.store
-                        .upsert_foreign_account_code(account_header.id(), account_code.clone())
+                        .upsert_foreign_account_code(
+                            account_id,
+                            foreign_account_inputs.account_code().clone(),
+                        )
                         .await?;
 
-                    account_code
+                    (foreign_account_inputs, merkle_path)
                 },
-                None => tracked_code
-                    .get(&account_header.id())
-                    .expect("Account code should be tracked if it's not in the RPC response"),
+                ForeignAccount::Private(foreign_account_inputs) => {
+                    let account_id = foreign_account_inputs.account_header().id();
+                    let proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+                    let merkle_path = proof.merkle_proof();
+
+                    (foreign_account_inputs, merkle_path.clone())
+                },
             };
-            let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
 
-            account_codes.push(account_code.clone());
-
-            let merkle_path = account_proof.merkle_proof();
-
-            // Extend advice inputs using the extracted data
             extend_advice_inputs_for_account(
-                &mut advice_inputs,
-                account_header,
-                account_code,
-                storage_header,
-                merkle_path,
+                tx_args,
+                &mut self.tx_executor,
+                foreign_account_inputs,
+                &merkle_path,
             )?;
         }
 
@@ -814,7 +819,7 @@ impl<R: FeltRng> Client<R> {
             }
         }
 
-        Ok((advice_inputs, account_codes, Some(block_num)))
+        Ok(Some(block_num))
     }
 }
 
@@ -845,14 +850,16 @@ impl<R: FeltRng> Client<R> {
     }
 }
 
-/// Extends the advice inputs with account data and Merkle proofs.
+/// Extends the advice inputs with account data and Merkle proofs, and loads the necessary
+/// [code](AccountCode) in `tx_executor`.
 fn extend_advice_inputs_for_account(
-    advice_inputs: &mut AdviceInputs,
-    account_header: &AccountHeader,
-    account_code: &AccountCode,
-    storage_header: &AccountStorageHeader,
+    tx_args: &mut TransactionArgs,
+    tx_executor: &mut TransactionExecutor,
+    foreign_account_inputs: ForeignAccountInputs,
     merkle_path: &MerklePath,
 ) -> Result<(), ClientError> {
+    let (account_header, storage_header, account_code) = foreign_account_inputs.into_parts();
+
     let account_id = account_header.id();
     let account_nonce = account_header.nonce();
     let vault_root = account_header.vault_root();
@@ -872,7 +879,7 @@ fn extend_advice_inputs_for_account(
     }
 
     // Extend the advice inputs with the new data
-    advice_inputs.extend_map([
+    tx_args.extend_advice_map([
         // ACCOUNT_ID -> [ID_AND_NONCE, VAULT_ROOT, STORAGE_ROOT, CODE_ROOT]
         (
             foreign_id_root,
@@ -891,8 +898,9 @@ fn extend_advice_inputs_for_account(
     ]);
 
     // Extend the advice inputs with Merkle store data
-    advice_inputs
-        .extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
+    tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
+
+    tx_executor.load_account_code(&account_code);
 
     Ok(())
 }

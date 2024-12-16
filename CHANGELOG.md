@@ -9,9 +9,11 @@
 * [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
 * Added caching for foreign account code (#597).
 * Added support for unauthenticated notes consumption in the CLI (#609).
+* [BREAKING] Added foreign procedure invocation support for private accounts (#619).
 
 ### Fixes
 
+* Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
 * Fixed client bugs where some note metadata was not being updated (#625).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
 

@@ -1,4 +1,4 @@
-use alloc::string::{String, ToString};
+use alloc::string::String;
 
 use miden_objects::{
     accounts::AccountId,
@@ -80,7 +80,7 @@ impl From<StoreError> for DataStoreError {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
             },
-            err => DataStoreError::InternalError(err.to_string()),
+            err => DataStoreError::other_with_source("store error", err),
         }
     }
 }
