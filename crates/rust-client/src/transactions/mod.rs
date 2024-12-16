@@ -989,7 +989,7 @@ mod test {
             .unwrap();
 
         client
-            .import_account(
+            .add_account(
                 &account,
                 None,
                 &miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),

@@ -2,7 +2,10 @@ use alloc::vec::Vec;
 
 // TESTS
 // ================================================================================================
-use miden_lib::{transaction::TransactionKernel, AuthScheme};
+use miden_lib::{
+    accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    transaction::TransactionKernel,
+};
 use miden_objects::{
     accounts::{
         account_id::testing::{
@@ -10,8 +13,8 @@ use miden_objects::{
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
         },
-        Account, AccountCode, AccountHeader, AccountId, AccountStorageMode, AccountType,
-        AuthSecretKey,
+        Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
+        AccountType, AuthSecretKey,
     },
     assets::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
@@ -34,21 +37,20 @@ async fn insert_new_wallet<R: FeltRng>(
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
 
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
     let mut init_seed = [0u8; 32];
     client.rng.fill_bytes(&mut init_seed);
 
-    let (account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
-        init_seed,
-        auth_scheme,
-        AccountType::RegularAccountImmutableCode,
-        storage_mode,
-    )
-    .unwrap();
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicWallet)
+        .build()
+        .unwrap();
 
     client
-        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
         .await?;
 
     Ok((account, seed))
@@ -60,24 +62,25 @@ async fn insert_new_fungible_faucet<R: FeltRng>(
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
 
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
     client.rng.fill_bytes(&mut init_seed);
 
-    let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
-        init_seed,
-        TokenSymbol::new("TEST").unwrap(),
-        10,
-        Felt::try_from(9999999_u64.to_le_bytes().as_slice())
-            .expect("u64 can be safely converted to a field element"),
-        storage_mode,
-        auth_scheme,
-    )?;
+    let symbol = TokenSymbol::new("TEST").unwrap();
+    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+        .expect("u64 can be safely converted to a field element");
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::FungibleFaucet)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucet::new(symbol, 10, max_supply).unwrap())
+        .build()
+        .unwrap();
 
     client
-        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await?;
     Ok((account, seed))
 }
@@ -215,7 +218,7 @@ async fn insert_same_account_twice_fails() {
     let key_pair = SecretKey::new();
 
     assert!(client
-        .import_account(
+        .add_account(
             &account,
             Some(Word::default()),
             &AuthSecretKey::RpoFalcon512(key_pair.clone()),
@@ -224,12 +227,7 @@ async fn insert_same_account_twice_fails() {
         .await
         .is_ok());
     assert!(client
-        .import_account(
-            &account,
-            Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair),
-            false
-        )
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .is_err());
 }
@@ -255,12 +253,7 @@ async fn test_account_code() {
     assert_eq!(*account_code, reconstructed_code);
 
     client
-        .import_account(
-            &account,
-            Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair),
-            false,
-        )
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .unwrap();
     let retrieved_acc = client.get_account(account.id()).await.unwrap();
@@ -281,12 +274,7 @@ async fn test_get_account_by_id() {
     let key_pair = SecretKey::new();
 
     client
-        .import_account(
-            &account,
-            Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair),
-            false,
-        )
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .unwrap();
 

@@ -48,7 +48,7 @@ impl WebClient {
             };
 
             match client
-                .import_account(
+                .add_account(
                     &new_account,
                     Some(seed),
                     &AuthSecretKey::RpoFalcon512(key_pair),
@@ -114,7 +114,7 @@ impl WebClient {
             };
 
             match client
-                .import_account(
+                .add_account(
                     &new_account,
                     Some(seed),
                     &AuthSecretKey::RpoFalcon512(key_pair),

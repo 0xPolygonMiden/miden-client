@@ -14,7 +14,7 @@ impl WebClient {
             let account_id = account_data.account.id().to_string();
 
             match client
-                .import_account(
+                .add_account(
                     &account_data.account,
                     account_data.account_seed,
                     &account_data.auth_secret_key,

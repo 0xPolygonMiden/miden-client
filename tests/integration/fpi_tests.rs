@@ -45,7 +45,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let foreign_account_id = foreign_account.id();
 
     client
-        .import_account(
+        .add_account(
             &foreign_account,
             Some(foreign_seed),
             &AuthSecretKey::RpoFalcon512(secret_key.clone()),

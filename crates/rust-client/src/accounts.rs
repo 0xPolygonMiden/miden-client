@@ -1,7 +1,7 @@
 //! The `accounts` module provides types and client APIs for managing accounts within the Miden
 //! rollup network .
 //!
-//! Accounts can be created or imported. Once they are tracked by the client, their state will be
+//! Once accounts start being tracked by the client, their state will be
 //! updated accordingly on every transaction, and validated against the rollup on every sync.
 
 use alloc::vec::Vec;
@@ -27,9 +27,10 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Saves the [Account] in the store so it can start being tracked by the client. If the account
-    /// is already being tracked and `overwrite` is set to `true`, the account will be
-    /// overwritten. The `account_seed` should be provided if the account is newly created. The
+    /// Adds the provided [Account] in the store so it can start being tracked by the client.
+    ///
+    /// If the account is already being tracked and `overwrite` is set to `true`, the account will
+    /// be overwritten. The `account_seed` should be provided if the account is newly created. The
     /// `auth_secret_key` is used to authenticate the account, it's stored but not exposed.
     ///
     /// # Errors
@@ -40,28 +41,29 @@ impl<R: FeltRng> Client<R> {
     ///   being tracked
     /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
     ///   account hash
-    pub async fn import_account(
+    pub async fn add_account(
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
         auth_secret_key: &AuthSecretKey,
         overwrite: bool,
     ) -> Result<(), ClientError> {
-        let account_seed = if !account.is_new() && account_seed.is_some() {
-            tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+        let account_seed = if account.is_new() {
+            if account_seed.is_none() {
+                return Err(ClientError::AddNewAccountWithoutSeed);
+            }
+            account_seed
+        } else {
             // Ignore the seed since it's not a new account
 
             // TODO: The alternative approach to this is to store the seed anyway, but
             // ignore it at the point of executing against this transaction, but that
             // approach seems a little bit more incorrect
+            if account_seed.is_some() {
+                tracing::warn!("Added an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+            }
             None
-        } else {
-            account_seed
         };
-
-        if account.is_new() && account_seed.is_none() {
-            return Err(ClientError::ImportNewAccountWithoutSeed);
-        }
 
         let tracked_account = self.store.get_account(account.id()).await;
 
@@ -232,7 +234,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    pub async fn try_import_new_account() {
+    pub async fn try_add_new_account() {
         // generate test client
         let (mut client, _rpc_api) = create_test_client().await;
 
@@ -245,11 +247,11 @@ pub mod tests {
         let key_pair = SecretKey::new();
 
         assert!(client
-            .import_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+            .add_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
             .await
             .is_err());
         assert!(client
-            .import_account(
+            .add_account(
                 &account,
                 Some(Word::default()),
                 &AuthSecretKey::RpoFalcon512(key_pair),
@@ -268,7 +270,7 @@ pub mod tests {
 
         for account_data in created_accounts_data.clone() {
             client
-                .import_account(
+                .add_account(
                     &account_data.account,
                     account_data.account_seed,
                     &account_data.auth_secret_key,

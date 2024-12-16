@@ -1,7 +1,10 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    accounts::AccountType,
+    accounts::{
+        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
     auth::AuthSecretKey,
     crypto::FeltRng,
     notes::create_p2id_note,
@@ -13,7 +16,6 @@ use miden_client::{
     },
     Client, ClientError, Word,
 };
-use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
@@ -97,21 +99,20 @@ pub async fn insert_new_wallet<R: FeltRng>(
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
 
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
 
-    let (account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
-        init_seed,
-        auth_scheme,
-        AccountType::RegularAccountImmutableCode,
-        storage_mode,
-    )
-    .unwrap();
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicWalletComponent)
+        .build()
+        .unwrap();
 
     client
-        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
         .await?;
 
     Ok((account, seed))
@@ -123,24 +124,25 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
 
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
 
-    let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
-        init_seed,
-        TokenSymbol::new("TEST").unwrap(),
-        10,
-        Felt::try_from(9999999_u64.to_le_bytes().as_slice())
-            .expect("u64 can be safely converted to a field element"),
-        storage_mode,
-        auth_scheme,
-    )?;
+    let symbol = TokenSymbol::new("TEST").unwrap();
+    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+        .expect("u64 can be safely converted to a field element");
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::FungibleFaucet)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucetComponent::new(symbol, 10, max_supply).unwrap())
+        .build()
+        .unwrap();
 
     client
-        .import_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await?;
     Ok((account, seed))
 }

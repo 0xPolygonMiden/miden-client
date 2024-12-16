@@ -73,7 +73,7 @@ async fn import_account(
     let account_id = account_data.account.id();
 
     client
-        .import_account(
+        .add_account(
             &account_data.account,
             account_data.account_seed,
             &account_data.auth_secret_key,

@@ -70,7 +70,7 @@ impl NewFaucetCmd {
         client.rng().fill_bytes(&mut init_seed);
 
         let symbol = TokenSymbol::new(token_symbol.as_str())
-            .map_err(|err| format!("error: token symbol is invalid: {}", err))?;
+            .map_err(|err| format!("token symbol is invalid: {}", err))?;
         let max_supply = Felt::try_from(
             self.max_supply.expect("max supply must be provided").to_le_bytes().as_slice(),
         )
@@ -83,13 +83,13 @@ impl NewFaucetCmd {
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
             .with_component(
                 BasicFungibleFaucetComponent::new(symbol, decimals, max_supply)
-                    .map_err(|err| format!("error: failed to create faucet: {}", err))?,
+                    .map_err(|err| format!("failed to create faucet: {}", err))?,
             )
             .build()
-            .map_err(|err| format!("error: failed to create faucet: {}", err))?;
+            .map_err(|err| format!("failed to create faucet: {}", err))?;
 
         client
-            .import_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
             .await?;
 
         println!("Succesfully created new faucet.");
@@ -133,10 +133,10 @@ impl NewWalletCmd {
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
             .with_component(BasicWalletComponent)
             .build()
-            .map_err(|err| format!("error: failed to create wallet: {}", err))?;
+            .map_err(|err| format!("failed to create wallet: {}", err))?;
 
         client
-            .import_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
             .await?;
 
         println!("Succesfully created new wallet.");
