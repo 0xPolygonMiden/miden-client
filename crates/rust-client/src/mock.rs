@@ -12,7 +12,7 @@ use miden_objects::{
         account_id::testing::{
             ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
         },
-        AccountId,
+        AccountCode, AccountId,
     },
     assets::{FungibleAsset, NonFungibleAsset},
     block::Block,
@@ -23,7 +23,7 @@ use miden_objects::{
     notes::{Note, NoteId, NoteTag},
     testing::notes::NoteBuilder,
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Digest, Felt, Word,
+    BlockHeader, Felt, Word,
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
@@ -291,7 +291,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_proofs(
         &mut self,
         _account_ids: &BTreeSet<AccountId>,
-        _code_commitments: &[Digest],
+        _code_commitments: Vec<AccountCode>,
         _include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully

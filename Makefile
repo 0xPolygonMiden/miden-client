@@ -7,7 +7,7 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_WEB_CLIENT=--features "testing"
-FEATURES_CLIENT=--features "testing, concurrent"
+FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
 FEATURES_CLI=--features "testing, concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
@@ -77,29 +77,29 @@ doc: ## Generate & check rust documentation. You'll need `jq` in order for this 
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
+	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
 
 .PHONY: test-deps
 test-deps: ## Install dependencies for tests
-	cargo install cargo-nextest
+	CODEGEN=1 cargo install cargo-nextest
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
+	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
-	cd ./crates/web-client && npm run test:clean
+	CODEGEN=1 cd ./crates/web-client && npm run test:clean
 
 .PHONY: integration-test-remote-prover-web-client
 integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
-	cd ./crates/web-client && npm run test:remote_prover
+	CODEGEN=1 cd ./crates/web-client && npm run test:remote_prover
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
+	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
@@ -164,10 +164,10 @@ install: ## Install the CLI binary
 # --- Building ------------------------------------------------------------------------------------
 
 build: ## Build the CLI binary and client library in release mode
-	cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
+	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 

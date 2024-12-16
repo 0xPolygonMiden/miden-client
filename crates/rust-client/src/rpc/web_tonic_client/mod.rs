@@ -1,13 +1,13 @@
 use alloc::{
     boxed::Box,
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountCode, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
@@ -232,29 +232,23 @@ impl NodeRpcClient for WebTonicRpcClient {
     async fn get_account_proofs(
         &mut self,
         account_ids: &BTreeSet<AccountId>,
-        code_commitments: &[Digest],
+        known_account_codes: Vec<AccountCode>,
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
         let account_ids: Vec<AccountId> = account_ids.iter().copied().collect();
 
-        // Ensure all account IDs are public
-        for account_id in &account_ids {
-            if !account_id.is_public() {
-                return Err(RpcError::RequestError(
-                    NodeRpcClientEndpoint::GetAccountProofs.to_string(),
-                    format!("Account ID {account_id} is not public"),
-                ));
-            }
-        }
+        let known_account_codes: BTreeMap<Digest, AccountCode> =
+            known_account_codes.into_iter().map(|c| (c.commitment(), c)).collect();
+
+        let mut query_client = self.build_api_client();
 
         let request = GetAccountProofsRequest {
             account_ids: account_ids.iter().map(|&id| id.into()).collect(),
             include_headers: Some(include_headers),
-            code_commitments: code_commitments.iter().map(|c| c.into()).collect(),
+            code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
         };
 
-        let mut rpc_api = self.build_api_client();
-        let response = rpc_api
+        let response = query_client
             .get_account_proofs(request)
             .await
             .map_err(|err| {
@@ -289,12 +283,12 @@ impl NodeRpcClient for WebTonicRpcClient {
                 )));
             }
 
-            let headers = if include_headers {
+            let headers = if include_headers && account_id.is_public() {
                 Some(
                     account
                         .state_header
                         .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
-                        .into_domain(account_id)?,
+                        .into_domain(account_id, &known_account_codes)?,
                 )
             } else {
                 None

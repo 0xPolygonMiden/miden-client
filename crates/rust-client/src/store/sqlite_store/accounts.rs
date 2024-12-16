@@ -151,6 +151,27 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
+    pub(crate) fn update_account(
+        conn: &mut Connection,
+        new_account_state: &Account,
+    ) -> Result<(), StoreError> {
+        let account_id_int: u64 = new_account_state.id().into();
+        const QUERY: &str = "SELECT id FROM accounts WHERE id = ?";
+        if conn
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
+            .next()
+            .is_none()
+        {
+            return Err(StoreError::AccountDataNotFound(new_account_state.id()));
+        }
+
+        let tx = conn.transaction()?;
+        update_account(&tx, new_account_state)?;
+        Ok(tx.commit()?)
+    }
+
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
     pub fn get_account_auth_by_pub_key(
         conn: &mut Connection,
@@ -241,7 +262,7 @@ pub(super) fn insert_account_record(
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
+    const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
         params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],

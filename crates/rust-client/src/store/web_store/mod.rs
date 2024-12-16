@@ -42,6 +42,11 @@ impl WebStore {
 }
 #[async_trait(?Send)]
 impl Store for WebStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     // SYNC
     // --------------------------------------------------------------------------------------------
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -152,6 +157,10 @@ impl Store for WebStore {
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info).await
+    }
+
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
+        self.update_account(new_account_state).await
     }
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {

@@ -110,6 +110,11 @@ impl SqliteStore {
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 #[async_trait(?Send)]
 impl Store for SqliteStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.interact_with_connection(SqliteStore::get_note_tags).await
     }
@@ -243,6 +248,13 @@ impl Store for SqliteStore {
             SqliteStore::insert_account(conn, &account, account_seed, &auth_info)
         })
         .await
+    }
+
+    async fn update_account(&self, account: &Account) -> Result<(), StoreError> {
+        let account = account.clone();
+
+        self.interact_with_connection(move |conn| SqliteStore::update_account(conn, &account))
+            .await
     }
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {

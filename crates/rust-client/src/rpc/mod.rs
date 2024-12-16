@@ -2,21 +2,26 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    vec::Vec,
+};
 use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::{AccountDetails, AccountProofs, FpiAccountData},
+    accounts::{AccountDetails, AccountProof, AccountProofs, FpiAccountData},
     notes::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    accounts::{Account, AccountCode, AccountHeader, AccountId},
     crypto::merkle::MmrProof,
     notes::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader, Digest,
+    BlockHeader,
 };
 
 pub mod domain;
@@ -45,6 +50,7 @@ pub use web_tonic_client::WebTonicRpcClient;
 use crate::{
     store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
     sync::get_nullifier_prefix,
+    transactions::ForeignAccount,
 };
 
 // NODE RPC CLIENT TRAIT
@@ -129,7 +135,7 @@ pub trait NodeRpcClient {
     async fn get_account_proofs(
         &mut self,
         account_ids: &BTreeSet<AccountId>,
-        code_commitments: &[Digest],
+        known_account_codes: Vec<AccountCode>,
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
@@ -148,22 +154,44 @@ pub trait NodeRpcClient {
     }
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
-    /// specified accounts. The `code_commitments` parameter is a list of known code hashes to
-    /// prevent unnecessary data fetching. If the code hash of an account is on the list it will not
-    /// be included in the [domain::accounts::StateHeaders].
+    /// specified foreign accounts. The `code_commitments` parameter is a list of known code hashes
+    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data.
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_account_proofs].
-    async fn get_account_fpi_data(
+    async fn get_fpi_account_data(
         &mut self,
-        account_ids: &BTreeSet<AccountId>,
-        code_commitments: &[Digest],
+        foreign_accounts: BTreeSet<ForeignAccount>,
+        known_account_code: Vec<AccountCode>,
     ) -> Result<(u32, Vec<FpiAccountData>), RpcError> {
-        let (block_num, account_proofs) =
-            self.get_account_proofs(account_ids, code_commitments, true).await?;
+        let account_ids = foreign_accounts.iter().map(|acc| acc.account_id());
+        let (block_num, account_proofs) = self
+            .get_account_proofs(&account_ids.collect(), known_account_code, true)
+            .await?;
+
+        let mut account_proofs: BTreeMap<AccountId, AccountProof> =
+            account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
 
         let mut headers = Vec::new();
-        for proof in account_proofs {
-            headers.push(proof.try_into()?);
+        for foreign_account in foreign_accounts.into_iter() {
+            let fpi_account_data = match foreign_account {
+                ForeignAccount::Public(account_id) => {
+                    let account_proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+
+                    account_proof.try_into()?
+                },
+                ForeignAccount::Private(foreign_account_inputs) => {
+                    let account_id = foreign_account_inputs.account_header().id();
+                    let proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+
+                    FpiAccountData::new(account_id, proof.into_parts().1, foreign_account_inputs)
+                },
+            };
+
+            headers.push(fpi_account_data);
         }
 
         Ok((block_num, headers))
@@ -177,6 +205,7 @@ pub trait NodeRpcClient {
     async fn get_public_note_records(
         &mut self,
         note_ids: &[NoteId],
+        current_timestamp: Option<u64>,
     ) -> Result<Vec<InputNoteRecord>, RpcError> {
         let note_details = self.get_notes_by_id(note_ids).await?;
 
@@ -188,7 +217,7 @@ pub trait NodeRpcClient {
                     inclusion_proof,
                 }
                 .into();
-                let note = InputNoteRecord::new(note.into(), None, state);
+                let note = InputNoteRecord::new(note.into(), current_timestamp, state);
 
                 public_notes.push(note);
             }

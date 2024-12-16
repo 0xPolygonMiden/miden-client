@@ -1,7 +1,6 @@
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
-    string::ToString,
     vec::Vec,
 };
 
@@ -70,9 +69,13 @@ impl DataStore for ClientDataStore {
         let mut notes_blocks: Vec<u32> = vec![];
 
         for (_note_id, note_record) in input_note_records {
-            let input_note: InputNote = note_record
-                .try_into()
-                .map_err(|err: NoteRecordError| DataStoreError::InternalError(err.to_string()))?;
+            let input_note: InputNote =
+                note_record.try_into().map_err(|err: NoteRecordError| {
+                    DataStoreError::other_with_source(
+                        "error converting note record into InputNote",
+                        err,
+                    )
+                })?;
 
             list_of_notes.push(input_note.clone());
 
@@ -95,8 +98,9 @@ impl DataStore for ClientDataStore {
             .collect();
 
         let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks).await;
-        let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+        let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks).map_err(|err| {
+            DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
+        })?;
 
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
@@ -130,7 +134,7 @@ async fn build_partial_mmr_with_paths(
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
             .track(header.block_num() as usize, header.hash(), path)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))?;
     }
 
     Ok(partial_mmr)

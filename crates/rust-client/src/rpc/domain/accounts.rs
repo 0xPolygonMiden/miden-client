@@ -1,4 +1,5 @@
 use alloc::{
+    collections::BTreeMap,
     string::{String, ToString},
     vec::Vec,
 };
@@ -12,13 +13,16 @@ use miden_objects::{
 use miden_tx::utils::Deserializable;
 use thiserror::Error;
 
-use crate::rpc::{
-    errors::RpcConversionError,
-    generated::{
-        account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
-        responses::AccountStateHeader as ProtoAccountStateHeader,
+use crate::{
+    rpc::{
+        errors::RpcConversionError,
+        generated::{
+            account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
+            responses::AccountStateHeader as ProtoAccountStateHeader,
+        },
+        RpcError,
     },
-    RpcError,
+    transactions::ForeignAccountInputs,
 };
 
 // ACCOUNT DETAILS
@@ -40,6 +44,12 @@ impl AccountDetails {
         match self {
             Self::Private(account_id, _) => *account_id,
             Self::Public(account, _) => account.id(),
+        }
+    }
+
+    pub fn hash(&self) -> Digest {
+        match self {
+            Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
         }
     }
 }
@@ -132,20 +142,46 @@ impl ProtoAccountHeader {
 // ------------------------------------------------------------------------------------------------
 
 impl ProtoAccountStateHeader {
-    pub fn into_domain(self, account_id: AccountId) -> Result<StateHeaders, RpcError> {
+    /// Converts the RPC response into `StateHeaders`.
+    ///
+    /// The RPC response may omit unchanged account codes. If so, this function uses
+    /// `known_account_codes` to fill in the missing code. If a required code cannot be found in
+    /// the response or `known_account_codes`, an error is returned.
+    ///
+    /// # Errors
+    /// - If account code is missing both on `self` and `known_account_codes`
+    /// - If data cannot be correctly deserialized
+    pub fn into_domain(
+        self,
+        account_id: AccountId,
+        known_account_codes: &BTreeMap<Digest, AccountCode>,
+    ) -> Result<StateHeaders, RpcError> {
         let ProtoAccountStateHeader { header, storage_header, account_code } = self;
-        let account_header =
-            header.ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?;
+        let account_header = header
+            .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
+            .into_domain(account_id)?;
 
         let storage_header = AccountStorageHeader::read_from_bytes(&storage_header)?;
 
-        let code = account_code.map(|c| AccountCode::read_from_bytes(&c)).transpose()?;
+        // If an account code was received, it means the previously known account code is no longer
+        // valid. If it was not, it means we sent a code commitment that matched and so our code
+        // is still valid
+        let code = {
+            let received_code =
+                account_code.map(|c| AccountCode::read_from_bytes(&c)).transpose()?;
+            match received_code {
+                Some(code) => code,
+                None => known_account_codes
+                    .get(&account_header.code_commitment())
+                    .ok_or(RpcError::InvalidResponse(
+                        "Account code was not provided, but the response did not contain it either"
+                            .to_string(),
+                    ))?
+                    .clone(),
+            }
+        };
 
-        Ok(StateHeaders {
-            account_header: account_header.into_domain(account_id)?,
-            storage_header,
-            code,
-        })
+        Ok(StateHeaders { account_header, storage_header, code })
     }
 }
 
@@ -159,7 +195,7 @@ pub type AccountProofs = (u32, Vec<AccountProof>);
 pub struct StateHeaders {
     pub account_header: AccountHeader,
     pub storage_header: AccountStorageHeader,
-    pub code: Option<AccountCode>,
+    pub code: AccountCode,
 }
 
 /// Represents a proof of existence of an account's state at a specific block number.
@@ -188,10 +224,8 @@ impl AccountProof {
             if account_id != account_header.id() {
                 return Err(AccountProofError::InconsistentAccountId);
             }
-            if let Some(code) = code {
-                if code.commitment() != account_header.code_commitment() {
-                    return Err(AccountProofError::InconsistentCodeCommitment);
-                }
+            if code.commitment() != account_header.code_commitment() {
+                return Err(AccountProofError::InconsistentCodeCommitment);
             }
         }
 
@@ -216,18 +250,15 @@ impl AccountProof {
     }
 
     pub fn account_code(&self) -> Option<&AccountCode> {
-        if let Some(StateHeaders { code, .. }) = &self.state_headers {
-            code.as_ref()
-        } else {
-            None
-        }
+        self.state_headers.as_ref().map(|headers| &headers.code)
+    }
+
+    pub fn state_headers(&self) -> Option<&StateHeaders> {
+        self.state_headers.as_ref()
     }
 
     pub fn code_commitment(&self) -> Option<Digest> {
-        match &self.state_headers {
-            Some(StateHeaders { code: Some(code), .. }) => Some(code.commitment()),
-            _ => None,
-        }
+        self.account_code().map(|c| c.commitment())
     }
 
     pub fn account_hash(&self) -> Digest {
@@ -236,6 +267,11 @@ impl AccountProof {
 
     pub fn merkle_proof(&self) -> &MerklePath {
         &self.merkle_proof
+    }
+
+    /// Deconstructs `AccountProof` into its individual parts.
+    pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
+        (self.account_id, self.merkle_proof, self.account_hash, self.state_headers)
     }
 }
 
@@ -247,65 +283,47 @@ pub struct FpiAccountData {
     /// Account ID.
     account_id: AccountId,
     /// Authentication path from the `account_root` of the block header to the account.
-    merkle_proof: MerklePath,
-    /// Header that describes the state of the account components.
-    account_header: AccountHeader,
-    /// Header that describes the state of the account storage.
-    storage_header: AccountStorageHeader,
-    /// Code of the account.
-    code: Option<AccountCode>,
+    merkle_path: MerklePath,
+    /// Account inputs needed to perform the FPI.
+    inputs: ForeignAccountInputs,
 }
 
 impl FpiAccountData {
     pub fn new(
         account_id: AccountId,
-        merkle_proof: MerklePath,
-        account_header: AccountHeader,
-        storage_header: AccountStorageHeader,
-        code: Option<AccountCode>,
+        merkle_path: MerklePath,
+        inputs: ForeignAccountInputs,
     ) -> Self {
-        Self {
-            account_id,
-            merkle_proof,
-            account_header,
-            storage_header,
-            code,
-        }
+        Self { account_id, merkle_path, inputs }
     }
 
     pub fn account_id(&self) -> AccountId {
         self.account_id
     }
 
-    pub fn merkle_proof(&self) -> &MerklePath {
-        &self.merkle_proof
+    pub fn merkle_path(&self) -> &MerklePath {
+        &self.merkle_path
     }
 
-    pub fn account_header(&self) -> &AccountHeader {
-        &self.account_header
+    pub fn inputs(&self) -> &ForeignAccountInputs {
+        &self.inputs
     }
 
-    pub fn storage_header(&self) -> &AccountStorageHeader {
-        &self.storage_header
-    }
-
-    pub fn code(&self) -> Option<&AccountCode> {
-        self.code.as_ref()
+    pub fn into_parts(self) -> (AccountId, MerklePath, ForeignAccountInputs) {
+        (self.account_id, self.merkle_path, self.inputs)
     }
 }
 
 impl TryFrom<AccountProof> for FpiAccountData {
     type Error = RpcError;
 
-    fn try_from(proof: AccountProof) -> Result<Self, Self::Error> {
-        let AccountProof {
-            account_id, merkle_proof, state_headers, ..
-        } = proof;
-
-        let StateHeaders { account_header, storage_header, code } = state_headers
-            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountProof.StateHeaders")))?;
-
-        Ok(Self::new(account_id, merkle_proof, account_header, storage_header, code))
+    fn try_from(value: AccountProof) -> Result<Self, Self::Error> {
+        let (account_id, merkle_proof, _, state_headers) = value.into_parts();
+        if let Some(StateHeaders { account_header, storage_header, code }) = state_headers {
+            let inputs = ForeignAccountInputs::new(account_header, storage_header, code);
+            return Ok(FpiAccountData::new(account_id, merkle_proof, inputs));
+        }
+        Err(RpcError::ExpectedDataMissing(String::from("AccountProof.StateHeaders")))
     }
 }
 

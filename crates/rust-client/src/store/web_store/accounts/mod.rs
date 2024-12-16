@@ -218,6 +218,22 @@ impl WebStore {
         Ok(())
     }
 
+    pub(crate) async fn update_account(
+        &self,
+        new_account_state: &Account,
+    ) -> Result<(), StoreError> {
+        let account_id_str = new_account_state.id().to_string();
+        let promise = idxdb_get_account_header(account_id_str);
+
+        if JsFuture::from(promise).await.is_err() {
+            return Err(StoreError::AccountDataNotFound(new_account_state.id()));
+        }
+
+        update_account(new_account_state)
+            .await
+            .map_err(|_| StoreError::DatabaseError("Failed to update account".to_string()))
+    }
+
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
     pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();

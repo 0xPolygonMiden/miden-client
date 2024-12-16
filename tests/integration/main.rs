@@ -443,7 +443,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         matches!(
             err,
             ClientError::TransactionExecutorError(
-                TransactionExecutorError::ExecuteTransactionProgramFailed(_)
+                TransactionExecutorError::TransactionProgramExecutionFailed(_)
             )
         )
     }));
@@ -1353,9 +1353,7 @@ async fn test_custom_transaction_prover() {
             &self,
             _tx_witness: TransactionWitness,
         ) -> Result<ProvenTransaction, TransactionProverError> {
-            return Err(TransactionProverError::InternalError(
-                "This prover always fails".to_string(),
-            ));
+            return Err(TransactionProverError::other("This prover always fails"));
         }
     }
 
@@ -1389,7 +1387,10 @@ async fn test_custom_transaction_prover() {
 
     assert!(matches!(
         result,
-        Err(ClientError::TransactionProvingError(TransactionProverError::InternalError(_)))
+        Err(ClientError::TransactionProvingError(TransactionProverError::Other {
+            error_msg: _,
+            source: _
+        }))
     ));
 }
 
@@ -1431,7 +1432,7 @@ async fn test_locked_account() {
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
     client_2
-        .import_account(AccountData::new(private_account, seed.into(), auth))
+        .import_account(AccountData::new(private_account, seed.into(), auth.clone()), false)
         .await
         .unwrap();
 
@@ -1452,4 +1453,16 @@ async fn test_locked_account() {
     assert!(summary.locked_accounts.contains(&from_account_id));
     let account_record = client_2.get_account(from_account_id).await.unwrap();
     assert!(account_record.is_locked());
+
+    // Get updated account from client 1 and import it in client 2 with `overwrite` flag
+    let updated_private_account = client_1.get_account(from_account_id).await.unwrap().into();
+    client_2
+        .import_account(AccountData::new(updated_private_account, None, auth), true)
+        .await
+        .unwrap();
+
+    // After sync the private account shouldn't be locked in client 2
+    client_2.sync_state().await.unwrap();
+    let account_record = client_2.get_account(from_account_id).await.unwrap();
+    assert!(!account_record.is_locked());
 }

@@ -9,7 +9,7 @@ use miden_client::{
     crypto::FeltRng,
     notes::NoteFile,
     utils::Deserializable,
-    Client,
+    Client, ClientError,
 };
 use tracing::info;
 
@@ -21,6 +21,9 @@ pub struct ImportCmd {
     /// Paths to the files that contains the account/note data
     #[arg()]
     filenames: Vec<PathBuf>,
+    /// Only relevant for accounts. If set, the account will be overwritten if it already exists.
+    #[clap(short, long, default_value_t = false)]
+    overwrite: bool,
 }
 
 impl ImportCmd {
@@ -34,10 +37,19 @@ impl ImportCmd {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
-                let account_id = import_account(&mut client, filename)
-                    .await
-                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
-                println!("Succesfully imported account {}", account_id);
+                info!(
+                    "Attempting to import account data from {}...",
+                    fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
+                );
+                let account_data_file_contents =
+                    fs::read(filename).map_err(|err| err.to_string())?;
+
+                let account_id =
+                    import_account(&mut client, &account_data_file_contents, self.overwrite)
+                        .await
+                        .map_err(|err| err.to_string())?;
+
+                println!("Successfully imported account {}", account_id);
 
                 if account_id.is_regular_account() {
                     maybe_set_default_account(&mut current_config, account_id)?;
@@ -53,18 +65,14 @@ impl ImportCmd {
 
 async fn import_account(
     client: &mut Client<impl FeltRng>,
-    filename: &PathBuf,
-) -> Result<AccountId, String> {
-    info!(
-        "Attempting to import account data from {}...",
-        fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
-    );
-    let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
-    let account_data =
-        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+    account_data_file_contents: &[u8],
+    overwrite: bool,
+) -> Result<AccountId, ClientError> {
+    let account_data = AccountData::read_from_bytes(account_data_file_contents)
+        .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data).await?;
+    client.import_account(account_data, overwrite).await?;
 
     Ok(account_id)
 }

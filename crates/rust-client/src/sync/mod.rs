@@ -496,7 +496,10 @@ impl<R: FeltRng> Client<R> {
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let mut return_notes = self.rpc_api.get_public_note_records(query_notes).await?;
+        let mut return_notes = self
+            .rpc_api
+            .get_public_note_records(query_notes, self.store.get_current_timestamp())
+            .await?;
 
         for note in return_notes.iter_mut() {
             note.block_header_received(*block_header)?;

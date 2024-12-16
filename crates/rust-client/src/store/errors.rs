@@ -1,4 +1,4 @@
-use alloc::string::{String, ToString};
+use alloc::string::String;
 
 use miden_objects::{
     accounts::AccountId,
@@ -87,7 +87,7 @@ impl From<StoreError> for DataStoreError {
             },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
             StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
-            err => DataStoreError::InternalError(err.to_string()),
+            err => DataStoreError::other_with_source("store error", err),
         }
     }
 }

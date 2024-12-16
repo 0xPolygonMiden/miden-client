@@ -71,6 +71,7 @@ impl NoteStateHandler for InvalidNoteState {
         &self,
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Can't consume invalid note".to_string()))
     }

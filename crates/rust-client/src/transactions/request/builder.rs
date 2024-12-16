@@ -19,7 +19,10 @@ use miden_objects::{
     Digest, Felt, FieldElement,
 };
 
-use super::{NoteArgs, TransactionRequest, TransactionRequestError, TransactionScriptTemplate};
+use super::{
+    ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest, TransactionRequestError,
+    TransactionScriptTemplate,
+};
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -48,10 +51,10 @@ pub struct TransactionRequestBuilder {
     advice_map: AdviceMap,
     /// Initial state of the `MerkleStore` that provides data during runtime.
     merkle_store: MerkleStore,
-    /// Foreign account data requirements. At execution time, account state will be retrieved from
+    /// Foreign account data requirements. At execution time, account data will be retrieved from
     /// the network, and injected as advice inputs. Additionally, the account's code will be
     /// added to the executor and prover.
-    foreign_account_ids: BTreeSet<AccountId>,
+    foreign_accounts: BTreeSet<ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
@@ -72,7 +75,7 @@ impl TransactionRequestBuilder {
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
             expiration_delta: None,
-            foreign_account_ids: BTreeSet::default(),
+            foreign_accounts: BTreeSet::default(),
         }
     }
 
@@ -163,13 +166,28 @@ impl TransactionRequestBuilder {
     /// - If `foreign_account_ids` contains an ID corresponding to a private account.
     pub fn with_public_foreign_accounts(
         mut self,
-        foreign_account_ids: impl IntoIterator<Item = AccountId>,
+        foreign_account_ids: impl IntoIterator<Item = impl Into<AccountId>>,
     ) -> Result<Self, TransactionRequestError> {
         for account_id in foreign_account_ids {
-            if !account_id.is_public() {
-                return Err(TransactionRequestError::InvalidForeignAccountId(account_id));
-            }
-            self.foreign_account_ids.insert(account_id);
+            self.foreign_accounts.insert(ForeignAccount::public(account_id.into())?);
+        }
+
+        Ok(self)
+    }
+
+    /// Specifies private accounts that contain data that the transaction will utilize.
+    /// At execution, the client queries the node and retrieves a proof of the account's existence
+    /// and injects them as advice inputs.
+    ///
+    /// # Errors
+    ///
+    /// - If `foreign_accounts` contains an ID corresponding to a public account.
+    pub fn with_private_foreign_accounts(
+        mut self,
+        foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccountInputs>>,
+    ) -> Result<Self, TransactionRequestError> {
+        for account in foreign_accounts {
+            self.foreign_accounts.insert(ForeignAccount::private(account.into())?);
         }
 
         Ok(self)
@@ -359,7 +377,7 @@ impl TransactionRequestBuilder {
             expected_future_notes: self.expected_future_notes,
             advice_map: self.advice_map,
             merkle_store: self.merkle_store,
-            foreign_account_ids: self.foreign_account_ids,
+            foreign_accounts: self.foreign_accounts,
             expiration_delta: self.expiration_delta,
         }
     }
