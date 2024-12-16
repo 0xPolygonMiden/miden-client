@@ -44,12 +44,11 @@ impl<R: FeltRng> Client<R> {
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        let genesis = self.store.get_block_header_by_num(0).await;
+        let genesis = self.store.get_block_header_by_num(0).await?;
 
         match genesis {
-            Ok(_) => Ok(()),
-            Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
-            Err(err) => Err(ClientError::StoreError(err)),
+            Some(_) => Ok(()),
+            None => self.retrieve_and_store_genesis().await,
         }
     }
 
@@ -114,11 +113,10 @@ impl<R: FeltRng> Client<R> {
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
 
         let track_latest = if current_block_num != 0 {
-            match self.store.get_block_header_by_num(current_block_num - 1).await {
-                Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
-                Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
-                Err(err) => Err(ClientError::StoreError(err)),
-            }?
+            match self.store.get_block_header_by_num(current_block_num - 1).await? {
+                Some((_, previous_block_had_notes)) => previous_block_had_notes,
+                None => false,
+            }
         } else {
             false
         };
@@ -127,8 +125,11 @@ impl<R: FeltRng> Client<R> {
             PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
 
         if include_current_block {
-            let (current_block, has_client_notes) =
-                self.store.get_block_header_by_num(current_block_num).await?;
+            let (current_block, has_client_notes) = self
+                .store
+                .get_block_header_by_num(current_block_num)
+                .await?
+                .expect("Current block should be in the store");
 
             current_partial_mmr.add(current_block.hash(), has_client_notes);
         }
@@ -147,7 +148,11 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<BlockHeader, ClientError> {
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
-            let (block_header, _) = self.store.get_block_header_by_num(block_num).await?;
+            let (block_header, _) = self
+                .store
+                .get_block_header_by_num(block_num)
+                .await?
+                .expect("Block header should be tracked");
             return Ok(block_header);
         }
         let (block_header, mmr_proof) =

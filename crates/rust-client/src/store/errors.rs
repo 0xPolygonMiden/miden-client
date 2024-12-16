@@ -3,7 +3,6 @@ use alloc::string::String;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrError,
-    notes::NoteId,
     utils::{DeserializationError, HexParseError},
     AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
@@ -35,8 +34,6 @@ pub enum StoreError {
     AccountKeyNotFound(String),
     #[error("account storage data with root {0} not found")]
     AccountStorageNotFound(Digest),
-    #[error("block header for block {0} not found")]
-    BlockHeaderNotFound(u32),
     #[error("chain mmr node at index {0} not found")]
     ChainMmrNodeNotFound(u64),
     #[error("error deserializing data from the store")]
@@ -46,8 +43,6 @@ pub enum StoreError {
     #[error("error parsing hex: {0}")]
     //TODO: use source in this error when possible
     HexParseError(HexParseError),
-    #[error("note with id {0} not found")]
-    NoteNotFound(NoteId),
     #[error("note record error")]
     NoteRecordError(#[from] NoteRecordError),
     #[error("error constructing mmr: {0}")]
@@ -85,8 +80,6 @@ impl From<StoreError> for DataStoreError {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
             },
-            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::other_with_source("store error", err),
         }
     }

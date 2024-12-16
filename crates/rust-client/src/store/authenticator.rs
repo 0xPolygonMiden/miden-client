@@ -38,13 +38,13 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.write();
 
-        let secret_key = self
-            .store
-            .get_account_auth_by_pub_key(pub_key)
-            .block_on()
-            .map_err(|_| AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
+        let secret_key =
+            self.store.get_account_auth_by_pub_key(pub_key).block_on().map_err(|err| {
+                AuthenticationError::other_with_source("error getting secret key from Store", err)
+            })?;
 
-        let AuthSecretKey::RpoFalcon512(k) = secret_key;
+        let AuthSecretKey::RpoFalcon512(k) = secret_key
+            .ok_or(AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
 }
