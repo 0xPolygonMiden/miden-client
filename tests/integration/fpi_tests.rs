@@ -1,5 +1,5 @@
 use miden_client::{
-    accounts::{Account, AccountData, AccountTemplate, StorageSlot},
+    accounts::{Account, StorageSlot},
     testing::prepare_word,
     transactions::{TransactionKernel, TransactionRequestBuilder},
     Felt, Word,
@@ -45,12 +45,10 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let foreign_account_id = foreign_account.id();
 
     client
-        .import_account(
-            AccountData::new(
-                foreign_account,
-                Some(foreign_seed),
-                AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            ),
+        .add_account(
+            &foreign_account,
+            Some(foreign_seed),
+            &AuthSecretKey::RpoFalcon512(secret_key.clone()),
             false,
         )
         .await
@@ -83,13 +81,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     println!("Calling FPI functions with new account");
 
-    let (native_account, _native_seed) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Public,
-        })
-        .await
-        .unwrap();
+    let (native_account, _native_seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
 
     let tx_script = format!(
         "
