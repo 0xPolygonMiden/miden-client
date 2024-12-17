@@ -81,25 +81,25 @@ test: ## Run tests
 
 .PHONY: test-deps
 test-deps: ## Install dependencies for tests
-	CODEGEN=1 cargo install cargo-nextest
+	CODEGEN=0 cargo install cargo-nextest
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
+	CODEGEN=0 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
-	CODEGEN=1 cd ./crates/web-client && npm run test:clean
+	CODEGEN=0 cd ./crates/web-client && npm run test:clean
 
 .PHONY: integration-test-remote-prover-web-client
 integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
-	CODEGEN=1 cd ./crates/web-client && npm run test:remote_prover
+	CODEGEN=0 cd ./crates/web-client && npm run test:remote_prover
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
+	CODEGEN=0 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
@@ -164,10 +164,10 @@ install: ## Install the CLI binary
 # --- Building ------------------------------------------------------------------------------------
 
 build: ## Build the CLI binary and client library in release mode
-	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
+	CODEGEN=0 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=0 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 
