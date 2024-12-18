@@ -150,8 +150,8 @@ impl NoteScreener {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let note_inputs = note.inputs().values().to_vec();
-        if note_inputs.len() != 9 {
-            return Ok(Vec::new());
+        if note_inputs.len() != 10 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 10).into());
         }
 
         // get the demanded asset from the note's inputs
