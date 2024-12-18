@@ -18,7 +18,7 @@ NODE_FEATURES_TESTING=--features "testing"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="pgackst-account-id-refactor"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 

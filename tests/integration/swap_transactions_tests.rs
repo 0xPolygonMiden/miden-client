@@ -159,7 +159,7 @@ async fn test_swap_fully_onchain() {
 
     // sync on client 2, we should get the swap note
     // consume swap note with accountB, and check that the vault changed appropiately
-    let summary = client2.sync_state().await.unwrap();
+    client2.sync_state().await.unwrap();
     println!("Consuming swap note on second client...");
 
     let tx_request =

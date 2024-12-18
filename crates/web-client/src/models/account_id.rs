@@ -27,8 +27,13 @@ impl AccountId {
         self.0.to_string()
     }
 
-    pub fn to_felt(&self) -> Felt {
-        let native_felt: NativeFelt = self.0.into();
+    pub fn first_felt(&self) -> Felt {
+        let native_felt: NativeFelt = self.0.first_felt();
+        native_felt.into()
+    }
+
+    pub fn second_felt(&self) -> Felt {
+        let native_felt: NativeFelt = self.0.second_felt();
         native_felt.into()
     }
 }
@@ -57,12 +62,5 @@ impl From<AccountId> for NativeAccountId {
 impl From<&AccountId> for NativeAccountId {
     fn from(account_id: &AccountId) -> Self {
         account_id.0
-    }
-}
-
-impl From<AccountId> for Felt {
-    fn from(account_id: AccountId) -> Self {
-        let native_felt: NativeFelt = account_id.0.into();
-        native_felt.into()
     }
 }
