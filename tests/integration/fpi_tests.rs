@@ -192,7 +192,7 @@ pub fn foreign_account(
 
     let (account, seed) = AccountBuilder::new()
         .init_seed(Default::default())
-        .anchor_block_header(anchor_block_header)
+        .anchor(anchor_block_header.try_into().unwrap())
         .with_component(get_item_component.clone())
         .with_component(auth_component)
         .storage_mode(storage_mode)
