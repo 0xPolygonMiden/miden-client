@@ -183,7 +183,7 @@ impl<R: FeltRng> Client<R> {
         let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
-                anchor_block,
+                anchor_block.try_into()?,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
                 account_storage_mode,
@@ -191,7 +191,7 @@ impl<R: FeltRng> Client<R> {
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
-                anchor_block,
+                anchor_block.try_into()?,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
                 account_storage_mode,
@@ -221,7 +221,7 @@ impl<R: FeltRng> Client<R> {
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
-            anchor_block,
+            anchor_block.try_into()?,
             token_symbol,
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
