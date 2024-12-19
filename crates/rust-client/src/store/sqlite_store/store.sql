@@ -21,7 +21,7 @@ CREATE TABLE account_vaults (
 
 -- Create account_auth table
 CREATE TABLE account_auth (
-    account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
+    account_id TEXT NOT NULL,              -- ID of the account
     auth_info BLOB NOT NULL,               -- Serialized representation of information needed for authentication
     pub_key BLOB NOT NULL,                 -- Public key for easier authenticator use
     PRIMARY KEY (account_id)
@@ -29,7 +29,7 @@ CREATE TABLE account_auth (
 
 -- Create foreign_account_code table
 CREATE TABLE foreign_account_code(
-    account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
+    account_id TEXT NOT NULL,              -- ID of the account
     code_root TEXT NOT NULL,               -- Root of the account_code
     PRIMARY KEY (account_id),
     FOREIGN KEY (code_root) REFERENCES account_code(root)
@@ -59,7 +59,7 @@ CREATE UNIQUE INDEX idx_account_hash ON accounts(account_hash);
 -- Create transactions table
 CREATE TABLE transactions (
     id TEXT NOT NULL,                                -- Transaction ID (hash of various components)
-    account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
+    account_id TEXT NOT NULL,                        -- ID of the account against which the transaction was executed.
     init_account_state BLOB NOT NULL,                -- Hash of the account state before the transaction was executed.
     final_account_state BLOB NOT NULL,               -- Hash of the account state after the transaction was executed.
     input_notes BLOB,                                -- Serialized list of input note hashes

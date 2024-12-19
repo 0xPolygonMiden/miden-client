@@ -12,7 +12,7 @@ use miden_client::{
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
-    testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
+    testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     Client, Felt,
 };
 use rand::Rng;
