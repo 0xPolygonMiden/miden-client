@@ -5,7 +5,7 @@ use alloc::{
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AuthSecretKey},
+    accounts::{AccountId, AccountIdPrefix, AuthSecretKey},
     notes::PartialNote,
     transaction::TransactionScript,
     Felt, TransactionScriptError,
@@ -73,8 +73,10 @@ impl AccountInterface {
 
             match self {
                 AccountInterface::BasicFungibleFaucet => {
-                    if asset.faucet_id() != account_id {
-                        return Err(TransactionScriptBuilderError::InvalidAsset(asset.faucet_id()));
+                    if asset.faucet_id_prefix() != account_id.prefix() {
+                        return Err(TransactionScriptBuilderError::InvalidAsset(
+                            asset.faucet_id_prefix(),
+                        ));
                     }
 
                     body.push_str(&format!(
@@ -220,7 +222,7 @@ impl TransactionScriptBuilder {
 #[derive(Debug, Error)]
 pub enum TransactionScriptBuilderError {
     #[error("invalid asset: {0}")]
-    InvalidAsset(AccountId),
+    InvalidAsset(AccountIdPrefix),
     #[error("invalid transaction script")]
     InvalidTransactionScript(#[source] TransactionScriptError),
     #[error("invalid sender account: {0}")]

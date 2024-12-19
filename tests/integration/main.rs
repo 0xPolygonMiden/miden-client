@@ -555,7 +555,7 @@ async fn test_get_output_notes() {
 
     let from_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
-    let random_account_id = AccountId::from_hex("0x0123456789abcdef").unwrap();
+    let random_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // No output notes initially
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());

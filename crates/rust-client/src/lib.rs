@@ -81,7 +81,7 @@ pub mod utils {
 /// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
-    pub use miden_objects::{accounts::account_id::testing::*, testing::*};
+    pub use miden_objects::testing::*;
 }
 
 use alloc::sync::Arc;
@@ -156,8 +156,7 @@ impl<R: FeltRng> Client<R> {
 
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
-        let tx_executor =
-            TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
+        let tx_executor = TransactionExecutor::new(data_store, authenticator).with_debug_mode();
         let tx_prover = Arc::new(LocalTransactionProver::default());
 
         Self {
