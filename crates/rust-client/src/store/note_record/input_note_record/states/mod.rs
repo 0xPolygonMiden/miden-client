@@ -137,8 +137,7 @@ impl InputNoteState {
 
     /// Returns a new state to reflect that the note has received a block header.
     /// This will mark the note as verified or invalid, depending on the block header
-    /// information and inclusion proof. If the note state
-    /// doesn't change, `None` is returned.
+    /// information and inclusion proof. If the note state doesn't change, `None` is returned.
     pub(crate) fn block_header_received(
         &self,
         note_id: NoteId,

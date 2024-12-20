@@ -48,7 +48,7 @@ pub enum AccountTemplate {
     },
 }
 
-/// Account management methods
+/// Account management methods.
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
@@ -81,17 +81,17 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// - Trying to import a new account without providing its seed
-    /// - If the account is already tracked and `overwrite` is set to `false`
+    /// - Trying to import a new account without providing its seed.
+    /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
-    ///   being tracked
-    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
-    ///   account hash
+    ///   being tracked.
+    /// - If `overwrite` is set to `true` and the `account_data` hash doesn't match the network's
+    ///   account hash.
     ///
     /// # Panics
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
-    /// is not currently implemented
+    /// isn't currently implemented.
     pub async fn import_account(
         &mut self,
         account_data: AccountData,
@@ -225,12 +225,12 @@ impl<R: FeltRng> Client<R> {
     ///
     /// The secret key is stored in client but it is never exposed. It is used to authenticate
     /// transactions against the account. The seed is used when notifying the network about a new
-    /// account and is not used for any other purpose.
+    /// account and isn't used for any other purpose.
     ///
     /// # Errors
     ///
     /// If an account is new and no seed is provided, the function errors out because the client
-    /// cannot execute transactions against new accounts for which it does not know the seed.
+    /// cannot execute transactions against new accounts for which it doesn't know the seed.
     pub async fn insert_account(
         &mut self,
         account: &Account,
@@ -305,7 +305,7 @@ impl<R: FeltRng> Client<R> {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_onchain_accounts: Vec<Account>,
-    /// Node account hashes that do not match the tracked information.
+    /// Node account hashes that don't match the tracked information.
     mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
 }
 

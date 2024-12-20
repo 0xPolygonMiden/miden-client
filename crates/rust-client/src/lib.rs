@@ -119,7 +119,7 @@ pub struct Client<R: FeltRng> {
     tx_executor: TransactionExecutor,
 }
 
-/// Construction and access methods
+/// Construction and access methods.
 impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the client could not be instantiated.
+    /// Returns an error if the client couldn't be instantiated.
     pub fn new(
         rpc_api: Box<dyn NodeRpcClient + Send>,
         rng: R,

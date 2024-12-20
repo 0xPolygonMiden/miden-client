@@ -28,7 +28,7 @@ pub use states::{
 /// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
 /// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
-/// `metadata` and `inclusion_proof` fields if possible)
+/// `metadata` and `inclusion_proof` fields if possible).
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     /// Details of a note consisting of assets, script, inputs, and a serial number.
@@ -122,8 +122,8 @@ impl InputNoteRecord {
         )
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but is
-    /// not consumed or being processed).
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but
+    /// isn't consumed or being processed).
     pub fn is_committed(&self) -> bool {
         matches!(self.state, InputNoteState::Committed { .. })
     }
@@ -168,7 +168,7 @@ impl InputNoteRecord {
     /// external transaction. Returns `true` if the state was changed.
     ///
     /// Errors:
-    /// - If the nullifier does not match the expected value.
+    /// - If the nullifier doesn't match the expected value.
     pub(crate) fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
@@ -211,7 +211,7 @@ impl InputNoteRecord {
     }
 
     /// Modifies the state of the note record to reflect that the transaction currently consuming
-    /// the note was committed. Returns `true` if the state was changed.3
+    /// the note was committed. Returns `true` if the state was changed.
     pub(crate) fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,

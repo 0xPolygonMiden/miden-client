@@ -14,10 +14,10 @@ use crate::{
     Client, ClientError,
 };
 
-/// Network information management methods
+/// Network information management methods.
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
-    /// imported with an inclusion proof, but its block header is not tracked.
+    /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
@@ -55,7 +55,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
-    /// in the local database
+    /// in the local database.
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
         let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
@@ -139,7 +139,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
     ///
-    /// If the store already contains MMR data for the requested block number, the request is not
+    /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
@@ -190,7 +190,7 @@ impl<R: FeltRng> Client<R> {
 /// # Parameters
 /// - `merkle_path`: Original merkle path.
 /// - `block_num`: The block number for which the path is computed.
-/// - `forest`: The target size of the forest
+/// - `forest`: The target size of the forest.
 fn adjust_merkle_path_for_forest(
     merkle_path: &MerklePath,
     block_num: usize,
@@ -218,7 +218,7 @@ fn adjust_merkle_path_for_forest(
 }
 
 /// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
-/// and returns the updated [PartialMmr]
+/// and returns the updated [PartialMmr].
 pub(crate) fn apply_mmr_changes(
     current_partial_mmr: PartialMmr,
     mmr_delta: MmrDelta,
