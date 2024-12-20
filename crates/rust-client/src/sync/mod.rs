@@ -43,17 +43,17 @@ pub use tags::{NoteTagRecord, NoteTagSource};
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: u32,
-    /// IDs of new notes received
+    /// IDs of new notes received.
     pub received_notes: Vec<NoteId>,
-    /// IDs of tracked notes that received inclusion proofs
+    /// IDs of tracked notes that received inclusion proofs.
     pub committed_notes: Vec<NoteId>,
-    /// IDs of notes that have been consumed
+    /// IDs of notes that have been consumed.
     pub consumed_notes: Vec<NoteId>,
-    /// IDs of on-chain accounts that have been updated
+    /// IDs of on-chain accounts that have been updated.
     pub updated_accounts: Vec<AccountId>,
-    /// IDs of private accounts that have been locked
+    /// IDs of private accounts that have been locked.
     pub locked_accounts: Vec<AccountId>,
-    /// IDs of committed transactions
+    /// IDs of committed transactions.
     pub committed_transactions: Vec<TransactionId>,
 }
 
@@ -132,7 +132,7 @@ pub struct StateSyncUpdate {
     /// Transaction updates for any transaction that was committed between the sync request's
     /// block number and the response's block number.
     pub transactions_to_commit: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync
+    /// Transaction IDs for any transactions that were discarded in the sync.
     pub transactions_to_discard: Vec<TransactionId>,
     /// New MMR peaks for the locally tracked MMR of the blockchain.
     pub new_mmr_peaks: MmrPeaks,
@@ -143,7 +143,7 @@ pub struct StateSyncUpdate {
     pub updated_accounts: AccountUpdates,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
-    /// Tag records that are no longer relevant
+    /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
@@ -153,7 +153,7 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
-/// Client syncronization methods
+/// Client syncronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
@@ -508,7 +508,7 @@ impl<R: FeltRng> Client<R> {
         ))
     }
 
-    /// Queries the node for all received notes that are not being locally tracked in the client
+    /// Queries the node for all received notes that aren't being locally tracked in the client.
     ///
     /// The client can receive metadata for private notes that it's not tracking. In this case,
     /// notes are ignored for now as they become useless until details are imported.
@@ -558,7 +558,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Extracts information about transactions for uncommitted transactions that the client is
-    /// tracking from the received [SyncStateResponse]
+    /// tracking from the received [SyncStateResponse].
     async fn get_transactions_to_commit(
         &self,
         mut transactions: Vec<TransactionUpdate>,

@@ -27,7 +27,7 @@ impl<R: FeltRng> Client<R> {
     ///  - Tags added for accounts tracked by the client.
     ///
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by
-    /// the client and do not need to be added here. That is, notes for managed accounts will be
+    /// the client and don't need to be added here. That is, notes for managed accounts will be
     /// retrieved automatically by the client when syncing.
     pub async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
         self.store.get_note_tags().await.map_err(|err| err.into())

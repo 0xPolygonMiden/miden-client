@@ -37,12 +37,12 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// - Trying to import a new account without providing its seed
-    /// - If the account is already tracked and `overwrite` is set to `false`
+    /// - Trying to import a new account without providing its seed.
+    /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
-    ///   being tracked
-    /// - If `overwrite` is set to `true` and the `account_data` hash does not match the network's
-    ///   account hash
+    ///   being tracked.
+    /// - If `overwrite` is set to `true` and the `account_data` hash doesn't match the network's
+    ///   account hash.
     pub async fn add_account(
         &mut self,
         account: &Account,
@@ -165,7 +165,7 @@ impl<R: FeltRng> Client<R> {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_onchain_accounts: Vec<Account>,
-    /// Node account hashes that do not match the tracked information.
+    /// Node account hashes that don't match the tracked information.
     mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
 }
 

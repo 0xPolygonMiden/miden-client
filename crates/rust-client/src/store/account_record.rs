@@ -51,7 +51,7 @@ impl From<AccountRecord> for Account {
 ///
 /// The status of an account may change by local or external factors.
 pub enum AccountStatus {
-    /// The account is new and has not been used yet. The seed used to create the account is
+    /// The account is new and hasn't been used yet. The seed used to create the account is
     /// stored in this state.
     New { seed: Word },
     /// The account is tracked by the node and was used at least once.

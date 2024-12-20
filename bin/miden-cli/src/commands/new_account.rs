@@ -30,19 +30,19 @@ impl From<CliAccountStorageMode> for AccountStorageMode {
 }
 
 #[derive(Debug, Parser, Clone)]
-/// Create a new faucet account
+/// Create a new faucet account.
 pub struct NewFaucetCmd {
     #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
-    /// Storage mode of the account
+    /// Storage mode of the account.
     storage_mode: CliAccountStorageMode,
     #[clap(short, long)]
-    /// Defines if the account assets are non-fungible (by default it is fungible)
+    /// Defines if the account assets are non-fungible (by default it is fungible).
     non_fungible: bool,
     #[clap(short, long)]
-    /// Token symbol of the faucet
+    /// Token symbol of the faucet.
     token_symbol: Option<String>,
     #[clap(short, long)]
-    /// Decimals of the faucet
+    /// Decimals of the faucet.
     decimals: Option<u8>,
     #[clap(short, long)]
     max_supply: Option<u64>,
@@ -103,13 +103,13 @@ impl NewFaucetCmd {
 }
 
 #[derive(Debug, Parser, Clone)]
-/// Create a new wallet account
+/// Create a new wallet account.
 pub struct NewWalletCmd {
     #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
-    /// Storage mode of the account
+    /// Storage mode of the account.
     pub storage_mode: CliAccountStorageMode,
     #[clap(short, long)]
-    /// Defines if the account code is mutable (by default it is not mutable)
+    /// Defines if the account code is mutable (by default it isn't mutable).
     pub mutable: bool,
 }
 

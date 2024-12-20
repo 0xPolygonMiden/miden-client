@@ -64,7 +64,7 @@ pub trait NodeRpcClient {
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint.
     /// If `include_mmr_proof` is set to true and the function returns an `Ok`, the second value
-    /// of the return tuple should always be Some(MmrProof)   
+    /// of the return tuple should always be Some(MmrProof).
     ///
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
@@ -73,7 +73,7 @@ pub trait NodeRpcClient {
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
-    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
+    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
     ///
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
@@ -81,15 +81,15 @@ pub trait NodeRpcClient {
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
-    /// `/SyncState` RPC endpoint
+    /// `/SyncState` RPC endpoint.
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
     ///   note of matching the requested tag, or the chain tip if there are no notes.
-    /// - `account_ids` is a list of account ids and determines the accounts the client is
+    /// - `account_ids` is a list of account IDs and determines the accounts the client is
     ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
-    ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
+    ///   serves as a "note group" filter. Notice that you can't filter by a specific note ID.
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
@@ -101,9 +101,9 @@ pub trait NodeRpcClient {
     ) -> Result<StateSyncInfo, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
-    /// endpoint
+    /// endpoint.
     ///
-    /// - `account_id` is the id of the wanted account.
+    /// - `account_id` is the ID of the wanted account.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
@@ -130,7 +130,7 @@ pub trait NodeRpcClient {
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
-    /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
+    /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].

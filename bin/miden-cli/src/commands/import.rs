@@ -18,7 +18,7 @@ use crate::{commands::account::maybe_set_default_account, utils::load_config_fil
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]
 pub struct ImportCmd {
-    /// Paths to the files that contains the account/note data
+    /// Paths to the files that contains the account/note data.
     #[arg()]
     filenames: Vec<PathBuf>,
     /// Only relevant for accounts. If set, the account will be overwritten if it already exists.
@@ -100,7 +100,7 @@ fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
 // ================================================================================================
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
-/// specific extension
+/// specific extension.
 fn validate_paths(paths: &[PathBuf]) -> Result<(), String> {
     let invalid_path = paths.iter().find(|path| !path.exists());
 
