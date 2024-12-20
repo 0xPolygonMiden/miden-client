@@ -225,11 +225,11 @@ impl<R: FeltRng> Client<R> {
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
-        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
-        let updated_onchain_accounts = self
-            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
+        let updated_public_accounts = self
+            .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
             .await?;
 
         let mismatched_offchain_accounts = self
@@ -257,7 +257,7 @@ impl<R: FeltRng> Client<R> {
             note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
-            updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            updated_public_accounts.iter().map(|acc| acc.id()).collect(),
             mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
@@ -269,7 +269,7 @@ impl<R: FeltRng> Client<R> {
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             updated_accounts: AccountUpdates::new(
-                updated_onchain_accounts,
+                updated_public_accounts,
                 mismatched_offchain_accounts,
             ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
@@ -530,16 +530,16 @@ impl<R: FeltRng> Client<R> {
         Ok(transactions)
     }
 
-    async fn get_updated_onchain_accounts(
+    async fn get_updated_public_accounts(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_onchain_accounts: &[AccountHeader],
+        current_public_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
         let mut mismatched_public_accounts = vec![];
 
         for (id, hash) in account_updates {
             // check if this updated account is tracked by the client
-            if let Some(account) = current_onchain_accounts
+            if let Some(account) = current_public_accounts
                 .iter()
                 .find(|acc| *id == acc.id() && *hash != acc.hash())
             {
@@ -548,7 +548,7 @@ impl<R: FeltRng> Client<R> {
         }
 
         self.rpc_api
-            .get_updated_public_accounts(mismatched_public_accounts)
+            .get_updated_public_accounts(&mismatched_public_accounts)
             .await
             .map_err(ClientError::RpcError)
     }

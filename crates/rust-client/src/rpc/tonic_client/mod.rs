@@ -285,7 +285,7 @@ impl NodeRpcClient for TonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - One of the requested Accounts is not public, or is not returned by the node.
+    /// - One of the requested Accounts isn't returned by the node.
     /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.

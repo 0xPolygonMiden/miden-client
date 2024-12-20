@@ -155,7 +155,8 @@ pub trait NodeRpcClient {
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
     /// specified foreign accounts. The `code_commitments` parameter is a list of known code hashes
-    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data.
+    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
+    /// one of the tracked accounts is not found in the node, the method will return an error.
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_account_proofs].
     async fn get_fpi_account_data(
@@ -234,7 +235,7 @@ pub trait NodeRpcClient {
     /// The default implementation of this method uses [NodeRpcClient::get_account_update].
     async fn get_updated_public_accounts(
         &mut self,
-        local_accounts: Vec<&AccountHeader>,
+        local_accounts: &[&AccountHeader],
     ) -> Result<Vec<Account>, RpcError> {
         let mut public_accounts = vec![];
 

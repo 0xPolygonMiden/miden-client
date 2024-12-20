@@ -19,7 +19,7 @@
 
 ### Changes
 
-* Refactored rpc functions and structs to improve code quality (#616).
+* Refactored RPC functions and structs to improve code quality (#616).
 * [BREAKING] Use `thiserror` 2.0 to derive errors (#623).
 * [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
 * Refactored `Client::import_note` to return an error when the note is already being processed (#602).
