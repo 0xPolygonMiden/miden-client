@@ -4,17 +4,16 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
-        },
-        Account, AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey,
-    },
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
+    testing::account_id::{
+        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+    },
     Felt, FieldElement, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -245,8 +244,7 @@ async fn test_get_account_by_id() {
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
-    let hex = format!("0x{}", "1".repeat(16));
-    let invalid_id = AccountId::from_hex(&hex).unwrap();
+    let invalid_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
     assert!(client.get_account_header_by_id(invalid_id).await.is_err());
 }
 
@@ -330,7 +328,7 @@ async fn test_sync_state_mmr() {
     // Try reconstructing the chain_mmr from what's in the database
     let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
-    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(0).unwrap().is_some()); // Account anchor block
     assert!(partial_mmr.open(1).unwrap().is_some());
     assert!(partial_mmr.open(2).unwrap().is_none());
     assert!(partial_mmr.open(3).unwrap().is_none());
@@ -405,7 +403,7 @@ async fn test_mint_transaction() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
@@ -437,7 +435,7 @@ async fn test_get_output_notes() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x0123456789abcdef").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
@@ -504,7 +502,7 @@ async fn test_transaction_request_expiration() {
 
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )

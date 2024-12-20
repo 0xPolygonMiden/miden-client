@@ -33,6 +33,7 @@ jobs:
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
+      - run: cargo update
       - run: make integration-test-full
       - name: Kill miden-node
         if: always()
@@ -54,6 +55,7 @@ jobs:
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
+      - run: cargo update
       - run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
@@ -78,6 +80,7 @@ jobs:
       - run: make clean-prover
       - run: make prover
       - run: make start-prover > /dev/null &
+      - run: cargo update
       - run: make integration-test-remote-prover-web-client
       - name: Kill miden-node
         if: always()
