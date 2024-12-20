@@ -173,8 +173,10 @@ impl<R: FeltRng> Client<R> {
     /// 2. A response is received with the current state of the network. The response includes
     ///    information about new/committed/consumed notes, updated accounts, and committed
     ///    transactions.
-    /// 3. Notes are updated with their new states.
-    /// 4. New notes are checked, only relevant notes are stored.
+    /// 3. Tracked notes are updated with their new states.
+    /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
+    ///    can be consumed by accounts the client is tracking (this is checked by the
+    ///    [crate::notes::NoteScreener])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
     ///    state.

@@ -21,9 +21,10 @@ impl<R: FeltRng> Client<R> {
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and
     /// note-related information will be retrieved for notes that have matching tags.
-    /// The source of the tag is used to differentiate between tags that are added by the user, tags
-    /// that are added automatically by the client to track notes, and tags that are added for
-    /// accounts that are being tracked by the client.
+    ///  The source of the tag indicates its origin. It helps distinguish between:
+    ///  - Tags added manually by the user.
+    ///  - Tags automatically added by the client to track notes.
+    ///  - Tags added for accounts tracked by the client.
     ///
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by
     /// the client and do not need to be added here. That is, notes for managed accounts will be
