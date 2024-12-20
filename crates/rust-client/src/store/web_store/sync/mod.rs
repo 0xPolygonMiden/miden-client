@@ -157,8 +157,8 @@ impl WebStore {
             .collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
-        // Update onchain accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_onchain_accounts() {
+        // Update public accounts on the db that have been updated onchain
+        for account in updated_accounts.updated_public_accounts() {
             update_account(&account.clone()).await.unwrap();
         }
 
