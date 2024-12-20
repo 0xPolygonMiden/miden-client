@@ -165,14 +165,14 @@ async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
       return;
     }
 
-    // Create the updates array with objects matching the structure expected by your IndexedDB schema
-    const updates = nodeIndexes.map((index, i) => ({
-      id: index, // Assuming 'index' is the primary key or part of it
-      node: nodes[i], // Other attributes of the object
+    // Create array of objects with id and node
+    const data = nodes.map((node, index) => ({
+      id: nodeIndexes[index],
+      node: node,
     }));
 
-    // Perform bulk update or insertion; assumes tx.chainMmrNodes is a valid table reference in a transaction
-    await tx.chainMmrNodes.bulkAdd(updates);
+    // Use bulkPut to add/overwrite the entries
+    await tx.chainMmrNodes.bulkPut(data);
   } catch (err) {
     console.error("Failed to update chain mmr nodes: ", err);
     throw err;

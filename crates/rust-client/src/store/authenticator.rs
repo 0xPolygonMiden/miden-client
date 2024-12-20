@@ -28,7 +28,7 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
     ///
     /// # Errors
-    /// If the public key is not found in the store, [AuthenticationError::UnknownKey] is
+    /// If the public key is not found in the store, [AuthenticationError::UnknownPublicKey] is
     /// returned.
     fn get_signature(
         &self,
@@ -38,10 +38,11 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.write();
 
-        let secret_key =
-            self.store.get_account_auth_by_pub_key(pub_key).block_on().map_err(|_| {
-                AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key)))
-            })?;
+        let secret_key = self
+            .store
+            .get_account_auth_by_pub_key(pub_key)
+            .block_on()
+            .map_err(|_| AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
