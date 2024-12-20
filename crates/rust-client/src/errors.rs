@@ -45,8 +45,8 @@ pub enum ClientError {
     #[error("error parsing hex: {0}")]
     //TODO: use source in this error when possible
     HexParseError(HexParseError),
-    #[error("can't import new account without seed")]
-    ImportNewAccountWithoutSeed,
+    #[error("can't add new account without seed")]
+    AddNewAccountWithoutSeed,
     #[error("error with merkle path: {0}")]
     //TODO: use source in this error when possible
     MerkleError(MerkleError),

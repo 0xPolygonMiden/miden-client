@@ -210,7 +210,8 @@ impl<R: FeltRng> Client<R> {
             .map(|(acc_header, _)| acc_header)
             .collect();
 
-        let note_tags: Vec<NoteTag> = self.get_unique_note_tags().await?.into_iter().collect();
+        let note_tags: Vec<NoteTag> =
+            self.store.get_unique_note_tags().await?.into_iter().collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number

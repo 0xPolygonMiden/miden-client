@@ -8,8 +8,13 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    accounts::{AccountId, AccountStorageMode, AccountTemplate},
-    crypto::RpoRandomCoin,
+    self,
+    accounts::{
+        AccountBuilder, AccountId, AccountStorageMode, AccountType, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
+    auth::AuthSecretKey,
+    crypto::{RpoRandomCoin, SecretKey},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
@@ -100,13 +105,26 @@ async fn test_mint_with_untracked_account() {
     let target_account_id = {
         let other_store_path = create_test_store_path();
         let mut client = create_test_client_with_store_path(&other_store_path).await;
-        let account_template = AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        };
-        let (account, _seed) = client.new_account(account_template).await.unwrap();
+        let key_pair = SecretKey::with_rng(client.rng());
 
-        account.id().to_hex()
+        let mut init_seed = [0u8; 32];
+        client.rng().fill_bytes(&mut init_seed);
+
+        let (new_account, seed) = AccountBuilder::new()
+            .init_seed(init_seed)
+            .account_type(AccountType::RegularAccountImmutableCode)
+            .storage_mode(AccountStorageMode::Private)
+            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+            .with_component(BasicWalletComponent)
+            .build()
+            .unwrap();
+
+        client
+            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+            .await
+            .unwrap();
+
+        new_account.id().to_hex()
     };
 
     // On CLI create the faucet and mint

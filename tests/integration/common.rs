@@ -1,7 +1,11 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{
+        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
+    auth::AuthSecretKey,
     crypto::FeltRng,
     notes::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
@@ -10,7 +14,7 @@ use miden_client::{
     transactions::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
-    Client, ClientError,
+    Client, ClientError, Word,
 };
 use miden_objects::{
     accounts::{
@@ -18,7 +22,7 @@ use miden_objects::{
         AccountId, AccountStorageMode,
     },
     assets::{Asset, FungibleAsset, TokenSymbol},
-    crypto::rand::RpoRandomCoin,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     notes::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
     Felt, FieldElement,
@@ -87,6 +91,60 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
+}
+
+pub async fn insert_new_wallet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(client.rng());
+
+    let mut init_seed = [0u8; 32];
+    client.rng().fill_bytes(&mut init_seed);
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicWalletComponent)
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+        .await?;
+
+    Ok((account, seed))
+}
+
+pub async fn insert_new_fungible_faucet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(client.rng());
+
+    // we need to use an initial seed to create the wallet account
+    let mut init_seed = [0u8; 32];
+    client.rng().fill_bytes(&mut init_seed);
+
+    let symbol = TokenSymbol::new("TEST").unwrap();
+    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+        .expect("u64 can be safely converted to a field element");
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::FungibleFaucet)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucetComponent::new(symbol, 10, max_supply).unwrap())
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .await?;
+    Ok((account, seed))
 }
 
 pub async fn execute_failing_tx(
@@ -209,32 +267,13 @@ pub async fn setup(
     assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Create faucet account
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: accounts_storage_mode,
-        })
-        .await
-        .unwrap();
+    let (faucet_account, _) =
+        insert_new_fungible_faucet(client, accounts_storage_mode).await.unwrap();
 
     // Create regular accounts
-    let (first_basic_account, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (first_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
 
-    let (second_basic_account, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (second_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
 
     println!("Syncing State...");
     client.sync_state().await.unwrap();
