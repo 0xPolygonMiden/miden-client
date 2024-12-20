@@ -234,7 +234,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    pub async fn try_add_new_account() {
+    pub async fn try_add_account() {
         // generate test client
         let (mut client, _rpc_api) = create_test_client().await;
 
