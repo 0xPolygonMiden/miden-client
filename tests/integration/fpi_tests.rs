@@ -6,10 +6,10 @@ use miden_client::{
 };
 use miden_lib::accounts::auth::RpoFalcon512;
 use miden_objects::{
-    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey},
+    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
-    Digest,
+    Digest, FieldElement,
 };
 
 use super::common::*;
@@ -41,7 +41,6 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     wait_for_node(&mut client).await;
 
     let (foreign_account, foreign_seed, secret_key, proc_root) = foreign_account(storage_mode);
-
     let foreign_account_id = foreign_account.id();
 
     client
@@ -131,7 +130,10 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
     let tx_request = if storage_mode == AccountStorageMode::Public {
-        builder.with_public_foreign_accounts([foreign_account_id]).unwrap().build()
+        builder
+            .with_public_foreign_accounts([(foreign_account_id, vec![0])])
+            .unwrap()
+            .build()
     } else {
         // Get foreign account current state (after 1st deployment tx)
         let foreign_account = client.get_account(foreign_account_id).await.unwrap();
@@ -156,7 +158,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     }
 }
 
-/// Builds a foreign account with a custom component that retrieves a value from its storage.
+/// Builds a foreign account with a custom component that retrieves a value from its storage (map).
 ///
 /// # Returns
 ///
@@ -166,16 +168,24 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 /// - `SecretKey` - The secret key associated with the account's authentication component.
 /// - `Digest` - The procedure root of the custom component's procedure.
 pub fn foreign_account(storage_mode: AccountStorageMode) -> (Account, Word, SecretKey, Digest) {
+    // store our expected value on map from slot 0 (map key 15)
+    let mut storage_map = StorageMap::new();
+    storage_map
+        .insert([Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::new(15)].into(), FPI_STORAGE_VALUE);
+
     let get_item_component = AccountComponent::compile(
         "
-        export.get_fpi_item
+        export.get_fpi_map_item
+            # map key
+            push.15
+            # item index
             push.0
-            exec.::miden::account::get_item
+            exec.::miden::account::get_map_item
             swapw dropw
         end
         ",
         TransactionKernel::assembler(),
-        vec![StorageSlot::Value(FPI_STORAGE_VALUE)],
+        vec![StorageSlot::Map(storage_map)],
     )
     .unwrap()
     .with_supports_all_types();

@@ -384,7 +384,7 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_public_foreign_accounts([target_id])
+            .with_public_foreign_accounts([(target_id,vec![14])])
             .unwrap()
             .with_private_foreign_accounts([account])
             .unwrap()
