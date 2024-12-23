@@ -332,7 +332,7 @@ async fn test_sync_state() {
 #[tokio::test]
 async fn test_sync_state_mmr() {
     // generate test client with a random store name
-    let (mut client, mut rpc_api) = create_test_client().await;
+    let (mut client, rpc_api) = create_test_client().await;
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
     insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();

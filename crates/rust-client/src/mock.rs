@@ -206,7 +206,7 @@ use alloc::boxed::Box;
 #[async_trait(?Send)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
-        &mut self,
+        &self,
         _block_num: u32,
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
@@ -222,7 +222,7 @@ impl NodeRpcClient for MockRpcApi {
 
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: u32,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
@@ -237,7 +237,7 @@ impl NodeRpcClient for MockRpcApi {
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
@@ -259,7 +259,7 @@ impl NodeRpcClient for MockRpcApi {
         Ok((block.header(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
         // assume all off-chain notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
@@ -285,22 +285,19 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         _proven_transaction: ProvenTransaction,
     ) -> std::result::Result<(), RpcError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
 
-    async fn get_account_update(
-        &mut self,
-        _account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError> {
+    async fn get_account_update(&self, _account_id: AccountId) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 
     async fn get_account_proofs(
-        &mut self,
+        &self,
         _account_ids: &BTreeSet<AccountId>,
         _code_commitments: Vec<AccountCode>,
         _include_headers: bool,
@@ -310,7 +307,7 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         _prefix: &[u16],
     ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
         // Always return an empty list for now since it's only used when importing
