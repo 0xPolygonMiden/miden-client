@@ -985,8 +985,11 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
+        let anchor_block = client.get_anchor_block().await.unwrap();
+
         let account = AccountBuilder::new()
             .init_seed(Default::default())
+            .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])

@@ -110,8 +110,11 @@ async fn test_mint_with_untracked_account() {
         let mut init_seed = [0u8; 32];
         client.rng().fill_bytes(&mut init_seed);
 
+        let anchor_block = client.get_anchor_block().await.unwrap();
+
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)
+            .anchor((&anchor_block).try_into().unwrap())
             .account_type(AccountType::RegularAccountImmutableCode)
             .storage_mode(AccountStorageMode::Private)
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
