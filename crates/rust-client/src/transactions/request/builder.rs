@@ -20,8 +20,8 @@ use miden_objects::{
 };
 
 use super::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest, TransactionRequestError,
-    TransactionScriptTemplate,
+    foreign::StorageMapSlotKey, ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest,
+    TransactionRequestError, TransactionScriptTemplate,
 };
 
 // TRANSACTION REQUEST BUILDER
@@ -156,6 +156,21 @@ impl TransactionRequestBuilder {
         Ok(self)
     }
 
+    /// Specifies foreign accounts that contain data that the transaction will utilize.
+    ///
+    /// At execution, the client queries the node and retrieves account-related data, based on
+    /// what's defined in `foreign_accounts`
+    pub fn with_foreign_accounts(
+        mut self,
+        foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccount>>,
+    ) -> Self {
+        for account in foreign_accounts {
+            self.foreign_accounts.insert(account.into());
+        }
+
+        self
+    }
+
     /// Specifies public account IDs that contain data that the transaction will utilize.
     ///
     /// At execution, the client queries the node and retrieves the state and current code for
@@ -166,10 +181,11 @@ impl TransactionRequestBuilder {
     /// - If `foreign_account_ids` contains an ID corresponding to a private account.
     pub fn with_public_foreign_accounts(
         mut self,
-        foreign_account_ids: impl IntoIterator<Item = impl Into<AccountId>>,
+        foreign_account_ids: impl IntoIterator<Item = impl Into<(AccountId, Vec<StorageMapSlotKey>)>>,
     ) -> Result<Self, TransactionRequestError> {
-        for account_id in foreign_account_ids {
-            self.foreign_accounts.insert(ForeignAccount::public(account_id.into())?);
+        for account in foreign_account_ids {
+            let (account_id, indices) = account.into();
+            self.foreign_accounts.insert(ForeignAccount::public(account_id, indices)?);
         }
 
         Ok(self)

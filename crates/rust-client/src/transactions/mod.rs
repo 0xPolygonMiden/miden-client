@@ -11,7 +11,9 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountType},
+    accounts::{
+        Account, AccountCode, AccountDelta, AccountId, AccountType, StorageMap, StorageSlot,
+    },
     assets::{Asset, NonFungibleAsset},
     crypto::merkle::MerklePath,
     notes::{Note, NoteDetails, NoteId, NoteTag},
@@ -29,7 +31,7 @@ use tracing::info;
 use super::{Client, FeltRng};
 use crate::{
     notes::{NoteScreener, NoteUpdates},
-    rpc::domain::accounts::AccountProof,
+    rpc::domain::accounts::{AccountDetails, AccountProof},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -757,15 +759,39 @@ impl<R: FeltRng> Client<R> {
             account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
 
         for foreign_account in foreign_accounts.into_iter() {
-            let (foreign_account_inputs, merkle_path) = match foreign_account {
-                ForeignAccount::Public(account_id) => {
+            let (foreign_account_inputs, merkle_path, storage_maps) = match foreign_account {
+                ForeignAccount::Public(account_id, storage_map_keys) => {
                     let account_proof = account_proofs
                         .remove(&account_id)
                         .expect("Proof was requested and received");
 
                     let (foreign_account_inputs, merkle_path) = account_proof.try_into()?;
 
-                    // Update our foreign account code cache
+                    let mut storage_maps = vec![];
+                    if !storage_map_keys.is_empty() {
+                        // Get full account from `GetAccountDetails` to replace storage map keys
+                        // TODO: This is a temporary workaround. Once miden-node issue #596 is done,
+                        // we need to implement the endpoint to retrieve individual keys instead of
+                        // this (and probably add maps to ForeignAccountInputs).
+                        // This should panic if storage header's commitment does not match this
+                        // retrieve account's storage commitment, but since this is temporary
+                        // anyway, disregard for now.
+                        let account = self.rpc_api.get_account_update(account_id).await?;
+                        match account {
+                            AccountDetails::Public(account, _) => {
+                                for (idx, slot) in account.storage().slots().iter().enumerate() {
+                                    if let StorageSlot::Map(map) = slot {
+                                        if storage_map_keys.contains(&(idx as u8)) {
+                                            storage_maps.push(map.clone());
+                                        }
+                                    }
+                                }
+                            },
+                            _ => panic!("account ID is public"),
+                        }
+                    }
+
+                    // Update  our foreign account code cache
                     self.store
                         .upsert_foreign_account_code(
                             account_id,
@@ -773,16 +799,17 @@ impl<R: FeltRng> Client<R> {
                         )
                         .await?;
 
-                    (foreign_account_inputs, merkle_path)
+                    (foreign_account_inputs, merkle_path, storage_maps)
                 },
                 ForeignAccount::Private(foreign_account_inputs) => {
+                    let maps = foreign_account_inputs.storage_maps().to_vec();
                     let account_id = foreign_account_inputs.account_header().id();
                     let proof = account_proofs
                         .remove(&account_id)
                         .expect("Proof was requested and received");
                     let merkle_path = proof.merkle_proof();
 
-                    (foreign_account_inputs, merkle_path.clone())
+                    (foreign_account_inputs, merkle_path.clone(), maps)
                 },
             };
 
@@ -790,6 +817,7 @@ impl<R: FeltRng> Client<R> {
                 tx_args,
                 &mut self.tx_executor,
                 foreign_account_inputs,
+                &storage_maps,
                 &merkle_path,
             )?;
         }
@@ -843,50 +871,34 @@ fn extend_advice_inputs_for_account(
     tx_args: &mut TransactionArgs,
     tx_executor: &mut TransactionExecutor,
     foreign_account_inputs: ForeignAccountInputs,
+    storage_maps: &[StorageMap],
     merkle_path: &MerklePath,
 ) -> Result<(), ClientError> {
     let (account_header, storage_header, account_code) = foreign_account_inputs.into_parts();
 
     let account_id = account_header.id();
-    let account_nonce = account_header.nonce();
-    let vault_root = account_header.vault_root();
-    let storage_root = account_header.storage_commitment();
-    let code_root = account_header.code_commitment();
-
     let foreign_id_root = Digest::from([account_id.into(), ZERO, ZERO, ZERO]);
-    let foreign_id_and_nonce = [account_id.into(), ZERO, ZERO, account_nonce];
-
-    // Prepare storage slot data
-    let mut slots_data = Vec::new();
-    for (slot_type, value) in storage_header.slots() {
-        let mut elements = [ZERO; 8];
-        elements[0..4].copy_from_slice(value);
-        elements[4..8].copy_from_slice(&slot_type.as_word());
-        slots_data.extend_from_slice(&elements);
-    }
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([
         // ACCOUNT_ID -> [ID_AND_NONCE, VAULT_ROOT, STORAGE_ROOT, CODE_ROOT]
-        (
-            foreign_id_root,
-            [
-                &foreign_id_and_nonce,
-                vault_root.as_elements(),
-                storage_root.as_elements(),
-                code_root.as_elements(),
-            ]
-            .concat(),
-        ),
+        (foreign_id_root, account_header.as_elements()),
         // STORAGE_ROOT -> [STORAGE_SLOT_DATA]
-        (storage_root, slots_data),
+        (account_header.storage_commitment(), storage_header.as_elements()),
         // CODE_ROOT -> [ACCOUNT_CODE_DATA]
-        (code_root, account_code.as_elements()),
+        (account_header.code_commitment(), account_code.as_elements()),
     ]);
+
+    // Load merkle nodes for storage maps
+    for map in storage_maps {
+        // Extend the merkle store and map with the storage maps
+        tx_args.extend_merkle_store(map.inner_nodes());
+        // Populate advice map with Sparse Merkle Tree leaf nodes
+        tx_args.extend_advice_map(map.leaves().map(|(_, leaf)| (leaf.hash(), leaf.to_elements())));
+    }
 
     // Extend the advice inputs with Merkle store data
     tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
-
     tx_executor.load_account_code(&account_code);
 
     Ok(())
