@@ -57,43 +57,43 @@ pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` RPC endpoint.
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError>;
 
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint.
     /// If `include_mmr_proof` is set to true and the function returns an `Ok`, the second value
-    /// of the return tuple should always be Some(MmrProof).
+    /// of the return tuple should always be Some(MmrProof)   
     ///
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
-    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
+    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
     ///
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
-    /// `/SyncState` RPC endpoint.
+    /// `/SyncState` RPC endpoint
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
     ///   note of matching the requested tag, or the chain tip if there are no notes.
-    /// - `account_ids` is a list of account IDs and determines the accounts the client is
+    /// - `account_ids` is a list of account ids and determines the accounts the client is
     ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
-    ///   serves as a "note group" filter. Notice that you can't filter by a specific note ID.
+    ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: u32,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
@@ -101,16 +101,13 @@ pub trait NodeRpcClient {
     ) -> Result<StateSyncInfo, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
-    /// endpoint.
+    /// endpoint
     ///
-    /// - `account_id` is the ID of the wanted account.
-    async fn get_account_update(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError>;
+    /// - `account_id` is the id of the wanted account.
+    async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError>;
 
     async fn sync_notes(
-        &mut self,
+        &self,
         block_num: u32,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
@@ -118,24 +115,24 @@ pub trait NodeRpcClient {
     /// Fetches the nullifiers corresponding to a list of prefixes using the
     /// `/CheckNullifiersByPrefix` RPC endpoint.
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
     /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_ids: &BTreeSet<AccountId>,
         known_account_codes: Vec<AccountCode>,
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
-    /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
+    /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
     /// then `None` is returned.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
-        &mut self,
+        &self,
         nullifier: &Nullifier,
     ) -> Result<Option<u32>, RpcError> {
         let nullifiers =
