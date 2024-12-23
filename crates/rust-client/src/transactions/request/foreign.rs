@@ -199,7 +199,7 @@ impl Serializable for ForeignAccountInputs {
     fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
         self.account_header.write_into(target);
         self.storage_header.write_into(target);
-        self.storage_header.write_into(target);
+        self.account_code.write_into(target);
         self.storage_maps.write_into(target);
     }
 }
