@@ -80,7 +80,7 @@
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
+//!     Arc::new(TonicRpcClient::new(endpoint, 10_000).await.unwrap()),
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
