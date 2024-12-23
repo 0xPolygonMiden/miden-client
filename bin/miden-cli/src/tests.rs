@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use assert_cmd::Command;
@@ -699,7 +700,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let store = {
         let sqlite_store = SqliteStore::new(PathBuf::from(store_path)).await.unwrap();
-        std::sync::Arc::new(sqlite_store)
+        Arc::new(sqlite_store)
     };
 
     let mut rng = rand::thread_rng();
@@ -709,14 +710,14 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(
+        Arc::new(
             TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)
                 .await
                 .unwrap(),
         ),
         rng,
         store,
-        std::sync::Arc::new(authenticator),
+        Arc::new(authenticator),
         true,
     )
 }

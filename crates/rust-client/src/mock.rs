@@ -319,9 +319,9 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi) {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     let rpc_api = MockRpcApi::new();
-    let boxed_rpc_api = Box::new(rpc_api.clone());
+    let arc_rpc_api = Arc::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
+    let client = MockClient::new(arc_rpc_api, rng, store, Arc::new(authenticator), true);
     (client, rpc_api)
 }
 

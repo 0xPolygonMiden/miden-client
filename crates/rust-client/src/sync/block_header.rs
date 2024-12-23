@@ -152,7 +152,7 @@ impl<R: FeltRng> Client<R> {
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {

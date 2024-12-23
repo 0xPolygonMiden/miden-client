@@ -112,7 +112,7 @@ impl Cli {
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
         let client = Client::new(
-            Box::new(
+            Arc::new(
                 TonicRpcClient::new(
                     cli_config.rpc.endpoint.clone().into(),
                     cli_config.rpc.timeout_ms,
