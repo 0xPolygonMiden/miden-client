@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, sync::Arc, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
@@ -7,6 +7,7 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest,
 };
+use tonic::async_trait;
 use tracing::*;
 
 use crate::{
@@ -92,7 +93,34 @@ impl SyncStatus {
     }
 }
 
-pub struct SyncState {
+/// The [SyncState] trait defines the interface for the state sync process. The sync process is
+/// responsible for updating the client's store with the latest state of the network.
+///
+/// Methods in this trait shouldn't change the state of the client itself, but rather return the
+/// updated state as a result.
+#[async_trait(?Send)]
+pub trait SyncState {
+    /// Performs a state sync to the next block on the specified elements. The function returns a
+    /// [SyncStatus] with the new state if the sync was successful, where the variant depends on
+    /// whether the client has synced to the last block in the chain or not. `None` will be returned
+    /// if the elements are already up to date.
+    ///
+    /// This method should query the store to get the current states of each element and then
+    /// create the updates to be applied with the new information from the node.
+    ///
+    /// The [Client] will call this method on the sync process until it reaches the last block in
+    /// the chain.
+    async fn step_sync_state(
+        &mut self,
+        current_block_num: u32,
+        tracked_accounts: Vec<AccountHeader>,
+        note_tags: &[NoteTag],
+        nullifiers: &[Nullifier],
+    ) -> Result<Option<SyncStatus>, ClientError>;
+}
+
+/// Implements the [SyncState] trait for a standard sync process.
+pub struct ClientSyncState {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Arc<dyn Store>,
     /// An instance of [NodeRpcClient] which provides a way for the component to connect to the
@@ -100,13 +128,24 @@ pub struct SyncState {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
 }
 
-impl SyncState {
-    /// Creates a new instance of [SyncState].
-    pub fn new(store: Arc<dyn Store>, rpc_api: Arc<dyn NodeRpcClient + Send>) -> Self {
-        Self { store, rpc_api }
-    }
-
-    pub async fn step_sync_state(
+#[async_trait(?Send)]
+impl SyncState for ClientSyncState {
+    /// The sync process is done in multiple steps:
+    /// 1. A request is sent to the node to get the state updates. This request includes tracked
+    ///    account IDs and the tags of notes that might have changed or that might be of interest to
+    ///    the client.
+    /// 2. A response is received with the current state of the network. The response includes
+    ///    information about new/committed/consumed notes, updated accounts, and committed
+    ///    transactions.
+    /// 3. Tracked notes are updated with their new states.
+    /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
+    ///    can be consumed by accounts the client is tracking (this is checked by the
+    ///    [crate::notes::NoteScreener])
+    /// 5. Transactions are updated with their new states.
+    /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
+    ///    state.
+    /// 7. The MMR is updated with the new peaks and authentication nodes.
+    async fn step_sync_state(
         &mut self,
         current_block_num: u32,
         tracked_accounts: Vec<AccountHeader>,
@@ -194,8 +233,13 @@ impl SyncState {
             Ok(Some(SyncStatus::SyncedToBlock(sync_update)))
         }
     }
-    // HELPERS
-    // --------------------------------------------------------------------------------------------
+}
+
+impl ClientSyncState {
+    /// Creates a new instance of [SyncState].
+    pub fn new(store: Arc<dyn Store>, rpc_api: Arc<dyn NodeRpcClient + Send>) -> Self {
+        Self { store, rpc_api }
+    }
 
     /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
     /// list or note tag records to be removed from the store.

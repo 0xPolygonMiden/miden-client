@@ -11,10 +11,7 @@ use miden_objects::{
     transaction::TransactionId,
 };
 
-use crate::{
-    components::sync_state::{SyncState, SyncStatus},
-    Client, ClientError,
-};
+use crate::{components::sync_state::SyncStatus, Client, ClientError};
 
 mod block_headers;
 
@@ -108,23 +105,6 @@ impl<R: FeltRng> Client<R> {
 
     /// Syncs the client's state with the current state of the Miden network. Returns the block
     /// number the client has been synced to.
-    ///
-    /// The sync process is done in multiple steps:
-    /// 1. A request is sent to the node to get the state updates. This request includes tracked
-    ///    account IDs and the tags of notes that might have changed or that might be of interest to
-    ///    the client.
-    /// 2. A response is received with the current state of the network. The response includes
-    ///    information about new/committed/consumed notes, updated accounts, and committed
-    ///    transactions.
-    /// 3. Tracked notes are updated with their new states.
-    /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
-    ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::notes::NoteScreener])
-    /// 5. Transactions are updated with their new states.
-    /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
-    ///    state.
-    /// 7. The MMR is updated with the new peaks and authentication nodes.
-    /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0);
@@ -146,7 +126,8 @@ impl<R: FeltRng> Client<R> {
             let nullifiers = self.store.get_unspent_input_note_nullifiers().await?;
 
             // Sync the state with the network
-            let response = SyncState::new(self.store.clone(), self.rpc_api.clone())
+            let response = self
+                .sync_state
                 .step_sync_state(current_block_num, accounts, &note_tags, &nullifiers)
                 .await?;
 

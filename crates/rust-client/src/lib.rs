@@ -67,6 +67,7 @@ pub mod crypto {
     };
 }
 
+use components::sync_state::{ClientSyncState, SyncState};
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
@@ -120,6 +121,7 @@ pub struct Client<R: FeltRng> {
     /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
     tx_prover: Arc<LocalTransactionProver>,
     tx_executor: TransactionExecutor,
+    sync_state: Box<dyn SyncState>,
 }
 
 /// Construction and access methods.
@@ -163,6 +165,7 @@ impl<R: FeltRng> Client<R> {
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
         let tx_prover = Arc::new(LocalTransactionProver::default());
+        let sync_state = Box::new(ClientSyncState::new(store.clone(), rpc_api.clone())); // TODO: Component should be a parameter of the constructor
 
         Self {
             store,
@@ -170,6 +173,7 @@ impl<R: FeltRng> Client<R> {
             rpc_api,
             tx_executor,
             tx_prover,
+            sync_state,
         }
     }
 
