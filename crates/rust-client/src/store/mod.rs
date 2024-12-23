@@ -10,13 +10,14 @@ use core::fmt::Debug;
 use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
-    crypto::merkle::{InOrderIndex, MmrPeaks},
+    crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 
 use crate::{
-    sync::{NoteTagRecord, StateSyncUpdate},
+    components::sync_state::StateSyncUpdate,
+    sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
@@ -207,6 +208,44 @@ pub trait Store: Send + Sync {
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
+
+    /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
+    /// authentication nodes that could come from applying the MMR updates, we need to track all
+    /// known leaves thus far.
+    ///
+    /// As part of the syncing process, we add the current block number so we don't need to
+    /// track it here.
+    async fn build_current_partial_mmr(
+        &self,
+        include_current_block: bool,
+    ) -> Result<PartialMmr, StoreError> {
+        let current_block_num = self.get_sync_height().await?;
+
+        let tracked_nodes = self.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
+        let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
+
+        let track_latest = if current_block_num != 0 {
+            match self.get_block_header_by_num(current_block_num - 1).await {
+                Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
+                Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
+                Err(err) => Err(err),
+            }?
+        } else {
+            false
+        };
+
+        let mut current_partial_mmr =
+            PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
+
+        if include_current_block {
+            let (current_block, has_client_notes) =
+                self.get_block_header_by_num(current_block_num).await?;
+
+            current_partial_mmr.add(current_block.hash(), has_client_notes);
+        }
+
+        Ok(current_partial_mmr)
+    }
 
     // ACCOUNT
     // --------------------------------------------------------------------------------------------
