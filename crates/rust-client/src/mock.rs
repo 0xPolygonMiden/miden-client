@@ -8,12 +8,7 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
-        },
-        AccountCode, AccountId,
-    },
+    accounts::{AccountCode, AccountId},
     assets::{FungibleAsset, NonFungibleAsset},
     block::Block,
     crypto::{
@@ -21,7 +16,10 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{Note, NoteId, NoteTag},
-    testing::notes::NoteBuilder,
+    testing::{
+        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        notes::NoteBuilder,
+    },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
 };

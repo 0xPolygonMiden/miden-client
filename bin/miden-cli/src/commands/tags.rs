@@ -50,7 +50,7 @@ async fn list_tags(client: Client<impl FeltRng>) -> Result<(), String> {
 
 async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
     let tag: NoteTag = tag.into();
-    let execution_mode = match tag.execution_hint() {
+    let execution_mode = match tag.execution_mode() {
         NoteExecutionMode::Local => "Local",
         NoteExecutionMode::Network => "Network",
     };

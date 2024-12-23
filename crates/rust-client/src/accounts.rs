@@ -201,19 +201,17 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-            },
-            Account, AccountData, AuthSecretKey,
-        },
+        accounts::{Account, AccountData, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
+        testing::account_id::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        },
         Felt, Word,
     };
 
     use crate::mock::create_test_client;
 
-    fn create_account_data(account_id: u64) -> AccountData {
+    fn create_account_data(account_id: u128) -> AccountData {
         let account =
             Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 

@@ -32,8 +32,11 @@ impl WebClient {
                 AccountType::RegularAccountImmutableCode
             };
 
+            let anchor_block = client.get_anchor_block().await.unwrap();
+
             let (new_account, seed) = match AccountBuilder::new()
                 .init_seed(init_seed)
+                .anchor((&anchor_block).try_into().unwrap())
                 .account_type(account_type)
                 .storage_mode(storage_mode.into())
                 .with_component(RpoFalcon512Component::new(key_pair.public_key()))
@@ -90,8 +93,11 @@ impl WebClient {
             let max_supply = Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element");
 
+            let anchor_block = client.get_anchor_block().await.unwrap();
+
             let (new_account, seed) = match AccountBuilder::new()
                 .init_seed(init_seed)
+                .anchor((&anchor_block).try_into().unwrap())
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
                 .with_component(RpoFalcon512Component::new(key_pair.public_key()))
