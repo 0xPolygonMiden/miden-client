@@ -15,7 +15,7 @@ const getInputNote = async (noteId: string) => {
     const client = window.client;
     const note = await client.get_input_note(_noteId);
     return {
-      noteId: note.id().to_string(),
+      noteId: note ? note.id().to_string() : undefined,
     };
   }, noteId);
 };
@@ -71,9 +71,8 @@ const getConsumableNotes = async (accountId?: string) => {
 describe("get_input_note", () => {
   it("retrieve input note that does not exist", async () => {
     await setupWalletAndFaucet();
-    await expect(getInputNote(badHexId)).to.be.rejectedWith(
-      /Failed to get input note/
-    );
+    const { noteId } = await getInputNote(badHexId);
+    await expect(noteId).to.be.undefined;
   });
 
   it("retrieve an input note that does exist", async () => {

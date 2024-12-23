@@ -99,20 +99,10 @@ pub trait Store: Send + Sync {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID.
     async fn get_input_notes(&self, filter: NoteFilter)
         -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID.
     async fn get_output_notes(
         &self,
         filter: NoteFilter,
@@ -152,22 +142,17 @@ pub trait Store: Send + Sync {
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
     /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
-    /// that represents whether the block contains notes relevant to the client.
+    /// that represents whether the block contains notes relevant to the client. Returns `None` if
+    /// the block is not found.
     ///
     /// The default implementation of this method uses [Store::get_block_headers].
-    ///
-    /// # Errors
-    /// Returns a [StoreError::BlockHeaderNotFound] if the block wasn't found.
     async fn get_block_header_by_num(
         &self,
         block_number: u32,
-    ) -> Result<(BlockHeader, bool), StoreError> {
+    ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(&[block_number])
             .await
             .map(|block_headers_list| block_headers_list.first().cloned())
-            .and_then(|block_header| {
-                block_header.ok_or(StoreError::BlockHeaderNotFound(block_number))
-            })
     }
 
     /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
@@ -221,16 +206,13 @@ pub trait Store: Send + Sync {
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError>;
 
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
+    /// Returns `None` if the account is not found.
     ///
     /// Said account's state is the state according to the last sync performed.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError>;
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError>;
 
     /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
     /// hash. If no account state matches the provided hash, `None` is returned.
@@ -240,28 +222,24 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<AccountHeader>, StoreError>;
 
     /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
-    /// its status.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError>;
+    /// its status. Returns `None` if the account is not found.
+    async fn get_account(&self, account_id: AccountId)
+        -> Result<Option<AccountRecord>, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
-    /// This is mainly used for authentication in transactions.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
-    async fn get_account_auth_by_pub_key(&self, pub_key: Word)
-        -> Result<AuthSecretKey, StoreError>;
+    /// This is mainly used for authentication in transactions. Returns `None` if the account is not
+    /// found.
+    async fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<Option<AuthSecretKey>, StoreError>;
 
-    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
+    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account. Returns `None`
+    /// if the account is not found.
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey].
     async fn insert_account(

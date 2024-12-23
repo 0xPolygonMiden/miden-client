@@ -31,22 +31,10 @@ impl WebStore {
         let js_value = JsFuture::from(filter.to_input_notes_promise()).await.unwrap();
         let input_notes_idxdb: Vec<InputNoteIdxdbObject> = from_value(js_value).unwrap();
 
-        let native_input_notes: Result<Vec<InputNoteRecord>, StoreError> = input_notes_idxdb
+        input_notes_idxdb
             .into_iter()
             .map(parse_input_note_idxdb_object) // Simplified closure
-            .collect::<Result<Vec<_>, _>>(); // Collect results into a single Result
-
-        match native_input_notes {
-            Ok(ref notes) => match &filter {
-                NoteFilter::Unique(note_id) if notes.is_empty() => {
-                    return Err(StoreError::NoteNotFound(*note_id));
-                },
-                _ => {},
-            },
-            Err(e) => return Err(e),
-        }
-
-        native_input_notes
+            .collect::<Result<Vec<_>, _>>() // Collect results into a single Result
     }
 
     pub(crate) async fn get_output_notes(
@@ -57,22 +45,10 @@ impl WebStore {
 
         let output_notes_idxdb: Vec<OutputNoteIdxdbObject> = from_value(js_value).unwrap();
 
-        let native_output_notes: Result<Vec<OutputNoteRecord>, StoreError> = output_notes_idxdb
+        output_notes_idxdb
             .into_iter()
             .map(parse_output_note_idxdb_object) // Simplified closure
-            .collect::<Result<Vec<_>, _>>(); // Collect results into a single Result
-
-        match native_output_notes {
-            Ok(ref notes) => match filter {
-                NoteFilter::Unique(note_id) if notes.is_empty() => {
-                    return Err(StoreError::NoteNotFound(note_id));
-                },
-                _ => {},
-            },
-            Err(e) => return Err(e),
-        }
-
-        native_output_notes
+            .collect::<Result<Vec<_>, _>>() // Collect results into a single Result
     }
 
     pub(crate) async fn get_unspent_input_note_nullifiers(

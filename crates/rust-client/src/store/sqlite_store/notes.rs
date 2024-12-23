@@ -255,12 +255,6 @@ impl SqliteStore {
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()?;
 
-        match filter {
-            NoteFilter::Unique(note_id) if notes.is_empty() => {
-                return Err(StoreError::NoteNotFound(note_id));
-            },
-            _ => {},
-        }
         Ok(notes)
     }
 
@@ -277,12 +271,6 @@ impl SqliteStore {
             .map(|result| Ok(result?).and_then(parse_output_note))
             .collect::<Result<Vec<OutputNoteRecord>, _>>()?;
 
-        match filter {
-            NoteFilter::Unique(note_id) if notes.is_empty() => {
-                return Err(StoreError::NoteNotFound(note_id));
-            },
-            _ => {},
-        }
         Ok(notes)
     }
 

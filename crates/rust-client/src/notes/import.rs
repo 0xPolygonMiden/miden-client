@@ -35,7 +35,7 @@ impl<R: FeltRng> Client<R> {
             NoteFile::NoteWithProof(note, _) => note.id(),
         };
 
-        let previous_note = self.get_input_note(id).await.ok();
+        let previous_note = self.get_input_note(id).await?;
 
         // If the note is already in the store and is in the state processing we return an error.
         if let Some(true) = previous_note.as_ref().map(|note| note.is_processing()) {

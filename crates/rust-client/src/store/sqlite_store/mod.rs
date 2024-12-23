@@ -268,7 +268,7 @@ impl Store for SqliteStore {
     async fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.interact_with_connection(move |conn| {
             SqliteStore::get_account_auth_by_pub_key(conn, pub_key)
         })
@@ -278,7 +278,7 @@ impl Store for SqliteStore {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_header(conn, account_id))
             .await
     }
@@ -293,12 +293,18 @@ impl Store for SqliteStore {
         .await
     }
 
-    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError> {
+    async fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AccountRecord>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
             .await
     }
 
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_auth(conn, account_id))
             .await
     }
