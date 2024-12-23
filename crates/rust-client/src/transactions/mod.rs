@@ -22,14 +22,13 @@ use miden_tx::TransactionExecutor;
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
 };
-use request::{ForeignAccount, ForeignAccountInputs};
+pub use request::{ForeignAccount, ForeignAccountInputs};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
     notes::{NoteScreener, NoteUpdates},
-    rpc::domain::accounts::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -743,48 +742,26 @@ impl<R: FeltRng> Client<R> {
 
         let account_ids = foreign_accounts.iter().map(|acc| acc.account_id());
         let known_account_codes =
-            self.store.get_foreign_account_code(account_ids.clone().collect()).await?;
+            self.store.get_foreign_account_code(account_ids.collect()).await?;
 
         let known_account_codes: Vec<AccountCode> = known_account_codes.into_values().collect();
 
-        // Fetch account proofs
-        let (block_num, account_proofs) = self
-            .rpc_api
-            .get_account_proofs(&account_ids.collect(), known_account_codes, true)
-            .await?;
+        // Fetch FPI account data
+        let (block_num, fpi_data_vec) =
+            self.rpc_api.get_fpi_account_data(foreign_accounts, known_account_codes).await?;
 
-        let mut account_proofs: BTreeMap<AccountId, AccountProof> =
-            account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
+        for fpi_account_data in fpi_data_vec {
+            let (account_id, merkle_path, foreign_account_inputs) = fpi_account_data.into_parts();
 
-        for foreign_account in foreign_accounts.into_iter() {
-            let (foreign_account_inputs, merkle_path) = match foreign_account {
-                ForeignAccount::Public(account_id) => {
-                    let account_proof = account_proofs
-                        .remove(&account_id)
-                        .expect("Proof was requested and received");
-
-                    let (foreign_account_inputs, merkle_path) = account_proof.try_into()?;
-
-                    // Update our foreign account code cache
-                    self.store
-                        .upsert_foreign_account_code(
-                            account_id,
-                            foreign_account_inputs.account_code().clone(),
-                        )
-                        .await?;
-
-                    (foreign_account_inputs, merkle_path)
-                },
-                ForeignAccount::Private(foreign_account_inputs) => {
-                    let account_id = foreign_account_inputs.account_header().id();
-                    let proof = account_proofs
-                        .remove(&account_id)
-                        .expect("Proof was requested and received");
-                    let merkle_path = proof.merkle_proof();
-
-                    (foreign_account_inputs, merkle_path.clone())
-                },
-            };
+            if account_id.is_public() {
+                // Update our foreign account code cache
+                self.store
+                    .upsert_foreign_account_code(
+                        account_id,
+                        foreign_account_inputs.account_code().clone(),
+                    )
+                    .await?;
+            }
 
             extend_advice_inputs_for_account(
                 tx_args,

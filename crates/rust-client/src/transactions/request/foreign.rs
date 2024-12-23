@@ -2,14 +2,12 @@
 use alloc::string::ToString;
 use core::cmp::Ordering;
 
-use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
-    crypto::merkle::MerklePath,
+use miden_objects::accounts::{
+    Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
 use super::TransactionRequestError;
-use crate::rpc::domain::accounts::{AccountProof, StateHeaders};
 
 // FOREIGN ACCOUNT
 // ================================================================================================
@@ -20,8 +18,8 @@ pub enum ForeignAccount {
     /// Public account data will be retrieved from the network at execution time, based on the
     /// account id.
     Public(AccountId),
-    /// Private account data requires [ForeignAccountData] to be input. The proof of the account's
-    /// existence will be retrieved from the network at execution time.
+    /// Private account data requires [ForeignAccountInputs] to be input. The proof of the
+    /// account's existence will be retrieved from the network at execution time.
     Private(ForeignAccountInputs),
 }
 
@@ -127,7 +125,7 @@ pub struct ForeignAccountInputs {
 }
 
 impl ForeignAccountInputs {
-    /// Creates a new [ForeignAccountData]
+    /// Creates a new [ForeignAccountInputs]
     pub fn new(
         account_header: AccountHeader,
         storage_header: AccountStorageHeader,
@@ -155,7 +153,7 @@ impl ForeignAccountInputs {
         &self.account_code
     }
 
-    /// Consumes the [ForeignAccountData] and returns its parts.
+    /// Consumes the [ForeignAccountInputs] and returns its parts.
     pub fn into_parts(self) -> (AccountHeader, AccountStorageHeader, AccountCode) {
         (self.account_header, self.storage_header, self.account_code)
     }
@@ -187,18 +185,5 @@ impl Deserializable for ForeignAccountInputs {
         let storage_header = AccountStorageHeader::read_from(source)?;
         let account_code = AccountCode::read_from(source)?;
         Ok(ForeignAccountInputs::new(account_header, storage_header, account_code))
-    }
-}
-
-impl TryFrom<AccountProof> for (ForeignAccountInputs, MerklePath) {
-    type Error = TransactionRequestError;
-
-    fn try_from(value: AccountProof) -> Result<Self, Self::Error> {
-        let (_, merkle_proof, _, state_headers) = value.into_parts();
-        if let Some(StateHeaders { account_header, storage_header, code }) = state_headers {
-            let inputs = ForeignAccountInputs::new(account_header, storage_header, code);
-            return Ok((inputs, merkle_proof));
-        }
-        Err(TransactionRequestError::ForeignAccountDataMissing)
     }
 }

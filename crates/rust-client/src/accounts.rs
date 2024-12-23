@@ -164,7 +164,7 @@ impl<R: FeltRng> Client<R> {
 /// Contains account changes to apply to the store.
 pub struct AccountUpdates {
     /// Updated public accounts.
-    updated_onchain_accounts: Vec<Account>,
+    updated_public_accounts: Vec<Account>,
     /// Node account hashes that don't match the tracked information.
     mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
 }
@@ -172,18 +172,18 @@ pub struct AccountUpdates {
 impl AccountUpdates {
     /// Creates a new instance of `AccountUpdates`.
     pub fn new(
-        updated_onchain_accounts: Vec<Account>,
+        updated_public_accounts: Vec<Account>,
         mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
     ) -> Self {
         Self {
-            updated_onchain_accounts,
+            updated_public_accounts,
             mismatched_offchain_accounts,
         }
     }
 
     /// Returns the updated public accounts.
-    pub fn updated_onchain_accounts(&self) -> &[Account] {
-        &self.updated_onchain_accounts
+    pub fn updated_public_accounts(&self) -> &[Account] {
+        &self.updated_public_accounts
     }
 
     /// Returns the mismatched offchain accounts.
