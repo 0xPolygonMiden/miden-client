@@ -69,7 +69,7 @@ pub struct TransactionResult {
 
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
-    /// [TransactionResult]
+    /// [TransactionResult].
     pub async fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
@@ -161,7 +161,7 @@ impl From<TransactionResult> for ExecutedTransaction {
 // TRANSACTION RECORD
 // --------------------------------------------------------------------------------------------
 
-/// Describes a transaction that has been executed and is being tracked on the Client
+/// Describes a transaction that has been executed and is being tracked on the Client.
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
@@ -205,14 +205,14 @@ impl TransactionRecord {
     }
 }
 
-/// Represents the status of a transaction
+/// Represents the status of a transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
-    /// Transaction has been submitted but not yet committed
+    /// Transaction has been submitted but not yet committed.
     Pending,
-    /// Transaction has been committed and included at the specified block number
+    /// Transaction has been committed and included at the specified block number.
     Committed(u32),
-    /// Transaction has been discarded and is not included in the node
+    /// Transaction has been discarded and isn't included in the node.
     Discarded,
 }
 
@@ -234,13 +234,13 @@ impl fmt::Display for TransactionStatus {
 /// Represents the changes that need to be applied to the client store as a result of a
 /// transaction execution.
 pub struct TransactionStoreUpdate {
-    /// Details of the executed transaction to be inserted
+    /// Details of the executed transaction to be inserted.
     executed_transaction: ExecutedTransaction,
-    /// Updated account state after the [AccountDelta] has been applied
+    /// Updated account state after the [AccountDelta] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
     note_updates: NoteUpdates,
-    /// New note tags to be tracked
+    /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
 
@@ -288,6 +288,7 @@ impl TransactionStoreUpdate {
     }
 }
 
+/// Transaction management methods
 impl<R: FeltRng> Client<R> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
@@ -304,10 +305,10 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Creates and executes a transaction specified by the request against the specified account,
-    /// but does not change the local database.
+    /// but doesn't change the local database.
     ///
-    /// If the transaction utilizes foreign account data, there is a chance that the client does
-    /// not have the required block header in the local database. In these scenarios, a sync to
+    /// If the transaction utilizes foreign account data, there is a chance that the client doesn't
+    /// have the required block header in the local database. In these scenarios, a sync to
     /// the chain tip is performed, and the required block header is retrieved.
     ///
     /// # Errors
@@ -543,7 +544,7 @@ impl<R: FeltRng> Client<R> {
         Ok(())
     }
 
-    /// Compiles the provided transaction script source and inputs into a [TransactionScript]
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript].
     pub fn compile_tx_script<T>(
         &self,
         inputs: T,
@@ -562,7 +563,7 @@ impl<R: FeltRng> Client<R> {
     /// Helper to get the account outgoing assets.
     ///
     /// Any outgoing assets resulting from executing note scripts but not present in expected output
-    /// notes would not be included.
+    /// notes wouldn't be included.
     fn get_outgoing_assets(
         &self,
         transaction_request: &TransactionRequest,
@@ -933,10 +934,10 @@ pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }
 
-/// Extracts notes from [OutputNotes]
+/// Extracts notes from [OutputNotes].
 /// Used for:
-/// - checking the relevance of notes to save them as input notes
-/// - validate hashes versus expected output notes after a transaction is executed
+/// - Checking the relevance of notes to save them as input notes.
+/// - Validate hashes versus expected output notes after a transaction is executed.
 pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()
@@ -960,7 +961,7 @@ mod test {
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
-            AccountBuilder, AccountComponent, AccountData, StorageMap, StorageSlot,
+            AccountBuilder, AccountComponent, StorageMap, StorageSlot,
         },
         assets::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
@@ -1003,12 +1004,10 @@ mod test {
             .unwrap();
 
         client
-            .import_account(
-                AccountData::new(
-                    account.clone(),
-                    None,
-                    miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-                ),
+            .add_account(
+                &account,
+                None,
+                &miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
                 false,
             )
             .await

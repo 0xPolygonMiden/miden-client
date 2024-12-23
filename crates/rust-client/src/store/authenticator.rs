@@ -10,7 +10,7 @@ use rand::Rng;
 
 use super::Store;
 
-/// Represents an authenticator based on a [Store]
+/// Represents an authenticator based on a [Store].
 pub struct StoreAuthenticator<R> {
     store: Arc<dyn Store>,
     rng: Arc<RwLock<R>>,
@@ -28,7 +28,7 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
     ///
     /// # Errors
-    /// If the public key is not found in the store, [AuthenticationError::UnknownPublicKey] is
+    /// If the public key isn't found in the store, [AuthenticationError::UnknownPublicKey] is
     /// returned.
     fn get_signature(
         &self,

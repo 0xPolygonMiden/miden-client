@@ -120,7 +120,7 @@ impl SqliteStore {
             .transpose()
     }
 
-    /// Retrieve account keys data by Account Id
+    /// Retrieve account keys data by Account ID.
     pub(crate) fn get_account_auth(
         conn: &mut Connection,
         account_id: AccountId,
@@ -172,7 +172,7 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
-    /// Returns an [AuthSecretKey] by a public key represented by a [Word]
+    /// Returns an [AuthSecretKey] by a public key represented by a [Word].
     pub fn get_account_auth_by_pub_key(
         conn: &mut Connection,
         pub_key: Word,
@@ -238,7 +238,7 @@ impl SqliteStore {
 // HELPERS
 // ================================================================================================
 
-/// Update previously-existing account after a transaction execution
+/// Update previously-existing account after a transaction execution.
 ///
 /// Because the Client retrieves the account by account ID before applying the delta, we don't
 /// need to check that it exists here. This inserts a new row into the accounts table.
@@ -270,7 +270,7 @@ pub(super) fn insert_account_record(
     Ok(())
 }
 
-/// Inserts an [AccountCode]
+/// Inserts an [AccountCode].
 fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Result<(), StoreError> {
     let (code_root, code) = serialize_account_code(account_code)?;
     const QUERY: &str = "INSERT OR IGNORE INTO account_code (root, code) VALUES (?, ?)";
@@ -278,7 +278,7 @@ fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Resu
     Ok(())
 }
 
-/// Inserts an [AccountStorage]
+/// Inserts an [AccountStorage].
 pub(super) fn insert_account_storage(
     tx: &Transaction<'_>,
     account_storage: &AccountStorage,
@@ -289,7 +289,7 @@ pub(super) fn insert_account_storage(
     Ok(())
 }
 
-/// Inserts an [AssetVault]
+/// Inserts an [AssetVault].
 pub(super) fn insert_account_asset_vault(
     tx: &Transaction<'_>,
     asset_vault: &AssetVault,
@@ -300,7 +300,7 @@ pub(super) fn insert_account_asset_vault(
     Ok(())
 }
 
-/// Inserts an [AuthSecretKey] for the account with id `account_id`
+/// Inserts an [AuthSecretKey] for the account with ID `account_id`.
 pub(super) fn insert_account_auth(
     tx: &Transaction<'_>,
     account_id: AccountId,
@@ -320,7 +320,7 @@ pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Resul
     Ok(())
 }
 
-/// Parse accounts columns from the provided row into native types
+/// Parse accounts columns from the provided row into native types.
 pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
@@ -404,7 +404,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
 }
 
-/// Parse account_auth columns from the provided row into native types
+/// Parse account_auth columns from the provided row into native types.
 fn parse_account_auth_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountAuthParts, rusqlite::Error> {
@@ -467,7 +467,7 @@ fn serialize_account_asset_vault(
     Ok((commitment, assets))
 }
 
-/// Parse accounts parts from the provided row into native types
+/// Parse accounts parts from the provided row into native types.
 pub(super) fn parse_account_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedFullAccountParts, rusqlite::Error> {

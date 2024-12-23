@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountId},
@@ -15,25 +15,25 @@ use crate::{
     Client,
 };
 
+/// Tag management methods
 impl<R: FeltRng> Client<R> {
-    /// Returns the list of note tags tracked by the client.
+    /// Returns the list of note tags tracked by the client along with their source.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and
     /// note-related information will be retrieved for notes that have matching tags.
+    ///  The source of the tag indicates its origin. It helps distinguish between:
+    ///  - Tags added manually by the user.
+    ///  - Tags automatically added by the client to track notes.
+    ///  - Tags added for accounts tracked by the client.
     ///
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by
-    /// the client and do not need to be added here. That is, notes for managed accounts will be
+    /// the client and don't need to be added here. That is, notes for managed accounts will be
     /// retrieved automatically by the client when syncing.
     pub async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
         self.store.get_note_tags().await.map_err(|err| err.into())
     }
 
-    /// Returns the unique note tags (without source) that the client is interested in.
-    pub async fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
-        self.store.get_unique_note_tags().await.map_err(|err| err.into())
-    }
-
-    /// Adds a note tag for the client to track.
+    /// Adds a note tag for the client to track. This tag's source will be marked as `User`.
     pub async fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
         match self
             .store
@@ -50,7 +50,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Removes a note tag for the client to track.
+    /// Removes a note tag for the client to track. Only tags added by the user can be removed.
     pub async fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
         if self
             .store

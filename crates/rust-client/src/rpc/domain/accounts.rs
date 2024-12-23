@@ -25,7 +25,7 @@ use crate::rpc::{
 // ACCOUNT DETAILS
 // ================================================================================================
 
-/// Describes the possible responses from the `GetAccountDetails` endpoint for an account
+/// Describes the possible responses from the `GetAccountDetails` endpoint for an account.
 pub enum AccountDetails {
     /// Private accounts are stored off-chain. Only a commitment to the state of the account is
     /// shared with the network. The full account state is to be tracked locally.

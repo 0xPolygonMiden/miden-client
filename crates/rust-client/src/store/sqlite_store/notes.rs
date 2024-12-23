@@ -25,7 +25,7 @@ use crate::{
 // TYPES
 // ================================================================================================
 
-/// Represents an `InputNoteRecord` serialized to be stored in the database
+/// Represents an `InputNoteRecord` serialized to be stored in the database.
 struct SerializedInputNoteData {
     pub id: String,
     pub assets: Vec<u8>,
@@ -39,7 +39,7 @@ struct SerializedInputNoteData {
     pub created_at: u64,
 }
 
-/// Represents an `OutputNoteRecord` serialized to be stored in the database
+/// Represents an `OutputNoteRecord` serialized to be stored in the database.
 struct SerializedOutputNoteData {
     pub id: String,
     pub assets: Vec<u8>,
@@ -51,7 +51,7 @@ struct SerializedOutputNoteData {
     pub state: Vec<u8>,
 }
 
-/// Represents the parts retrieved from the database to build an `InputNoteRecord`
+/// Represents the parts retrieved from the database to build an `InputNoteRecord`.
 struct SerializedInputNoteParts {
     pub assets: Vec<u8>,
     pub serial_number: Vec<u8>,
@@ -61,7 +61,7 @@ struct SerializedInputNoteParts {
     pub created_at: u64,
 }
 
-/// Represents the parts retrieved from the database to build an `OutputNoteRecord`
+/// Represents the parts retrieved from the database to build an `OutputNoteRecord`.
 struct SerializedOutputNoteParts {
     pub assets: Vec<u8>,
     pub metadata: Vec<u8>,
@@ -258,7 +258,7 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    /// Retrieves the output notes from the database
+    /// Retrieves the output notes from the database.
     pub(crate) fn get_output_notes(
         conn: &mut Connection,
         filter: NoteFilter,
@@ -378,7 +378,7 @@ pub(super) fn upsert_input_note_tx(
     .map(|_| ())
 }
 
-/// Inserts the provided input note into the database
+/// Inserts the provided input note into the database.
 pub fn upsert_output_note_tx(
     tx: &Transaction<'_>,
     note: &OutputNoteRecord,

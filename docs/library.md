@@ -51,27 +51,37 @@ let client: Client<TonicRpcClient, SqliteDataStore> = {
 
 With the Miden client, you can create and track any number of public and local accounts. For local accounts, the state is tracked locally, and the rollup only keeps commitments to the data, which in turn guarantees privacy.
 
-The `AccountTemplate` enum defines the type of account. The following code creates a new local account:
+The `AccountBuilder` can be used to create a new account with the specified parameters and components. The following code creates a new local account:
 
 ```rust
-let account_template = AccountTemplate::BasicWallet {
-    mutable_code: false,
-    storage_mode: AccountStorageMode::Private,
-};
-    
-let (new_account, account_seed) = client.new_account(account_template).await?;
+let key_pair = SecretKey::with_rng(client.rng());
+
+let (new_account, seed) = AccountBuilder::new()
+    .init_seed(init_seed) // Should be random for each account
+    .account_type(AccountType::RegularAccountImmutableCode)
+    .storage_mode(AccountStorageMode::Private)
+    .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+    .with_component(BasicWalletComponent)
+    .build()?;
+
+client.add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;
 ```
 Once an account is created, it is kept locally and its state is automatically tracked by the client.
 
 To create an public account, you can specify `AccountStorageMode::Public` like so:
 
 ```Rust
-let account_template = AccountTemplate::BasicWallet {
-    mutable_code: false,
-    storage_mode: AccountStorageMode::Public,
-};
+let key_pair = SecretKey::with_rng(client.rng());
 
-let (new_account, account_seed) = client.new_account(client_template).await?;
+let (new_account, seed) = AccountBuilder::new()
+    .init_seed(init_seed) // Should be random for each account
+    .account_type(AccountType::RegularAccountImmutableCode)
+    .storage_mode(AccountStorageMode::Public)
+    .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+    .with_component(BasicWalletComponent)
+    .build()?;
+
+client.add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;
 ```
 
 The account's state is also tracked locally, but during sync the client updates the account state by querying the node for the most recent account data.

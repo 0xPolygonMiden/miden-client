@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    accounts::{Account, AccountData, AccountTemplate},
-    assets::TokenSymbol,
+    accounts::Account,
     notes::NoteRelevance,
     rpc::{domain::accounts::AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
@@ -610,13 +609,8 @@ async fn test_import_expected_notes() {
         setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (client_2_account, _seed) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -698,13 +692,8 @@ async fn test_import_expected_note_uncommitted() {
         setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (client_2_account, _seed) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -742,13 +731,8 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
         setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client().await;
-    let (_client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (_client_2_account, _seed) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -795,13 +779,8 @@ async fn test_get_account_update() {
 
     let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Private).await;
 
-    let (basic_wallet_2, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Public,
-        })
-        .await
-        .unwrap();
+    let (basic_wallet_2, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
 
     // Mint and consume notes with both accounts so they are included in the node.
     let note1 =
@@ -839,13 +818,8 @@ async fn test_sync_detail_values() {
     let (first_regular_account, _, faucet_account_header) =
         setup(&mut client1, AccountStorageMode::Private).await;
 
-    let (second_regular_account, _) = client2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (second_regular_account, _) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -893,7 +867,7 @@ async fn test_sync_detail_values() {
 }
 
 /// This test runs 3 mint transactions that get included in different blocks so that once we sync
-/// we can check that each transaction gets marked as committed in the corresponding block
+/// we can check that each transaction gets marked as committed in the corresponding block.
 #[tokio::test]
 async fn test_multiple_transactions_can_be_committed_in_different_blocks_without_sync() {
     let mut client = create_test_client().await;
@@ -1056,13 +1030,10 @@ async fn test_consume_multiple_expected_notes() {
     // Setup accounts
     let (target_basic_account_1, _, faucet_account_header) =
         setup(&mut client, AccountStorageMode::Private).await;
-    let (target_basic_account_2, _) = unauth_client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (target_basic_account_2, _) =
+        insert_new_wallet(&mut unauth_client, AccountStorageMode::Private)
+            .await
+            .unwrap();
     unauth_client.sync_state().await.unwrap();
 
     let faucet_account_id = faucet_account_header.id();
@@ -1145,13 +1116,8 @@ async fn test_import_consumed_note_with_proof() {
         setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (client_2_account, _seed) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1265,13 +1231,8 @@ async fn test_discarded_transaction() {
         setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client().await;
-    let (second_regular_account, _) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (second_regular_account, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1401,23 +1362,13 @@ async fn test_custom_transaction_prover() {
 async fn test_locked_account() {
     let mut client_1 = create_test_client().await;
 
-    let (faucet_account, _) = client_1
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
-    let (private_account, seed) = client_1
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (private_account, seed) =
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private).await.unwrap();
     let auth = client_1.get_account_auth(private_account.id()).await.unwrap().unwrap();
 
     let from_account_id = private_account.id();
@@ -1434,10 +1385,7 @@ async fn test_locked_account() {
 
     // Import private account in client 2
     let mut client_2 = create_test_client().await;
-    client_2
-        .import_account(AccountData::new(private_account, seed.into(), auth.clone()), false)
-        .await
-        .unwrap();
+    client_2.add_account(&private_account, seed.into(), &auth, false).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1460,10 +1408,7 @@ async fn test_locked_account() {
     // Get updated account from client 1 and import it in client 2 with `overwrite` flag
     let updated_private_account =
         client_1.get_account(from_account_id).await.unwrap().unwrap().into();
-    client_2
-        .import_account(AccountData::new(updated_private_account, None, auth), true)
-        .await
-        .unwrap();
+    client_2.add_account(&updated_private_account, None, &auth, true).await.unwrap();
 
     // After sync the private account shouldn't be locked in client 2
     client_2.sync_state().await.unwrap();

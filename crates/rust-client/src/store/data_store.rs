@@ -151,7 +151,7 @@ async fn build_partial_mmr_with_paths(
 /// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then
 /// constructs the path for each of them.
 ///
-/// This function assumes `block_nums` does not contain values above or equal to `forest`.
+/// This function assumes `block_nums` doesn't contain values above or equal to `forest`.
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 async fn get_authentication_path_for_blocks(
     store: &alloc::sync::Arc<dyn Store>,
