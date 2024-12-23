@@ -55,7 +55,7 @@ impl NoteScreener {
     /// accounts monitored by this screener.
     ///
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
-    /// unable to execute notes that are not committed so a slow check for other scripts is
+    /// unable to execute notes that aren't committed so a slow check for other scripts is
     /// currently not available.
     pub async fn check_relevance(
         &self,
@@ -135,15 +135,14 @@ impl NoteScreener {
         .collect())
     }
 
-    /// Checks if a swap note can be consumed by any account whose id is in `account_ids`
+    /// Checks if a swap note can be consumed by any account whose ID is in `account_ids`.
     ///
     /// This implementation serves as a placeholder as we're currently not able to create, execute
     /// and send SWAP NOTES. Hence, it's also untested. The main logic should be the same: for each
     /// account check if it has enough of the wanted asset.
     /// This is also very inefficient as we're loading the full accounts. We should instead just
     /// load the account's vaults, or even have a function in the `Store` to do this.
-    ///
-    /// TODO: test/revisit this in the future
+    // TODO: test/revisit this in the future
     async fn check_swap_relevance(
         &self,
         note: &Note,
@@ -209,7 +208,7 @@ impl NoteScreener {
 // NOTE SCREENER ERRORS
 // ================================================================================================
 
-/// Error when screening notes to check relevance to a client
+/// Error when screening notes to check relevance to a client.
 #[derive(Debug, Error)]
 pub enum NoteScreenerError {
     #[error("error while processing note inputs")]

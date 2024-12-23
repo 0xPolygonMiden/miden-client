@@ -8,8 +8,13 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    accounts::{AccountId, AccountStorageMode, AccountTemplate},
-    crypto::RpoRandomCoin,
+    self,
+    accounts::{
+        AccountBuilder, AccountId, AccountStorageMode, AccountType, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
+    auth::AuthSecretKey,
+    crypto::{RpoRandomCoin, SecretKey},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
@@ -20,8 +25,9 @@ use uuid::Uuid;
 
 mod config;
 
-/// CLI TESTS
-///
+// CLI TESTS
+// ================================================================================================
+
 /// This Module contains integration tests that test against the miden CLI directly. In order to do
 /// that we use [assert_cmd](https://github.com/assert-rs/assert_cmd?tab=readme-ov-file) which aids
 /// in the process of spawning commands.
@@ -88,7 +94,7 @@ fn test_init_with_params() {
 // TX TESTS
 // ================================================================================================
 
-/// This test tries to run a mint TX using the CLI for an account that is not tracked.
+/// This test tries to run a mint TX using the CLI for an account that isn't tracked.
 #[tokio::test]
 async fn test_mint_with_untracked_account() {
     let store_path = create_test_store_path();
@@ -99,13 +105,26 @@ async fn test_mint_with_untracked_account() {
     let target_account_id = {
         let other_store_path = create_test_store_path();
         let mut client = create_test_client_with_store_path(&other_store_path).await;
-        let account_template = AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        };
-        let (account, _seed) = client.new_account(account_template).await.unwrap();
+        let key_pair = SecretKey::with_rng(client.rng());
 
-        account.id().to_hex()
+        let mut init_seed = [0u8; 32];
+        client.rng().fill_bytes(&mut init_seed);
+
+        let (new_account, seed) = AccountBuilder::new()
+            .init_seed(init_seed)
+            .account_type(AccountType::RegularAccountImmutableCode)
+            .storage_mode(AccountStorageMode::Private)
+            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+            .with_component(BasicWalletComponent)
+            .build()
+            .unwrap();
+
+        client
+            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+            .await
+            .unwrap();
+
+        new_account.id().to_hex()
     };
 
     // On CLI create the faucet and mint
@@ -570,7 +589,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
     send_cmd.current_dir(cli_path).assert().success();
 }
 
-/// Syncs until there are no input notes satisfying the provided filter
+/// Syncs until there are no input notes satisfying the provided filter.
 async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
     let client = create_test_client_with_store_path(store_path).await;
 

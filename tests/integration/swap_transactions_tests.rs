@@ -1,11 +1,11 @@
 use miden_client::{
-    accounts::{Account, AccountTemplate},
+    accounts::Account,
     notes::{build_swap_tag, Note},
     transactions::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset, TokenSymbol},
+    assets::{Asset, FungibleAsset},
     notes::{NoteDetails, NoteFile, NoteId, NoteType},
 };
 
@@ -30,43 +30,24 @@ async fn test_swap_fully_onchain() {
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) = client1
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (account_a, _) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) = client2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (account_b, _) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("BTC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (btc_faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
+            .await
+            .unwrap();
+
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("ETH").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (eth_faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
@@ -251,43 +232,23 @@ async fn test_swap_offchain() {
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) = client1
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (account_a, _) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) = client2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (account_b, _) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("BTC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (btc_faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
+            .await
+            .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("ETH").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (eth_faucet_account, _) =
+        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
@@ -463,9 +424,9 @@ async fn test_swap_offchain() {
 }
 
 /// Mints a note from faucet_account_id for basic_account_id with 1000 units of the corresponding
-/// fungible asset, waits for inclusion and returns the note id.
+/// fungible asset, waits for inclusion and returns the note ID.
 ///
-/// `basic_account_id` does not need to be tracked by the client, but `faucet_account_id` does
+/// `basic_account_id` doesn't need to be tracked by the client, but `faucet_account_id` does.
 async fn mint(
     client: &mut TestClient,
     basic_account_id: AccountId,

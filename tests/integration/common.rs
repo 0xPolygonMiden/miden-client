@@ -1,7 +1,11 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{
+        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
+        RpoFalcon512Component,
+    },
+    auth::AuthSecretKey,
     crypto::FeltRng,
     notes::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
@@ -11,12 +15,12 @@ use miden_client::{
     transactions::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
-    Client, ClientError,
+    Client, ClientError, Word,
 };
 use miden_objects::{
     accounts::{Account, AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    crypto::rand::RpoRandomCoin,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     notes::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
     Felt, FieldElement,
@@ -30,7 +34,7 @@ pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_O
 pub type TestClient = Client<RpoRandomCoin>;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
-/// Creates a `TestClient`
+/// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
 /// random temporary location, so the store section of the config file is ignored.
@@ -38,7 +42,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 /// # Panics
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
-/// deserialized into a [ClientConfig]
+/// deserialized into a [ClientConfig].
 pub async fn create_test_client() -> TestClient {
     let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
 
@@ -85,6 +89,60 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
+}
+
+pub async fn insert_new_wallet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(client.rng());
+
+    let mut init_seed = [0u8; 32];
+    client.rng().fill_bytes(&mut init_seed);
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicWalletComponent)
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+        .await?;
+
+    Ok((account, seed))
+}
+
+pub async fn insert_new_fungible_faucet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(client.rng());
+
+    // we need to use an initial seed to create the wallet account
+    let mut init_seed = [0u8; 32];
+    client.rng().fill_bytes(&mut init_seed);
+
+    let symbol = TokenSymbol::new("TEST").unwrap();
+    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+        .expect("u64 can be safely converted to a field element");
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .account_type(AccountType::FungibleFaucet)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucetComponent::new(symbol, 10, max_supply).unwrap())
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .await?;
+    Ok((account, seed))
 }
 
 pub async fn execute_failing_tx(
@@ -171,7 +229,7 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
 /// # Panics
 ///
 /// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
-/// receive an error other than a connection related error
+/// receive an error other than a connection related error.
 pub async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
@@ -196,7 +254,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 pub const MINT_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
 
-/// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
+/// Sets up a basic client and returns (basic_account, basic_account, faucet_account).
 pub async fn setup(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
@@ -207,32 +265,13 @@ pub async fn setup(
     assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Create faucet account
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: accounts_storage_mode,
-        })
-        .await
-        .unwrap();
+    let (faucet_account, _) =
+        insert_new_fungible_faucet(client, accounts_storage_mode).await.unwrap();
 
     // Create regular accounts
-    let (first_basic_account, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (first_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
 
-    let (second_basic_account, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (second_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
 
     println!("Syncing State...");
     client.sync_state().await.unwrap();
@@ -243,7 +282,7 @@ pub async fn setup(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
-/// with 1000 units of the corresponding fungible asset
+/// with 1000 units of the corresponding fungible asset.
 pub async fn mint_note(
     client: &mut TestClient,
     basic_account_id: AccountId,
@@ -270,8 +309,8 @@ pub async fn mint_note(
     note.try_into().unwrap()
 }
 
-/// Consumes and wait until the transaction gets committed
-/// This assumes the notes contain assets
+/// Consumes and wait until the transaction gets committed.
+/// This assumes the notes contain assets.
 pub async fn consume_notes(
     client: &mut TestClient,
     account_id: AccountId,
