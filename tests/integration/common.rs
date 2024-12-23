@@ -60,7 +60,7 @@ pub async fn create_test_client() -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout).await.unwrap()),
+        Arc::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout).await.unwrap()),
         rng,
         store,
         Arc::new(authenticator),
