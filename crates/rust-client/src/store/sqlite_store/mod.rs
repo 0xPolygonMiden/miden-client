@@ -20,8 +20,9 @@ use super::{
     OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
+    components::sync_state::StateSyncUpdate,
     store::StoreError,
-    sync::{NoteTagRecord, StateSyncUpdate},
+    sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 

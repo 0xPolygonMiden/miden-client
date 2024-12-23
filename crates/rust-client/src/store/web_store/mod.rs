@@ -15,7 +15,8 @@ use super::{
     OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
-    sync::{NoteTagRecord, StateSyncUpdate},
+    components::sync_state::StateSyncUpdate,
+    sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 

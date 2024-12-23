@@ -6,6 +6,7 @@ use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::{
+    components::sync_state::StateSyncUpdate,
     store::{
         sqlite_store::{
             accounts::{lock_account, update_account},
@@ -13,7 +14,7 @@ use crate::{
         },
         StoreError,
     },
-    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
+    sync::{NoteTagRecord, NoteTagSource},
 };
 
 impl SqliteStore {

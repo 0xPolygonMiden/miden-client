@@ -18,8 +18,9 @@ use super::{
     WebStore,
 };
 use crate::{
+    components::sync_state::StateSyncUpdate,
     store::StoreError,
-    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
+    sync::{NoteTagRecord, NoteTagSource},
 };
 
 mod js_bindings;
