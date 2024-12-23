@@ -45,7 +45,7 @@ pub enum NoteRecordError {
     /// Invalid underlying note object.
     #[error("note error")]
     NoteError(#[from] NoteError),
-    /// Note record is not consumable.
+    /// Note record isn't consumable.
     #[error("note not consumable: {0}")]
     NoteNotConsumable(String),
     /// Invalid inclusion proof.

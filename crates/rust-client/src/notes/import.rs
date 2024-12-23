@@ -12,6 +12,7 @@ use crate::{
     Client, ClientError,
 };
 
+/// Note importing methods.
 impl<R: FeltRng> Client<R> {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
@@ -21,7 +22,7 @@ impl<R: FeltRng> Client<R> {
     /// new information. The tag specified by the `NoteFile` will start being tracked.
     ///
     /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
-    ///   the client's store. If the note is private or does not exist, an error is returned.
+    ///   the client's store. If the note is private or doesn't exist, an error is returned.
     /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
     ///   details and tag.
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
@@ -76,7 +77,7 @@ impl<R: FeltRng> Client<R> {
     /// node and stored in the client's store.
     ///
     /// Errors:
-    /// - If the note does not exist on the node.
+    /// - If the note doesn't exist on the node.
     /// - If the note exists but is private.
     async fn import_note_record_by_id(
         &mut self,
@@ -121,7 +122,7 @@ impl<R: FeltRng> Client<R> {
     /// nullifier is used to determine if the note has been consumed in the node and gives it
     /// the correct state.
     ///
-    /// If the note is not consumed and it was committed in the past relative to the client, then
+    /// If the note isn't consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
         &mut self,
@@ -176,7 +177,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Builds a note record from the note details. If a note with the same id was already stored it
+    /// Builds a note record from the note details. If a note with the same ID was already stored it
     /// is passed via `previous_note` so it can be updated.
     async fn import_note_record_by_details(
         &mut self,
@@ -229,7 +230,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Checks if a note with the given note_tag and id is present in the chain between the
+    /// Checks if a note with the given note_tag and ID is present in the chain between the
     /// `request_block_num` and the current block. If found it returns its metadata and inclusion
     /// proof.
     async fn check_expected_note(

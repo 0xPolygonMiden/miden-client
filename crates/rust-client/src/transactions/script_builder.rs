@@ -34,9 +34,9 @@ impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
     ///
     /// Errors:
-    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note is not the
+    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note isn't the
     ///   account for which the script is being built.
-    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note does not contain exactly
+    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note doesn't contain exactly
     ///   one asset.
     /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
     ///   with a different faucet ID.
