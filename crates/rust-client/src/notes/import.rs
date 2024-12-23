@@ -1,12 +1,16 @@
-use alloc::string::ToString;
+use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
 
 use miden_objects::{
+    accounts::AccountHeader,
     crypto::rand::FeltRng,
-    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
+    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag, Nullifier},
 };
+use tonic::async_trait;
 
+use super::NoteUpdates;
 use crate::{
-    rpc::domain::notes::NoteDetails as RpcNoteDetails,
+    components::sync_state::{StateSyncUpdate, SyncState, SyncStatus},
+    rpc::{domain::notes::NoteDetails as RpcNoteDetails, NodeRpcClient},
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
@@ -198,7 +202,7 @@ impl<R: FeltRng> Client<R> {
         after_block_num: u32,
         tag: Option<NoteTag>,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
-        let mut note_record = previous_note.unwrap_or({
+        let note_record = previous_note.unwrap_or({
             InputNoteRecord::new(
                 details,
                 self.store.get_current_timestamp(),
@@ -206,91 +210,92 @@ impl<R: FeltRng> Client<R> {
             )
         });
 
-        let committed_note_data = if let Some(tag) = tag {
-            self.check_expected_note(after_block_num, tag, note_record.details()).await?
-        } else {
-            None
-        };
+        if tag.is_none() {
+            return Ok(Some(note_record));
+        }
 
-        match committed_note_data {
-            Some((metadata, inclusion_proof)) => {
-                let mut current_partial_mmr = self.store.build_current_partial_mmr(true).await?;
-                let block_header = self
-                    .get_and_store_authenticated_block(
-                        inclusion_proof.location().block_num(),
-                        &mut current_partial_mmr,
-                    )
-                    .await?;
+        let tag = tag.expect("tag should be Some");
+        let mut sync_block_num = after_block_num;
+        let mut sync_state = SingleNoteSync::new(note_record.clone(), self.rpc_api.clone());
 
-                let note_changed =
-                    note_record.inclusion_proof_received(inclusion_proof, metadata)?;
+        loop {
+            let response = sync_state.step_sync_state(sync_block_num, vec![], &[tag], &[]).await?;
 
-                if note_record.block_header_received(block_header)? | note_changed {
-                    self.store
-                        .remove_note_tag(NoteTagRecord::with_note_source(
-                            metadata.tag(),
-                            note_record.id(),
-                        ))
-                        .await?;
-
-                    Ok(Some(note_record))
-                } else {
-                    Ok(None)
-                }
-            },
-            None => Ok(Some(note_record)),
+            match response {
+                None => return Ok(Some(note_record)),
+                Some(SyncStatus::SyncedToLastBlock(update))
+                | Some(SyncStatus::SyncedToBlock(update)) => {
+                    if let Some(new_note_record) = update.note_updates.updated_input_notes().first()
+                    {
+                        return Ok(Some(new_note_record.clone()));
+                    } else {
+                        sync_block_num = update.block_header.block_num();
+                    }
+                },
+            }
         }
     }
+}
 
-    /// Checks if a note with the given note_tag and ID is present in the chain between the
-    /// `request_block_num` and the current block. If found it returns its metadata and inclusion
-    /// proof.
-    async fn check_expected_note(
+struct SingleNoteSync {
+    rpc_api: Arc<dyn NodeRpcClient + Send>,
+    note_record: InputNoteRecord,
+}
+
+impl SingleNoteSync {
+    fn new(note_record: InputNoteRecord, rpc_api: Arc<dyn NodeRpcClient + Send>) -> Self {
+        Self { note_record, rpc_api }
+    }
+}
+
+#[async_trait(?Send)]
+impl SyncState for SingleNoteSync {
+    async fn step_sync_state(
         &mut self,
-        mut request_block_num: u32,
-        tag: NoteTag,
-        expected_note: &miden_objects::notes::NoteDetails,
-    ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
-        let current_block_num = self.get_sync_height().await?;
-        loop {
-            if request_block_num > current_block_num {
-                return Ok(None);
-            };
+        current_block_num: u32,
+        _tracked_accounts: Vec<AccountHeader>,
+        note_tags: &[NoteTag],
+        _nullifiers: &[Nullifier],
+    ) -> Result<Option<SyncStatus>, ClientError> {
+        let tag = note_tags.first().expect("note_tags should have at least one element");
+        let sync_notes = self.rpc_api.sync_notes(current_block_num, &[*tag]).await?;
 
-            let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
+        if sync_notes.block_header.block_num() == current_block_num {
+            return Ok(None);
+        }
 
-            if sync_notes.block_header.block_num() == sync_notes.chain_tip {
-                return Ok(None);
-            }
+        // This means that notes with that note_tag were found.
+        // Therefore, we should check if a note with the same id was found.
+        let committed_note =
+            sync_notes.notes.iter().find(|note| note.note_id() == &self.note_record.id());
 
-            // This means that notes with that note_tag were found.
-            // Therefore, we should check if a note with the same id was found.
-            let committed_note =
-                sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
-
-            if let Some(note) = committed_note {
-                // This means that a note with the same id was found.
-                // Therefore, we should mark the note as committed.
-                let note_block_num = sync_notes.block_header.block_num();
-
-                if note_block_num > current_block_num {
-                    return Ok(None);
-                };
-
-                let note_inclusion_proof = NoteInclusionProof::new(
-                    note_block_num,
+        let mut update = StateSyncUpdate::new_empty(sync_notes.block_header);
+        if let Some(note) = committed_note {
+            // This means that a note with the same id was found.
+            // Therefore, we should update it.
+            let note_changed = self.note_record.inclusion_proof_received(
+                NoteInclusionProof::new(
+                    sync_notes.block_header.block_num(),
                     note.note_index(),
                     note.merkle_path().clone(),
-                )?;
+                )?,
+                note.metadata(),
+            )?;
 
-                return Ok(Some((note.metadata(), note_inclusion_proof)));
-            } else {
-                // This means that a note with the same id was not found.
-                // Therefore, we should request again for sync_notes with the same note_tag
-                // and with the block_num of the last block header
-                // (sync_notes.block_header.unwrap()).
-                request_block_num = sync_notes.block_header.block_num();
+            if !(self.note_record.block_header_received(sync_notes.block_header)? | note_changed) {
+                // If note was found but didn't change, we return None (as there is no state change)
+                return Ok(None);
             }
+
+            let single_note_update =
+                NoteUpdates::new(vec![], vec![], vec![self.note_record.clone()], vec![]);
+            update.note_updates = single_note_update;
+        }
+
+        if sync_notes.chain_tip == sync_notes.block_header.block_num() {
+            Ok(Some(SyncStatus::SyncedToLastBlock(update)))
+        } else {
+            Ok(Some(SyncStatus::SyncedToBlock(update)))
         }
     }
 }

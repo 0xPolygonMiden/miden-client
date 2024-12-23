@@ -55,6 +55,23 @@ pub struct StateSyncUpdate {
     pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
+impl StateSyncUpdate {
+    pub fn new_empty(block_header: BlockHeader) -> Self {
+        Self {
+            block_header,
+            note_updates: NoteUpdates::new(vec![], vec![], vec![], vec![]),
+            transactions_to_commit: vec![],
+            transactions_to_discard: vec![],
+            new_mmr_peaks: MmrPeaks::new(0, vec![])
+                .expect("Blank MmrPeaks should not fail to instantiate"),
+            new_authentication_nodes: vec![],
+            updated_accounts: AccountUpdates::new(vec![], vec![]),
+            block_has_relevant_notes: false,
+            tags_to_remove: vec![],
+        }
+    }
+}
+
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
         SyncSummary::new(
