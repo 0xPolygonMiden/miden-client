@@ -154,10 +154,11 @@ pub trait NodeRpcClient {
     }
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
-    /// specified foreign accounts. The `code_commitments` parameter is a list of known code hashes
+    /// specified foreign accounts.
+    ///
+    /// The `code_commitments` parameter is a list of known code hashes
     /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
     /// one of the tracked accounts is not found in the node, the method will return an error.
-    ///
     /// The default implementation of this method uses [NodeRpcClient::get_account_proofs].
     async fn get_fpi_account_data(
         &mut self,
@@ -228,10 +229,11 @@ pub trait NodeRpcClient {
     }
 
     /// Fetches the public accounts that have been updated since the last known state of the
-    /// accounts. The `local_accounts` parameter is a list of account headers that the client has
+    /// accounts.
+    ///
+    /// The `local_accounts` parameter is a list of account headers that the client has
     /// stored locally and that it wants to check for updates. If an account is private or didn't
     /// change, it is ignored and will not be included in the returned list.
-    ///
     /// The default implementation of this method uses [NodeRpcClient::get_account_update].
     async fn get_updated_public_accounts(
         &mut self,
@@ -267,10 +269,10 @@ pub trait NodeRpcClient {
 
     /// Fetches the note with the specified ID.
     ///
+    /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
+    ///
     /// Errors:
     /// - [RpcError::NoteNotFound] if the note with the specified ID is not found.
-    ///
-    /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
     async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
         let notes = self.get_notes_by_id(&[note_id]).await?;
         notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
