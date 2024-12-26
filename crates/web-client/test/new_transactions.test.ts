@@ -323,8 +323,8 @@ export const customTransaction = async (
     let compiledNoteScript = await client.compile_note_script(note_script);
     let noteInputs = new window.NoteInputs(
       new window.FeltArray([
-        walletAccount.id().first_felt(),
-        walletAccount.id().second_felt(),
+        walletAccount.id().prefix(),
+        walletAccount.id().sufix(),
       ])
     );
 

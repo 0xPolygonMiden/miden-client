@@ -153,14 +153,15 @@ impl<R: FeltRng> Client<R> {
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
     ) -> Self {
-        if in_debug_mode {
-            info!("Creating the Client in debug mode.");
-        }
-
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
-        let tx_executor = TransactionExecutor::new(data_store, authenticator).with_debug_mode();
+        let mut tx_executor = TransactionExecutor::new(data_store, authenticator);
         let tx_prover = Arc::new(LocalTransactionProver::default());
+
+        if in_debug_mode {
+            info!("Creating the Client in debug mode.");
+            tx_executor = tx_executor.with_debug_mode();
+        }
 
         Self {
             store,

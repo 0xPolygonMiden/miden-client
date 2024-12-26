@@ -44,11 +44,11 @@ impl<R: FeltRng> Client<R> {
 
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
-    pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
+    pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
         let genesis = self.store.get_block_header_by_num(0).await;
 
         match genesis {
-            Ok(_) => Ok(()),
+            Ok((block, _)) => Ok(block),
             Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
             Err(err) => Err(ClientError::StoreError(err)),
         }
@@ -56,7 +56,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database.
-    async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
+    async fn retrieve_and_store_genesis(&mut self) -> Result<BlockHeader, ClientError> {
         let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
         let blank_mmr_peaks =
@@ -64,7 +64,7 @@ impl<R: FeltRng> Client<R> {
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
         self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
-        Ok(())
+        Ok(genesis_block)
     }
 
     // HELPERS
@@ -186,12 +186,10 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         block_header: BlockHeader,
     ) -> Result<BlockHeader, ClientError> {
-        self.ensure_genesis_in_place().await?;
-
         let epoch_block_number = block_header.epoch_block_num();
 
         if epoch_block_number == 0 {
-            return Ok(self.store.get_block_header_by_num(0).await?.0);
+            return Ok(block_header);
         }
 
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
@@ -206,8 +204,8 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If the epoch block header is not stored, it will be retrieved and stored.
     pub async fn get_genesis_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
-        self.ensure_genesis_in_place().await?;
-        self.get_epoch_block(self.store.get_block_header_by_num(0).await?.0).await
+        let genesis_block_header = self.ensure_genesis_in_place().await?;
+        self.get_epoch_block(genesis_block_header).await
     }
 
     /// Returns the epoch block for the latest tracked block.
