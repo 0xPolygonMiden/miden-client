@@ -985,7 +985,7 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
-        let anchor_block = client.get_anchor_block().await.unwrap();
+        let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
         let account = AccountBuilder::new()
             .init_seed(Default::default())

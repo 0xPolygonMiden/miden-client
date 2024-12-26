@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
+    block::block_num_from_epoch,
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -179,23 +180,50 @@ impl<R: FeltRng> Client<R> {
         Ok(block_header)
     }
 
-    pub async fn get_anchor_block(&mut self) -> Result<BlockHeader, ClientError> {
+    /// Returns the epoch block for the specified block header.
+    ///
+    /// If the epoch block header is not stored, it will be retrieved and stored.
+    pub async fn get_epoch_block(
+        &mut self,
+        block_header: BlockHeader,
+    ) -> Result<BlockHeader, ClientError> {
         self.ensure_genesis_in_place().await?;
 
-        let sync_height = self.get_sync_height().await?;
-        let anchor_epoch = sync_height >> BlockHeader::EPOCH_LENGTH_EXPONENT;
-        let anchor_block_number = anchor_epoch << BlockHeader::EPOCH_LENGTH_EXPONENT;
+        let epoch_block_number = block_num_from_epoch(block_header.block_epoch());
 
-        if anchor_block_number == 0 {
+        if epoch_block_number == 0 {
             return Ok(self.store.get_block_header_by_num(0).await?.0);
         }
 
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
         let anchor_block = self
-            .get_and_store_authenticated_block(anchor_block_number, &mut current_partial_mmr)
+            .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
             .await?;
 
         Ok(anchor_block)
+    }
+
+    /// Returns the epoch block for the genesis block.
+    ///
+    /// If the epoch block header is not stored, it will be retrieved and stored.
+    pub async fn get_genesis_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
+        self.ensure_genesis_in_place().await?;
+        self.get_epoch_block(self.store.get_block_header_by_num(0).await?.0).await
+    }
+
+    /// Returns the epoch block for the latest tracked block.
+    ///
+    /// If the epoch block header is not stored, it will be retrieved and stored.
+    pub async fn get_latest_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
+        let current_block_num = self.store.get_sync_height().await?;
+
+        if current_block_num == 0 {
+            return self.get_genesis_epoch_block().await;
+        }
+
+        let current_block = self.store.get_block_header_by_num(current_block_num).await?.0;
+
+        self.get_epoch_block(current_block).await
     }
 }
 

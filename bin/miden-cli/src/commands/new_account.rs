@@ -76,7 +76,7 @@ impl NewFaucetCmd {
         )
         .expect("u64 can be safely converted to a field element");
 
-        let anchor_block = client.get_anchor_block().await?;
+        let anchor_block = client.get_latest_epoch_block().await?;
 
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)
@@ -129,7 +129,7 @@ impl NewWalletCmd {
             AccountType::RegularAccountImmutableCode
         };
 
-        let anchor_block = client.get_anchor_block().await?;
+        let anchor_block = client.get_latest_epoch_block().await?;
 
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)

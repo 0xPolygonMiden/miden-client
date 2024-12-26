@@ -40,7 +40,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let anchor_block = client.get_anchor_block().await.unwrap();
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
     let (foreign_account, foreign_seed, secret_key, proc_root) =
         foreign_account(storage_mode, &anchor_block);
 

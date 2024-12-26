@@ -32,7 +32,7 @@ impl WebClient {
                 AccountType::RegularAccountImmutableCode
             };
 
-            let anchor_block = client.get_anchor_block().await.unwrap();
+            let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
             let (new_account, seed) = match AccountBuilder::new()
                 .init_seed(init_seed)
@@ -93,7 +93,7 @@ impl WebClient {
             let max_supply = Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element");
 
-            let anchor_block = client.get_anchor_block().await.unwrap();
+            let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
             let (new_account, seed) = match AccountBuilder::new()
                 .init_seed(init_seed)

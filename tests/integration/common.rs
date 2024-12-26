@@ -100,7 +100,7 @@ pub async fn insert_new_wallet<R: FeltRng>(
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
 
-    let anchor_block = client.get_anchor_block().await.unwrap();
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
     let (account, seed) = AccountBuilder::new()
         .init_seed(init_seed)
@@ -133,7 +133,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
         .expect("u64 can be safely converted to a field element");
 
-    let anchor_block = client.get_anchor_block().await.unwrap();
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
     let (account, seed) = AccountBuilder::new()
         .init_seed(init_seed)

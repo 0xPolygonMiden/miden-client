@@ -55,7 +55,7 @@ The `AccountBuilder` can be used to create a new account with the specified para
 
 ```rust
 let key_pair = SecretKey::with_rng(client.rng());
-let anchor_block = client.get_anchor_block().await.unwrap();
+let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
 let (new_account, seed) = AccountBuilder::new()
     .init_seed(init_seed) // Should be random for each account
@@ -74,7 +74,7 @@ To create an public account, you can specify `AccountStorageMode::Public` like s
 
 ```Rust
 let key_pair = SecretKey::with_rng(client.rng());
-let anchor_block = client.get_anchor_block().await.unwrap();
+let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
 let (new_account, seed) = AccountBuilder::new()
     .init_seed(init_seed) // Should be random for each account
