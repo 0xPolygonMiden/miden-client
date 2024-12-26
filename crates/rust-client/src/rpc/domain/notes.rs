@@ -161,7 +161,7 @@ impl CommittedNote {
     }
 }
 
-// NODE NOTE
+// NETWORK NOTE
 // ================================================================================================
 
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note.

@@ -84,16 +84,18 @@ impl<R: FeltRng> Client<R> {
         previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
-        let node_note = self.rpc_api.get_note_by_id(id).await.map_err(|err| match err {
+        let network_note = self.rpc_api.get_note_by_id(id).await.map_err(|err| match err {
             RpcError::NoteNotFound(note_id) => ClientError::NoteNotFoundOnChain(note_id),
             err => ClientError::RpcError(err),
         })?;
 
-        let inclusion_proof = node_note.inclusion_proof().clone();
+        let inclusion_proof = network_note.inclusion_proof().clone();
 
         match previous_note {
             Some(mut previous_note) => {
-                if previous_note.inclusion_proof_received(inclusion_proof, *node_note.metadata())? {
+                if previous_note
+                    .inclusion_proof_received(inclusion_proof, *network_note.metadata())?
+                {
                     self.store.remove_note_tag((&previous_note).try_into()?).await?;
 
                     Ok(Some(previous_note))
@@ -102,7 +104,7 @@ impl<R: FeltRng> Client<R> {
                 }
             },
             None => {
-                let node_note = match node_note {
+                let network_note = match network_note {
                     NetworkNote::Public(note, _) => note,
                     NetworkNote::Private(..) => {
                         return Err(ClientError::NoteImportError(
@@ -111,7 +113,7 @@ impl<R: FeltRng> Client<R> {
                     },
                 };
 
-                self.import_note_record_by_proof(previous_note, node_note, inclusion_proof)
+                self.import_note_record_by_proof(previous_note, network_note, inclusion_proof)
                     .await
             },
         }
