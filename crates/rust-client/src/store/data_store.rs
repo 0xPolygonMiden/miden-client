@@ -6,6 +6,7 @@ use alloc::{
 
 use miden_objects::{
     accounts::{Account, AccountId},
+    block::block_num_from_epoch,
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
@@ -69,7 +70,7 @@ impl DataStore for ClientDataStore {
         let mut block_nums: Vec<u32> = vec![];
 
         // Add anchor block to partial MMR
-        let anchor_block = (account_id.anchor_epoch() as u32) << BlockHeader::EPOCH_LENGTH_EXPONENT;
+        let anchor_block = block_num_from_epoch(account_id.anchor_epoch());
         if anchor_block != block_num {
             block_nums.push(anchor_block);
         }

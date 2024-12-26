@@ -2019,7 +2019,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#64d7a2e5fa3fb1c65269369bf0b152057e45befd"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#64d7a2e5fa3fb1c65269369bf0b152057e45befd"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2115,7 +2115,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#b240c2cec89b2200ef59d8294ba0b0056cffee3f"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#78ca36c6a3f574ff6131db8e8f51c460d2751d96"
 
 [[package]]
 name = "miden-stdlib"
@@ -2149,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#64d7a2e5fa3fb1c65269369bf0b152057e45befd"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2166,7 +2166,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-prover"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#64d7a2e5fa3fb1c65269369bf0b152057e45befd"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
 dependencies = [
  "async-trait",
  "axum",
@@ -3223,9 +3223,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5b9d34b8991d19d98081b46eacdd8eb58c6f2b201139f7c5f643cc155a633af"
+checksum = "0e4dccaaaf89514f546c693ddc140f729f958c247918a13380cccc6078391acc"
 dependencies = [
  "proc-macro2",
 ]

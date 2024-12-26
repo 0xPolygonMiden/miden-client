@@ -2,7 +2,6 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    block::block_num_from_epoch,
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -189,7 +188,7 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<BlockHeader, ClientError> {
         self.ensure_genesis_in_place().await?;
 
-        let epoch_block_number = block_num_from_epoch(block_header.block_epoch());
+        let epoch_block_number = block_header.epoch_block_num();
 
         if epoch_block_number == 0 {
             return Ok(self.store.get_block_header_by_num(0).await?.0);
