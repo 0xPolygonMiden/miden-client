@@ -69,10 +69,12 @@ impl DataStore for ClientDataStore {
         let mut list_of_notes = vec![];
         let mut block_nums: Vec<u32> = vec![];
 
-        // Add anchor block to partial MMR
-        let anchor_block = block_num_from_epoch(account_id.anchor_epoch());
-        if anchor_block != block_num {
-            block_nums.push(anchor_block);
+        // If the account is new, add its anchor block to partial MMR
+        if seed.is_some() {
+            let anchor_block = block_num_from_epoch(account_id.anchor_epoch());
+            if anchor_block != block_num {
+                block_nums.push(anchor_block);
+            }
         }
 
         for (_note_id, note_record) in input_note_records {

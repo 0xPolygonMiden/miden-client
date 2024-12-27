@@ -1,5 +1,3 @@
-use std::println;
-
 use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
@@ -190,6 +188,10 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<BlockHeader, ClientError> {
         let epoch_block_number = block_header.epoch_block_num();
 
+        if let Ok((epoch_block, _)) = self.store.get_block_header_by_num(epoch_block_number).await {
+            return Ok(epoch_block);
+        }
+
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
         let anchor_block = self
             .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
@@ -202,8 +204,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If the epoch block header is not stored, it will be retrieved and stored.
     pub async fn get_genesis_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
-        let genesis_block_header = self.ensure_genesis_in_place().await?;
-        self.get_epoch_block(genesis_block_header).await
+        self.ensure_genesis_in_place().await
     }
 
     /// Returns the epoch block for the latest tracked block.
