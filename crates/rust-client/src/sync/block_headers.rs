@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
+    block::{block_epoch_from_number, block_num_from_epoch},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -179,17 +180,19 @@ impl<R: FeltRng> Client<R> {
         Ok(block_header)
     }
 
-    /// Returns the epoch block for the specified block header.
+    /// Returns the epoch block for the specified block number.
     ///
     /// If the epoch block header is not stored, it will be retrieved and stored.
-    pub async fn get_epoch_block(
-        &mut self,
-        block_header: BlockHeader,
-    ) -> Result<BlockHeader, ClientError> {
-        let epoch_block_number = block_header.epoch_block_num();
+    pub async fn get_epoch_block(&mut self, block_num: u32) -> Result<BlockHeader, ClientError> {
+        let epoch = block_epoch_from_number(block_num);
+        let epoch_block_number = block_num_from_epoch(epoch);
 
         if let Ok((epoch_block, _)) = self.store.get_block_header_by_num(epoch_block_number).await {
             return Ok(epoch_block);
+        }
+
+        if epoch_block_number == 0 {
+            return self.get_genesis_epoch_block().await;
         }
 
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
@@ -212,14 +215,7 @@ impl<R: FeltRng> Client<R> {
     /// If the epoch block header is not stored, it will be retrieved and stored.
     pub async fn get_latest_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
-
-        if current_block_num == 0 {
-            return self.get_genesis_epoch_block().await;
-        }
-
-        let current_block = self.store.get_block_header_by_num(current_block_num).await?.0;
-
-        self.get_epoch_block(current_block).await
+        self.get_epoch_block(current_block_num).await
     }
 }
 
