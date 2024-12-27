@@ -1,3 +1,5 @@
+use std::println;
+
 use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
@@ -187,10 +189,6 @@ impl<R: FeltRng> Client<R> {
         block_header: BlockHeader,
     ) -> Result<BlockHeader, ClientError> {
         let epoch_block_number = block_header.epoch_block_num();
-
-        if epoch_block_number == 0 {
-            return Ok(block_header);
-        }
 
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
         let anchor_block = self

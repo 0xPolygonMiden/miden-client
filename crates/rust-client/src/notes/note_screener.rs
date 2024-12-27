@@ -87,7 +87,7 @@ impl NoteScreener {
             "Should be able to convert the first two note inputs to an array of two Felt elements",
         );
 
-        let account_id = AccountId::try_from(account_id_felts)
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         if !account_ids.contains(&account_id) {
@@ -116,7 +116,7 @@ impl NoteScreener {
             InvalidNoteInputsError::BlockNumberError(note.id(), recall_height_felt.as_int())
         })?;
 
-        let account_id = AccountId::try_from(account_id_felts)
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         Ok(vec![
