@@ -42,7 +42,7 @@ mod web_tonic_client;
 #[cfg(feature = "web-tonic")]
 pub use web_tonic_client::WebTonicRpcClient;
 
-use crate::sync::get_nullifier_prefix;
+use crate::{sync::get_nullifier_prefix, transactions::ForeignAccount};
 
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
@@ -122,12 +122,11 @@ pub trait NodeRpcClient {
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
-    /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
+    /// Fetches the current account state, using the `/GetAccountProofs` RPC endpoint.
     async fn get_account_proofs(
         &mut self,
-        account_ids: &BTreeSet<AccountId>,
+        account_storage_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
-        include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,

@@ -7,17 +7,18 @@ use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
-    crypto::merkle::MerklePath,
+    crypto::merkle::{MerklePath, SmtProof},
     Digest, Felt,
 };
-use miden_tx::utils::Deserializable;
+use miden_tx::utils::{Deserializable, Serializable};
 use thiserror::Error;
 
 use crate::rpc::{
     errors::RpcConversionError,
     generated::{
         account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
-        responses::AccountStateHeader as ProtoAccountStateHeader,
+        requests::get_account_proofs_request,
+        responses::{AccountStateHeader as ProtoAccountStateHeader, StorageSlotMapProof},
     },
     RpcError,
 };
@@ -153,7 +154,12 @@ impl ProtoAccountStateHeader {
         account_id: AccountId,
         known_account_codes: &BTreeMap<Digest, AccountCode>,
     ) -> Result<StateHeaders, RpcError> {
-        let ProtoAccountStateHeader { header, storage_header, account_code } = self;
+        let ProtoAccountStateHeader {
+            header,
+            storage_header,
+            account_code,
+            storage_slots,
+        } = self;
         let account_header = header
             .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
             .into_domain(account_id)?;
@@ -178,7 +184,22 @@ impl ProtoAccountStateHeader {
             }
         };
 
-        Ok(StateHeaders { account_header, storage_header, code })
+        // Get map values into slot |-> (key, value, proof) mapping
+        let mut storage_slot_proofs: BTreeMap<u8, Vec<SmtProof>> = BTreeMap::new();
+        for StorageSlotMapProof { storage_slot, smt_proof } in storage_slots {
+            let proof = SmtProof::read_from_bytes(&smt_proof)?;
+            match storage_slot_proofs.get_mut(&(storage_slot as u8)) {
+                Some(list) => list.push(proof),
+                None => _ = storage_slot_proofs.insert(storage_slot as u8, vec![proof]),
+            }
+        }
+
+        Ok(StateHeaders {
+            account_header,
+            storage_header,
+            code,
+            storage_slots: storage_slot_proofs,
+        })
     }
 }
 
@@ -193,6 +214,7 @@ pub struct StateHeaders {
     pub account_header: AccountHeader,
     pub storage_header: AccountStorageHeader,
     pub code: AccountCode,
+    pub storage_slots: BTreeMap<StorageSlotIndex, Vec<SmtProof>>,
 }
 
 /// Represents a proof of existence of an account's state at a specific block number.
@@ -214,7 +236,10 @@ impl AccountProof {
         account_hash: Digest,
         state_headers: Option<StateHeaders>,
     ) -> Result<Self, AccountProofError> {
-        if let Some(StateHeaders { account_header, storage_header: _, code }) = &state_headers {
+        if let Some(StateHeaders {
+            account_header, storage_header: _, code, ..
+        }) = &state_headers
+        {
             if account_header.hash() != account_hash {
                 return Err(AccountProofError::InconsistentAccountHash);
             }
@@ -269,6 +294,69 @@ impl AccountProof {
     /// Deconstructs `AccountProof` into its individual parts.
     pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
         (self.account_id, self.merkle_proof, self.account_hash, self.state_headers)
+    }
+}
+
+// ACCOUNT STORAGE REQUEST
+// ================================================================================================
+
+pub type StorageSlotIndex = u8;
+pub type StorageMapKey = Digest;
+
+/// Describes storage slots indices to be requested, as well as a list of keys for each of those
+/// slots.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AccountStorageRequirements(BTreeMap<StorageSlotIndex, Vec<StorageMapKey>>);
+
+impl AccountStorageRequirements {
+    pub fn new<'a>(
+        slots_and_keys: impl IntoIterator<
+            Item = (StorageSlotIndex, impl IntoIterator<Item = &'a StorageMapKey>),
+        >,
+    ) -> Self {
+        let map = slots_and_keys
+            .into_iter()
+            .map(|(slot_index, keys_iter)| {
+                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().cloned().collect();
+                (slot_index, keys_vec)
+            })
+            .collect();
+
+        AccountStorageRequirements(map)
+    }
+
+    pub fn inner(&self) -> &BTreeMap<StorageSlotIndex, Vec<StorageMapKey>> {
+        &self.0
+    }
+}
+
+impl From<AccountStorageRequirements> for Vec<get_account_proofs_request::StorageRequest> {
+    fn from(value: AccountStorageRequirements) -> Vec<get_account_proofs_request::StorageRequest> {
+        let mut requests = Vec::with_capacity(value.0.len());
+        for (slot_index, map_keys) in value.0.into_iter() {
+            requests.push(get_account_proofs_request::StorageRequest {
+                storage_slot_index: slot_index as u32,
+                map_keys: map_keys
+                    .into_iter()
+                    .map(crate::rpc::generated::digest::Digest::from)
+                    .collect(),
+            });
+        }
+        requests
+    }
+}
+
+impl Serializable for AccountStorageRequirements {
+    fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
+        target.write(&self.0);
+    }
+}
+
+impl Deserializable for AccountStorageRequirements {
+    fn read_from<R: miden_tx::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, miden_tx::utils::DeserializationError> {
+        Ok(AccountStorageRequirements(source.read()?))
     }
 }
 

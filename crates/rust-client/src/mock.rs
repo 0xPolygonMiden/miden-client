@@ -44,6 +44,7 @@ use crate::{
         NodeRpcClient, RpcError,
     },
     store::{sqlite_store::SqliteStore, StoreAuthenticator},
+    transactions::ForeignAccount,
     Client,
 };
 
@@ -301,9 +302,8 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn get_account_proofs(
         &mut self,
-        _account_ids: &BTreeSet<AccountId>,
+        _account_ids: &BTreeSet<ForeignAccount>,
         _code_commitments: Vec<AccountCode>,
-        _include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully
         Ok((self.blocks.last().unwrap().header().block_num(), vec![]))

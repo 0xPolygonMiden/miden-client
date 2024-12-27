@@ -20,9 +20,10 @@ use miden_objects::{
 };
 
 use super::{
-    foreign::StorageMapSlotKey, ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest,
-    TransactionRequestError, TransactionScriptTemplate,
+    ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest, TransactionRequestError,
+    TransactionScriptTemplate,
 };
+use crate::rpc::domain::accounts::AccountStorageRequirements;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -181,7 +182,9 @@ impl TransactionRequestBuilder {
     /// - If `foreign_account_ids` contains an ID corresponding to a private account.
     pub fn with_public_foreign_accounts(
         mut self,
-        foreign_account_ids: impl IntoIterator<Item = impl Into<(AccountId, Vec<StorageMapSlotKey>)>>,
+        foreign_account_ids: impl IntoIterator<
+            Item = impl Into<(AccountId, AccountStorageRequirements)>,
+        >,
     ) -> Result<Self, TransactionRequestError> {
         for account in foreign_account_ids {
             let (account_id, indices) = account.into();
