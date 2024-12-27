@@ -17,7 +17,7 @@ use miden_client::{
     crypto::{RpoRandomCoin, SecretKey},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
-    testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
+    testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     Client, Felt,
 };
 use rand::Rng;
@@ -110,8 +110,11 @@ async fn test_mint_with_untracked_account() {
         let mut init_seed = [0u8; 32];
         client.rng().fill_bytes(&mut init_seed);
 
+        let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)
+            .anchor((&anchor_block).try_into().unwrap())
             .account_type(AccountType::RegularAccountImmutableCode)
             .storage_mode(AccountStorageMode::Private)
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))

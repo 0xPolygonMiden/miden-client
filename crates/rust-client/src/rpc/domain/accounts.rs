@@ -10,7 +10,7 @@ use miden_objects::{
     crypto::merkle::MerklePath,
     Digest, Felt,
 };
-use miden_tx::utils::Deserializable;
+use miden_tx::utils::{Deserializable, Serializable, ToHex};
 use thiserror::Error;
 
 use crate::rpc::{
@@ -74,7 +74,7 @@ impl AccountUpdateSummary {
 
 impl Display for ProtoAccountId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("0x{:x}", self.id))
+        f.write_fmt(format_args!("0x{}", self.id.to_hex()))
     }
 }
 
@@ -89,7 +89,7 @@ impl Debug for ProtoAccountId {
 
 impl From<AccountId> for ProtoAccountId {
     fn from(account_id: AccountId) -> Self {
-        Self { id: account_id.into() }
+        Self { id: account_id.to_bytes() }
     }
 }
 
@@ -100,7 +100,7 @@ impl TryFrom<ProtoAccountId> for AccountId {
     type Error = RpcConversionError;
 
     fn try_from(account_id: ProtoAccountId) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| RpcConversionError::NotAValidFelt)
+        AccountId::read_from_bytes(&account_id.id).map_err(|_| RpcConversionError::NotAValidFelt)
     }
 }
 

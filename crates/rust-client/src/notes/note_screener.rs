@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     assets::Asset,
     notes::{Note, NoteId},
-    AccountError, AssetError, Word,
+    AccountError, AssetError, Felt, Word,
 };
 use thiserror::Error;
 
@@ -78,16 +78,16 @@ impl NoteScreener {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 1))?;
-
-        if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 1).into());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 2 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
         }
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id_felts: [Felt; 2] = note_inputs[0..2].try_into().expect(
+            "Should be able to convert the first two note inputs to an array of two Felt elements",
+        );
+
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         if !account_ids.contains(&account_id) {
@@ -100,24 +100,23 @@ impl NoteScreener {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
-        let recall_height_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
-
-        if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 3 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 3).into());
         }
+
+        let account_id_felts: [Felt; 2] = note_inputs[0..2].try_into().expect(
+            "Should be able to convert the first two note inputs to an array of two Felt elements",
+        );
+
+        let recall_height_felt = note_inputs[2];
 
         let sender = note.metadata().sender();
         let recall_height: u32 = recall_height_felt.as_int().try_into().map_err(|_err| {
             InvalidNoteInputsError::BlockNumberError(note.id(), recall_height_felt.as_int())
         })?;
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         Ok(vec![
@@ -142,18 +141,19 @@ impl NoteScreener {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let note_inputs = note.inputs().values().to_vec();
-        if note_inputs.len() != 9 {
-            return Ok(Vec::new());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 10 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 10).into());
         }
 
+        let asset_felts: [Felt; 4] = note_inputs[4..8].try_into().expect(
+            "Should be able to convert the second word from note inputs to an array of four Felt elements",
+        );
+
         // get the demanded asset from the note's inputs
-        let asset: Asset =
-            Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
-                .try_into()
-                .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
-        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])
-            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+        let asset: Asset = Word::from(asset_felts)
+            .try_into()
+            .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
 
         let mut accounts_with_relevance = Vec::new();
 
@@ -169,14 +169,16 @@ impl NoteScreener {
                 {
                     accounts_with_relevance.push((*account_id, NoteRelevance::Always))
                 },
-                Asset::Fungible(fungible_asset)
+                Asset::Fungible(fungible_asset) => {
+                    let asset_faucet_id = fungible_asset.faucet_id();
                     if account
                         .vault()
                         .get_balance(asset_faucet_id)
                         .expect("Should be able to query get_balance for an Asset::Fungible")
-                        >= fungible_asset.amount() =>
-                {
-                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                        >= fungible_asset.amount()
+                    {
+                        accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                    }
                 },
                 _ => {},
             }
