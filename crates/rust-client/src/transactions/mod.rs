@@ -830,8 +830,10 @@ fn extend_advice_inputs_for_account(
     let storage_root = account_header.storage_commitment();
     let code_root = account_header.code_commitment();
 
-    let foreign_id_root = Digest::from([account_id.into(), ZERO, ZERO, ZERO]);
-    let foreign_id_and_nonce = [account_id.into(), ZERO, ZERO, account_nonce];
+    let foreign_id_root =
+        Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
+    let foreign_id_and_nonce =
+        [account_id.second_felt(), account_id.first_felt(), ZERO, account_nonce];
 
     // Prepare storage slot data
     let mut slots_data = Vec::new();
@@ -862,7 +864,9 @@ fn extend_advice_inputs_for_account(
     ]);
 
     // Extend the advice inputs with Merkle store data
-    tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
+    tx_args.extend_merkle_store(
+        merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?,
+    );
 
     tx_executor.load_account_code(&account_code);
 
@@ -919,17 +923,17 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{accounts::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-            },
-            AccountBuilder, AccountComponent, StorageMap, StorageSlot,
-        },
+        accounts::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
         assets::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
-        testing::account_component::BASIC_WALLET_CODE,
+        testing::{
+            account_component::BASIC_WALLET_CODE,
+            account_id::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+            },
+        },
         Word,
     };
 
@@ -958,8 +962,11 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
+        let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
         let account = AccountBuilder::new()
             .init_seed(Default::default())
+            .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])

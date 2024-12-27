@@ -301,15 +301,15 @@ export const customTransaction = async (
                 # => [num_inputs, inputs_ptr]
 
                 # make sure the number of inputs is 1
-                eq.1 assert
+                eq.2 assert
                 # => [inputs_ptr]
 
                 # read the target account id from the note inputs
                 mem_load
-                # => [target_account_id]
+                # => [target_account_id_prefix]
 
-                exec.account::get_id
-                # => [account_id, target_account_id, ...]
+                exec.account::get_id swap drop
+                # => [account_id_prefix, target_account_id_prefix, ...]
 
                 # ensure account_id = target_account_id, fails otherwise
                 assert_eq
@@ -322,7 +322,10 @@ export const customTransaction = async (
 
     let compiledNoteScript = await client.compile_note_script(note_script);
     let noteInputs = new window.NoteInputs(
-      new window.FeltArray([walletAccount.id().to_felt()])
+      new window.FeltArray([
+        walletAccount.id().prefix(),
+        walletAccount.id().suffix(),
+      ])
     );
 
     let noteRecipient = new window.NoteRecipient(

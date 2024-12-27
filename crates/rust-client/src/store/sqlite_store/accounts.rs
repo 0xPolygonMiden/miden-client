@@ -17,11 +17,11 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (i64, String, String, String, i64, bool, String);
-type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>, bool);
+type SerializedAccountData = (String, String, String, String, i64, bool, String);
+type SerializedAccountsParts = (String, i64, String, String, String, Option<Vec<u8>>, bool);
 
-type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
-type SerializedAccountAuthParts = (i64, Vec<u8>);
+type SerializedAccountAuthData = (String, Vec<u8>, Vec<u8>);
+type SerializedAccountAuthParts = (String, Vec<u8>);
 
 type SerializedAccountVaultData = (String, Vec<u8>);
 
@@ -29,7 +29,7 @@ type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
+type SerializedFullAccountParts = (String, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -43,7 +43,7 @@ impl SqliteStore {
             .expect("no binding parameters used in query")
             .map(|result| {
                 Ok(result
-                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))?)
+                    .map(|id: String| AccountId::from_hex(&id).expect("account id is valid"))?)
             })
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
@@ -67,14 +67,13 @@ impl SqliteStore {
         conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(AccountHeader, AccountStatus), StoreError> {
-        let account_id_int: u64 = account_id.into();
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
         conn.prepare(QUERY)?
-            .query_map(params![account_id_int as i64], parse_accounts_columns)?
+            .query_map(params![account_id.to_hex()], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
@@ -103,7 +102,6 @@ impl SqliteStore {
         conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<AccountRecord, StoreError> {
-        let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked \
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
@@ -114,7 +112,7 @@ impl SqliteStore {
                             LIMIT 1";
 
         conn.prepare(QUERY)?
-            .query_map(params![account_id_int as i64], parse_account_columns)?
+            .query_map(params![account_id.to_hex()], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
@@ -125,10 +123,9 @@ impl SqliteStore {
         conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, StoreError> {
-        let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         conn.prepare(QUERY)?
-            .query_map(params![account_id_int as i64], parse_account_auth_columns)?
+            .query_map(params![account_id.to_hex()], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
@@ -155,11 +152,10 @@ impl SqliteStore {
         conn: &mut Connection,
         new_account_state: &Account,
     ) -> Result<(), StoreError> {
-        let account_id_int: u64 = new_account_state.id().into();
         const QUERY: &str = "SELECT id FROM accounts WHERE id = ?";
         if conn
             .prepare(QUERY)?
-            .query_map(params![account_id_int as i64], parse_account_auth_columns)?
+            .query_map(params![new_account_state.id().to_hex()], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
             .is_none()
@@ -192,11 +188,10 @@ impl SqliteStore {
         code: AccountCode,
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
-        let account_id: u64 = account_id.into();
 
         const QUERY: &str =
             "INSERT OR REPLACE INTO foreign_account_code (account_id, code_root) VALUES (?, ?)";
-        tx.execute(QUERY, params![account_id, code.commitment().to_string()])?;
+        tx.execute(QUERY, params![account_id.to_hex(), code.commitment().to_string()])?;
 
         insert_account_code(&tx, &code)?;
         Ok(tx.commit()?)
@@ -206,13 +201,8 @@ impl SqliteStore {
         conn: &mut Connection,
         account_ids: Vec<AccountId>,
     ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
-        let params: Vec<Value> = account_ids
-            .into_iter()
-            .map(|id| {
-                let id_int: u64 = id.into();
-                Value::from(id_int as i64)
-            })
-            .collect();
+        let params: Vec<Value> =
+            account_ids.into_iter().map(|id| Value::from(id.to_hex())).collect();
         const QUERY: &str = "
             SELECT account_id, code
             FROM foreign_account_code JOIN account_code ON code_root = code_root
@@ -223,9 +213,9 @@ impl SqliteStore {
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |(id, code): (u64, Vec<u8>)| {
+                    |(id, code): (String, Vec<u8>)| {
                         Ok((
-                            AccountId::try_from(id).map_err(StoreError::AccountError)?,
+                            AccountId::from_hex(&id).map_err(StoreError::AccountError)?,
                             AccountCode::from_bytes(&code).map_err(StoreError::AccountError)?,
                         ))
                     },
@@ -316,7 +306,7 @@ pub(super) fn insert_account_auth(
 
 pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Result<(), StoreError> {
     const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = ?";
-    tx.execute(QUERY, params![u64::from(account_id) as i64])?;
+    tx.execute(QUERY, params![account_id.to_hex()])?;
     Ok(())
 }
 
@@ -324,7 +314,7 @@ pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Resul
 pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
-    let id: i64 = row.get(0)?;
+    let id: String = row.get(0)?;
     let nonce: i64 = row.get(1)?;
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
@@ -350,9 +340,7 @@ pub(super) fn parse_accounts(
 
     Ok((
         AccountHeader::new(
-            (id as u64)
-                .try_into()
-                .expect("Conversion from stored AccountID should not panic"),
+            AccountId::from_hex(&id).expect("Conversion from stored AccountID should not panic"),
             Felt::new(nonce as u64),
             Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
@@ -368,9 +356,8 @@ pub(super) fn parse_account(
 ) -> Result<AccountRecord, StoreError> {
     let (id, nonce, account_seed, code, storage, assets, locked) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
-    let account_id: AccountId = (id as u64)
-        .try_into()
-        .expect("Conversion from stored AccountID should not panic");
+    let account_id: AccountId =
+        AccountId::from_hex(&id).expect("Conversion from stored AccountID should not panic");
     let account_code = AccountCode::from_bytes(&code)?;
     let account_storage = AccountStorage::read_from_bytes(&storage)?;
     let account_assets: Vec<Asset> = Vec::<Asset>::read_from_bytes(&assets)?;
@@ -393,7 +380,7 @@ pub(super) fn parse_account(
 
 /// Serialized the provided account into database compatible types.
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
-    let id: u64 = account.id().into();
+    let id: String = account.id().to_hex();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
     let vault_root = account.vault().commitment().to_string();
@@ -401,14 +388,14 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
+    Ok((id, code_root, commitment_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types.
 fn parse_account_auth_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountAuthParts, rusqlite::Error> {
-    let account_id: i64 = row.get(0)?;
+    let account_id: String = row.get(0)?;
     let auth_info_bytes: Vec<u8> = row.get(1)?;
     Ok((account_id, auth_info_bytes))
 }
@@ -432,10 +419,10 @@ fn serialize_account_auth(
     }
     .to_bytes();
 
-    let account_id: u64 = account_id.into();
+    let account_id: String = account_id.to_hex();
     let auth_info = auth_info.to_bytes();
 
-    Ok((account_id as i64, auth_info, pub_key))
+    Ok((account_id, auth_info, pub_key))
 }
 
 /// Serialize the provided account_code into database compatible types.
@@ -471,7 +458,7 @@ fn serialize_account_asset_vault(
 pub(super) fn parse_account_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedFullAccountParts, rusqlite::Error> {
-    let id: i64 = row.get(0)?;
+    let id: String = row.get(0)?;
     let nonce: i64 = row.get(1)?;
     let account_seed: Option<Vec<u8>> = row.get(2)?;
     let code: Vec<u8> = row.get(3)?;
@@ -487,7 +474,10 @@ mod tests {
     use miden_objects::{
         accounts::{AccountCode, AccountComponent, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
-        testing::account_component::BASIC_WALLET_CODE,
+        testing::{
+            account_component::BASIC_WALLET_CODE,
+            account_id::ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        },
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -559,7 +549,8 @@ mod tests {
 
         let store = create_test_store().await;
 
-        let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
+        let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN)
+            .expect("account id is valid");
         {
             let exp_key_pair_clone = exp_key_pair.clone();
             store

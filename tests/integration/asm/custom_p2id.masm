@@ -83,7 +83,7 @@ begin
     mem_loadw
     # => [NOTE_ARG_1]
     
-    push.{expected_note_arg_1} assert_eqw
+    push.{expected_note_arg_1} assert_eqw.err=101
     # => []
 
     # read second word
@@ -92,7 +92,7 @@ begin
     mem_loadw
     # => [NOTE_ARG_2]
 
-    push.{expected_note_arg_2} assert_eqw
+    push.{expected_note_arg_2} assert_eqw.err=102
     # => []
 
     # store the note inputs to memory starting at address 0
@@ -100,18 +100,18 @@ begin
     # => [num_inputs, inputs_ptr]
 
     # make sure the number of inputs is 1
-    eq.1 assert
+    eq.2 assert.err=103
     # => [inputs_ptr]
 
     # read the target account id from the note inputs
     mem_load
-    # => [target_account_id]
+    # => [target_account_id_prefix]
 
-    exec.account::get_id
-    # => [account_id, target_account_id, ...]
+    exec.account::get_id swap drop
+    # => [account_id_prefix, target_account_id_prefix, ...]
 
     # ensure account_id = target_account_id, fails otherwise
-    assert_eq
+    assert_eq.err=104
     # => [...]
 
     exec.add_note_assets_to_account

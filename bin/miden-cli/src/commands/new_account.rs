@@ -76,8 +76,11 @@ impl NewFaucetCmd {
         )
         .expect("u64 can be safely converted to a field element");
 
+        let anchor_block = client.get_latest_epoch_block().await?;
+
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)
+            .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(AccountType::FungibleFaucet)
             .storage_mode(self.storage_mode.into())
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
@@ -126,8 +129,11 @@ impl NewWalletCmd {
             AccountType::RegularAccountImmutableCode
         };
 
+        let anchor_block = client.get_latest_epoch_block().await?;
+
         let (new_account, seed) = AccountBuilder::new()
             .init_seed(init_seed)
+            .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(account_type)
             .storage_mode(self.storage_mode.into())
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))

@@ -6,6 +6,7 @@ use alloc::{
 
 use miden_objects::{
     accounts::{Account, AccountId},
+    block::block_num_from_epoch,
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
@@ -66,7 +67,15 @@ impl DataStore for ClientDataStore {
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;
 
         let mut list_of_notes = vec![];
-        let mut notes_blocks: Vec<u32> = vec![];
+        let mut block_nums: Vec<u32> = vec![];
+
+        // If the account is new, add its anchor block to partial MMR
+        if seed.is_some() {
+            let anchor_block = block_num_from_epoch(account_id.anchor_epoch());
+            if anchor_block != block_num {
+                block_nums.push(anchor_block);
+            }
+        }
 
         for (_note_id, note_record) in input_note_records {
             let input_note: InputNote =
@@ -84,21 +93,22 @@ impl DataStore for ClientDataStore {
                 let note_block_num = inclusion_proof.location().block_num();
 
                 if note_block_num != block_num {
-                    notes_blocks.push(note_block_num);
+                    block_nums.push(note_block_num);
                 }
             }
         }
 
-        let notes_blocks: Vec<BlockHeader> = self
+        let block_headers: Vec<BlockHeader> = self
             .store
-            .get_block_headers(&notes_blocks)
+            .get_block_headers(&block_nums)
             .await?
             .iter()
             .map(|(header, _has_notes)| *header)
             .collect();
 
-        let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks).await;
-        let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks).map_err(|err| {
+        let partial_mmr =
+            build_partial_mmr_with_paths(&self.store, block_num, &block_headers).await?;
+        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
             DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
         })?;
 

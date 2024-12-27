@@ -174,7 +174,7 @@ impl<R: FeltRng> Client<R> {
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
-        self.ensure_genesis_in_place().await?;
+        _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
