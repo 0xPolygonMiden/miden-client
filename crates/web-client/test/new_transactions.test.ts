@@ -324,7 +324,7 @@ export const customTransaction = async (
     let noteInputs = new window.NoteInputs(
       new window.FeltArray([
         walletAccount.id().prefix(),
-        walletAccount.id().sufix(),
+        walletAccount.id().suffix(),
       ])
     );
 

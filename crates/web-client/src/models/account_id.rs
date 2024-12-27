@@ -32,7 +32,7 @@ impl AccountId {
         native_felt.into()
     }
 
-    pub fn sufix(&self) -> Felt {
+    pub fn suffix(&self) -> Felt {
         let native_felt: NativeFelt = self.0.second_felt();
         native_felt.into()
     }

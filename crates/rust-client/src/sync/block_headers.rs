@@ -62,8 +62,8 @@ impl<R: FeltRng> Client<R> {
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
-        // NOTE: If genesis block data ever includes notes in the future, the third parameter in
-        // this `insert_block_header` call may be `true`
+        // We specify that we want to store the MMR data from the genesis block as we might use it
+        // as an anchor for created accounts.
         self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
         Ok(genesis_block)
     }
@@ -192,7 +192,7 @@ impl<R: FeltRng> Client<R> {
         }
 
         if epoch_block_number == 0 {
-            return self.get_genesis_epoch_block().await;
+            return self.ensure_genesis_in_place().await;
         }
 
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
@@ -201,13 +201,6 @@ impl<R: FeltRng> Client<R> {
             .await?;
 
         Ok(anchor_block)
-    }
-
-    /// Returns the epoch block for the genesis block.
-    ///
-    /// If the epoch block header is not stored, it will be retrieved and stored.
-    pub async fn get_genesis_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
-        self.ensure_genesis_in_place().await
     }
 
     /// Returns the epoch block for the latest tracked block.
