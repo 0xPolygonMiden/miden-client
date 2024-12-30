@@ -1,6 +1,6 @@
 use alloc::string::{String, ToString};
 
-use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError};
+use miden_objects::{accounts::AccountId, notes::NoteId, utils::DeserializationError, NoteError};
 use thiserror::Error;
 
 // RPC ERROR
@@ -18,6 +18,8 @@ pub enum RpcError {
     ExpectedDataMissing(String),
     #[error("rpc api response is invalid: {0}")]
     InvalidResponse(String),
+    #[error("note with id {0} was not found")]
+    NoteNotFound(NoteId),
     #[error("rpc request failed for {0}: {1}")]
     RequestError(String, String),
 }

@@ -19,6 +19,7 @@
 
 ### Changes
 
+* Refactored RPC functions and structs to improve code quality (#616).
 * [BREAKING] Added support for new two `Felt` account ID (#639).
 * [BREAKING] Removed unnecessary methods from `Client` (#631).
 * [BREAKING] Use `thiserror` 2.0 to derive errors (#623).
