@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     assets::Asset,
     notes::{Note, NoteId},
-    AccountError, AssetError, Word,
+    AccountError, AssetError, Felt, Word,
 };
 use thiserror::Error;
 
@@ -55,7 +55,7 @@ impl NoteScreener {
     /// accounts monitored by this screener.
     ///
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
-    /// unable to execute notes that are not committed so a slow check for other scripts is
+    /// unable to execute notes that aren't committed so a slow check for other scripts is
     /// currently not available.
     pub async fn check_relevance(
         &self,
@@ -78,16 +78,16 @@ impl NoteScreener {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 1))?;
-
-        if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 1).into());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 2 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
         }
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id_felts: [Felt; 2] = note_inputs[0..2].try_into().expect(
+            "Should be able to convert the first two note inputs to an array of two Felt elements",
+        );
+
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         if !account_ids.contains(&account_id) {
@@ -100,24 +100,23 @@ impl NoteScreener {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let mut note_inputs_iter = note.inputs().values().iter();
-        let account_id_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
-        let recall_height_felt = note_inputs_iter
-            .next()
-            .ok_or(InvalidNoteInputsError::WrongNumInputs(note.id(), 2))?;
-
-        if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 2).into());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 3 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 3).into());
         }
+
+        let account_id_felts: [Felt; 2] = note_inputs[0..2].try_into().expect(
+            "Should be able to convert the first two note inputs to an array of two Felt elements",
+        );
+
+        let recall_height_felt = note_inputs[2];
 
         let sender = note.metadata().sender();
         let recall_height: u32 = recall_height_felt.as_int().try_into().map_err(|_err| {
             InvalidNoteInputsError::BlockNumberError(note.id(), recall_height_felt.as_int())
         })?;
 
-        let account_id = AccountId::try_from(*account_id_felt)
+        let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         Ok(vec![
@@ -129,32 +128,32 @@ impl NoteScreener {
         .collect())
     }
 
-    /// Checks if a swap note can be consumed by any account whose id is in `account_ids`
+    /// Checks if a swap note can be consumed by any account whose ID is in `account_ids`.
     ///
     /// This implementation serves as a placeholder as we're currently not able to create, execute
     /// and send SWAP NOTES. Hence, it's also untested. The main logic should be the same: for each
     /// account check if it has enough of the wanted asset.
     /// This is also very inefficient as we're loading the full accounts. We should instead just
     /// load the account's vaults, or even have a function in the `Store` to do this.
-    ///
-    /// TODO: test/revisit this in the future
+    // TODO: test/revisit this in the future
     async fn check_swap_relevance(
         &self,
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let note_inputs = note.inputs().values().to_vec();
-        if note_inputs.len() != 9 {
-            return Ok(Vec::new());
+        let note_inputs = note.inputs().values();
+        if note_inputs.len() != 10 {
+            return Err(InvalidNoteInputsError::WrongNumInputs(note.id(), 10).into());
         }
 
+        let asset_felts: [Felt; 4] = note_inputs[4..8].try_into().expect(
+            "Should be able to convert the second word from note inputs to an array of four Felt elements",
+        );
+
         // get the demanded asset from the note's inputs
-        let asset: Asset =
-            Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
-                .try_into()
-                .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
-        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])
-            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+        let asset: Asset = Word::from(asset_felts)
+            .try_into()
+            .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
 
         let mut accounts_with_relevance = Vec::new();
 
@@ -170,14 +169,16 @@ impl NoteScreener {
                 {
                     accounts_with_relevance.push((*account_id, NoteRelevance::Always))
                 },
-                Asset::Fungible(fungible_asset)
+                Asset::Fungible(fungible_asset) => {
+                    let asset_faucet_id = fungible_asset.faucet_id();
                     if account
                         .vault()
                         .get_balance(asset_faucet_id)
                         .expect("Should be able to query get_balance for an Asset::Fungible")
-                        >= fungible_asset.amount() =>
-                {
-                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                        >= fungible_asset.amount()
+                    {
+                        accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                    }
                 },
                 _ => {},
             }
@@ -203,7 +204,7 @@ impl NoteScreener {
 // NOTE SCREENER ERRORS
 // ================================================================================================
 
-/// Error when screening notes to check relevance to a client
+/// Error when screening notes to check relevance to a client.
 #[derive(Debug, Error)]
 pub enum NoteScreenerError {
     #[error("error while processing note inputs")]

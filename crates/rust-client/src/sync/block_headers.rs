@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
+    block::{block_epoch_from_number, block_num_from_epoch},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
@@ -14,10 +15,10 @@ use crate::{
     Client, ClientError,
 };
 
-/// Network information management methods
+/// Network information management methods.
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
-    /// imported with an inclusion proof, but its block header is not tracked.
+    /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
@@ -44,27 +45,27 @@ impl<R: FeltRng> Client<R> {
 
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
-    pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
+    pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
         let genesis = self.store.get_block_header_by_num(0).await;
 
         match genesis {
-            Ok(_) => Ok(()),
+            Ok((block, _)) => Ok(block),
             Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
             Err(err) => Err(ClientError::StoreError(err)),
         }
     }
 
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
-    /// in the local database
-    async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
+    /// in the local database.
+    async fn retrieve_and_store_genesis(&mut self) -> Result<BlockHeader, ClientError> {
         let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
-        // NOTE: If genesis block data ever includes notes in the future, the third parameter in
-        // this `insert_block_header` call may be `true`
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false).await?;
-        Ok(())
+        // We specify that we want to store the MMR data from the genesis block as we might use it
+        // as an anchor for created accounts.
+        self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
+        Ok(genesis_block)
     }
 
     // HELPERS
@@ -139,7 +140,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
     ///
-    /// If the store already contains MMR data for the requested block number, the request is not
+    /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
@@ -178,6 +179,37 @@ impl<R: FeltRng> Client<R> {
 
         Ok(block_header)
     }
+
+    /// Returns the epoch block for the specified block number.
+    ///
+    /// If the epoch block header is not stored, it will be retrieved and stored.
+    pub async fn get_epoch_block(&mut self, block_num: u32) -> Result<BlockHeader, ClientError> {
+        let epoch = block_epoch_from_number(block_num);
+        let epoch_block_number = block_num_from_epoch(epoch);
+
+        if let Ok((epoch_block, _)) = self.store.get_block_header_by_num(epoch_block_number).await {
+            return Ok(epoch_block);
+        }
+
+        if epoch_block_number == 0 {
+            return self.ensure_genesis_in_place().await;
+        }
+
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let anchor_block = self
+            .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
+            .await?;
+
+        Ok(anchor_block)
+    }
+
+    /// Returns the epoch block for the latest tracked block.
+    ///
+    /// If the epoch block header is not stored, it will be retrieved and stored.
+    pub async fn get_latest_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
+        let current_block_num = self.store.get_sync_height().await?;
+        self.get_epoch_block(current_block_num).await
+    }
 }
 
 // UTILS
@@ -190,7 +222,7 @@ impl<R: FeltRng> Client<R> {
 /// # Parameters
 /// - `merkle_path`: Original merkle path.
 /// - `block_num`: The block number for which the path is computed.
-/// - `forest`: The target size of the forest
+/// - `forest`: The target size of the forest.
 fn adjust_merkle_path_for_forest(
     merkle_path: &MerklePath,
     block_num: usize,
@@ -218,7 +250,7 @@ fn adjust_merkle_path_for_forest(
 }
 
 /// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
-/// and returns the updated [PartialMmr]
+/// and returns the updated [PartialMmr].
 pub(crate) fn apply_mmr_changes(
     current_partial_mmr: PartialMmr,
     mmr_delta: MmrDelta,

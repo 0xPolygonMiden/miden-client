@@ -5,7 +5,7 @@ use alloc::{
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AuthSecretKey},
+    accounts::{AccountId, AccountIdPrefix, AuthSecretKey},
     notes::PartialNote,
     transaction::TransactionScript,
     Felt, TransactionScriptError,
@@ -34,9 +34,9 @@ impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
     ///
     /// Errors:
-    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note is not the
+    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note isn't the
     ///   account for which the script is being built.
-    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note does not contain exactly
+    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note doesn't contain exactly
     ///   one asset.
     /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
     ///   with a different faucet ID.
@@ -73,8 +73,10 @@ impl AccountInterface {
 
             match self {
                 AccountInterface::BasicFungibleFaucet => {
-                    if asset.faucet_id() != account_id {
-                        return Err(TransactionScriptBuilderError::InvalidAsset(asset.faucet_id()));
+                    if asset.faucet_id_prefix() != account_id.prefix() {
+                        return Err(TransactionScriptBuilderError::InvalidAsset(
+                            asset.faucet_id_prefix(),
+                        ));
                     }
 
                     body.push_str(&format!(
@@ -220,7 +222,7 @@ impl TransactionScriptBuilder {
 #[derive(Debug, Error)]
 pub enum TransactionScriptBuilderError {
     #[error("invalid asset: {0}")]
-    InvalidAsset(AccountId),
+    InvalidAsset(AccountIdPrefix),
     #[error("invalid transaction script")]
     InvalidTransactionScript(#[source] TransactionScriptError),
     #[error("invalid sender account: {0}")]

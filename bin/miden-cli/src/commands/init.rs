@@ -14,19 +14,18 @@ use crate::{
 #[clap(about = "Initialize the client")]
 pub struct InitCmd {
     /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
-    /// optional. If not provided user will be
-    /// asked for input
+    /// optional. If not provided user will be asked for input.
     #[clap(long)]
     rpc: Option<String>,
 
-    /// Store file path
+    /// Store file path.
     #[clap(long)]
     store_path: Option<String>,
 
     /// RPC endpoint for the proving service. Required if proving mode is set to remote.
     /// The endpoint must be in the form of "{protocol}://{hostname}:{port}", being the protocol
     /// and port optional.
-    /// If the proving RPC is not set, the proving mode will be set to local.
+    /// If the proving RPC isn't set, the proving mode will be set to local.
     #[clap(long)]
     remote_prover_endpoint: Option<String>,
 }

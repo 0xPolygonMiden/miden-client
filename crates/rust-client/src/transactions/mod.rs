@@ -71,7 +71,7 @@ pub struct TransactionResult {
 
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
-    /// [TransactionResult]
+    /// [TransactionResult].
     pub async fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
@@ -163,7 +163,7 @@ impl From<TransactionResult> for ExecutedTransaction {
 // TRANSACTION RECORD
 // --------------------------------------------------------------------------------------------
 
-/// Describes a transaction that has been executed and is being tracked on the Client
+/// Describes a transaction that has been executed and is being tracked on the Client.
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
@@ -207,14 +207,14 @@ impl TransactionRecord {
     }
 }
 
-/// Represents the status of a transaction
+/// Represents the status of a transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
-    /// Transaction has been submitted but not yet committed
+    /// Transaction has been submitted but not yet committed.
     Pending,
-    /// Transaction has been committed and included at the specified block number
+    /// Transaction has been committed and included at the specified block number.
     Committed(u32),
-    /// Transaction has been discarded and is not included in the node
+    /// Transaction has been discarded and isn't included in the node.
     Discarded,
 }
 
@@ -236,13 +236,13 @@ impl fmt::Display for TransactionStatus {
 /// Represents the changes that need to be applied to the client store as a result of a
 /// transaction execution.
 pub struct TransactionStoreUpdate {
-    /// Details of the executed transaction to be inserted
+    /// Details of the executed transaction to be inserted.
     executed_transaction: ExecutedTransaction,
-    /// Updated account state after the [AccountDelta] has been applied
+    /// Updated account state after the [AccountDelta] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
     note_updates: NoteUpdates,
-    /// New note tags to be tracked
+    /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
 
@@ -307,10 +307,10 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Creates and executes a transaction specified by the request against the specified account,
-    /// but does not change the local database.
+    /// but doesn't change the local database.
     ///
-    /// If the transaction utilizes foreign account data, there is a chance that the client does
-    /// not have the required block header in the local database. In these scenarios, a sync to
+    /// If the transaction utilizes foreign account data, there is a chance that the client doesn't
+    /// have the required block header in the local database. In these scenarios, a sync to
     /// the chain tip is performed, and the required block header is retrieved.
     ///
     /// # Errors
@@ -543,7 +543,7 @@ impl<R: FeltRng> Client<R> {
         Ok(())
     }
 
-    /// Compiles the provided transaction script source and inputs into a [TransactionScript]
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript].
     pub fn compile_tx_script<T>(
         &self,
         inputs: T,
@@ -562,7 +562,7 @@ impl<R: FeltRng> Client<R> {
     /// Helper to get the account outgoing assets.
     ///
     /// Any outgoing assets resulting from executing note scripts but not present in expected output
-    /// notes would not be included.
+    /// notes wouldn't be included.
     fn get_outgoing_assets(
         &self,
         transaction_request: &TransactionRequest,
@@ -877,7 +877,7 @@ fn extend_advice_inputs_for_account(
     let (account_header, storage_header, account_code) = foreign_account_inputs.into_parts();
 
     let account_id = account_header.id();
-    let foreign_id_root = Digest::from([account_id.into(), ZERO, ZERO, ZERO]);
+    let foreign_id_root = Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([
@@ -898,7 +898,7 @@ fn extend_advice_inputs_for_account(
     }
 
     // Extend the advice inputs with Merkle store data
-    tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
+    tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?);
     tx_executor.load_account_code(&account_code);
 
     Ok(())
@@ -932,10 +932,10 @@ pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }
 
-/// Extracts notes from [OutputNotes]
+/// Extracts notes from [OutputNotes].
 /// Used for:
-/// - checking the relevance of notes to save them as input notes
-/// - validate hashes versus expected output notes after a transaction is executed
+/// - Checking the relevance of notes to save them as input notes.
+/// - Validate hashes versus expected output notes after a transaction is executed.
 pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()
@@ -954,17 +954,17 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{accounts::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-            },
-            AccountBuilder, AccountComponent, AccountData, StorageMap, StorageSlot,
-        },
+        accounts::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
         assets::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
-        testing::account_component::BASIC_WALLET_CODE,
+        testing::{
+            account_component::BASIC_WALLET_CODE,
+            account_id::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+            },
+        },
         Word,
     };
 
@@ -993,8 +993,11 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
+        let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
         let account = AccountBuilder::new()
             .init_seed(Default::default())
+            .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])
@@ -1002,12 +1005,10 @@ mod test {
             .unwrap();
 
         client
-            .import_account(
-                AccountData::new(
-                    account.clone(),
-                    None,
-                    miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-                ),
+            .add_account(
+                &account,
+                None,
+                &miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
                 false,
             )
             .await

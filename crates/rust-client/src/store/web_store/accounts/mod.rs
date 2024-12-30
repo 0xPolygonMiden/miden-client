@@ -234,7 +234,7 @@ impl WebStore {
             .map_err(|_| StoreError::DatabaseError("Failed to update account".to_string()))
     }
 
-    /// Returns an [AuthSecretKey] by a public key represented by a [Word]
+    /// Returns an [AuthSecretKey] by a public key represented by a [Word].
     pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
 

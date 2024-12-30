@@ -127,7 +127,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
                 let transaction_block_num = transaction_summary.block_num;
 
-                let transaction_account_id = transaction_summary.account_id.ok_or(
+                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
                     RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)?;
