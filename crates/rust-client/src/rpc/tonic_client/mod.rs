@@ -344,7 +344,7 @@ impl NodeRpcClient for TonicRpcClient {
                 .account_proof
                 .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
                 .try_into()?;
-            
+
             let account_hash = account
                 .account_hash
                 .ok_or(RpcError::ExpectedDataMissing("AccountHash".to_string()))?

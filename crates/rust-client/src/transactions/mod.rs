@@ -847,7 +847,8 @@ fn extend_advice_inputs_for_account(
         foreign_account_inputs.into_parts();
 
     let account_id = account_header.id();
-    let foreign_id_root = Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
+    let foreign_id_root =
+        Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([
@@ -871,7 +872,9 @@ fn extend_advice_inputs_for_account(
     }
 
     // Extend the advice inputs with Merkle store data
-    tx_args.extend_merkle_store(merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?);
+    tx_args.extend_merkle_store(
+        merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?,
+    );
     tx_executor.load_account_code(&account_code);
 
     Ok(())
