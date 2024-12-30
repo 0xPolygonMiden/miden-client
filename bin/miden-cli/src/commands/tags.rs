@@ -10,15 +10,15 @@ use crate::Parser;
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "View and manage tags. Defaults to `list` command.")]
 pub struct TagsCmd {
-    /// List all tags monitored by this client
+    /// List all tags monitored by this client.
     #[clap(short, long, group = "action")]
     list: bool,
 
-    /// Add a new tag to the list of tags monitored by this client
+    /// Add a new tag to the list of tags monitored by this client.
     #[clap(short, long, group = "action", value_name = "tag")]
     add: Option<u32>,
 
-    /// Removes a tag from the list of tags monitored by this client
+    /// Removes a tag from the list of tags monitored by this client.
     #[clap(short, long, group = "action", value_name = "tag")]
     remove: Option<u32>,
 }
@@ -50,7 +50,7 @@ async fn list_tags(client: Client<impl FeltRng>) -> Result<(), String> {
 
 async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
     let tag: NoteTag = tag.into();
-    let execution_mode = match tag.execution_hint() {
+    let execution_mode = match tag.execution_mode() {
         NoteExecutionMode::Local => "Local",
         NoteExecutionMode::Network => "Network",
     };

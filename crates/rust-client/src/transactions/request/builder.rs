@@ -34,7 +34,7 @@ use crate::rpc::domain::accounts::AccountStorageRequirements;
 /// and setting other transaction parameters.
 #[derive(Clone, Debug)]
 pub struct TransactionRequestBuilder {
-    /// Notes to be consumed by the transaction that are not authenticated.
+    /// Notes to be consumed by the transaction that aren't authenticated.
     unauthenticated_input_notes: Vec<Note>,
     /// Notes to be consumed by the transaction together with their (optional) arguments. This
     /// includes both authenticated and unauthenticated notes.
@@ -216,7 +216,7 @@ impl TransactionRequestBuilder {
     ///
     /// The set of specified notes is treated as a subset of the notes that may be created by a
     /// transaction. That is, the transaction must create all the specified expected notes, but it
-    /// may also create other notes which are not included in the set of expected notes.
+    /// may also create other notes which aren't included in the set of expected notes.
     pub fn with_expected_output_notes(mut self, notes: Vec<Note>) -> Self {
         self.expected_output_notes =
             BTreeMap::from_iter(notes.into_iter().map(|note| (note.id(), note)));
@@ -420,7 +420,7 @@ impl PaymentTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [PaymentTransactionData]
+    /// Creates a new [PaymentTransactionData].
     pub fn new(
         assets: Vec<Asset>,
         sender_account_id: AccountId,
@@ -433,17 +433,17 @@ impl PaymentTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId]
+    /// Returns the executor [AccountId].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the target [AccountId]
+    /// Returns the target [AccountId].
     pub fn target_account_id(&self) -> AccountId {
         self.target_account_id
     }
 
-    /// Returns the transaction's list of [Asset]
+    /// Returns the transaction's list of [Asset].
     pub fn assets(&self) -> &Vec<Asset> {
         &self.assets
     }
@@ -471,7 +471,7 @@ impl SwapTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [SwapTransactionData]
+    /// Creates a new [SwapTransactionData].
     pub fn new(
         sender_account_id: AccountId,
         offered_asset: Asset,
@@ -484,17 +484,17 @@ impl SwapTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId]
+    /// Returns the executor [AccountId].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the transaction offered [Asset]
+    /// Returns the transaction offered [Asset].
     pub fn offered_asset(&self) -> Asset {
         self.offered_asset
     }
 
-    /// Returns the transaction requested [Asset]
+    /// Returns the transaction requested [Asset].
     pub fn requested_asset(&self) -> Asset {
         self.requested_asset
     }

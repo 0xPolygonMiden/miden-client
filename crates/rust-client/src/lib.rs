@@ -39,6 +39,7 @@ pub mod assets {
 /// Provides authentication-related types and functionalities for the Miden
 /// rollup network.
 pub mod auth {
+    pub use miden_lib::AuthScheme;
     pub use miden_objects::accounts::AuthSecretKey;
     pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
@@ -54,6 +55,7 @@ pub mod blocks {
 pub mod crypto {
     pub use miden_objects::{
         crypto::{
+            dsa::rpo_falcon512::SecretKey,
             merkle::{
                 InOrderIndex, LeafIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof, SmtLeaf,
                 SmtProof,
@@ -81,7 +83,7 @@ pub mod utils {
 /// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
-    pub use miden_objects::{accounts::account_id::testing::*, testing::*};
+    pub use miden_objects::testing::*;
 }
 
 use alloc::sync::Arc;
@@ -119,7 +121,7 @@ pub struct Client<R: FeltRng> {
     tx_executor: TransactionExecutor,
 }
 
-/// Construction and access methods
+/// Construction and access methods.
 impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -143,7 +145,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the client could not be instantiated.
+    /// Returns an error if the client couldn't be instantiated.
     pub fn new(
         rpc_api: Box<dyn NodeRpcClient + Send>,
         rng: R,
@@ -151,15 +153,15 @@ impl<R: FeltRng> Client<R> {
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
     ) -> Self {
-        if in_debug_mode {
-            info!("Creating the Client in debug mode.");
-        }
-
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
-        let tx_executor =
-            TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
+        let mut tx_executor = TransactionExecutor::new(data_store, authenticator);
         let tx_prover = Arc::new(LocalTransactionProver::default());
+
+        if in_debug_mode {
+            info!("Creating the Client in debug mode.");
+            tx_executor = tx_executor.with_debug_mode();
+        }
 
         Self {
             store,

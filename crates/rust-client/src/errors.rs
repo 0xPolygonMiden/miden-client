@@ -45,8 +45,8 @@ pub enum ClientError {
     #[error("error parsing hex: {0}")]
     //TODO: use source in this error when possible
     HexParseError(HexParseError),
-    #[error("can't import new account without seed")]
-    ImportNewAccountWithoutSeed,
+    #[error("can't add new account without seed")]
+    AddNewAccountWithoutSeed,
     #[error("error with merkle path: {0}")]
     //TODO: use source in this error when possible
     MerkleError(MerkleError),
@@ -102,13 +102,13 @@ impl From<ClientError> for String {
 // ID PREFIX FETCH ERROR
 // ================================================================================================
 
-/// Error when Looking for a specific ID from a partial ID
+/// Error when Looking for a specific ID from a partial ID.
 #[derive(Debug, Error)]
 pub enum IdPrefixFetchError {
-    /// No matches were found for the ID prefix
+    /// No matches were found for the ID prefix.
     #[error("no matches were found with the {0}")]
     NoMatch(String),
-    /// Multiple entities matched with the ID prefix
+    /// Multiple entities matched with the ID prefix.
     #[error("found more than one element for the provided {0} and only one match is expected")]
     MultipleMatches(String),
 }

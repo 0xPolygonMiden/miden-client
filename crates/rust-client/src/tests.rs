@@ -2,44 +2,102 @@ use alloc::vec::Vec;
 
 // TESTS
 // ================================================================================================
-use miden_lib::transaction::TransactionKernel;
+use miden_lib::{
+    accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    transaction::TransactionKernel,
+};
 use miden_objects::{
     accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
-        },
-        Account, AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey,
+        Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
+        AccountType, AuthSecretKey,
     },
     assets::{FungibleAsset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::SecretKey,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     notes::{NoteFile, NoteTag},
+    testing::account_id::{
+        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+    },
     Felt, FieldElement, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
-    accounts::AccountTemplate,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
     transactions::TransactionRequestBuilder,
-    ClientError,
+    Client, ClientError,
 };
+
+async fn insert_new_wallet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(&mut client.rng);
+
+    let mut init_seed = [0u8; 32];
+    client.rng.fill_bytes(&mut init_seed);
+
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .anchor((&anchor_block).try_into().unwrap())
+        .account_type(AccountType::RegularAccountImmutableCode)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicWallet)
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
+        .await?;
+
+    Ok((account, seed))
+}
+
+async fn insert_new_fungible_faucet<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+) -> Result<(Account, Word), ClientError> {
+    let key_pair = SecretKey::with_rng(&mut client.rng);
+
+    // we need to use an initial seed to create the wallet account
+    let mut init_seed = [0u8; 32];
+    client.rng.fill_bytes(&mut init_seed);
+
+    let symbol = TokenSymbol::new("TEST").unwrap();
+    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+        .expect("u64 can be safely converted to a field element");
+
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
+    let (account, seed) = AccountBuilder::new()
+        .init_seed(init_seed)
+        .anchor((&anchor_block).try_into().unwrap())
+        .account_type(AccountType::FungibleFaucet)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucet::new(symbol, 10, max_supply).unwrap())
+        .build()
+        .unwrap();
+
+    client
+        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .await?;
+    Ok((account, seed))
+}
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test client with a random store name
     let (mut client, rpc_api) = create_test_client().await;
 
-    client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Public,
-        })
-        .await
-        .unwrap();
+    insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
     // generate test data
     let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];
 
@@ -97,13 +155,8 @@ async fn insert_basic_account() {
     // generate test client with a random store name
     let (mut client, _rpc_api) = create_test_client().await;
 
-    let account_template = AccountTemplate::BasicWallet {
-        mutable_code: true,
-        storage_mode: AccountStorageMode::Private,
-    };
-
     // Insert Account
-    let account_insert_result = client.new_account(account_template).await;
+    let account_insert_result = insert_new_wallet(&mut client, AccountStorageMode::Private).await;
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
@@ -132,15 +185,9 @@ async fn insert_faucet_account() {
     // generate test client with a random store name
     let (mut client, _rpc_api) = create_test_client().await;
 
-    let faucet_template = AccountTemplate::FungibleFaucet {
-        token_symbol: TokenSymbol::new("TEST").unwrap(),
-        decimals: 10,
-        max_supply: 9999999999,
-        storage_mode: AccountStorageMode::Private,
-    };
-
     // Insert Account
-    let account_insert_result = client.new_account(faucet_template).await;
+    let account_insert_result =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private).await;
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
@@ -178,15 +225,16 @@ async fn insert_same_account_twice_fails() {
     let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(
+        .add_account(
             &account,
             Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair.clone())
+            &AuthSecretKey::RpoFalcon512(key_pair.clone()),
+            false
         )
         .await
         .is_ok());
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .is_err());
 }
@@ -212,7 +260,7 @@ async fn test_account_code() {
     assert_eq!(*account_code, reconstructed_code);
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .unwrap();
     let retrieved_acc = client.get_account(account.id()).await.unwrap();
@@ -233,7 +281,7 @@ async fn test_get_account_by_id() {
     let key_pair = SecretKey::new();
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .unwrap();
 
@@ -245,8 +293,7 @@ async fn test_get_account_by_id() {
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
-    let hex = format!("0x{}", "1".repeat(16));
-    let invalid_id = AccountId::from_hex(&hex).unwrap();
+    let invalid_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
     assert!(client.get_account_header_by_id(invalid_id).await.is_err());
 }
 
@@ -294,13 +341,7 @@ async fn test_sync_state_mmr() {
     let (mut client, mut rpc_api) = create_test_client().await;
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
-    client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
 
     let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
     Store::upsert_input_notes(client.store.as_ref(), &notes).await.unwrap();
@@ -330,7 +371,7 @@ async fn test_sync_state_mmr() {
     // Try reconstructing the chain_mmr from what's in the database
     let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
-    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(0).unwrap().is_some()); // Account anchor block
     assert!(partial_mmr.open(1).unwrap().is_some());
     assert!(partial_mmr.open(2).unwrap().is_none());
     assert!(partial_mmr.open(3).unwrap().is_none());
@@ -390,13 +431,7 @@ async fn test_mint_transaction() {
     let (mut client, _rpc_api) = create_test_client().await;
 
     // Faucet account generation
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
         .await
         .unwrap();
 
@@ -405,7 +440,7 @@ async fn test_mint_transaction() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
@@ -424,20 +459,14 @@ async fn test_get_output_notes() {
     client.sync_state().await.unwrap();
 
     // Faucet account generation
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
         .await
         .unwrap();
 
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x0123456789abcdef").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
@@ -492,19 +521,13 @@ async fn test_transaction_request_expiration() {
     client.sync_state().await.unwrap();
 
     let current_height = client.get_sync_height().await.unwrap();
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
         .await
         .unwrap();
 
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
@@ -526,22 +549,11 @@ async fn test_import_processing_note_returns_error() {
     let (mut client, _rpc_api) = create_test_client().await;
     client.sync_state().await.unwrap();
 
-    let (account, _seed) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .await
-        .unwrap();
+    let (account, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
 
     // Faucet account generation
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
         .await
         .unwrap();
 
@@ -586,15 +598,11 @@ async fn test_import_processing_note_returns_error() {
 async fn test_no_nonce_change_transaction_request() {
     let mut client = create_test_client().await.0;
 
-    let account_template = AccountTemplate::BasicWallet {
-        mutable_code: false,
-        storage_mode: AccountStorageMode::Private,
-    };
-
     client.sync_state().await.unwrap();
 
     // Insert Account
-    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+    let (regular_account, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
 
     // Prepare transaction
 

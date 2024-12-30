@@ -13,7 +13,15 @@ impl WebClient {
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
 
-            match client.import_account(account_data, false).await {
+            match client
+                .add_account(
+                    &account_data.account,
+                    account_data.account_seed,
+                    &account_data.auth_secret_key,
+                    false,
+                )
+                .await
+            {
                 Ok(_) => {
                     let message = format!("Imported account with ID: {}", account_id);
                     Ok(JsValue::from_str(&message))
