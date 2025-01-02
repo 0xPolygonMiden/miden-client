@@ -11,7 +11,7 @@ use tracing::warn;
 use super::NoteUpdates;
 use crate::{
     notes::NoteScreener,
-    store::{NoteFilter, StoreError},
+    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
 };
 
@@ -20,7 +20,7 @@ impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = self.store.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
         let mut changed_notes = vec![];
         for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
@@ -101,6 +101,44 @@ impl<R: FeltRng> Client<R> {
         Ok(false)
     }
 
+    /// Builds the current store view of the chain's [PartialMmr]. Because we want to add all new
+    /// authentication nodes that could come from applying the MMR updates, we need to track all
+    /// known leaves thus far.
+    ///
+    /// As part of the syncing process, we add the current block number so we don't need to
+    /// track it here.
+    pub(crate) async fn build_current_partial_mmr(
+        &self,
+        include_current_block: bool,
+    ) -> Result<PartialMmr, ClientError> {
+        let current_block_num = self.store.get_sync_height().await?;
+
+        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
+        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
+
+        let track_latest = if current_block_num != 0 {
+            match self.store.get_block_header_by_num(current_block_num - 1).await {
+                Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
+                Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
+                Err(err) => Err(ClientError::StoreError(err)),
+            }?
+        } else {
+            false
+        };
+
+        let mut current_partial_mmr =
+            PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
+
+        if include_current_block {
+            let (current_block, has_client_notes) =
+                self.store.get_block_header_by_num(current_block_num).await?;
+
+            current_partial_mmr.add(current_block.hash(), has_client_notes);
+        }
+
+        Ok(current_partial_mmr)
+    }
+
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
     ///
     /// If the store already contains MMR data for the requested block number, the request isn't
@@ -158,7 +196,7 @@ impl<R: FeltRng> Client<R> {
             return self.ensure_genesis_in_place().await;
         }
 
-        let mut current_partial_mmr = self.store.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
         let anchor_block = self
             .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
             .await?;

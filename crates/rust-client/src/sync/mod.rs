@@ -160,7 +160,7 @@ impl<R: FeltRng> Client<R> {
                 note_tags,
                 unspent_input_notes,
                 unspent_output_notes,
-                self.store.build_current_partial_mmr(false).await?,
+                self.build_current_partial_mmr(false).await?,
             )
             .sync_state_step()
             .await?;

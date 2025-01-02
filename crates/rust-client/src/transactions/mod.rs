@@ -832,7 +832,7 @@ impl<R: FeltRng> Client<R> {
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
-                let mut current_partial_mmr = self.store.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
                 self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                     .await?;
             }

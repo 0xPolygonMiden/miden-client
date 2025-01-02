@@ -252,7 +252,7 @@ impl StateSync {
     /// * If the account is public, the component will request the node for the updated account
     ///   details.
     /// * If the account is private it will be marked as mismatched and the client will need to
-    ///  handle it (it could be a stale account state or a reason to lock the account).
+    ///   handle it (it could be a stale account state or a reason to lock the account).
     async fn account_state_sync(
         &self,
         account_hash_updates: &[(AccountId, Digest)],
@@ -288,10 +288,9 @@ impl StateSync {
     ///
     /// The transaction changes might include:
     /// * Transactions that were committed in the block. Some of these might me tracked by the
-    ///   client
-    ///  and need to be marked as committed.
+    ///   client and need to be marked as committed.
     /// * Local tracked transactions that were discarded because the notes that they were processing
-    /// were nullified by an another transaction.
+    ///   were nullified by an another transaction.
     async fn note_state_sync(
         &mut self,
         block_header: &BlockHeader,
@@ -316,7 +315,8 @@ impl StateSync {
             .filter_map(|note_id| self.unspent_output_notes.remove(note_id))
             .collect();
 
-        let note_updates = NoteUpdates::new(new_notes, modified_input_notes, modified_output_notes);
+        let note_updates =
+            NoteUpdates::new(new_notes, vec![], modified_input_notes, modified_output_notes);
         let transaction_updates =
             TransactionUpdates::new(committed_transactions, discarded_transactions);
 
@@ -329,7 +329,7 @@ impl StateSync {
         &mut self,
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
-    ) -> Result<Vec<InputNote>, ClientError> {
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
         let mut new_public_notes = vec![];
 
         // We'll only pick committed notes that we are tracking as input/output notes. Since the
@@ -369,8 +369,12 @@ impl StateSync {
         }
 
         // Query the node for input note data and build the entities
-        let new_public_notes =
-            self.fetch_public_note_details(&new_public_notes, block_header).await?;
+        let new_public_notes = self
+            .fetch_public_note_details(&new_public_notes, block_header)
+            .await?
+            .into_iter()
+            .map(|note| note.into())
+            .collect();
 
         Ok(new_public_notes)
     }
