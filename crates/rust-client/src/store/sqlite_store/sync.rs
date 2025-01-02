@@ -7,7 +7,10 @@ use rusqlite::{params, Connection, Transaction};
 use super::SqliteStore;
 use crate::{
     store::{
-        sqlite_store::{accounts::update_account, notes::apply_note_updates_tx},
+        sqlite_store::{
+            accounts::{lock_account, update_account},
+            notes::apply_note_updates_tx,
+        },
         StoreError,
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
@@ -103,6 +106,21 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
+        let mut locked_accounts = vec![];
+
+        for (account_id, digest) in account_updates.mismatched_private_accounts() {
+            // Mismatched digests may be due to stale network data. If the mismatched digest is
+            // tracked in the db and corresponds to the mismatched account, it means we
+            // got a past update and shouldn't lock the account.
+            if let Some(account) = Self::get_account_header_by_hash(conn, *digest)? {
+                if account.id() == *account_id {
+                    continue;
+                }
+            }
+
+            locked_accounts.push(*account_id);
+        }
+
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -133,10 +151,9 @@ impl SqliteStore {
             update_account(&tx, account)?;
         }
 
-        // TODO: Lock offchain accounts that have been updated onchain
-        // for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
-        //     lock_account(&tx, *account_id)?;
-        // }
+        for account_id in locked_accounts {
+            lock_account(&tx, account_id)?;
+        }
 
         // Commit the updates
         tx.commit()?;

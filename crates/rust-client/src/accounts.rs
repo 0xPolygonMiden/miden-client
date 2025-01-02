@@ -166,19 +166,19 @@ impl<R: FeltRng> Client<R> {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
-    /// Updated network account hashes for private accounts.
-    private_account_hashes: Vec<(AccountId, Digest)>,
+    /// Node account hashes that don't match the tracked information.
+    mismatched_private_accounts: Vec<(AccountId, Digest)>,
 }
 
 impl AccountUpdates {
     /// Creates a new instance of `AccountUpdates`.
     pub fn new(
         updated_public_accounts: Vec<Account>,
-        private_account_hashes: Vec<(AccountId, Digest)>,
+        mismatched_private_accounts: Vec<(AccountId, Digest)>,
     ) -> Self {
         Self {
             updated_public_accounts,
-            private_account_hashes,
+            mismatched_private_accounts,
         }
     }
 
@@ -187,9 +187,9 @@ impl AccountUpdates {
         &self.updated_public_accounts
     }
 
-    /// Returns updated network account hashes for private accounts.
-    pub fn private_account_hashes(&self) -> &[(AccountId, Digest)] {
-        &self.private_account_hashes
+    /// Returns mismatched private accounts.
+    pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
+        &self.mismatched_private_accounts
     }
 }
 

@@ -3,6 +3,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
+use std::println;
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
@@ -64,8 +65,18 @@ impl From<&StateSyncUpdate> for SyncSummary {
                 .iter()
                 .map(|acc| acc.id())
                 .collect(),
-            vec![], // TODO add these fields
-            vec![],
+            value
+                .account_updates
+                .mismatched_private_accounts()
+                .iter()
+                .map(|(id, _)| *id)
+                .collect(),
+            value
+                .transaction_updates
+                .committed_transactions()
+                .iter()
+                .map(|t| t.transaction_id)
+                .collect(),
         )
     }
 }
@@ -133,11 +144,19 @@ impl StateSync {
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
         // (it only returns nullifiers from current_block_num until
         // response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = self
+        let input_note_nullifiers = self
             .unspent_input_notes
             .values()
-            .map(|note| get_nullifier_prefix(&note.nullifier()))
-            .collect();
+            .map(|note| get_nullifier_prefix(&note.nullifier()));
+
+        let output_note_nullifiers = self
+            .unspent_output_notes
+            .values()
+            .filter_map(|note| note.nullifier())
+            .map(|nullifier| get_nullifier_prefix(&nullifier));
+
+        let nullifiers_tags: Vec<u16> =
+            input_note_nullifiers.chain(output_note_nullifiers).collect();
 
         let response = self
             .rpc_api
@@ -209,16 +228,17 @@ impl StateSync {
             .get_updated_onchain_accounts(account_hash_updates, &onchain_accounts)
             .await?;
 
-        let private_account_hashes = account_hash_updates
+        let mismatched_private_accounts = account_hash_updates
             .iter()
-            .filter_map(|(account_id, _)| {
+            .filter(|(account_id, digest)| {
                 offchain_accounts
                     .iter()
-                    .find(|account| account.id() == *account_id)
-                    .map(|account| (account.id(), account.hash()))
+                    .any(|account| account.id() == *account_id && &account.hash() != digest)
             })
+            .cloned()
             .collect::<Vec<_>>();
-        Ok(AccountUpdates::new(updated_onchain_accounts, private_account_hashes))
+
+        Ok(AccountUpdates::new(updated_onchain_accounts, mismatched_private_accounts))
     }
 
     async fn note_state_sync(
@@ -358,9 +378,6 @@ impl StateSync {
                         transaction_update.block_num,
                     )? {
                         self.changed_notes.insert(note_id);
-
-                        // Remove the note from the list so it's not modified again in the next step
-                        consumed_note_ids.remove(&input_note_record.nullifier());
                     }
                 }
             }
@@ -392,6 +409,7 @@ impl StateSync {
                 }
 
                 if let Some(output_note_record) = self.unspent_output_notes.get_mut(&note_id) {
+                    println!("output note consumed externally");
                     if output_note_record.nullifier_received(nullifier, block_num)? {
                         self.changed_notes.insert(note_id);
                     }
