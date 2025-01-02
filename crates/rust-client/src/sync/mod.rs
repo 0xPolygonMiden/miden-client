@@ -148,7 +148,8 @@ impl<R: FeltRng> Client<R> {
             let note_tags: Vec<NoteTag> =
                 self.store.get_unique_note_tags().await?.into_iter().collect();
 
-            let unspent_notes = self.get_input_notes(NoteFilter::Unspent).await?;
+            let unspent_input_notes = self.get_input_notes(NoteFilter::Unspent).await?;
+            let unspent_output_notes = self.get_output_notes(NoteFilter::Unspent).await?;
 
             // Get the sync update from the network
             let status = StateSync::new(
@@ -157,7 +158,8 @@ impl<R: FeltRng> Client<R> {
                 has_relevant_notes,
                 accounts,
                 note_tags,
-                unspent_notes,
+                unspent_input_notes,
+                unspent_output_notes,
                 self.store.build_current_partial_mmr(false).await?,
             )
             .sync_state_step()

@@ -26,7 +26,7 @@ use crate::{
         },
         NodeRpcClient, RpcError,
     },
-    store::{input_note_states::CommittedNoteState, InputNoteRecord, StoreError},
+    store::{input_note_states::CommittedNoteState, InputNoteRecord, OutputNoteRecord, StoreError},
     transactions::TransactionUpdates,
     ClientError,
 };
@@ -90,7 +90,8 @@ pub struct StateSync {
     current_block_has_relevant_notes: bool,
     accounts: Vec<AccountHeader>,
     note_tags: Vec<NoteTag>,
-    unspent_notes: BTreeMap<NoteId, InputNoteRecord>,
+    unspent_input_notes: BTreeMap<NoteId, InputNoteRecord>,
+    unspent_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
     changed_notes: BTreeSet<NoteId>,
     current_partial_mmr: PartialMmr,
 }
@@ -102,10 +103,14 @@ impl StateSync {
         current_block_has_relevant_notes: bool,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
-        unspent_notes: Vec<InputNoteRecord>,
+        unspent_input_notes: Vec<InputNoteRecord>,
+        unspent_output_notes: Vec<OutputNoteRecord>,
         current_partial_mmr: PartialMmr,
     ) -> Self {
-        let unspent_notes = unspent_notes.into_iter().map(|note| (note.id(), note)).collect();
+        let unspent_input_notes =
+            unspent_input_notes.into_iter().map(|note| (note.id(), note)).collect();
+        let unspent_output_notes =
+            unspent_output_notes.into_iter().map(|note| (note.id(), note)).collect();
 
         Self {
             rpc_api,
@@ -113,7 +118,8 @@ impl StateSync {
             current_block_has_relevant_notes,
             accounts,
             note_tags,
-            unspent_notes,
+            unspent_input_notes,
+            unspent_output_notes,
             changed_notes: BTreeSet::new(),
             current_partial_mmr,
         }
@@ -128,7 +134,7 @@ impl StateSync {
         // (it only returns nullifiers from current_block_num until
         // response.block_header.block_num())
         let nullifiers_tags: Vec<u16> = self
-            .unspent_notes
+            .unspent_input_notes
             .values()
             .map(|note| get_nullifier_prefix(&note.nullifier()))
             .collect();
@@ -227,14 +233,20 @@ impl StateSync {
         let discarded_transactions =
             self.consumed_note_updates(nullifiers, &committed_transactions).await?;
 
-        let modified_notes: Vec<InputNoteRecord> = self
+        let modified_input_notes: Vec<InputNoteRecord> = self
             .changed_notes
             .iter()
-            .filter_map(|note_id| self.unspent_notes.remove(note_id))
+            .filter_map(|note_id| self.unspent_input_notes.remove(note_id))
             .collect();
 
-        //TODO: Add output notes to update
-        let note_updates = NoteUpdates::new(new_notes, vec![], modified_notes, vec![]);
+        let modified_output_notes: Vec<OutputNoteRecord> = self
+            .changed_notes
+            .iter()
+            .filter_map(|note_id| self.unspent_output_notes.remove(note_id))
+            .collect();
+
+        let note_updates =
+            NoteUpdates::new(new_notes, vec![], modified_input_notes, modified_output_notes);
         let transaction_updates =
             TransactionUpdates::new(committed_transactions, discarded_transactions);
 
@@ -260,9 +272,8 @@ impl StateSync {
                 committed_note.merkle_path().clone(),
             )?;
 
-            if let Some(note_record) = self.unspent_notes.get_mut(committed_note.note_id()) {
+            if let Some(note_record) = self.unspent_input_notes.get_mut(committed_note.note_id()) {
                 // The note belongs to our locally tracked set of input notes
-
                 let inclusion_proof_received = note_record
                     .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
                 let block_header_received = note_record.block_header_received(*block_header)?;
@@ -270,8 +281,19 @@ impl StateSync {
                 if inclusion_proof_received || block_header_received {
                     self.changed_notes.insert(*committed_note.note_id());
                 }
-            } else {
-                // The note is public and we are tracking it, push to the list of IDs to query
+            }
+
+            if let Some(note_record) = self.unspent_output_notes.get_mut(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of output notes
+                if note_record.inclusion_proof_received(inclusion_proof.clone())? {
+                    self.changed_notes.insert(*committed_note.note_id());
+                }
+            }
+
+            if !self.unspent_input_notes.contains_key(committed_note.note_id())
+                && !self.unspent_output_notes.contains_key(committed_note.note_id())
+            {
+                // The note totally new to the client
                 new_public_notes.push(*committed_note.note_id());
             }
         }
@@ -292,12 +314,22 @@ impl StateSync {
     ) -> Result<Vec<TransactionId>, ClientError> {
         let nullifier_filter: Vec<Nullifier> = nullifiers.iter().map(|n| n.nullifier).collect();
 
-        let mut consumed_note_ids: BTreeMap<Nullifier, NoteId> = self
-            .unspent_notes
+        let consumed_input_notes = self
+            .unspent_input_notes
             .values()
             .filter(|&n| nullifier_filter.contains(&n.nullifier()))
-            .map(|n| (n.nullifier(), n.id()))
-            .collect();
+            .map(|n| (n.nullifier(), n.id()));
+
+        let consumed_output_notes = self
+            .unspent_output_notes
+            .values()
+            .filter(|&n| n.nullifier().is_some_and(|n| nullifier_filter.contains(&n)))
+            .map(|n| {
+                (n.nullifier().expect("Output notes without nullifier were filtered"), n.id())
+            });
+
+        let mut consumed_note_ids: BTreeMap<Nullifier, NoteId> =
+            consumed_input_notes.chain(consumed_output_notes).collect();
 
         // Modify notes that were being processed by a transaciton that just got committed. These
         // notes were consumed internally.
@@ -306,7 +338,7 @@ impl StateSync {
             let transaction_consumed_notes: Vec<NoteId> = consumed_note_ids
                 .iter()
                 .filter_map(|(_, note_id)| {
-                    let note_record = self.unspent_notes.get(note_id)?;
+                    let note_record = self.unspent_input_notes.get(note_id)?;
                     if note_record.is_processing()
                         && note_record.consumer_transaction_id()
                             == Some(&transaction_update.transaction_id)
@@ -320,19 +352,16 @@ impl StateSync {
                 .collect();
 
             for note_id in transaction_consumed_notes {
-                // SAFETY: The note IDs in `consumed_note_ids` were extracted from the
-                // `unspent_notes` map
-                let input_note_record =
-                    self.unspent_notes.get_mut(&note_id).expect("Note should exist");
+                if let Some(input_note_record) = self.unspent_input_notes.get_mut(&note_id) {
+                    if input_note_record.transaction_committed(
+                        transaction_update.transaction_id,
+                        transaction_update.block_num,
+                    )? {
+                        self.changed_notes.insert(note_id);
 
-                if input_note_record.transaction_committed(
-                    transaction_update.transaction_id,
-                    transaction_update.block_num,
-                )? {
-                    self.changed_notes.insert(note_id);
-
-                    // Remove the note from the list so it's not modified again in the next step
-                    consumed_note_ids.remove(&input_note_record.nullifier());
+                        // Remove the note from the list so it's not modified again in the next step
+                        consumed_note_ids.remove(&input_note_record.nullifier());
+                    }
                 }
             }
         }
@@ -345,23 +374,27 @@ impl StateSync {
             let block_num = nullifier_update.block_num;
 
             if let Some(note_id) = consumed_note_ids.remove(&nullifier) {
-                // SAFETY: The note IDs in `consumed_note_ids` were extracted from the
-                // `unspent_notes` map
-                let input_note_record =
-                    self.unspent_notes.get_mut(&note_id).expect("Note should exist");
+                if let Some(input_note_record) = self.unspent_input_notes.get_mut(&note_id) {
+                    if input_note_record.is_processing() {
+                        // The input note was being processed by a local transaction but it was
+                        // nullified externally so the transaction should be
+                        // discarded
+                        discarded_transactions.push(
+                            *input_note_record
+                                .consumer_transaction_id()
+                                .expect("Processing note should have consumer transaction id"),
+                        );
+                    }
 
-                if input_note_record.is_processing() {
-                    // The note was being processed by a local transaction but it was nullified
-                    // externally so the transaction should be discarded
-                    discarded_transactions.push(
-                        *input_note_record
-                            .consumer_transaction_id()
-                            .expect("Processing note should have consumer transaction id"),
-                    );
+                    if input_note_record.consumed_externally(nullifier, block_num)? {
+                        self.changed_notes.insert(note_id);
+                    }
                 }
 
-                if input_note_record.consumed_externally(nullifier, block_num)? {
-                    self.changed_notes.insert(note_id);
+                if let Some(output_note_record) = self.unspent_output_notes.get_mut(&note_id) {
+                    if output_note_record.nullifier_received(nullifier, block_num)? {
+                        self.changed_notes.insert(note_id);
+                    }
                 }
             }
         }
