@@ -21,6 +21,7 @@ miden-client = { path = "../crates/rust-client", features = [
 ] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
+miden-remote-tx-prover =  { version = "0.1", path = "../crates/remote-tx-prover" }
 rand = { workspace = true }
 tokio = { workspace = true }
 toml = { version = "0.8" }

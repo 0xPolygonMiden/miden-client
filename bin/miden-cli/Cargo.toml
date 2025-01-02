@@ -35,10 +35,10 @@ clap = { version = "4.5", features = ["derive"] }
 comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.6", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
+miden-remote-tx-prover =  { version = "0.1", path = "../../crates/remote-tx-prover"}
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
-miden-tx-prover =  { workspace = true }

@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "bin/miden-cli",
+    "crates/remote-tx-prover",
     "crates/rust-client",
     "crates/web-client",
     "tests"
@@ -22,7 +23,6 @@ async-trait = "0.1"
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["async"] }
-miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", features = ["async"] }
 rand = { version = "0.8" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { version = "2.0", default-features = false }

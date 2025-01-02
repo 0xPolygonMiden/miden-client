@@ -13,7 +13,7 @@ use miden_client::{
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transactions::{
-        DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
+        DataStoreError, TransactionExecutorError, TransactionProver, TransactionRequest, TransactionRequestBuilder
     },
     Client, ClientError, Word,
 };
@@ -25,6 +25,7 @@ use miden_objects::{
     transaction::{InputNote, OutputNote, TransactionId},
     Felt, FieldElement,
 };
+use miden_remote_tx_prover::RemoteTransactionProver;
 use rand::Rng;
 use toml::Table;
 use uuid::Uuid;
@@ -176,7 +177,8 @@ pub async fn execute_tx(
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
-    client.submit_transaction(transaction_execution_result).await.unwrap();
+    let prover = RemoteTransactionProver::new("grpc://0.0.0.0:8082");
+    client.submit_transaction_with_prover(transaction_execution_result, Arc::new(prover)).await.unwrap();
 
     transaction_id
 }
