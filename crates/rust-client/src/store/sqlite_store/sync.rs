@@ -88,19 +88,18 @@ impl SqliteStore {
             .expect("state sync block number exists")
     }
 
-    pub(super) fn apply_state_sync(
+    pub(super) fn apply_state_sync_step(
         conn: &mut Connection,
         state_sync_update: StateSyncUpdate,
+        block_has_relevant_notes: bool,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
             note_updates,
-            transactions_to_commit: committed_transactions,
+            transaction_updates,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
+            account_updates,
             tags_to_remove,
         } = state_sync_update;
 
@@ -124,13 +123,13 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
         // Marc transactions as discarded
-        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
+        Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
 
         // Update onchain accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 

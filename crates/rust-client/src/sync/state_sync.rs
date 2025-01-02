@@ -6,7 +6,7 @@ use alloc::{
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
-    crypto::merkle::MmrDelta,
+    crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
     BlockHeader, Digest,
@@ -26,7 +26,7 @@ use crate::{
         },
         NodeRpcClient, RpcError,
     },
-    store::{input_note_states::CommittedNoteState, InputNoteRecord},
+    store::{input_note_states::CommittedNoteState, InputNoteRecord, StoreError},
     transactions::TransactionUpdates,
     ClientError,
 };
@@ -40,25 +40,15 @@ pub struct StateSyncUpdate {
     pub note_updates: NoteUpdates,
     /// Information about transaction changes after the sync.
     pub transaction_updates: TransactionUpdates,
-    /// Information to update the local partial MMR.
-    pub mmr_delta: MmrDelta,
+    /// New MMR peaks for the locally tracked MMR of the blockchain.
+    pub new_mmr_peaks: MmrPeaks,
+    /// New authentications nodes that are meant to be stored in order to authenticate block
+    /// headers.
+    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
     /// Information abount account changes after the sync.
     pub account_updates: AccountUpdates,
     /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
-}
-
-impl StateSyncUpdate {
-    pub fn new_empty(block_header: BlockHeader) -> Self {
-        Self {
-            block_header,
-            note_updates: NoteUpdates::new(vec![], vec![], vec![], vec![]),
-            transaction_updates: TransactionUpdates::new(vec![], vec![]),
-            mmr_delta: MmrDelta { forest: 0, data: Vec::new() },
-            account_updates: AccountUpdates::new(vec![], vec![]),
-            tags_to_remove: vec![],
-        }
-    }
 }
 
 impl From<&StateSyncUpdate> for SyncSummary {
@@ -97,29 +87,35 @@ impl SyncStatus {
 pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     current_block: BlockHeader,
+    current_block_has_relevant_notes: bool,
     accounts: Vec<AccountHeader>,
     note_tags: Vec<NoteTag>,
     unspent_notes: BTreeMap<NoteId, InputNoteRecord>,
     changed_notes: BTreeSet<NoteId>,
+    current_partial_mmr: PartialMmr,
 }
 
 impl StateSync {
     pub fn new(
         rpc_api: Arc<dyn NodeRpcClient + Send>,
         current_block: BlockHeader,
+        current_block_has_relevant_notes: bool,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
         unspent_notes: Vec<InputNoteRecord>,
+        current_partial_mmr: PartialMmr,
     ) -> Self {
         let unspent_notes = unspent_notes.into_iter().map(|note| (note.id(), note)).collect();
 
         Self {
             rpc_api,
             current_block,
+            current_block_has_relevant_notes,
             accounts,
             note_tags,
             unspent_notes,
             changed_notes: BTreeSet::new(),
+            current_partial_mmr,
         }
     }
 
@@ -160,24 +156,27 @@ impl StateSync {
         let tags_to_remove = note_updates
             .updated_input_notes()
             .iter()
-            .filter_map(|note| {
-                note.is_committed().then(|| {
-                    NoteTagRecord::with_note_source(
-                        note.metadata().expect("Committed note should have metadata").tag(),
-                        note.id(),
-                    )
-                })
+            .filter(|note| note.is_committed())
+            .map(|note| {
+                NoteTagRecord::with_note_source(
+                    note.metadata().expect("Committed note should have metadata").tag(),
+                    note.id(),
+                )
             })
             .collect();
 
         // ACCOUNTS
         let account_updates = self.account_state_sync(&response.account_hash_updates).await?;
 
+        // MMR
+        let new_authentication_nodes = self.update_partial_mmr(response.mmr_delta).await?;
+
         let update = StateSyncUpdate {
             block_header: response.block_header,
             note_updates,
             transaction_updates,
-            mmr_delta: response.mmr_delta,
+            new_mmr_peaks: self.current_partial_mmr.peaks(),
+            new_authentication_nodes,
             account_updates,
             tags_to_remove, /* TODO: I think this can be removed from the update and be inferred
                              * from the note updates */
@@ -296,9 +295,8 @@ impl StateSync {
         let mut consumed_note_ids: BTreeMap<Nullifier, NoteId> = self
             .unspent_notes
             .values()
-            .filter_map(|n| {
-                nullifier_filter.contains(&n.nullifier()).then(|| (n.nullifier(), n.id()))
-            })
+            .filter(|&n| nullifier_filter.contains(&n.nullifier()))
+            .map(|n| (n.nullifier(), n.id()))
             .collect();
 
         // Modify notes that were being processed by a transaciton that just got committed. These
@@ -449,5 +447,28 @@ impl StateSync {
             }
         }
         Ok(accounts_to_update)
+    }
+
+    /// Updates the `current_partial_mmr` and returns the authentication nodes for tracked leaves.
+    pub(crate) async fn update_partial_mmr(
+        &mut self,
+        mmr_delta: MmrDelta,
+    ) -> Result<Vec<(InOrderIndex, Digest)>, ClientError> {
+        // First, apply curent_block to the Mmr
+        let new_authentication_nodes = self
+            .current_partial_mmr
+            .add(self.current_block.hash(), self.current_block_has_relevant_notes)
+            .into_iter();
+
+        // Apply the Mmr delta to bring Mmr to forest equal to chain tip
+        let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = self
+            .current_partial_mmr
+            .apply(mmr_delta)
+            .map_err(StoreError::MmrError)?
+            .into_iter()
+            .chain(new_authentication_nodes)
+            .collect();
+
+        Ok(new_authentication_nodes)
     }
 }
