@@ -161,34 +161,35 @@ impl<R: FeltRng> Client<R> {
 // ACCOUNT UPDATES
 // ================================================================================================
 
+#[derive(Debug, Clone)]
 /// Contains account changes to apply to the store.
 pub struct AccountUpdates {
     /// Updated public accounts.
-    updated_onchain_accounts: Vec<Account>,
-    /// Node account hashes that don't match the tracked information.
-    mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+    updated_public_accounts: Vec<Account>,
+    /// Updated network account hashes for private accounts.
+    private_account_hashes: Vec<(AccountId, Digest)>,
 }
 
 impl AccountUpdates {
     /// Creates a new instance of `AccountUpdates`.
     pub fn new(
-        updated_onchain_accounts: Vec<Account>,
-        mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
+        updated_public_accounts: Vec<Account>,
+        private_account_hashes: Vec<(AccountId, Digest)>,
     ) -> Self {
         Self {
-            updated_onchain_accounts,
-            mismatched_offchain_accounts,
+            updated_public_accounts,
+            private_account_hashes,
         }
     }
 
-    /// Returns the updated public accounts.
-    pub fn updated_onchain_accounts(&self) -> &[Account] {
-        &self.updated_onchain_accounts
+    /// Returns updated public accounts.
+    pub fn updated_public_accounts(&self) -> &[Account] {
+        &self.updated_public_accounts
     }
 
-    /// Returns the mismatched offchain accounts.
-    pub fn mismatched_offchain_accounts(&self) -> &[(AccountId, Digest)] {
-        &self.mismatched_offchain_accounts
+    /// Returns updated network account hashes for private accounts.
+    pub fn private_account_hashes(&self) -> &[(AccountId, Digest)] {
+        &self.private_account_hashes
     }
 }
 

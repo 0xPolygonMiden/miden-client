@@ -29,7 +29,7 @@ use tracing::info;
 use super::{Client, FeltRng};
 use crate::{
     notes::{NoteScreener, NoteUpdates},
-    rpc::domain::accounts::AccountProof,
+    rpc::domain::{accounts::AccountProof, transactions::TransactionUpdate},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -51,6 +51,38 @@ pub use miden_objects::transaction::{
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use script_builder::TransactionScriptBuilderError;
+
+// TRANSACTION UPDATES
+// --------------------------------------------------------------------------------------------
+
+/// Contains transaction changes to apply to the store.
+pub struct TransactionUpdates {
+    /// Transaction updates for any transaction that was committed between the sync request's
+    /// block number and the response's block number.
+    committed_transactions: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync.
+    discarded_transactions: Vec<TransactionId>,
+}
+
+impl TransactionUpdates {
+    pub fn new(
+        committed_transactions: Vec<TransactionUpdate>,
+        discarded_transactions: Vec<TransactionId>,
+    ) -> Self {
+        Self {
+            committed_transactions,
+            discarded_transactions,
+        }
+    }
+
+    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
+        &self.committed_transactions
+    }
+
+    pub fn discarded_transactions(&self) -> &[TransactionId] {
+        &self.discarded_transactions
+    }
+}
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------

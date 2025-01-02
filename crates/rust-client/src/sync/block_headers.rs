@@ -75,7 +75,7 @@ impl<R: FeltRng> Client<R> {
     /// relevant to the client. If any of the notes are relevant, the function returns `true`.
     pub(crate) async fn check_block_relevance(
         &mut self,
-        committed_notes: &NoteUpdates,
+        note_updates: &NoteUpdates,
     ) -> Result<bool, ClientError> {
         // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
@@ -83,10 +83,11 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes
+        for input_note in note_updates
             .updated_input_notes()
             .iter()
-            .chain(committed_notes.new_input_notes().iter())
+            .chain(note_updates.new_input_notes().iter())
+            .filter(|note| note.is_committed())
         {
             if !note_screener
                 .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)

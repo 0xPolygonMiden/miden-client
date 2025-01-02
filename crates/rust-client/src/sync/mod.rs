@@ -39,6 +39,9 @@ use block_headers::apply_mmr_changes;
 mod tags;
 pub use tags::{NoteTagRecord, NoteTagSource};
 
+mod state_sync;
+use state_sync::{StateSync, SyncStatus as OtherStateSync};
+
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
@@ -201,6 +204,7 @@ impl<R: FeltRng> Client<R> {
 
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
+        let current_block = self.store.get_block_header_by_num(current_block_num).await?.0;
 
         let accounts: Vec<AccountHeader> = self
             .store
@@ -213,54 +217,22 @@ impl<R: FeltRng> Client<R> {
         let note_tags: Vec<NoteTag> =
             self.store.get_unique_note_tags().await?.into_iter().collect();
 
-        // To receive information about added nullifiers, we reduce them to the higher 16 bits
-        // Note that besides filtering by nullifier prefixes, the node also filters by block number
-        // (it only returns nullifiers from current_block_num until
-        // response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = self
-            .store
-            .get_unspent_input_note_nullifiers()
-            .await?
-            .iter()
-            .map(get_nullifier_prefix)
-            .collect();
+        let unspent_notes = self.get_input_notes(NoteFilter::Unspent).await?;
 
-        // Send request
-        let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
-        let response = self
-            .rpc_api
-            .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
-            .await?;
+        let status =
+            StateSync::new(self.rpc_api.clone(), current_block, accounts, note_tags, unspent_notes)
+                .sync_state_step()
+                .await?;
 
-        // We don't need to continue if the chain has not advanced, there are no new changes
-        if response.block_header.block_num() == current_block_num {
-            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
-        }
+        let (is_last_block, update) = match status {
+            None => {
+                return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)))
+            },
+            Some(OtherStateSync::SyncedToLastBlock(update)) => (true, update),
+            Some(OtherStateSync::SyncedToBlock(update)) => (false, update),
+        };
 
-        let (committed_note_updates, tags_to_remove) = self
-            .committed_note_updates(response.note_inclusions, &response.block_header)
-            .await?;
-
-        let incoming_block_has_relevant_notes =
-            self.check_block_relevance(&committed_note_updates).await?;
-
-        let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
-
-        let (consumed_note_updates, transactions_to_discard) =
-            self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
-
-        let note_updates = committed_note_updates.combine_with(consumed_note_updates);
-
-        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
-            accounts.into_iter().partition(|account_header| account_header.id().is_public());
-
-        let updated_onchain_accounts = self
-            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
-            .await?;
-
-        let mismatched_offchain_accounts = self
-            .validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
-            .await?;
+        let sync_summary: SyncSummary = (&update).into();
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
@@ -271,36 +243,24 @@ impl<R: FeltRng> Client<R> {
 
             apply_mmr_changes(
                 current_partial_mmr,
-                response.mmr_delta,
+                update.mmr_delta,
                 current_block,
                 has_relevant_notes,
             )?
         };
 
-        // Store summary to return later
-        let sync_summary = SyncSummary::new(
-            response.block_header.block_num(),
-            note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
-            note_updates.committed_note_ids().into_iter().collect(),
-            note_updates.consumed_note_ids().into_iter().collect(),
-            updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
-            mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
-            transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
-        );
+        let block_has_relevant_notes = self.check_block_relevance(&update.note_updates).await?;
 
         let state_sync_update = StateSyncUpdate {
-            block_header: response.block_header,
-            note_updates,
-            transactions_to_commit,
+            block_header: update.block_header,
+            note_updates: update.note_updates,
+            transactions_to_commit: update.transaction_updates.committed_transactions().to_vec(),
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_accounts: AccountUpdates::new(
-                updated_onchain_accounts,
-                mismatched_offchain_accounts,
-            ),
-            block_has_relevant_notes: incoming_block_has_relevant_notes,
-            transactions_to_discard,
-            tags_to_remove,
+            updated_accounts: update.account_updates,
+            block_has_relevant_notes,
+            transactions_to_discard: update.transaction_updates.discarded_transactions().to_vec(),
+            tags_to_remove: update.tags_to_remove,
         };
 
         // Apply received and computed updates to the store
@@ -309,7 +269,7 @@ impl<R: FeltRng> Client<R> {
             .await
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == response.block_header.block_num() {
+        if is_last_block {
             Ok(SyncStatus::SyncedToLastBlock(sync_summary))
         } else {
             Ok(SyncStatus::SyncedToBlock(sync_summary))

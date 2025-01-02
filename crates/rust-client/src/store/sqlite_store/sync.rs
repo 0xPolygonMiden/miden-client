@@ -7,10 +7,7 @@ use rusqlite::{params, Connection, Transaction};
 use super::SqliteStore;
 use crate::{
     store::{
-        sqlite_store::{
-            accounts::{lock_account, update_account},
-            notes::apply_note_updates_tx,
-        },
+        sqlite_store::{accounts::update_account, notes::apply_note_updates_tx},
         StoreError,
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
@@ -133,13 +130,14 @@ impl SqliteStore {
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update onchain accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_onchain_accounts() {
+        for account in updated_accounts.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
-            lock_account(&tx, *account_id)?;
-        }
+        // TODO: Lock offchain accounts that have been updated onchain
+        // for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
+        //     lock_account(&tx, *account_id)?;
+        // }
 
         // Commit the updates
         tx.commit()?;
