@@ -1447,7 +1447,7 @@ async fn test_expired_transaction_fails() {
     let transaction_execution_result =
         client.new_transaction(faucet_account_id, tx_request).await.unwrap();
 
-    println!("{:?}", transaction_execution_result);
+    println!("Transaction executed successfully");
     wait_for_blocks(&mut client, (expiration_delta + 1).into()).await;
 
     println!("Sending transaction to node");
