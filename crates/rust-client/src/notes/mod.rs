@@ -4,7 +4,7 @@
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
+use miden_objects::{accounts::AccountId, crypto::rand::FeltRng, transaction::InputNote};
 
 use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
@@ -188,10 +188,8 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 
 /// Contains note changes to apply to the store.
 pub struct NoteUpdates {
-    /// A list of new input notes.
-    new_input_notes: Vec<InputNoteRecord>,
-    /// A list of new output notes.
-    new_output_notes: Vec<OutputNoteRecord>,
+    /// A list of new input notes to be tracked.
+    new_input_notes: Vec<InputNote>,
     /// A list of updated input note records corresponding to locally-tracked input notes.
     updated_input_notes: Vec<InputNoteRecord>,
     /// A list of updated output note records corresponding to locally-tracked output notes.
@@ -201,14 +199,12 @@ pub struct NoteUpdates {
 impl NoteUpdates {
     /// Creates a [NoteUpdates].
     pub fn new(
-        new_input_notes: Vec<InputNoteRecord>,
-        new_output_notes: Vec<OutputNoteRecord>,
+        new_input_notes: Vec<InputNote>,
         updated_input_notes: Vec<InputNoteRecord>,
         updated_output_notes: Vec<OutputNoteRecord>,
     ) -> Self {
         Self {
             new_input_notes,
-            new_output_notes,
             updated_input_notes,
             updated_output_notes,
         }
@@ -217,7 +213,6 @@ impl NoteUpdates {
     /// Combines two [NoteUpdates] into a single one.
     pub fn combine_with(mut self, other: Self) -> Self {
         self.new_input_notes.extend(other.new_input_notes);
-        self.new_output_notes.extend(other.new_output_notes);
         self.updated_input_notes.extend(other.updated_input_notes);
         self.updated_output_notes.extend(other.updated_output_notes);
 
@@ -225,13 +220,8 @@ impl NoteUpdates {
     }
 
     /// Returns all new input note records, meant to be tracked by the client.
-    pub fn new_input_notes(&self) -> &[InputNoteRecord] {
+    pub fn new_input_notes(&self) -> &[InputNote] {
         &self.new_input_notes
-    }
-
-    /// Returns all new output note records, meant to be tracked by the client.
-    pub fn new_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.new_output_notes
     }
 
     /// Returns all updated input note records. That is, any input notes that are locally tracked
@@ -251,7 +241,6 @@ impl NoteUpdates {
         self.updated_input_notes.is_empty()
             && self.updated_output_notes.is_empty()
             && self.new_input_notes.is_empty()
-            && self.new_output_notes.is_empty()
     }
 
     /// Returns the IDs of all notes that have been committed.

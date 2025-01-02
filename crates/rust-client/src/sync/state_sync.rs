@@ -3,13 +3,12 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use std::println;
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
-    transaction::TransactionId,
+    transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
 use tracing::info;
@@ -27,7 +26,7 @@ use crate::{
         },
         NodeRpcClient, RpcError,
     },
-    store::{input_note_states::CommittedNoteState, InputNoteRecord, OutputNoteRecord, StoreError},
+    store::{InputNoteRecord, OutputNoteRecord, StoreError},
     transactions::TransactionUpdates,
     ClientError,
 };
@@ -81,6 +80,7 @@ impl From<&StateSyncUpdate> for SyncSummary {
     }
 }
 
+/// Gives information about the status of the sync process after a step.
 pub enum SyncStatus {
     SyncedToLastBlock(StateSyncUpdate),
     SyncedToBlock(StateSyncUpdate),
@@ -95,6 +95,11 @@ impl SyncStatus {
     }
 }
 
+/// The state sync components encompasses the client's sync logic.
+///
+/// When created it receives the current state of the client's relevant elements (block, accounts,
+/// notes, etc). It is then used to requset updates from the node and apply them to the relevant
+/// elements. The updates are then returned and can be applied to the store to persist the changes.
 pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     current_block: BlockHeader,
@@ -108,6 +113,21 @@ pub struct StateSync {
 }
 
 impl StateSync {
+    /// Creates a new instance of the state sync component.
+    ///
+    /// # Arguments
+    ///
+    /// * `rpc_api` - The RPC client to use to communicate with the node.
+    /// * `current_block` - The latest block header tracked by the client.
+    /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
+    ///   are relevant to the client.
+    /// * `accounts` - The headers of accounts tracked by the client.
+    /// * `note_tags` - The note tags to be used in the sync state request.
+    /// * `unspent_input_notes` - The input notes that haven't been yet consumed and may be changed
+    ///   in the sync process.
+    /// * `unspent_output_notes` - The output notes that haven't been yet consumed and may be
+    ///   changed in the sync process.
+    /// * `current_partial_mmr` - The current partial MMR of the client.
     pub fn new(
         rpc_api: Arc<dyn NodeRpcClient + Send>,
         current_block: BlockHeader,
@@ -136,6 +156,15 @@ impl StateSync {
         }
     }
 
+    /// Executes a single step of the state sync process, returning the changes that should be
+    /// applied to the store.
+    ///
+    /// A step in this context means a single request to the node to get the next relevant block and
+    /// the changes that happened in it. This block may not be the last one in the chain and
+    /// the client may need to call this method multiple times until it reaches the chain tip.
+    /// Wheter or not the client has reached the chain tip is indicated by the returned
+    /// [SyncStatus] variant. `None` is returned if the client is already synced with the chain tip
+    /// and there are no new changes.
     pub async fn sync_state_step(mut self) -> Result<Option<SyncStatus>, ClientError> {
         let current_block_num = self.current_block.block_num();
         let account_ids: Vec<AccountId> = self.accounts.iter().map(|acc| acc.id()).collect();
@@ -203,8 +232,7 @@ impl StateSync {
             new_mmr_peaks: self.current_partial_mmr.peaks(),
             new_authentication_nodes,
             account_updates,
-            tags_to_remove, /* TODO: I think this can be removed from the update and be inferred
-                             * from the note updates */
+            tags_to_remove,
         };
 
         if response.chain_tip == response.block_header.block_num() {
@@ -217,6 +245,14 @@ impl StateSync {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
+    /// Compares the state of tracked accounts with the updates received from the node and returns
+    /// the accounts that need to be updated.
+    ///
+    /// When a mismatch is detected, two scenarios are possible:
+    /// * If the account is public, the component will request the node for the updated account
+    ///   details.
+    /// * If the account is private it will be marked as mismatched and the client will need to
+    ///  handle it (it could be a stale account state or a reason to lock the account).
     async fn account_state_sync(
         &self,
         account_hash_updates: &[(AccountId, Digest)],
@@ -241,6 +277,21 @@ impl StateSync {
         Ok(AccountUpdates::new(updated_onchain_accounts, mismatched_private_accounts))
     }
 
+    /// Compares the state of tracked notes with the updates received from the node and returns the
+    /// note and transaction changes that should be applied to the store.
+    ///
+    /// The note changes might include:
+    /// * New notes that we received from the node and might be relevant to the client.
+    /// * Tracked expected notes that were committed in the block.
+    /// * Tracked notes that were being processed by a transaction that got committed.
+    /// * Tracked notes that were nullified by an external transaction.
+    ///
+    /// The transaction changes might include:
+    /// * Transactions that were committed in the block. Some of these might me tracked by the
+    ///   client
+    ///  and need to be marked as committed.
+    /// * Local tracked transactions that were discarded because the notes that they were processing
+    /// were nullified by an another transaction.
     async fn note_state_sync(
         &mut self,
         block_header: &BlockHeader,
@@ -265,8 +316,7 @@ impl StateSync {
             .filter_map(|note_id| self.unspent_output_notes.remove(note_id))
             .collect();
 
-        let note_updates =
-            NoteUpdates::new(new_notes, vec![], modified_input_notes, modified_output_notes);
+        let note_updates = NoteUpdates::new(new_notes, modified_input_notes, modified_output_notes);
         let transaction_updates =
             TransactionUpdates::new(committed_transactions, discarded_transactions);
 
@@ -279,7 +329,7 @@ impl StateSync {
         &mut self,
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    ) -> Result<Vec<InputNote>, ClientError> {
         let mut new_public_notes = vec![];
 
         // We'll only pick committed notes that we are tracking as input/output notes. Since the
@@ -409,7 +459,6 @@ impl StateSync {
                 }
 
                 if let Some(output_note_record) = self.unspent_output_notes.get_mut(&note_id) {
-                    println!("output note consumed externally");
                     if output_note_record.nullifier_received(nullifier, block_num)? {
                         self.changed_notes.insert(note_id);
                     }
@@ -428,7 +477,7 @@ impl StateSync {
         &self,
         query_notes: &[NoteId],
         block_header: &BlockHeader,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    ) -> Result<Vec<InputNote>, ClientError> {
         if query_notes.is_empty() {
             return Ok(vec![]);
         }
@@ -451,18 +500,8 @@ impl StateSync {
                         inclusion_proof.merkle_path,
                     )
                     .map_err(ClientError::NoteError)?;
-                    let metadata = *note.metadata();
 
-                    return_notes.push(InputNoteRecord::new(
-                        note.into(),
-                        None, // TODO: Add timestamp
-                        CommittedNoteState {
-                            metadata,
-                            inclusion_proof,
-                            block_note_root: block_header.note_root(),
-                        }
-                        .into(),
-                    ))
+                    return_notes.push(InputNote::authenticated(note, inclusion_proof))
                 },
             }
         }
