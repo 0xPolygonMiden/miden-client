@@ -11,16 +11,14 @@ use miden_client::{
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
+    testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transactions::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
     Client, ClientError, Word,
 };
 use miden_objects::{
-    accounts::{
-        account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
-        AccountId, AccountStorageMode,
-    },
+    accounts::{Account, AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     notes::{NoteId, NoteType},
@@ -31,7 +29,7 @@ use rand::Rng;
 use toml::Table;
 use uuid::Uuid;
 
-pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
+pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<RpoRandomCoin>;
 
@@ -102,8 +100,11 @@ pub async fn insert_new_wallet<R: FeltRng>(
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
 
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
     let (account, seed) = AccountBuilder::new()
         .init_seed(init_seed)
+        .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
         .storage_mode(storage_mode)
         .with_component(RpoFalcon512Component::new(key_pair.public_key()))
@@ -132,8 +133,11 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
         .expect("u64 can be safely converted to a field element");
 
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+
     let (account, seed) = AccountBuilder::new()
         .init_seed(init_seed)
+        .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(storage_mode)
         .with_component(RpoFalcon512Component::new(key_pair.public_key()))

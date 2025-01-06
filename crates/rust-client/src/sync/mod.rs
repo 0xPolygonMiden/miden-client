@@ -17,19 +17,10 @@ use tracing::info;
 use crate::{
     accounts::AccountUpdates,
     notes::NoteUpdates,
-    rpc::{
-        domain::{
-            accounts::AccountDetails,
-            notes::{CommittedNote, NoteDetails},
-            nullifiers::NullifierUpdate,
-            transactions::TransactionUpdate,
-        },
-        RpcError,
+    rpc::domain::{
+        notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
     },
-    store::{
-        input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
-        TransactionFilter,
-    },
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 
@@ -183,7 +174,7 @@ impl<R: FeltRng> Client<R> {
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
-        self.ensure_genesis_in_place().await?;
+        _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
@@ -251,11 +242,11 @@ impl<R: FeltRng> Client<R> {
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
-        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
-        let updated_onchain_accounts = self
-            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
+        let updated_public_accounts = self
+            .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
             .await?;
 
         let mismatched_offchain_accounts = self
@@ -286,7 +277,7 @@ impl<R: FeltRng> Client<R> {
             note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
-            updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            updated_public_accounts.iter().map(|acc| acc.id()).collect(),
             mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
@@ -298,7 +289,7 @@ impl<R: FeltRng> Client<R> {
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             updated_accounts: AccountUpdates::new(
-                updated_onchain_accounts,
+                updated_public_accounts,
                 mismatched_offchain_accounts,
             ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
@@ -525,38 +516,15 @@ impl<R: FeltRng> Client<R> {
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let notes_data = self.rpc_api.get_notes_by_id(query_notes).await?;
-        let mut return_notes = Vec::with_capacity(query_notes.len());
-        for note_data in notes_data {
-            match note_data {
-                NoteDetails::Private(id, ..) => {
-                    // TODO: Is there any benefit to not ignoring these? In any case we do not have
-                    // the recipient which is mandatory right now.
-                    info!("Note {} is private but the client is not tracking it, ignoring.", id);
-                },
-                NoteDetails::Public(note, inclusion_proof) => {
-                    info!("Retrieved details for Note ID {}.", note.id());
-                    let inclusion_proof = NoteInclusionProof::new(
-                        block_header.block_num(),
-                        inclusion_proof.note_index,
-                        inclusion_proof.merkle_path,
-                    )
-                    .map_err(ClientError::NoteError)?;
-                    let metadata = *note.metadata();
+        let mut return_notes = self
+            .rpc_api
+            .get_public_note_records(query_notes, self.store.get_current_timestamp())
+            .await?;
 
-                    return_notes.push(InputNoteRecord::new(
-                        note.into(),
-                        self.store.get_current_timestamp(),
-                        CommittedNoteState {
-                            metadata,
-                            inclusion_proof,
-                            block_note_root: block_header.note_root(),
-                        }
-                        .into(),
-                    ))
-                },
-            }
+        for note in return_notes.iter_mut() {
+            note.block_header_received(*block_header)?;
         }
+
         Ok(return_notes)
     }
 
@@ -582,35 +550,27 @@ impl<R: FeltRng> Client<R> {
         Ok(transactions)
     }
 
-    async fn get_updated_onchain_accounts(
+    async fn get_updated_public_accounts(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_onchain_accounts: &[AccountHeader],
+        current_public_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
-        let mut accounts_to_update: Vec<Account> = Vec::new();
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // check if this updated account is tracked by the client
-            let current_account = current_onchain_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        let mut mismatched_public_accounts = vec![];
 
-            if let Some(tracked_account) = current_account {
-                info!("Public account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                if let AccountDetails::Public(account, _) = account_details {
-                    // We should only do the update if it's newer, otherwise we ignore it
-                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
-                        accounts_to_update.push(account);
-                    }
-                } else {
-                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
-                        account_details.account_id(),
-                    )
-                    .into());
-                }
+        for (id, hash) in account_updates {
+            // check if this updated account is tracked by the client
+            if let Some(account) = current_public_accounts
+                .iter()
+                .find(|acc| *id == acc.id() && *hash != acc.hash())
+            {
+                mismatched_public_accounts.push(account);
             }
         }
-        Ok(accounts_to_update)
+
+        self.rpc_api
+            .get_updated_public_accounts(&mismatched_public_accounts)
+            .await
+            .map_err(ClientError::RpcError)
     }
 
     /// Validates account hash updates and returns a vector with all the offchain account

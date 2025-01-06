@@ -55,9 +55,11 @@ The `AccountBuilder` can be used to create a new account with the specified para
 
 ```rust
 let key_pair = SecretKey::with_rng(client.rng());
+let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
 let (new_account, seed) = AccountBuilder::new()
     .init_seed(init_seed) // Should be random for each account
+    .anchor((&anchor_block).try_into().unwrap())
     .account_type(AccountType::RegularAccountImmutableCode)
     .storage_mode(AccountStorageMode::Private)
     .with_component(RpoFalcon512Component::new(key_pair.public_key()))
@@ -72,9 +74,11 @@ To create an public account, you can specify `AccountStorageMode::Public` like s
 
 ```Rust
 let key_pair = SecretKey::with_rng(client.rng());
+let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
 let (new_account, seed) = AccountBuilder::new()
     .init_seed(init_seed) // Should be random for each account
+    .anchor((&anchor_block).try_into().unwrap())
     .account_type(AccountType::RegularAccountImmutableCode)
     .storage_mode(AccountStorageMode::Public)
     .with_component(RpoFalcon512Component::new(key_pair.public_key()))

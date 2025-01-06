@@ -156,7 +156,7 @@ impl<R: FeltRng> Client<R> {
 /// Contains account changes to apply to the store.
 pub struct AccountUpdates {
     /// Updated public accounts.
-    updated_onchain_accounts: Vec<Account>,
+    updated_public_accounts: Vec<Account>,
     /// Node account hashes that don't match the tracked information.
     mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
 }
@@ -164,18 +164,18 @@ pub struct AccountUpdates {
 impl AccountUpdates {
     /// Creates a new instance of `AccountUpdates`.
     pub fn new(
-        updated_onchain_accounts: Vec<Account>,
+        updated_public_accounts: Vec<Account>,
         mismatched_offchain_accounts: Vec<(AccountId, Digest)>,
     ) -> Self {
         Self {
-            updated_onchain_accounts,
+            updated_public_accounts,
             mismatched_offchain_accounts,
         }
     }
 
     /// Returns the updated public accounts.
-    pub fn updated_onchain_accounts(&self) -> &[Account] {
-        &self.updated_onchain_accounts
+    pub fn updated_public_accounts(&self) -> &[Account] {
+        &self.updated_public_accounts
     }
 
     /// Returns the mismatched offchain accounts.
@@ -193,19 +193,17 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-            },
-            Account, AccountData, AuthSecretKey,
-        },
+        accounts::{Account, AccountData, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
+        testing::account_id::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        },
         Felt, Word,
     };
 
     use crate::mock::create_test_client;
 
-    fn create_account_data(account_id: u64) -> AccountData {
+    fn create_account_data(account_id: u128) -> AccountData {
         let account =
             Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 

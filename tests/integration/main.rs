@@ -557,7 +557,7 @@ async fn test_get_output_notes() {
 
     let from_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
-    let random_account_id = AccountId::from_hex("0x0123456789abcdef").unwrap();
+    let random_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // No output notes initially
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
@@ -1414,4 +1414,48 @@ async fn test_locked_account() {
     client_2.sync_state().await.unwrap();
     let account_record = client_2.get_account(from_account_id).await.unwrap().unwrap();
     assert!(!account_record.is_locked());
+}
+
+#[tokio::test]
+async fn test_expired_transaction_fails() {
+    let mut client = create_test_client().await;
+    let (faucet_account, _) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+        .await
+        .unwrap();
+
+    let (private_account, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+
+    let from_account_id = private_account.id();
+    let faucet_account_id = faucet_account.id();
+
+    wait_for_node(&mut client).await;
+
+    let expiration_delta = 2;
+
+    // Create a Mint Tx for 1000 units of our fungible asset
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    println!("Minting Asset");
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        fungible_asset,
+        from_account_id,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .with_expiration_delta(expiration_delta)
+    .unwrap()
+    .build();
+
+    println!("Executing transaction...");
+    let transaction_execution_result =
+        client.new_transaction(faucet_account_id, tx_request).await.unwrap();
+
+    println!("Transaction executed successfully");
+    wait_for_blocks(&mut client, (expiration_delta + 1).into()).await;
+
+    println!("Sending transaction to node");
+    let submited_tx_result = client.submit_transaction(transaction_execution_result).await;
+
+    assert!(submited_tx_result.is_err());
 }

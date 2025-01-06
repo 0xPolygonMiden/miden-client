@@ -8,12 +8,7 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
-        },
-        AccountCode, AccountId,
-    },
+    accounts::{AccountCode, AccountId},
     assets::{FungibleAsset, NonFungibleAsset},
     block::Block,
     crypto::{
@@ -21,7 +16,10 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{Note, NoteId, NoteTag},
-    testing::notes::NoteBuilder,
+    testing::{
+        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        notes::NoteBuilder,
+    },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
 };
@@ -34,7 +32,7 @@ use crate::{
     rpc::{
         domain::{
             accounts::{AccountDetails, AccountProofs},
-            notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
+            notes::{NetworkNote, NoteSyncInfo},
             sync::StateSyncInfo,
         },
         generated::{
@@ -259,26 +257,15 @@ impl NodeRpcClient for MockRpcApi {
         Ok((block.header(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         // assume all off-chain notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
-            let inclusion_details = NoteInclusionDetails::new(
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .block_num(),
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .node_index_in_block(),
-                note.proof().expect("Note should have an inclusion proof").note_path().clone(),
-            );
-            return_notes.push(NoteDetails::Private(
+            return_notes.push(NetworkNote::Private(
                 note.id(),
                 *note.note().metadata(),
-                inclusion_details,
+                note.proof().expect("Note should have an inclusion proof").clone(),
             ));
         }
         Ok(return_notes)

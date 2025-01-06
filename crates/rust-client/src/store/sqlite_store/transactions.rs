@@ -55,7 +55,7 @@ impl TransactionFilter {
 
 type SerializedTransactionData = (
     String,
-    i64,
+    String,
     String,
     String,
     Vec<u8>,
@@ -196,7 +196,7 @@ pub(super) fn serialize_transaction_data(
     executed_transaction: &ExecutedTransaction,
 ) -> Result<SerializedTransactionData, StoreError> {
     let transaction_id: String = executed_transaction.id().inner().into();
-    let account_id: u64 = executed_transaction.account_id().into();
+    let account_id = executed_transaction.account_id().to_hex();
     let init_account_state = &executed_transaction.initial_account().hash().to_string();
     let final_account_state = &executed_transaction.final_account().hash().to_string();
 
@@ -221,7 +221,7 @@ pub(super) fn serialize_transaction_data(
 
     Ok((
         transaction_id,
-        account_id as i64,
+        account_id,
         init_account_state.to_owned(),
         final_account_state.to_owned(),
         input_notes,
@@ -238,7 +238,7 @@ fn parse_transaction_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedTransactionData, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let account_id: i64 = row.get(1)?;
+    let account_id: String = row.get(1)?;
     let init_account_state: String = row.get(2)?;
     let final_account_state: String = row.get(3)?;
     let input_notes: Vec<u8> = row.get(4)?;
@@ -281,7 +281,7 @@ fn parse_transaction(
         commit_height,
         discarded,
     ) = serialized_transaction;
-    let account_id = AccountId::try_from(account_id as u64)?;
+    let account_id = AccountId::from_hex(&account_id)?;
     let id: Digest = id.try_into()?;
     let init_account_state: Digest = init_account_state.try_into()?;
 

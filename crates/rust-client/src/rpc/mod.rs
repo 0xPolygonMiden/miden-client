@@ -2,17 +2,22 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    vec::Vec,
+};
 use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::{AccountDetails, AccountProofs},
-    notes::{NoteDetails, NoteSyncInfo},
+    accounts::{AccountDetails, AccountProof, AccountProofs, FpiAccountData},
+    notes::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    accounts::{AccountCode, AccountId},
+    accounts::{Account, AccountCode, AccountHeader, AccountId},
     crypto::merkle::MmrProof,
     notes::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
@@ -42,7 +47,11 @@ mod web_tonic_client;
 #[cfg(feature = "web-tonic")]
 pub use web_tonic_client::WebTonicRpcClient;
 
-use crate::sync::get_nullifier_prefix;
+use crate::{
+    store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
+    sync::get_nullifier_prefix,
+    transactions::ForeignAccount,
+};
 
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
@@ -78,7 +87,7 @@ pub trait NodeRpcClient {
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint.
@@ -142,6 +151,131 @@ pub trait NodeRpcClient {
             self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+    }
+
+    /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
+    /// specified foreign accounts.
+    ///
+    /// The `code_commitments` parameter is a list of known code hashes
+    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
+    /// one of the tracked accounts is not found in the node, the method will return an error.
+    /// The default implementation of this method uses [NodeRpcClient::get_account_proofs].
+    async fn get_fpi_account_data(
+        &mut self,
+        foreign_accounts: BTreeSet<ForeignAccount>,
+        known_account_code: Vec<AccountCode>,
+    ) -> Result<(u32, Vec<FpiAccountData>), RpcError> {
+        let account_ids = foreign_accounts.iter().map(|acc| acc.account_id());
+        let (block_num, account_proofs) = self
+            .get_account_proofs(&account_ids.collect(), known_account_code, true)
+            .await?;
+
+        let mut account_proofs: BTreeMap<AccountId, AccountProof> =
+            account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
+
+        let mut headers = Vec::new();
+        for foreign_account in foreign_accounts.into_iter() {
+            let fpi_account_data = match foreign_account {
+                ForeignAccount::Public(account_id) => {
+                    let account_proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+
+                    account_proof.try_into()?
+                },
+                ForeignAccount::Private(foreign_account_inputs) => {
+                    let account_id = foreign_account_inputs.account_header().id();
+                    let proof = account_proofs
+                        .remove(&account_id)
+                        .expect("Proof was requested and received");
+
+                    FpiAccountData::new(account_id, proof.into_parts().1, foreign_account_inputs)
+                },
+            };
+
+            headers.push(fpi_account_data);
+        }
+
+        Ok((block_num, headers))
+    }
+
+    /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with
+    /// it. If a note is not found or it's private, it is ignored and will not be included in the
+    /// returned list.
+    ///
+    /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
+    async fn get_public_note_records(
+        &mut self,
+        note_ids: &[NoteId],
+        current_timestamp: Option<u64>,
+    ) -> Result<Vec<InputNoteRecord>, RpcError> {
+        let note_details = self.get_notes_by_id(note_ids).await?;
+
+        let mut public_notes = vec![];
+        for detail in note_details {
+            if let NetworkNote::Public(note, inclusion_proof) = detail {
+                let state = UnverifiedNoteState {
+                    metadata: *note.metadata(),
+                    inclusion_proof,
+                }
+                .into();
+                let note = InputNoteRecord::new(note.into(), current_timestamp, state);
+
+                public_notes.push(note);
+            }
+        }
+
+        Ok(public_notes)
+    }
+
+    /// Fetches the public accounts that have been updated since the last known state of the
+    /// accounts.
+    ///
+    /// The `local_accounts` parameter is a list of account headers that the client has
+    /// stored locally and that it wants to check for updates. If an account is private or didn't
+    /// change, it is ignored and will not be included in the returned list.
+    /// The default implementation of this method uses [NodeRpcClient::get_account_update].
+    async fn get_updated_public_accounts(
+        &mut self,
+        local_accounts: &[&AccountHeader],
+    ) -> Result<Vec<Account>, RpcError> {
+        let mut public_accounts = vec![];
+
+        for local_account in local_accounts {
+            let response = self.get_account_update(local_account.id()).await?;
+
+            if let AccountDetails::Public(account, _) = response {
+                // We should only return an account if it's newer, otherwise we ignore it
+                if account.nonce().as_int() > local_account.nonce().as_int() {
+                    public_accounts.push(account);
+                }
+            }
+        }
+
+        Ok(public_accounts)
+    }
+
+    /// Given a block number, fetches the block header corresponding to that height from the node
+    /// along with the MMR proof.
+    ///
+    /// The default implementation of this method uses [NodeRpcClient::get_block_header_by_number].
+    async fn get_block_header_with_proof(
+        &mut self,
+        block_num: u32,
+    ) -> Result<(BlockHeader, MmrProof), RpcError> {
+        let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
+        Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
+    }
+
+    /// Fetches the note with the specified ID.
+    ///
+    /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
+    ///
+    /// Errors:
+    /// - [RpcError::NoteNotFound] if the note with the specified ID is not found.
+    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
+        let notes = self.get_notes_by_id(&[note_id]).await?;
+        notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
     }
 }
 
