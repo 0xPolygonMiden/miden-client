@@ -36,8 +36,8 @@ impl AccountInterface {
     /// Errors:
     /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note isn't the
     ///   account for which the script is being built.
-    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note doesn't contain exactly
-    ///   one asset.
+    /// - [TransactionScriptBuilderError::FaucetNoteWithoutAsset] if the note created by the faucet
+    ///   doesn't contain exactly one asset.
     /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
     ///   with a different faucet ID.
     fn send_note_procedure(
@@ -53,8 +53,6 @@ impl AccountInterface {
                     partial_note.metadata().sender(),
                 ));
             }
-
-            let asset = partial_note.assets().iter().next().expect("There should be an asset");
 
             body.push_str(&format!(
                 "
@@ -73,6 +71,14 @@ impl AccountInterface {
 
             match self {
                 AccountInterface::BasicFungibleFaucet => {
+                    if partial_note.assets().num_assets() != 1 {
+                        return Err(TransactionScriptBuilderError::FaucetNoteWithoutAsset);
+                    }
+
+                    // SAFETY: We checked that the note contains exactly one asset
+                    let asset =
+                        partial_note.assets().iter().next().expect("note should contain an asset");
+
                     if asset.faucet_id_prefix() != account_id.prefix() {
                         return Err(TransactionScriptBuilderError::InvalidAsset(
                             asset.faucet_id_prefix(),
@@ -90,15 +96,13 @@ impl AccountInterface {
                 AccountInterface::BasicWallet => {
                     body.push_str(
                         "
-                        call.wallet::create_note",
+                        call.wallet::create_note\n",
                     );
 
                     for asset in partial_note.assets().iter() {
                         body.push_str(&format!(
-                            "
-                        push.{asset}
-                        call.wallet::move_asset_to_note dropw
-                        ",
+                            "push.{asset}
+                            call.wallet::move_asset_to_note dropw\n",
                             asset = prepare_word(&asset.into())
                         ))
                     }
@@ -223,6 +227,8 @@ impl TransactionScriptBuilder {
 pub enum TransactionScriptBuilderError {
     #[error("invalid asset: {0}")]
     InvalidAsset(AccountIdPrefix),
+    #[error("note created by the faucet doesn't contain exactly one asset")]
+    FaucetNoteWithoutAsset,
     #[error("invalid transaction script")]
     InvalidTransactionScript(#[source] TransactionScriptError),
     #[error("invalid sender account: {0}")]
