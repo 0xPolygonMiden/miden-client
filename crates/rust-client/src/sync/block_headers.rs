@@ -153,11 +153,8 @@ impl<R: FeltRng> Client<R> {
             let (block_header, _) = self.store.get_block_header_by_num(block_num).await?;
             return Ok(block_header);
         }
-        let (block_header, mmr_proof) =
-            self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
+        let (block_header, mmr_proof) = self.rpc_api.get_block_header_with_proof(block_num).await?;
 
-        let mmr_proof = mmr_proof
-            .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
         // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
         // might be of a forest arbitrarily higher
         let path_nodes = adjust_merkle_path_for_forest(

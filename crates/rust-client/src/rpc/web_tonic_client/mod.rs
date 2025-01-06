@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
     BlockHeader, Digest,
@@ -20,7 +20,7 @@ use tonic_web_wasm_client::Client;
 use super::{
     domain::{
         accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::{NoteDetails, NoteInclusionDetails, NoteSyncInfo},
+        notes::{NetworkNote, NoteSyncInfo},
         sync::StateSyncInfo,
     },
     generated::{
@@ -121,7 +121,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
@@ -144,7 +144,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
+                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {
@@ -152,7 +152,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NoteDetails::Public(note, inclusion_details)
+                    NetworkNote::Public(note, inclusion_details)
                 },
                 // Off-chain notes do not have details
                 None => {
@@ -165,7 +165,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)

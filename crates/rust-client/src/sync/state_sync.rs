@@ -8,7 +8,7 @@ use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
-    transaction::{InputNote, TransactionId},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use tracing::info;
@@ -19,12 +19,9 @@ use crate::{
     notes::NoteUpdates,
     rpc::{
         domain::{
-            accounts::AccountDetails,
-            notes::{CommittedNote, NoteDetails},
-            nullifiers::NullifierUpdate,
-            transactions::TransactionUpdate,
+            notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
         },
-        NodeRpcClient, RpcError,
+        NodeRpcClient,
     },
     store::{InputNoteRecord, OutputNoteRecord, StoreError},
     transactions::TransactionUpdates,
@@ -257,12 +254,11 @@ impl StateSync {
         &self,
         account_hash_updates: &[(AccountId, Digest)],
     ) -> Result<AccountUpdates, ClientError> {
-        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
             self.accounts.iter().partition(|account_header| account_header.id().is_public());
 
-        let updated_onchain_accounts = self
-            .get_updated_onchain_accounts(account_hash_updates, &onchain_accounts)
-            .await?;
+        let updated_public_accounts =
+            self.get_updated_public_accounts(account_hash_updates, &public_accounts).await?;
 
         let mismatched_private_accounts = account_hash_updates
             .iter()
@@ -274,7 +270,7 @@ impl StateSync {
             .cloned()
             .collect::<Vec<_>>();
 
-        Ok(AccountUpdates::new(updated_onchain_accounts, mismatched_private_accounts))
+        Ok(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts))
     }
 
     /// Compares the state of tracked notes with the updates received from the node and returns the
@@ -369,14 +365,7 @@ impl StateSync {
         }
 
         // Query the node for input note data and build the entities
-        let new_public_notes = self
-            .fetch_public_note_details(&new_public_notes, block_header)
-            .await?
-            .into_iter()
-            .map(|note| note.into())
-            .collect();
-
-        Ok(new_public_notes)
+        self.fetch_public_note_details(&new_public_notes, block_header).await
     }
 
     /// Updates the unspent notes to nullify those that were consumed (either internally or
@@ -481,66 +470,42 @@ impl StateSync {
         &self,
         query_notes: &[NoteId],
         block_header: &BlockHeader,
-    ) -> Result<Vec<InputNote>, ClientError> {
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
         if query_notes.is_empty() {
             return Ok(vec![]);
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let notes_data = self.rpc_api.get_notes_by_id(query_notes).await?;
-        let mut return_notes = Vec::with_capacity(query_notes.len());
-        for note_data in notes_data {
-            match note_data {
-                NoteDetails::Private(id, ..) => {
-                    // TODO: Is there any benefit to not ignoring these? In any case we do not have
-                    // the recipient which is mandatory right now.
-                    info!("Note {} is private but the client is not tracking it, ignoring.", id);
-                },
-                NoteDetails::Public(note, inclusion_proof) => {
-                    info!("Retrieved details for Note ID {}.", note.id());
-                    let inclusion_proof = NoteInclusionProof::new(
-                        block_header.block_num(),
-                        inclusion_proof.note_index,
-                        inclusion_proof.merkle_path,
-                    )
-                    .map_err(ClientError::NoteError)?;
+        let mut return_notes = self.rpc_api.get_public_note_records(query_notes, None).await?;
 
-                    return_notes.push(InputNote::authenticated(note, inclusion_proof))
-                },
-            }
+        for note in return_notes.iter_mut() {
+            note.block_header_received(*block_header)?;
         }
+
         Ok(return_notes)
     }
 
-    async fn get_updated_onchain_accounts(
+    async fn get_updated_public_accounts(
         &self,
         account_updates: &[(AccountId, Digest)],
-        current_onchain_accounts: &[&AccountHeader],
+        current_public_accounts: &[&AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
-        let mut accounts_to_update: Vec<Account> = Vec::new();
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // check if this updated account is tracked by the client
-            let current_account = current_onchain_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        let mut mismatched_public_accounts = vec![];
 
-            if let Some(tracked_account) = current_account {
-                info!("Public account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                if let AccountDetails::Public(account, _) = account_details {
-                    // We should only do the update if it's newer, otherwise we ignore it
-                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
-                        accounts_to_update.push(account);
-                    }
-                } else {
-                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
-                        account_details.account_id(),
-                    )
-                    .into());
-                }
+        for (id, hash) in account_updates {
+            // check if this updated account is tracked by the client
+            if let Some(account) = current_public_accounts
+                .iter()
+                .find(|acc| *id == acc.id() && *hash != acc.hash())
+            {
+                mismatched_public_accounts.push(*account);
             }
         }
-        Ok(accounts_to_update)
+
+        self.rpc_api
+            .get_updated_public_accounts(&mismatched_public_accounts)
+            .await
+            .map_err(ClientError::RpcError)
     }
 
     /// Updates the `current_partial_mmr` and returns the authentication nodes for tracked leaves.

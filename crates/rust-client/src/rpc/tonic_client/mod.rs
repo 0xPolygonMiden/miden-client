@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
     BlockHeader, Digest,
@@ -18,7 +18,7 @@ use tracing::info;
 use super::{
     domain::{
         accounts::{AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::NoteInclusionDetails,
+        notes::NetworkNote,
     },
     generated::{
         requests::{
@@ -27,8 +27,8 @@ use super::{
         },
         rpc::api_client::ApiClient,
     },
-    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteSyncInfo,
-    RpcError, StateSyncInfo,
+    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
+    StateSyncInfo,
 };
 use crate::rpc::generated::requests::GetBlockHeaderByNumberRequest;
 
@@ -123,7 +123,7 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
@@ -144,7 +144,7 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
+                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {
@@ -152,7 +152,7 @@ impl NodeRpcClient for TonicRpcClient {
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NoteDetails::Public(note, inclusion_details)
+                    NetworkNote::Public(note, inclusion_details)
                 },
                 // Off-chain notes do not have details
                 None => {
@@ -166,7 +166,7 @@ impl NodeRpcClient for TonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)
@@ -261,7 +261,7 @@ impl NodeRpcClient for TonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - One of the requested Accounts is not public, or is not returned by the node.
+    /// - One of the requested Accounts isn't returned by the node.
     /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.

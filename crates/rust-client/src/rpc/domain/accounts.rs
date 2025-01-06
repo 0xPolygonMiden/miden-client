@@ -13,13 +13,16 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable, ToHex};
 use thiserror::Error;
 
-use crate::rpc::{
-    errors::RpcConversionError,
-    generated::{
-        account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
-        responses::AccountStateHeader as ProtoAccountStateHeader,
+use crate::{
+    rpc::{
+        errors::RpcConversionError,
+        generated::{
+            account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
+            responses::AccountStateHeader as ProtoAccountStateHeader,
+        },
+        RpcError,
     },
-    RpcError,
+    transactions::ForeignAccountInputs,
 };
 
 // ACCOUNT DETAILS
@@ -269,6 +272,58 @@ impl AccountProof {
     /// Deconstructs `AccountProof` into its individual parts.
     pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
         (self.account_id, self.merkle_proof, self.account_hash, self.state_headers)
+    }
+}
+
+// FPI ACCOUNT DATA
+// ================================================================================================
+
+/// Represents the data needed to perform a Foreign Procedure Invocation (FPI) on an account.
+pub struct FpiAccountData {
+    /// Account ID.
+    account_id: AccountId,
+    /// Authentication path from the `account_root` of the block header to the account.
+    merkle_path: MerklePath,
+    /// Account inputs needed to perform the FPI.
+    inputs: ForeignAccountInputs,
+}
+
+impl FpiAccountData {
+    pub fn new(
+        account_id: AccountId,
+        merkle_path: MerklePath,
+        inputs: ForeignAccountInputs,
+    ) -> Self {
+        Self { account_id, merkle_path, inputs }
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    pub fn merkle_path(&self) -> &MerklePath {
+        &self.merkle_path
+    }
+
+    pub fn inputs(&self) -> &ForeignAccountInputs {
+        &self.inputs
+    }
+
+    pub fn into_parts(self) -> (AccountId, MerklePath, ForeignAccountInputs) {
+        (self.account_id, self.merkle_path, self.inputs)
+    }
+}
+
+impl TryFrom<AccountProof> for FpiAccountData {
+    type Error = RpcError;
+
+    fn try_from(value: AccountProof) -> Result<Self, Self::Error> {
+        let (account_id, merkle_proof, _, state_headers) = value.into_parts();
+        if let Some(StateHeaders { account_header, storage_header, code }) = state_headers {
+            let inputs = ForeignAccountInputs::new(account_header, storage_header, code);
+            return Ok(FpiAccountData::new(account_id, merkle_proof, inputs));
+        }
+        Err(RpcError::ExpectedDataMissing(String::from("AccountProof.StateHeaders")))
     }
 }
 

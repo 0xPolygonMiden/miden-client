@@ -146,7 +146,7 @@ impl SqliteStore {
         // Marc transactions as discarded
         Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
 
-        // Update onchain accounts on the db that have been updated onchain
+        // Update public accounts on the db that have been updated onchain
         for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }

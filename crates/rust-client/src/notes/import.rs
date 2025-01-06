@@ -6,7 +6,7 @@ use miden_objects::{
 };
 
 use crate::{
-    rpc::domain::notes::NoteDetails as RpcNoteDetails,
+    rpc::{domain::notes::NetworkNote, RpcError},
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
@@ -84,27 +84,17 @@ impl<R: FeltRng> Client<R> {
         previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
-        let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
-        if chain_notes.is_empty() {
-            return Err(ClientError::NoteNotFoundOnChain(id));
-        }
+        let network_note = self.rpc_api.get_note_by_id(id).await.map_err(|err| match err {
+            RpcError::NoteNotFound(note_id) => ClientError::NoteNotFoundOnChain(note_id),
+            err => ClientError::RpcError(err),
+        })?;
 
-        let note_details: RpcNoteDetails =
-            chain_notes.pop().expect("chain_notes should have at least one element");
-
-        let inclusion_details = note_details.inclusion_details();
-
-        // Add the inclusion proof to the imported note
-        let inclusion_proof = NoteInclusionProof::new(
-            inclusion_details.block_num,
-            inclusion_details.note_index,
-            inclusion_details.merkle_path.clone(),
-        )?;
+        let inclusion_proof = network_note.inclusion_proof().clone();
 
         match previous_note {
             Some(mut previous_note) => {
                 if previous_note
-                    .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
+                    .inclusion_proof_received(inclusion_proof, *network_note.metadata())?
                 {
                     self.store.remove_note_tag((&previous_note).try_into()?).await?;
 
@@ -114,16 +104,16 @@ impl<R: FeltRng> Client<R> {
                 }
             },
             None => {
-                let node_note = match note_details {
-                    RpcNoteDetails::Public(note, _) => note,
-                    RpcNoteDetails::Private(..) => {
+                let network_note = match network_note {
+                    NetworkNote::Public(note, _) => note,
+                    NetworkNote::Private(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
                         ))
                     },
                 };
 
-                self.import_note_record_by_proof(previous_note, node_note, inclusion_proof)
+                self.import_note_record_by_proof(previous_note, network_note, inclusion_proof)
                     .await
             },
         }

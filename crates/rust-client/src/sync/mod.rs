@@ -11,7 +11,11 @@ use miden_objects::{
     transaction::TransactionId,
 };
 
-use crate::{notes::NoteUpdates, store::NoteFilter, Client, ClientError};
+use crate::{
+    notes::NoteUpdates,
+    store::NoteFilter,
+    Client, ClientError,
+};
 
 mod block_headers;
 
