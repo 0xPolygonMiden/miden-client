@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::{
     accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    notes::utils,
     transaction::TransactionKernel,
 };
 use miden_objects::{
@@ -13,14 +14,18 @@ use miden_objects::{
     },
     assets::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    notes::{NoteFile, NoteTag},
+    notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
+        NoteType,
+    },
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
         ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
-    Felt, FieldElement, Word,
+    transaction::OutputNote,
+    Felt, FieldElement, Word, ZERO,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
@@ -28,7 +33,9 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::TransactionRequestBuilder,
+    transactions::{
+        TransactionRequestBuilder, TransactionRequestError, TransactionScriptBuilderError,
+    },
     Client, ClientError,
 };
 
@@ -629,5 +636,62 @@ async fn test_no_nonce_change_transaction_request() {
     assert!(matches!(
         result,
         Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
+    ));
+}
+
+#[tokio::test]
+async fn test_note_without_asset() {
+    let (mut client, _rpc_api) = create_test_client().await;
+
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+        .await
+        .unwrap();
+
+    let (wallet, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+
+    client.sync_state().await.unwrap();
+
+    // Create note without assets
+    let serial_num = client.rng().draw_word();
+    let recipient = utils::build_p2id_recipient(wallet.id(), serial_num).unwrap();
+    let tag = NoteTag::from_account_id(wallet.id(), NoteExecutionMode::Local).unwrap();
+    let metadata =
+        NoteMetadata::new(wallet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
+            .unwrap();
+    let vault = NoteAssets::new(vec![]).unwrap();
+
+    let note = Note::new(vault.clone(), metadata, recipient.clone());
+
+    // Create and execute transaction
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .unwrap()
+        .build();
+
+    let transaction = client.new_transaction(wallet.id(), transaction_request.clone()).await;
+
+    assert!(transaction.is_ok());
+
+    // Create the same transaction for the faucet
+    let metadata =
+        NoteMetadata::new(faucet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
+            .unwrap();
+    let note = Note::new(vault, metadata, recipient);
+
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .unwrap()
+        .build();
+
+    let error = client.new_transaction(faucet.id(), transaction_request).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::TransactionRequestError(
+            TransactionRequestError::TransactionScriptBuilderError(
+                TransactionScriptBuilderError::FaucetNoteWithoutAsset
+            )
+        )
     ));
 }
