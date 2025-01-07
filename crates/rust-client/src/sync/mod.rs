@@ -3,17 +3,28 @@
 
 use alloc::vec::Vec;
 use core::cmp::max;
+use std::{boxed::Box, collections::BTreeMap};
 
 use miden_objects::{
     accounts::{AccountHeader, AccountId},
-    crypto::rand::FeltRng,
-    notes::{NoteId, NoteTag, Nullifier},
+    crypto::{
+        merkle::{InOrderIndex, MmrPeaks},
+        rand::FeltRng,
+    },
+    notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::TransactionId,
+    BlockHeader, Digest,
 };
+use state_sync::fetch_public_note_details;
 
 use crate::{
+    accounts::AccountUpdates,
     notes::NoteUpdates,
-    store::NoteFilter,
+    rpc::domain::{
+        notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
+    },
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
+    transactions::TransactionUpdates,
     Client, ClientError,
 };
 
@@ -23,7 +34,56 @@ mod tags;
 pub use tags::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{StateSync, StateSyncUpdate, SyncStatus};
+pub use state_sync::{StateSync, SyncStatus};
+
+/// Contains all information needed to apply the update in the store after syncing with the node.
+pub struct StateSyncUpdate {
+    /// The new block header, returned as part of the
+    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
+    pub block_header: BlockHeader,
+    /// Information about note changes after the sync.
+    pub note_updates: NoteUpdates,
+    /// Information about transaction changes after the sync.
+    pub transaction_updates: TransactionUpdates,
+    /// New MMR peaks for the locally tracked MMR of the blockchain.
+    pub new_mmr_peaks: MmrPeaks,
+    /// New authentications nodes that are meant to be stored in order to authenticate block
+    /// headers.
+    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+    /// Information abount account changes after the sync.
+    pub account_updates: AccountUpdates,
+    /// Tag records that are no longer relevant.
+    pub tags_to_remove: Vec<NoteTagRecord>,
+}
+
+impl From<&StateSyncUpdate> for SyncSummary {
+    fn from(value: &StateSyncUpdate) -> Self {
+        SyncSummary::new(
+            value.block_header.block_num(),
+            value.note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
+            value.note_updates.committed_note_ids().into_iter().collect(),
+            value.note_updates.consumed_note_ids().into_iter().collect(),
+            value
+                .account_updates
+                .updated_public_accounts()
+                .iter()
+                .map(|acc| acc.id())
+                .collect(),
+            value
+                .account_updates
+                .mismatched_private_accounts()
+                .iter()
+                .map(|(id, _)| *id)
+                .collect(),
+            value
+                .transaction_updates
+                .committed_transactions()
+                .iter()
+                .map(|t| t.transaction_id)
+                .collect(),
+        )
+    }
+}
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
@@ -138,8 +198,7 @@ impl<R: FeltRng> Client<R> {
         loop {
             // Get current state of the client
             let current_block_num = self.store.get_sync_height().await?;
-            let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num).await?;
+            let current_block = self.store.get_block_header_by_num(current_block_num).await?.0;
 
             let accounts: Vec<AccountHeader> = self
                 .store
@@ -149,33 +208,59 @@ impl<R: FeltRng> Client<R> {
                 .map(|(acc_header, _)| acc_header)
                 .collect();
 
-            let note_tags: Vec<NoteTag> =
-                self.store.get_unique_note_tags().await?.into_iter().collect();
-
-            let unspent_input_notes = self.get_input_notes(NoteFilter::Unspent).await?;
-            let unspent_output_notes = self.get_output_notes(NoteFilter::Unspent).await?;
-
             // Get the sync update from the network
+            let rpc_clone = self.rpc_api.clone();
             let status = StateSync::new(
                 self.rpc_api.clone(),
                 current_block,
-                has_relevant_notes,
                 accounts,
-                note_tags,
-                unspent_input_notes,
-                unspent_output_notes,
-                self.build_current_partial_mmr(false).await?,
+                self.store.get_unique_note_tags().await?.into_iter().collect(),
+                self.store.get_expected_note_ids().await?,
+                Box::new(move |note, block_header| {
+                    Box::pin(fetch_public_note_details(
+                        rpc_clone.clone(),
+                        *note.note_id(),
+                        block_header,
+                    ))
+                }),
+                self.store.get_unspent_input_note_nullifiers().await?,
             )
             .sync_state_step()
             .await?;
 
-            let (is_last_block, state_sync_update) = if let Some(status) = status {
+            let (is_last_block, relevant_sync_info) = if let Some(status) = status {
                 (
                     matches!(status, SyncStatus::SyncedToLastBlock(_)),
-                    status.into_state_sync_update(),
+                    status.into_relevant_sync_info(),
                 )
             } else {
                 break;
+            };
+
+            let (note_updates, transaction_updates, tags_to_remove) = self
+                .note_state_update(
+                    relevant_sync_info.new_notes,
+                    &relevant_sync_info.block_header,
+                    relevant_sync_info.expected_note_inclusions,
+                    relevant_sync_info.nullifiers,
+                    relevant_sync_info.committed_transactions,
+                )
+                .await?;
+
+            let (new_mmr_peaks, new_authentication_nodes) =
+                self.apply_mmr_changes(relevant_sync_info.mmr_delta).await?;
+
+            let state_sync_update = StateSyncUpdate {
+                block_header: relevant_sync_info.block_header,
+                note_updates,
+                transaction_updates,
+                new_mmr_peaks,
+                new_authentication_nodes,
+                account_updates: AccountUpdates::new(
+                    relevant_sync_info.updated_public_accounts,
+                    relevant_sync_info.mismatched_private_accounts,
+                ),
+                tags_to_remove,
             };
 
             let sync_summary: SyncSummary = (&state_sync_update).into();
@@ -198,6 +283,223 @@ impl<R: FeltRng> Client<R> {
         self.update_mmr_data().await?;
 
         Ok(total_sync_summary)
+    }
+
+    // HELPERS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
+    /// list or note tag records to be removed from the store.
+    async fn committed_note_updates(
+        &self,
+        expected_note_inclusions: Vec<CommittedNote>,
+        block_header: &BlockHeader,
+    ) -> Result<(NoteUpdates, Vec<NoteTagRecord>), ClientError> {
+        let relevant_note_filter = NoteFilter::List(
+            expected_note_inclusions.iter().map(|note| note.note_id()).cloned().collect(),
+        );
+
+        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
+            .store
+            .get_input_notes(relevant_note_filter.clone())
+            .await?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
+
+        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> = self
+            .store
+            .get_output_notes(relevant_note_filter)
+            .await?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
+
+        let mut committed_tracked_input_notes = vec![];
+        let mut committed_tracked_output_notes = vec![];
+        let mut removed_tags = vec![];
+
+        for committed_note in expected_note_inclusions {
+            let inclusion_proof = NoteInclusionProof::new(
+                block_header.block_num(),
+                committed_note.note_index(),
+                committed_note.merkle_path().clone(),
+            )?;
+
+            if let Some(mut note_record) = committed_input_notes.remove(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of input notes
+
+                let inclusion_proof_received = note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
+                let block_header_received = note_record.block_header_received(*block_header)?;
+
+                removed_tags.push((&note_record).try_into()?);
+
+                if inclusion_proof_received || block_header_received {
+                    committed_tracked_input_notes.push(note_record);
+                }
+            }
+
+            if let Some(mut note_record) = committed_output_notes.remove(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of output notes
+
+                if note_record.inclusion_proof_received(inclusion_proof.clone())? {
+                    committed_tracked_output_notes.push(note_record);
+                }
+            }
+        }
+
+        Ok((
+            NoteUpdates::new(
+                vec![],
+                vec![],
+                committed_tracked_input_notes,
+                committed_tracked_output_notes,
+            ),
+            removed_tags,
+        ))
+    }
+
+    /// Returns the [NoteUpdates] containing consumed input/output notes and a list of IDs of the
+    /// transactions that were discarded.
+    async fn consumed_note_updates(
+        &self,
+        nullifiers: Vec<NullifierUpdate>,
+        committed_transactions: &[TransactionUpdate],
+    ) -> Result<(NoteUpdates, Vec<TransactionId>), ClientError> {
+        let nullifier_filter = NoteFilter::Nullifiers(
+            nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect(),
+        );
+
+        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> = self
+            .store
+            .get_input_notes(nullifier_filter.clone())
+            .await?
+            .into_iter()
+            .map(|n| (n.nullifier(), n))
+            .collect();
+
+        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> = self
+            .store
+            .get_output_notes(nullifier_filter)
+            .await?
+            .into_iter()
+            .map(|n| {
+                (
+                    n.nullifier()
+                        .expect("Output notes returned by this query should have nullifiers"),
+                    n,
+                )
+            })
+            .collect();
+
+        let mut consumed_tracked_input_notes = vec![];
+        let mut consumed_tracked_output_notes = vec![];
+
+        // Committed transactions
+        for transaction_update in committed_transactions {
+            let transaction_nullifiers: Vec<Nullifier> = consumed_input_notes
+                .iter()
+                .filter_map(|(nullifier, note_record)| {
+                    if note_record.is_processing()
+                        && note_record.consumer_transaction_id()
+                            == Some(&transaction_update.transaction_id)
+                    {
+                        Some(nullifier)
+                    } else {
+                        None
+                    }
+                })
+                .cloned()
+                .collect();
+
+            for nullifier in transaction_nullifiers {
+                if let Some(mut input_note_record) = consumed_input_notes.remove(&nullifier) {
+                    if input_note_record.transaction_committed(
+                        transaction_update.transaction_id,
+                        transaction_update.block_num,
+                    )? {
+                        consumed_tracked_input_notes.push(input_note_record);
+                    }
+                }
+            }
+        }
+
+        // Nullified notes
+        let mut discarded_transactions = vec![];
+        for nullifier_update in nullifiers {
+            let nullifier = nullifier_update.nullifier;
+            let block_num = nullifier_update.block_num;
+
+            if let Some(mut input_note_record) = consumed_input_notes.remove(&nullifier) {
+                if input_note_record.is_processing() {
+                    discarded_transactions.push(
+                        *input_note_record
+                            .consumer_transaction_id()
+                            .expect("Processing note should have consumer transaction id"),
+                    );
+                }
+
+                if input_note_record.consumed_externally(nullifier, block_num)? {
+                    consumed_tracked_input_notes.push(input_note_record);
+                }
+            }
+
+            if let Some(mut output_note_record) = consumed_output_notes.remove(&nullifier) {
+                if output_note_record.nullifier_received(nullifier, block_num)? {
+                    consumed_tracked_output_notes.push(output_note_record);
+                }
+            }
+        }
+
+        Ok((
+            NoteUpdates::new(
+                vec![],
+                vec![],
+                consumed_tracked_input_notes,
+                consumed_tracked_output_notes,
+            ),
+            discarded_transactions,
+        ))
+    }
+
+    /// Compares the state of tracked notes with the updates received from the node and returns the
+    /// note and transaction changes that should be applied to the store plus a list of note tag
+    /// records that are no longer relevant.
+    ///
+    /// The note changes might include:
+    /// * New notes that we received from the node and might be relevant to the client.
+    /// * Tracked expected notes that were committed in the block.
+    /// * Tracked notes that were being processed by a transaction that got committed.
+    /// * Tracked notes that were nullified by an external transaction.
+    ///
+    /// The transaction changes might include:
+    /// * Transactions that were committed in the block. Some of these might me tracked by the
+    ///   client and need to be marked as committed.
+    /// * Local tracked transactions that were discarded because the notes that they were processing
+    ///   were nullified by an another transaction.
+    async fn note_state_update(
+        &self,
+        new_input_notes: Vec<InputNoteRecord>,
+        block_header: &BlockHeader,
+        committed_notes: Vec<CommittedNote>,
+        nullifiers: Vec<NullifierUpdate>,
+        committed_transactions: Vec<TransactionUpdate>,
+    ) -> Result<(NoteUpdates, TransactionUpdates, Vec<NoteTagRecord>), ClientError> {
+        let (committed_note_updates, tags_to_remove) =
+            self.committed_note_updates(committed_notes, block_header).await?;
+
+        let (consumed_note_updates, discarded_transactions) =
+            self.consumed_note_updates(nullifiers, &committed_transactions).await?;
+
+        let note_updates = NoteUpdates::new(new_input_notes, vec![], vec![], vec![])
+            .combine_with(committed_note_updates)
+            .combine_with(consumed_note_updates);
+
+        let transaction_updates =
+            TransactionUpdates::new(committed_transactions, discarded_transactions);
+
+        Ok((note_updates, transaction_updates, tags_to_remove))
     }
 }
 
