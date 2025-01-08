@@ -132,26 +132,6 @@ pub trait Store: Send + Sync {
         nullifiers
     }
 
-    /// Returns the note IDs of all expected notes.
-    ///
-    /// The default implementation of this method uses [Store::get_input_notes] and
-    /// [Store::get_output_notes].
-    async fn get_expected_note_ids(&self) -> Result<Vec<NoteId>, StoreError> {
-        let input_notes = self
-            .get_input_notes(NoteFilter::Expected)
-            .await?
-            .into_iter()
-            .map(|input_note| input_note.id());
-
-        let output_notes = self
-            .get_output_notes(NoteFilter::Expected)
-            .await?
-            .into_iter()
-            .map(|output_note| output_note.id());
-
-        Ok(input_notes.chain(output_notes).collect())
-    }
-
     /// Inserts the provided input notes into the database. If a note with the same ID already
     /// exists, it will be replaced.
     async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError>;

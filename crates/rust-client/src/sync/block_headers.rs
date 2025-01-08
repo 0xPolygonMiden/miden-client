@@ -3,11 +3,7 @@ use alloc::vec::Vec;
 use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_objects::{
     block::{block_epoch_from_number, block_num_from_epoch},
-    crypto::{
-        self,
-        merkle::{MerklePath, MmrDelta},
-        rand::FeltRng,
-    },
+    crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
 use tracing::warn;
@@ -23,7 +19,7 @@ use crate::{
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
-    pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
+    pub(crate) async fn update_mmr_data(&self) -> Result<(), ClientError> {
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
         let mut changed_notes = vec![];
@@ -148,7 +144,7 @@ impl<R: FeltRng> Client<R> {
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
-        &mut self,
+        &self,
         block_num: u32,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
@@ -211,32 +207,6 @@ impl<R: FeltRng> Client<R> {
     pub async fn get_latest_epoch_block(&mut self) -> Result<BlockHeader, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
         self.get_epoch_block(current_block_num).await
-    }
-
-    /// Applies changes to the current MMR structure, returns the updated [PartialMmr] and the
-    /// authentication nodes for leaves we track.
-    pub(crate) async fn apply_mmr_changes(
-        &self,
-        mmr_delta: MmrDelta,
-    ) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
-        let mut partial_mmr = self.build_current_partial_mmr(false).await?;
-        let (current_block_header, current_block_has_relevant_notes) =
-            self.store.get_block_header_by_num(self.get_sync_height().await?).await?;
-
-        // First, apply curent_block to the Mmr
-        let new_authentication_nodes = partial_mmr
-            .add(current_block_header.hash(), current_block_has_relevant_notes)
-            .into_iter();
-
-        // Apply the Mmr delta to bring Mmr to forest equal to chain tip
-        let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = partial_mmr
-            .apply(mmr_delta)
-            .map_err(StoreError::MmrError)?
-            .into_iter()
-            .chain(new_authentication_nodes)
-            .collect();
-
-        Ok((partial_mmr.peaks(), new_authentication_nodes))
     }
 }
 
