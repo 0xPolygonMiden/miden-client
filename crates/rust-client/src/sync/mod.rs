@@ -21,7 +21,7 @@ pub use tags::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
 pub use state_sync::{
-    account_state_sync, committed_note_updates, consumed_note_updates, StateSync, StateSyncUpdate,
+    on_note_received, on_nullifier_received, on_transaction_committed, StateSync, StateSyncUpdate,
     SyncStatus,
 };
 
@@ -136,35 +136,20 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                let rpc_api_clone = self.rpc_api.clone();
                 move |committed_notes, block_header| {
-                    Box::pin(committed_note_updates(
-                        store_clone.clone(),
-                        rpc_api_clone.clone(),
-                        committed_notes,
-                        block_header,
-                    ))
+                    Box::pin(on_note_received(store_clone.clone(), committed_notes, block_header))
                 }
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                move |nullifier_updates, committed_transactions| {
-                    Box::pin(consumed_note_updates(
-                        store_clone.clone(),
-                        nullifier_updates,
-                        committed_transactions,
-                    ))
+                move |transaction_update| {
+                    Box::pin(on_transaction_committed(store_clone.clone(), transaction_update))
                 }
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                let rpc_api_clone = self.rpc_api.clone();
-                move |account_hash_updates| {
-                    Box::pin(account_state_sync(
-                        store_clone.clone(),
-                        rpc_api_clone.clone(),
-                        account_hash_updates,
-                    ))
+                move |nullifier_update| {
+                    Box::pin(on_nullifier_received(store_clone.clone(), nullifier_update))
                 }
             }),
         );
@@ -178,12 +163,12 @@ impl<R: FeltRng> Client<R> {
             let (current_block, has_relevant_notes) =
                 self.store.get_block_header_by_num(current_block_num).await?;
 
-            let account_ids: Vec<AccountId> = self
+            let accounts = self
                 .store
                 .get_account_headers()
                 .await?
                 .into_iter()
-                .map(|(acc_header, _)| acc_header.id())
+                .map(|(acc_header, _)| acc_header)
                 .collect();
 
             let note_tags: Vec<NoteTag> =
@@ -197,7 +182,7 @@ impl<R: FeltRng> Client<R> {
                     current_block,
                     has_relevant_notes,
                     self.build_current_partial_mmr(false).await?,
-                    account_ids,
+                    accounts,
                     note_tags,
                     unspent_nullifiers,
                 )

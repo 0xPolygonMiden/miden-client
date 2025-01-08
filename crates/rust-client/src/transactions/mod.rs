@@ -75,6 +75,18 @@ impl TransactionUpdates {
         }
     }
 
+    pub fn new_empty() -> Self {
+        Self {
+            committed_transactions: vec![],
+            discarded_transactions: vec![],
+        }
+    }
+
+    pub fn combine_with(&mut self, other: Self) {
+        self.committed_transactions.extend(other.committed_transactions);
+        self.discarded_transactions.extend(other.discarded_transactions);
+    }
+
     pub fn committed_transactions(&self) -> &[TransactionUpdate] {
         &self.committed_transactions
     }

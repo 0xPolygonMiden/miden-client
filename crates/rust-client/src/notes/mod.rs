@@ -214,14 +214,21 @@ impl NoteUpdates {
         }
     }
 
+    pub fn new_empty() -> Self {
+        Self {
+            new_input_notes: Vec::new(),
+            new_output_notes: Vec::new(),
+            updated_input_notes: Vec::new(),
+            updated_output_notes: Vec::new(),
+        }
+    }
+
     /// Combines two [NoteUpdates] into a single one.
-    pub fn combine_with(mut self, other: Self) -> Self {
+    pub fn combine_with(&mut self, other: Self) {
         self.new_input_notes.extend(other.new_input_notes);
         self.new_output_notes.extend(other.new_output_notes);
         self.updated_input_notes.extend(other.updated_input_notes);
         self.updated_output_notes.extend(other.updated_output_notes);
-
-        self
     }
 
     /// Returns all new input note records, meant to be tracked by the client.
