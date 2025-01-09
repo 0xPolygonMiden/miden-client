@@ -20,8 +20,8 @@ pub use tags::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
 pub use state_sync::{
-    on_note_received, on_nullifier_received, on_transaction_committed, StateSync, StateSyncUpdate,
-    SyncStatus,
+    on_note_received, on_nullifier_received, on_transaction_committed, OnNoteReceived,
+    OnNullifierReceived, OnTransactionCommitted, StateSync, StateSyncUpdate, SyncStatus,
 };
 
 /// Contains stats about the sync operation.

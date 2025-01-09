@@ -98,7 +98,7 @@ impl SyncStatus {
 /// the committed note received from the node and the block header in which the note was included.
 /// It returns the note updates that should be applied to the store and a list of public note IDs
 /// that should be queried from the node and start being tracked.
-type OnNoteReceived = Box<
+pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
         BlockHeader,
@@ -108,7 +108,7 @@ type OnNoteReceived = Box<
 /// Callback to be executed when a transaction is marked committed in the sync response. It receives
 /// the transaction update received from the node. It returns the note updates and transaction
 /// updates that should be applied to the store as a result of the transaction being committed.
-type OnTransactionCommitted = Box<
+pub type OnTransactionCommitted = Box<
     dyn Fn(
         TransactionUpdate,
     )
@@ -120,7 +120,7 @@ type OnTransactionCommitted = Box<
 /// nullifier will not be passed to this callback. It receives the nullifier update received from
 /// the node. It returns the note updates and transaction updates that should be applied to the
 /// store as a result of the nullifier being received.
-type OnNullifierReceived = Box<
+pub type OnNullifierReceived = Box<
     dyn Fn(
         NullifierUpdate,
     )

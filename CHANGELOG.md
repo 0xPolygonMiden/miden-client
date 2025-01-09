@@ -19,6 +19,7 @@
 
 ### Changes
 
+* [BREAKING] Refactored the sync process to use a new `SyncState` component (#650).
 * Refactored RPC functions and structs to improve code quality (#616).
 * [BREAKING] Added support for new two `Felt` account ID (#639).
 * [BREAKING] Removed unnecessary methods from `Client` (#631).
