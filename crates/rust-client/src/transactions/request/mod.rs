@@ -340,21 +340,18 @@ mod tests {
 
     #[test]
     fn transaction_request_serialization() {
-        let sender_id = AccountId::new_dummy(
+        let sender_id = AccountId::dummy(
             [0u8; 15],
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Private,
         );
-        let target_id = AccountId::new_dummy(
+        let target_id = AccountId::dummy(
             [1u8; 15],
             AccountType::RegularAccountImmutableCode,
             AccountStorageMode::Public,
         );
-        let faucet_id = AccountId::new_dummy(
-            [2u8; 15],
-            AccountType::FungibleFaucet,
-            AccountStorageMode::Private,
-        );
+        let faucet_id =
+            AccountId::dummy([2u8; 15], AccountType::FungibleFaucet, AccountStorageMode::Private);
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];

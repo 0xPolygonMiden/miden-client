@@ -2019,7 +2019,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-send-sync-traits#934ae4a6d1f1ffc082812b31e5d7a464c912089b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-send-sync-traits#934ae4a6d1f1ffc082812b31e5d7a464c912089b"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2083,7 +2083,11 @@ dependencies = [
  "miden-processor",
  "miden-verifier",
  "rand",
+ "rand_xoshiro",
+ "semver 1.0.24",
+ "serde",
  "thiserror 2.0.9",
+ "toml",
  "winter-rand-utils",
 ]
 
@@ -2149,7 +2153,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-send-sync-traits#934ae4a6d1f1ffc082812b31e5d7a464c912089b"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2166,7 +2170,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-prover"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#487e8b934d61422cdc84e9bb42ea49befa08bd44"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-send-sync-traits#934ae4a6d1f1ffc082812b31e5d7a464c912089b"
 dependencies = [
  "async-trait",
  "axum",
@@ -2187,12 +2191,14 @@ dependencies = [
  "pingora-core",
  "pingora-limits",
  "pingora-proxy",
+ "prometheus",
  "prost",
  "prost-build",
  "protox",
  "reqwest",
  "serde",
  "serde_qs",
+ "thiserror 2.0.9",
  "tokio",
  "tokio-stream",
  "toml",
@@ -3261,6 +3267,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_xoshiro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
+dependencies = [
+ "rand_core",
+]
+
+[[package]]
 name = "rayon"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3582,6 +3597,9 @@ name = "semver"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cb6eb87a131f756572d7fb904f6e7b68633f09cca868c5df1c4b8d1a694bbba"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "semver-parser"

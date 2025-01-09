@@ -11,18 +11,18 @@ use rand::Rng;
 use super::Store;
 
 /// Represents an authenticator based on a [Store].
-pub struct StoreAuthenticator<R> {
+pub struct StoreAuthenticator<R: Send + Sync> {
     store: Arc<dyn Store>,
     rng: Arc<RwLock<R>>,
 }
 
-impl<R: Rng> StoreAuthenticator<R> {
+impl<R: Rng + Send + Sync> StoreAuthenticator<R> {
     pub fn new_with_rng(store: Arc<dyn Store>, rng: R) -> Self {
         StoreAuthenticator { store, rng: Arc::new(RwLock::new(rng)) }
     }
 }
 
-impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
+impl<R: Rng + Send + Sync> TransactionAuthenticator for StoreAuthenticator<R> {
     /// Gets a signature over a message, given a public key.
     ///
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
