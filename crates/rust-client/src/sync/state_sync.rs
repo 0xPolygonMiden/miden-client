@@ -1,6 +1,5 @@
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{future::Future, pin::Pin};
-use std::vec;
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},

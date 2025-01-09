@@ -42,7 +42,7 @@ pub struct TonicRpcClient {
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
-    /// the given timeout in milliseconds
+    /// the given timeout in milliseconds.
     pub async fn new(endpoint: Endpoint, timeout_ms: u64) -> Result<TonicRpcClient, RpcError> {
         let endpoint = tonic::transport::Endpoint::try_from(endpoint.to_string())
             .map_err(|err| RpcError::ConnectionError(err.to_string()))?
@@ -210,10 +210,10 @@ impl NodeRpcClient for TonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - There was an error sending the request to the node
+    /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
     ///   details).
-    /// - There is an error during [Account] deserialization
+    /// - There is an error during [Account] deserialization.
     async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError> {
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 

@@ -65,8 +65,12 @@ impl Store for WebStore {
         self.get_sync_height().await
     }
 
-    async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
-        self.apply_state_sync(state_sync_update).await
+    async fn apply_state_sync_step(
+        &self,
+        state_sync_update: StateSyncUpdate,
+        block_has_relevant_notes: bool,
+    ) -> Result<(), StoreError> {
+        self.apply_state_sync_step(state_sync_update, block_has_relevant_notes).await
     }
 
     // TRANSACTIONS

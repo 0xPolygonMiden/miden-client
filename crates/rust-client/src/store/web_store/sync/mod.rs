@@ -97,20 +97,18 @@ impl WebStore {
         Ok(removed_tags)
     }
 
-    pub(super) async fn apply_state_sync(
+    pub(super) async fn apply_state_sync_step(
         &self,
         state_sync_update: StateSyncUpdate,
+        block_has_relevant_notes: bool,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
             note_updates,
-            transactions_to_commit: committed_transactions,
+            transaction_updates, //TODO: Add support for discarded transactions in web store
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: _transactions_to_discard, /* TODO: Add support for discarded
-                                                                * transactions in web store */
+            account_updates,
             tags_to_remove,
         } = state_sync_update;
 
@@ -147,22 +145,33 @@ impl WebStore {
             .collect();
 
         // Serialize data for updating committed transactions
-        let transactions_to_commit_block_nums_as_str = committed_transactions
+        let transactions_to_commit_block_nums_as_str = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.block_num.to_string())
             .collect();
-        let transactions_to_commit_as_str: Vec<String> = committed_transactions
+        let transactions_to_commit_as_str: Vec<String> = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&account.clone()).await.unwrap();
         }
 
-        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
+        for (account_id, digest) in account_updates.mismatched_private_accounts() {
+            // Mismatched digests may be due to stale network data. If the mismatched digest is
+            // tracked in the db and corresponds to the mismatched account, it means we
+            // got a past update and shouldn't lock the account.
+            if let Some(account) = self.get_account_header_by_hash(*digest).await? {
+                if account.id() == *account_id {
+                    continue;
+                }
+            }
+
             lock_account(account_id).await.unwrap();
         }
 

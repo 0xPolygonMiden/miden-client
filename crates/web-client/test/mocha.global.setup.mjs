@@ -30,7 +30,11 @@ before(async () => {
     shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true, protocolTimeout: 360000 });
+  browser = await puppeteer.launch({
+    headless: true,
+    protocolTimeout: 360000,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
 

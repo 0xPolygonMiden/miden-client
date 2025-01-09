@@ -182,12 +182,12 @@ impl AccountUpdates {
         }
     }
 
-    /// Returns updated public accounts.
+    /// Returns the updated public accounts.
     pub fn updated_public_accounts(&self) -> &[Account] {
         &self.updated_public_accounts
     }
 
-    /// Returns mismatched private accounts.
+    /// Returns the mismatched private accounts.
     pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
         &self.mismatched_private_accounts
     }

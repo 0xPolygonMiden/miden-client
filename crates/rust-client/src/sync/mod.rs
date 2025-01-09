@@ -1,9 +1,8 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
 //! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::cmp::max;
-use std::boxed::Box;
 
 use miden_objects::{
     accounts::AccountId,

@@ -309,7 +309,6 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).await.unwrap();
-    println!("input note state: {:?}", input_note.state());
     assert!(matches!(input_note.state(), InputNoteState::ConsumedAuthenticatedLocal { .. }));
     if let InputNoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
         submission_data,

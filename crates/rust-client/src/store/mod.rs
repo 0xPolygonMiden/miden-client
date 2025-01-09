@@ -324,7 +324,7 @@ pub trait Store: Send + Sync {
     /// - Updating the corresponding tracked input/output notes.
     /// - Removing note tags that are no longer relevant.
     /// - Updating transactions in the store, marking as `committed` or `discarded`.
-    /// - Applies the MMR delta to the store.
+    /// - Storing new MMR authentication nodes.
     /// - Updating the tracked on-chain accounts.
     async fn apply_state_sync_step(
         &self,
