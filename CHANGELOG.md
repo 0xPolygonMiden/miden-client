@@ -19,6 +19,7 @@
 
 ### Changes
 
+* Add support for notes without assets in transaction requests (#654).
 * Refactored RPC functions and structs to improve code quality (#616).
 * [BREAKING] Added support for new two `Felt` account ID (#639).
 * [BREAKING] Removed unnecessary methods from `Client` (#631).
