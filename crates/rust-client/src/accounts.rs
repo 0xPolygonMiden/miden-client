@@ -148,6 +148,33 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<Option<AuthSecretKey>, ClientError> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
+
+    pub async fn get_account_or_error(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AccountRecord, ClientError> {
+        self.get_account(account_id)
+            .await?
+            .ok_or(ClientError::AccountDataNotFound(account_id))
+    }
+
+    pub async fn get_account_header_or_error(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountHeader, AccountStatus), ClientError> {
+        self.get_account_header_by_id(account_id)
+            .await?
+            .ok_or(ClientError::AccountDataNotFound(account_id))
+    }
+
+    pub async fn get_account_auth_or_error(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthSecretKey, ClientError> {
+        self.get_account_auth(account_id)
+            .await?
+            .ok_or(ClientError::AccountDataNotFound(account_id))
+    }
 }
 
 // ACCOUNT UPDATES

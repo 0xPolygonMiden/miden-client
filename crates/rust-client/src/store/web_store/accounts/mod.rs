@@ -272,7 +272,7 @@ impl WebStore {
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         account_id: &str,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         let promise = idxdb_fetch_and_cache_account_auth_by_pub_key(account_id.to_string());
 
         // Separate the conversion of the account_id
@@ -287,22 +287,27 @@ impl WebStore {
             .await
             .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).map_err(|err| {
-            StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                "Failed to deserialize {:?}",
-                err
-            )))
-        })?;
-
-        let auth_info =
-            AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info).map_err(|err| {
+        let account_auth_idxdb: Option<AccountAuthIdxdbObject> =
+            from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to read auth info: {:?}",
+                    "Failed to deserialize {:?}",
                     err
                 )))
             })?;
 
-        Ok(auth_info)
+        match account_auth_idxdb {
+            None => Ok(None),
+            Some(account_auth_idxdb) => {
+                // Convert the auth_info to the appropriate AuthInfo enum variant
+                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)
+                    .map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to read auth info: {:?}", err),
+                        ))
+                    })?;
+                Ok(Some(auth_info))
+            },
+        }
     }
 
     pub(crate) async fn upsert_foreign_account_code(

@@ -60,7 +60,7 @@ impl WebClient {
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<AuthSecretKey, JsValue> {
+    ) -> Result<Option<AuthSecretKey>, JsValue> {
         if let Some(store) = &self.store {
             let native_auth_secret_key = store
                 .fetch_and_cache_account_auth_by_pub_key(&account_id.to_string())
@@ -69,7 +69,7 @@ impl WebClient {
                     JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
                 })?;
 
-            Ok(native_auth_secret_key.into())
+            Ok(native_auth_secret_key.map(|auth_secret_key| auth_secret_key.into()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
