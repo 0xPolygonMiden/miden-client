@@ -362,8 +362,10 @@ impl<R: FeltRng> Client<R> {
         let future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
 
-        let tx_script = transaction_request
-            .build_transaction_script(self.get_account_capabilities(account_id).await?)?;
+        let tx_script = transaction_request.build_transaction_script(
+            self.get_account_capabilities(account_id).await?,
+            self.in_debug_mode,
+        )?;
 
         let foreign_accounts = transaction_request.foreign_accounts().clone();
         let mut tx_args = transaction_request.into_transaction_args(tx_script);
@@ -550,7 +552,8 @@ impl<R: FeltRng> Client<R> {
     where
         T: IntoIterator<Item = (Word, Vec<Felt>)>,
     {
-        TransactionScript::compile(program, inputs, TransactionKernel::assembler())
+        let assembler = TransactionKernel::assembler().with_debug_mode(self.in_debug_mode);
+        TransactionScript::compile(program, inputs, assembler)
             .map_err(ClientError::TransactionScriptError)
     }
 

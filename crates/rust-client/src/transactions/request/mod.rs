@@ -180,12 +180,16 @@ impl TransactionRequest {
     pub(crate) fn build_transaction_script(
         &self,
         account_capabilities: AccountCapabilities,
+        in_debug_mode: bool,
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                let tx_script_builder =
-                    TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
+                let tx_script_builder = TransactionScriptBuilder::new(
+                    account_capabilities,
+                    self.expiration_delta,
+                    in_debug_mode,
+                );
 
                 Ok(tx_script_builder.build_send_notes_script(notes)?)
             },
@@ -193,8 +197,11 @@ impl TransactionRequest {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
                 } else {
-                    let tx_script_builder =
-                        TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
+                    let tx_script_builder = TransactionScriptBuilder::new(
+                        account_capabilities,
+                        self.expiration_delta,
+                        in_debug_mode,
+                    );
 
                     Ok(tx_script_builder.build_auth_script()?)
                 }

@@ -119,6 +119,7 @@ pub struct Client<R: FeltRng> {
     /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
     tx_prover: Arc<LocalTransactionProver>,
     tx_executor: TransactionExecutor,
+    in_debug_mode: bool,
 }
 
 /// Construction and access methods.
@@ -169,6 +170,7 @@ impl<R: FeltRng> Client<R> {
             rpc_api,
             tx_executor,
             tx_prover,
+            in_debug_mode,
         }
     }
 
