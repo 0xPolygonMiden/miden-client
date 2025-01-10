@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::{
     accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    notes::utils,
     transaction::TransactionKernel,
 };
 use miden_objects::{
@@ -13,14 +14,18 @@ use miden_objects::{
     },
     assets::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    notes::{NoteFile, NoteTag},
+    notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
+        NoteType,
+    },
     testing::account_id::{
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
         ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
-    Felt, FieldElement, Word,
+    transaction::OutputNote,
+    Felt, FieldElement, Word, ZERO,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
@@ -28,7 +33,9 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::TransactionRequestBuilder,
+    transactions::{
+        TransactionRequestBuilder, TransactionRequestError, TransactionScriptBuilderError,
+    },
     Client, ClientError,
 };
 
@@ -144,7 +151,7 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap();
+    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap().unwrap();
 
     let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -165,7 +172,7 @@ async fn insert_basic_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -196,7 +203,7 @@ async fn insert_faucet_account() {
     let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
-    let fetched_account = fetched_account_data.unwrap();
+    let fetched_account = fetched_account_data.unwrap().unwrap();
     let fetched_account_seed = fetched_account.seed().cloned();
     let fetched_account: Account = fetched_account.into();
 
@@ -263,7 +270,7 @@ async fn test_account_code() {
         .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
         .await
         .unwrap();
-    let retrieved_acc = client.get_account(account.id()).await.unwrap();
+    let retrieved_acc = client.get_account(account.id()).await.unwrap().unwrap();
     assert_eq!(*account.code(), *retrieved_acc.account().code());
 }
 
@@ -287,14 +294,14 @@ async fn test_get_account_by_id() {
 
     // Retrieving an existing account should succeed
     let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {
-        Ok(account) => account,
+        Ok(account) => account.unwrap(),
         Err(err) => panic!("Error retrieving account: {}", err),
     };
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
     let invalid_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
-    assert!(client.get_account_header_by_id(invalid_id).await.is_err());
+    assert!(client.get_account_header_by_id(invalid_id).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -572,7 +579,7 @@ async fn test_import_processing_note_returns_error() {
     client.submit_transaction(transaction).await.unwrap();
 
     let note_id = transaction_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap();
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
 
     let input = [(note.try_into().unwrap(), None)];
     let consume_note_request =
@@ -629,5 +636,62 @@ async fn test_no_nonce_change_transaction_request() {
     assert!(matches!(
         result,
         Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
+    ));
+}
+
+#[tokio::test]
+async fn test_note_without_asset() {
+    let (mut client, _rpc_api) = create_test_client().await;
+
+    let (faucet, _seed) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+        .await
+        .unwrap();
+
+    let (wallet, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+
+    client.sync_state().await.unwrap();
+
+    // Create note without assets
+    let serial_num = client.rng().draw_word();
+    let recipient = utils::build_p2id_recipient(wallet.id(), serial_num).unwrap();
+    let tag = NoteTag::from_account_id(wallet.id(), NoteExecutionMode::Local).unwrap();
+    let metadata =
+        NoteMetadata::new(wallet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
+            .unwrap();
+    let vault = NoteAssets::new(vec![]).unwrap();
+
+    let note = Note::new(vault.clone(), metadata, recipient.clone());
+
+    // Create and execute transaction
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .unwrap()
+        .build();
+
+    let transaction = client.new_transaction(wallet.id(), transaction_request.clone()).await;
+
+    assert!(transaction.is_ok());
+
+    // Create the same transaction for the faucet
+    let metadata =
+        NoteMetadata::new(faucet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
+            .unwrap();
+    let note = Note::new(vault, metadata, recipient);
+
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .unwrap()
+        .build();
+
+    let error = client.new_transaction(faucet.id(), transaction_request).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        ClientError::TransactionRequestError(
+            TransactionRequestError::TransactionScriptBuilderError(
+                TransactionScriptBuilderError::FaucetNoteWithoutAsset
+            )
+        )
     ));
 }

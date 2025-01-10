@@ -66,7 +66,7 @@ impl SqliteStore {
     pub(crate) fn get_account_header(
         conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE id = ? \
@@ -76,7 +76,7 @@ impl SqliteStore {
             .query_map(params![account_id.to_hex()], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
-            .ok_or(StoreError::AccountDataNotFound(account_id))?
+            .transpose()
     }
 
     pub(crate) fn get_account_header_by_hash(
@@ -101,7 +101,7 @@ impl SqliteStore {
     pub(crate) fn get_account(
         conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<AccountRecord, StoreError> {
+    ) -> Result<Option<AccountRecord>, StoreError> {
         const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets, accounts.locked \
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
@@ -115,20 +115,20 @@ impl SqliteStore {
             .query_map(params![account_id.to_hex()], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
             .next()
-            .ok_or(StoreError::AccountDataNotFound(account_id))?
+            .transpose()
     }
 
     /// Retrieve account keys data by Account ID.
     pub(crate) fn get_account_auth(
         conn: &mut Connection,
         account_id: AccountId,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         conn.prepare(QUERY)?
             .query_map(params![account_id.to_hex()], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
-            .ok_or(StoreError::AccountDataNotFound(account_id))?
+            .transpose()
     }
 
     pub(crate) fn insert_account(
@@ -172,14 +172,14 @@ impl SqliteStore {
     pub fn get_account_auth_by_pub_key(
         conn: &mut Connection,
         pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
         conn.prepare(QUERY)?
             .query_map(params![pub_key_bytes], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
-            .ok_or(StoreError::AccountKeyNotFound(Digest::from(pub_key).to_string()))?
+            .transpose()
     }
 
     pub fn upsert_foreign_account_code(
@@ -569,7 +569,7 @@ mod tests {
                 .unwrap();
         }
 
-        let account_auth = Store::get_account_auth(&store, account_id).await.unwrap();
+        let account_auth = Store::get_account_auth(&store, account_id).await.unwrap().unwrap();
 
         match account_auth {
             AuthSecretKey::RpoFalcon512(act_key_pair) => {

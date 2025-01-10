@@ -54,7 +54,7 @@ async fn test_onchain_notes_flow() {
 
     // Assert that the note is the same
     let received_note: InputNote =
-        client_2.get_input_note(note.id()).await.unwrap().try_into().unwrap();
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
@@ -125,9 +125,9 @@ async fn test_onchain_accounts() {
     let second_client_target_account_id = second_client_first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap();
+    let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
-    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap();
+    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap().unwrap();
     client_2
         .add_account(&faucet_account_header, faucet_seed, &auth_info, false)
         .await
@@ -142,10 +142,16 @@ async fn test_onchain_accounts() {
     // between clients
     client_2.sync_state().await.unwrap();
 
-    let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
-    let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
+    let (client_1_faucet, _) = client_1
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
+    let (client_2_faucet, _) = client_2
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -176,10 +182,16 @@ async fn test_onchain_accounts() {
     )
     .await;
 
-    let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
-    let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).await.unwrap();
+    let (client_1_faucet, _) = client_1
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
+    let (client_2_faucet, _) = client_2
+        .get_account_header_by_id(faucet_account_header.id())
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -192,6 +204,7 @@ async fn test_onchain_accounts() {
         .get_account(from_account_id)
         .await
         .unwrap()
+        .unwrap()
         .account()
         .vault()
         .get_balance(faucet_account_id)
@@ -199,6 +212,7 @@ async fn test_onchain_accounts() {
     let to_account_balance = client_2
         .get_account(to_account_id)
         .await
+        .unwrap()
         .unwrap()
         .account()
         .vault()
@@ -236,12 +250,13 @@ async fn test_onchain_accounts() {
     client_1.sync_state().await.unwrap();
 
     // Check that the client doesn't know who consumed the note
-    let input_note = client_1.get_input_note(notes[0].id()).await.unwrap();
+    let input_note = client_1.get_input_note(notes[0].id()).await.unwrap().unwrap();
     assert!(matches!(input_note.state(), InputNoteState::ConsumedExternal { .. }));
 
     let new_from_account_balance = client_1
         .get_account(from_account_id)
         .await
+        .unwrap()
         .unwrap()
         .account()
         .vault()
@@ -250,6 +265,7 @@ async fn test_onchain_accounts() {
     let new_to_account_balance = client_2
         .get_account(to_account_id)
         .await
+        .unwrap()
         .unwrap()
         .account()
         .vault()
@@ -313,7 +329,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Assert that the note is the same
     let received_note: InputNote =
-        client_2.get_input_note(note.id()).await.unwrap().try_into().unwrap();
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());

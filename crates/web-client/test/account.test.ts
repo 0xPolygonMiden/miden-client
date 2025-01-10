@@ -29,8 +29,7 @@ export const getAccountOneMatch =
   };
 
 interface GetAccountFailureResult {
-  nonExistingAccountId: string;
-  errorMessage: string;
+  hashOfGetAccountResult: string | undefined;
 }
 
 export const getAccountNoMatch = async (): Promise<GetAccountFailureResult> => {
@@ -38,19 +37,10 @@ export const getAccountNoMatch = async (): Promise<GetAccountFailureResult> => {
     const client = window.client;
     const nonExistingAccountId = window.TestUtils.create_mock_account_id();
 
-    try {
-      await client.get_account(nonExistingAccountId);
-    } catch (error: any) {
-      return {
-        nonExistingAccountId: nonExistingAccountId.to_string(),
-        errorMessage: error.message || error.toString(), // Capture the error message
-      };
-    }
+    const result = await client.get_account(nonExistingAccountId);
 
-    // If no error occurred (should not happen in this test case), return a generic error
     return {
-      nonExistingAccountId: nonExistingAccountId.to_string(),
-      errorMessage: "Unexpected success when fetching non-existing account",
+      hashOfGetAccountResult: result ? result.hash().to_hex() : undefined,
     };
   });
 };
@@ -66,7 +56,7 @@ describe("get_account tests", () => {
   it("returns error attempting to retrieve a non-existing account", async () => {
     const result = await getAccountNoMatch();
 
-    expect(result.errorMessage).to.match(/Failed to get account:/);
+    expect(result.hashOfGetAccountResult).to.be.undefined;
   });
 });
 
@@ -185,8 +175,7 @@ export const getAccountAuth =
   };
 
 interface GetAccountAuthFailureResult {
-  nonExistingAccountId: string;
-  errorMessage: string;
+  publicKey: any;
 }
 
 export const getAccountAuthNoMatch =
@@ -195,20 +184,12 @@ export const getAccountAuthNoMatch =
       const client = window.client;
       const nonExistingAccountId = window.TestUtils.create_mock_account_id();
 
-      try {
-        await client.get_account_auth(nonExistingAccountId);
-      } catch (error: any) {
-        return {
-          nonExistingAccountId: nonExistingAccountId.to_string(),
-          errorMessage: error.message || error.toString(), // Capture the error message
-        };
-      }
+      const result = await client.get_account_auth(nonExistingAccountId);
 
-      // If no error occurred (should not happen in this test case), return a generic error
       return {
-        nonExistingAccountId: nonExistingAccountId.to_string(),
-        errorMessage:
-          "Unexpected success when fetching non-existing account auth",
+        publicKey: result
+          ? result.get_rpo_falcon_512_public_key_as_word()
+          : undefined,
       };
     });
   };
@@ -225,7 +206,7 @@ describe("get_account_auth tests", () => {
   it("returns error attempting to retrieve a non-existing account auth", async () => {
     const result = await getAccountAuthNoMatch();
 
-    expect(result.errorMessage).to.match(/Failed to get account auth:/);
+    expect(result.publicKey).to.be.undefined;
   });
 });
 
@@ -260,8 +241,7 @@ export const fetchAndCacheAccountAuthByPubKey =
   };
 
 interface FetchAndCacheAccountAuthByPubKeyFailureResult {
-  nonExistingAccountId: string;
-  errorMessage: string;
+  publicKey: any;
 }
 
 export const fetchAndCacheAccountAuthByPubKeyNoMatch =
@@ -270,22 +250,15 @@ export const fetchAndCacheAccountAuthByPubKeyNoMatch =
       const client = window.client;
       const nonExistingAccountId = window.TestUtils.create_mock_account_id();
 
-      try {
+      const result =
         await client.fetch_and_cache_account_auth_by_pub_key(
           nonExistingAccountId
         );
-      } catch (error: any) {
-        return {
-          nonExistingAccountId: nonExistingAccountId.to_string(),
-          errorMessage: error.message || error.toString(), // Capture the error message
-        };
-      }
 
-      // If no error occurred (should not happen in this test case), return a generic error
       return {
-        nonExistingAccountId: nonExistingAccountId.to_string(),
-        errorMessage:
-          "Unexpected success when fetching non-existing account auth",
+        publicKey: result
+          ? result.get_rpo_falcon_512_public_key_as_word()
+          : undefined,
       };
     });
   };
@@ -302,8 +275,6 @@ describe("fetch_and_cache_account_auth_by_pub_key tests", () => {
   it("returns error attempting to retrieve/cache a non-existing account auth", async () => {
     const result = await fetchAndCacheAccountAuthByPubKeyNoMatch();
 
-    expect(result.errorMessage).to.match(
-      /Failed to fetch and cache account auth:/
-    );
+    expect(result.publicKey).to.be.undefined;
   });
 });

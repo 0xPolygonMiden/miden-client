@@ -159,8 +159,11 @@ impl<R: FeltRng> Client<R> {
         loop {
             // Get current state of the client
             let current_block_num = self.store.get_sync_height().await?;
-            let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num).await?;
+            let (current_block, has_relevant_notes) = self
+                .store
+                .get_block_header_by_num(current_block_num)
+                .await?
+                .expect("Current block should be in the store");
 
             let accounts = self
                 .store

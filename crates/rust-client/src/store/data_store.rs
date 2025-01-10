@@ -59,12 +59,20 @@ impl DataStore for ClientDataStore {
         }
 
         // Construct Account
-        let account_record = self.store.get_account(account_id).await?;
+        let account_record = self
+            .store
+            .get_account(account_id)
+            .await?
+            .ok_or(DataStoreError::AccountNotFound(account_id))?;
         let seed = account_record.seed().cloned();
         let account: Account = account_record.into();
 
         // Get header data
-        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;
+        let (block_header, _had_notes) = self
+            .store
+            .get_block_header_by_num(block_num)
+            .await?
+            .ok_or(DataStoreError::BlockNotFound(block_num))?;
 
         let mut list_of_notes = vec![];
         let mut block_nums: Vec<u32> = vec![];

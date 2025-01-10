@@ -22,8 +22,8 @@ jobs:
       - name: make - test
         run: make test
 
-  integration_tests:
-    name: integration_tests
+  integration-tests:
+    name: integration-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
@@ -33,15 +33,14 @@ jobs:
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
-      - run: cargo update
       - run: make integration-test-full
       - name: Kill miden-node
         if: always()
         run: make kill-node
 
-  integration_tests_web_client:
-    name: integration_tests_web_client
-    runs-on: ubuntu-latest
+  integration-tests-web-client:
+    name: integration-tests-web-client
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -55,15 +54,14 @@ jobs:
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
-      - run: cargo update
       - run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
         run: make kill-node
 
-  integration_tests_remote_prover_web_client:
-    name: integration_tests_remote_prover_web_client
-    runs-on: ubuntu-latest
+  integration-tests-remote-prover-web-client:
+    name: integration-tests-remote-prover-web-client
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -80,7 +78,6 @@ jobs:
       - run: make clean-prover
       - run: make prover
       - run: make start-prover > /dev/null &
-      - run: cargo update
       - run: make integration-test-remote-prover-web-client
       - name: Kill miden-node
         if: always()
