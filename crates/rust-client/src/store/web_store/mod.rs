@@ -219,3 +219,6 @@ impl Store for WebStore {
         self.get_unspent_input_note_nullifiers().await
     }
 }
+
+unsafe impl Send for WebStore {}
+unsafe impl Sync for WebStore {}
