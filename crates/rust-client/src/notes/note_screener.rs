@@ -158,7 +158,12 @@ impl NoteScreener {
         let mut accounts_with_relevance = Vec::new();
 
         for account_id in account_ids {
-            let account: Account = self.store.get_account(*account_id).await?.into();
+            let account: Account = self
+                .store
+                .get_account(*account_id)
+                .await?
+                .ok_or(NoteScreenerError::AccountDataNotFound(*account_id))?
+                .into();
 
             // Check that the account can cover the demanded asset
             match asset {
@@ -209,6 +214,8 @@ impl NoteScreener {
 pub enum NoteScreenerError {
     #[error("error while processing note inputs")]
     InvalidNoteInputsError(#[from] InvalidNoteInputsError),
+    #[error("account data wasn't found for account id {0}")]
+    AccountDataNotFound(AccountId),
     #[error("error while fetching data from the store")]
     StoreError(#[from] StoreError),
 }

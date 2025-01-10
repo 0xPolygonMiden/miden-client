@@ -38,6 +38,8 @@ pub enum ClientError {
     AccountNonceTooLow,
     #[error("asset error")]
     AssetError(#[source] AssetError),
+    #[error("account data wasn't found for account id {0}")]
+    AccountDataNotFound(AccountId),
     #[error("data deserialization error")]
     DataDeserializationError(#[from] DeserializationError),
     #[error("note with id {0} not found on chain")]

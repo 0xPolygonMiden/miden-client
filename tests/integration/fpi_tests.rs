@@ -131,7 +131,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         builder.with_public_foreign_accounts([foreign_account_id]).unwrap().build()
     } else {
         // Get foreign account current state (after 1st deployment tx)
-        let foreign_account = client.get_account(foreign_account_id).await.unwrap();
+        let foreign_account = client.get_account(foreign_account_id).await.unwrap().unwrap();
         builder
             .with_private_foreign_accounts([foreign_account.account().clone()])
             .unwrap()
