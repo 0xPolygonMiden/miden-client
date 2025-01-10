@@ -118,7 +118,9 @@ pub struct Client<R: FeltRng> {
     rpc_api: Box<dyn NodeRpcClient + Send>,
     /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
     tx_prover: Arc<LocalTransactionProver>,
+    /// An instance of a [TransactionExecutor] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
+    /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
 }
 
