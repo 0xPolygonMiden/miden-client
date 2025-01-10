@@ -290,6 +290,8 @@ impl Default for TransactionRequestBuilder {
 pub enum TransactionRequestError {
     #[error("foreign account data missing in the account proof")]
     ForeignAccountDataMissing,
+    #[error("foreign account storage slot {0} is not a map type")]
+    ForeignAccountStorageSlotInvalidIndex(u8),
     #[error("requested foreign account with ID {0} does not have an expected storage mode")]
     InvalidForeignAccountId(AccountId),
     #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
@@ -307,12 +309,14 @@ pub enum TransactionRequestError {
     InvalidTransactionScript(AssemblyError),
     #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
-    #[error("transaction script template error: {0}")]
-    ScriptTemplateError(String),
     #[error("note not found: {0}")]
     NoteNotFound(String),
     #[error("note creation error")]
     NoteCreationError(#[from] NoteError),
+    #[error("transaction script template error: {0}")]
+    ScriptTemplateError(String),
+    #[error("storage slot {0} not found in account ID {1}")]
+    StorageSlotNotFound(u8, AccountId),
     #[error("transaction script builder error")]
     TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
 }
@@ -337,6 +341,9 @@ mod tests {
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{TransactionRequest, TransactionRequestBuilder};
+    use crate::{
+        rpc::domain::accounts::AccountStorageRequirements, transactions::ForeignAccountInputs,
+    };
 
     #[test]
     fn transaction_request_serialization() {
@@ -397,9 +404,16 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_public_foreign_accounts([target_id])
+            .with_public_foreign_accounts([(
+                target_id,
+                AccountStorageRequirements::new([(5u8, &[Digest::default()])]),
+            )])
             .unwrap()
-            .with_private_foreign_accounts([account])
+            .with_private_foreign_accounts([ForeignAccountInputs::from_account(
+                account,
+                AccountStorageRequirements::default(),
+            )
+            .unwrap()])
             .unwrap()
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),

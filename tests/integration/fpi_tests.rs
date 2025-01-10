@@ -1,12 +1,13 @@
 use miden_client::{
     accounts::{Account, StorageSlot},
+    rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
-    transactions::{TransactionKernel, TransactionRequestBuilder},
+    transactions::{ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder},
     Felt, Word,
 };
 use miden_lib::accounts::auth::RpoFalcon512;
 use miden_objects::{
-    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey},
+    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     BlockHeader, Digest,
@@ -16,7 +17,7 @@ use super::common::*;
 
 // FPI TESTS
 // ================================================================================================
-
+const MAP_KEY: [Felt; 4] = [Felt::new(15), Felt::new(15), Felt::new(15), Felt::new(15)];
 const FPI_STORAGE_VALUE: Word =
     [Felt::new(9u64), Felt::new(12u64), Felt::new(18u64), Felt::new(30u64)];
 
@@ -43,7 +44,6 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
     let (foreign_account, foreign_seed, secret_key, proc_root) =
         foreign_account(storage_mode, &anchor_block);
-
     let foreign_account_id = foreign_account.id();
 
     client
@@ -128,14 +128,23 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
     let tx_request = if storage_mode == AccountStorageMode::Public {
-        builder.with_public_foreign_accounts([foreign_account_id]).unwrap().build()
-    } else {
-        // Get foreign account current state (after 1st deployment tx)
-        let foreign_account = client.get_account(foreign_account_id).await.unwrap();
+        // require slot 0, key `MAP_KEY` as well as account proof
         builder
-            .with_private_foreign_accounts([foreign_account.account().clone()])
+            .with_public_foreign_accounts([(
+                foreign_account_id,
+                AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
+            )])
             .unwrap()
             .build()
+    } else {
+        // Get foreign account current state (after 1st deployment tx)
+        let foreign_account: Account = client.get_account(foreign_account_id).await.unwrap().into();
+        let foreign_account_inputs = ForeignAccountInputs::from_account(
+            foreign_account,
+            AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
+        )
+        .unwrap();
+        builder.with_private_foreign_accounts([foreign_account_inputs]).unwrap().build()
     };
 
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
@@ -153,7 +162,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     }
 }
 
-/// Builds a foreign account with a custom component that retrieves a value from its storage.
+/// Builds a foreign account with a custom component that retrieves a value from its storage (map).
 ///
 /// # Returns
 ///
@@ -166,16 +175,26 @@ pub fn foreign_account(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
 ) -> (Account, Word, SecretKey, Digest) {
+    // store our expected value on map from slot 0 (map key 15)
+    let mut storage_map = StorageMap::new();
+    storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
+
     let get_item_component = AccountComponent::compile(
-        "
-        export.get_fpi_item
+        format!(
+            "
+        export.get_fpi_map_item
+            # map key
+            push.{map_key}
+            # item index
             push.0
-            exec.::miden::account::get_item
+            exec.::miden::account::get_map_item
             swapw dropw
         end
         ",
+            map_key = prepare_word(&MAP_KEY)
+        ),
         TransactionKernel::assembler(),
-        vec![StorageSlot::Value(FPI_STORAGE_VALUE)],
+        vec![StorageSlot::Map(storage_map)],
     )
     .unwrap()
     .with_supports_all_types();

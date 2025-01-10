@@ -26,6 +26,7 @@ use super::{
     },
     generated::{
         requests::{
+            get_account_proofs_request::{self},
             CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
             GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
@@ -34,7 +35,9 @@ use super::{
     AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
     StateSyncInfo,
 };
-use crate::rpc::generated::requests::GetBlockHeaderByNumberRequest;
+use crate::{
+    rpc::generated::requests::GetBlockHeaderByNumberRequest, transactions::ForeignAccount,
+};
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -279,7 +282,7 @@ impl NodeRpcClient for TonicRpcClient {
     }
 
     /// Sends a `GetAccountProofs` request to the Miden node, and extracts a list of [AccountProof]
-    /// from the response.
+    /// from the response, as well as the block number that they were retrieved for.
     ///
     /// # Errors
     ///
@@ -291,18 +294,26 @@ impl NodeRpcClient for TonicRpcClient {
     /// - There is an error during storage deserialization.
     async fn get_account_proofs(
         &mut self,
-        account_ids: &BTreeSet<AccountId>,
+        account_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
-        include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
-        let account_ids: Vec<AccountId> = account_ids.iter().copied().collect();
+        let requested_accounts = account_requests.len();
+        let mut rpc_account_requests: Vec<get_account_proofs_request::AccountRequest> =
+            Vec::with_capacity(account_requests.len());
+
+        for foreign_account in account_requests.iter() {
+            rpc_account_requests.push(get_account_proofs_request::AccountRequest {
+                account_id: Some(foreign_account.account_id().into()),
+                storage_requests: foreign_account.storage_slot_requirements().into(),
+            });
+        }
 
         let known_account_codes: BTreeMap<Digest, AccountCode> =
             known_account_codes.into_iter().map(|c| (c.commitment(), c)).collect();
 
         let request = GetAccountProofsRequest {
-            account_ids: account_ids.iter().map(|&id| id.into()).collect(),
-            include_headers: Some(include_headers),
+            account_requests: rpc_account_requests,
+            include_headers: Some(true),
             code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
         };
 
@@ -321,11 +332,19 @@ impl NodeRpcClient for TonicRpcClient {
         let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
         let block_num = response.block_num;
 
+        // sanity check response
+        if requested_accounts != response.account_proofs.len() {
+            return Err(RpcError::ExpectedDataMissing(
+                "AccountProof did not contain all account IDs".to_string(),
+            ));
+        }
+
         for account in response.account_proofs {
             let merkle_proof = account
                 .account_proof
                 .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
                 .try_into()?;
+
             let account_hash = account
                 .account_hash
                 .ok_or(RpcError::ExpectedDataMissing("AccountHash".to_string()))?
@@ -336,13 +355,9 @@ impl NodeRpcClient for TonicRpcClient {
                 .ok_or(RpcError::ExpectedDataMissing("AccountId".to_string()))?
                 .try_into()?;
 
-            if !account_ids.contains(&account_id) {
-                return Err(RpcError::ExpectedDataMissing(format!(
-                    "Response did not contain data for account ID {account_id}"
-                )));
-            }
-
-            let headers = if include_headers && account_id.is_public() {
+            // Because we set `include_headers` to true, for any public account we requeted we
+            // should have the corresponding `state_header` field
+            let headers = if account_id.is_public() {
                 Some(
                     account
                         .state_header
