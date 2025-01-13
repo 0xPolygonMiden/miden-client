@@ -1,9 +1,5 @@
 //! Contains structures and functions related to transaction creation.
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    string::ToString,
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -54,7 +50,7 @@ pub struct TransactionRequestBuilder {
     /// Foreign account data requirements. At execution time, account data will be retrieved from
     /// the network, and injected as advice inputs. Additionally, the account's code will be
     /// added to the executor and prover.
-    foreign_accounts: BTreeSet<ForeignAccount>,
+    foreign_accounts: BTreeMap<AccountId, ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
@@ -75,7 +71,7 @@ impl TransactionRequestBuilder {
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
             expiration_delta: None,
-            foreign_accounts: BTreeSet::default(),
+            foreign_accounts: BTreeMap::default(),
         }
     }
 
@@ -171,7 +167,8 @@ impl TransactionRequestBuilder {
         foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccount>>,
     ) -> Self {
         for account in foreign_accounts {
-            self.foreign_accounts.insert(account.into());
+            let foreign_account: ForeignAccount = account.into();
+            self.foreign_accounts.insert(foreign_account.account_id(), foreign_account);
         }
 
         self
@@ -361,7 +358,7 @@ impl TransactionRequestBuilder {
             expected_future_notes: self.expected_future_notes,
             advice_map: self.advice_map,
             merkle_store: self.merkle_store,
-            foreign_accounts: self.foreign_accounts,
+            foreign_accounts: self.foreign_accounts.into_values().collect(),
             expiration_delta: self.expiration_delta,
         }
     }
