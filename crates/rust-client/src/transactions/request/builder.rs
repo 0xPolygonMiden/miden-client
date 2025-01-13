@@ -20,10 +20,9 @@ use miden_objects::{
 };
 
 use super::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest, TransactionRequestError,
+    ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
-use crate::rpc::domain::accounts::AccountStorageRequirements;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -157,10 +156,16 @@ impl TransactionRequestBuilder {
         Ok(self)
     }
 
-    /// Specifies foreign accounts that contain data that the transaction will utilize.
+    /// Specifies one or more foreign accounts (public or private) that contain data
+    /// utilized by the transaction.
     ///
-    /// At execution, the client queries the node and retrieves account-related data, based on
-    /// what's defined in `foreign_accounts`
+    /// At execution, the client queries the node and retrieves the appropriate data,
+    /// depending on whether each foreign account is public or private:
+    ///
+    /// - **Public accounts**: the node retrieves the state and code for the account and injects
+    ///   them as advice inputs.
+    /// - **Private accounts**: the node retrieves a proof of the account's existence and injects
+    ///   that as advice inputs.
     pub fn with_foreign_accounts(
         mut self,
         foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccount>>,
@@ -170,46 +175,6 @@ impl TransactionRequestBuilder {
         }
 
         self
-    }
-
-    /// Specifies public account IDs that contain data that the transaction will utilize.
-    ///
-    /// At execution, the client queries the node and retrieves the state and current code for
-    /// these accounts, and injects them as advice inputs.
-    ///
-    /// # Errors
-    ///
-    /// - If `foreign_account_ids` contains an ID corresponding to a private account.
-    pub fn with_public_foreign_accounts(
-        mut self,
-        foreign_account_ids: impl IntoIterator<
-            Item = impl Into<(AccountId, AccountStorageRequirements)>,
-        >,
-    ) -> Result<Self, TransactionRequestError> {
-        for account in foreign_account_ids {
-            let (account_id, indices) = account.into();
-            self.foreign_accounts.insert(ForeignAccount::public(account_id, indices)?);
-        }
-
-        Ok(self)
-    }
-
-    /// Specifies private accounts that contain data that the transaction will utilize.
-    /// At execution, the client queries the node and retrieves a proof of the account's existence
-    /// and injects them as advice inputs.
-    ///
-    /// # Errors
-    ///
-    /// - If `foreign_accounts` contains an ID corresponding to a public account.
-    pub fn with_private_foreign_accounts(
-        mut self,
-        foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccountInputs>>,
-    ) -> Result<Self, TransactionRequestError> {
-        for account in foreign_accounts {
-            self.foreign_accounts.insert(ForeignAccount::private(account.into())?);
-        }
-
-        Ok(self)
     }
 
     /// Specifies a transaction's expected output notes.

@@ -2,7 +2,9 @@ use miden_client::{
     accounts::{Account, StorageSlot},
     rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
-    transactions::{ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder},
+    transactions::{
+        ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
+    },
     Felt, Word,
 };
 use miden_lib::accounts::auth::RpoFalcon512;
@@ -124,17 +126,16 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         .unwrap();
     assert!(foreign_accounts.is_empty());
 
-    // Create tx request with FPI
-
+    // Create transaction request with FPI
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
     let tx_request = if storage_mode == AccountStorageMode::Public {
-        // require slot 0, key `MAP_KEY` as well as account proof
+        // Require slot 0, key `MAP_KEY` as well as account proof
         builder
-            .with_public_foreign_accounts([(
+            .with_foreign_accounts([ForeignAccount::public(
                 foreign_account_id,
                 AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
-            )])
-            .unwrap()
+            )
+            .unwrap()])
             .build()
     } else {
         // Get foreign account current state (after 1st deployment tx)
@@ -144,7 +145,9 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
         )
         .unwrap();
-        builder.with_private_foreign_accounts([foreign_account_inputs]).unwrap().build()
+        builder
+            .with_foreign_accounts([ForeignAccount::private(foreign_account_inputs).unwrap()])
+            .build()
     };
 
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();

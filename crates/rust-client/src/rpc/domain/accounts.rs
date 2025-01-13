@@ -158,7 +158,7 @@ impl ProtoAccountStateHeader {
             header,
             storage_header,
             account_code,
-            storage_slots,
+            storage_maps,
         } = self;
         let account_header = header
             .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
@@ -186,7 +186,7 @@ impl ProtoAccountStateHeader {
 
         // Get map values into slot |-> (key, value, proof) mapping
         let mut storage_slot_proofs: BTreeMap<u8, Vec<SmtProof>> = BTreeMap::new();
-        for StorageSlotMapProof { storage_slot, smt_proof } in storage_slots {
+        for StorageSlotMapProof { storage_slot, smt_proof } in storage_maps {
             let proof = SmtProof::read_from_bytes(&smt_proof)?;
             match storage_slot_proofs.get_mut(&(storage_slot as u8)) {
                 Some(list) => list.push(proof),

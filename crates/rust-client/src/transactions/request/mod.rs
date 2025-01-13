@@ -342,7 +342,8 @@ mod tests {
 
     use super::{TransactionRequest, TransactionRequestBuilder};
     use crate::{
-        rpc::domain::accounts::AccountStorageRequirements, transactions::ForeignAccountInputs,
+        rpc::domain::accounts::AccountStorageRequirements,
+        transactions::{ForeignAccount, ForeignAccountInputs},
     };
 
     #[test]
@@ -404,17 +405,21 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_public_foreign_accounts([(
-                target_id,
-                AccountStorageRequirements::new([(5u8, &[Digest::default()])]),
-            )])
-            .unwrap()
-            .with_private_foreign_accounts([ForeignAccountInputs::from_account(
-                account,
-                AccountStorageRequirements::default(),
-            )
-            .unwrap()])
-            .unwrap()
+            .with_foreign_accounts([
+                ForeignAccount::public(
+                    target_id,
+                    AccountStorageRequirements::new([(5u8, &[Digest::default()])]),
+                )
+                .unwrap(),
+                ForeignAccount::private(
+                    ForeignAccountInputs::from_account(
+                        account,
+                        AccountStorageRequirements::default(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+            ])
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),
