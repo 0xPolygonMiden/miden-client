@@ -170,7 +170,7 @@ impl Store for WebStore {
     async fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.get_account_auth_by_pub_key(pub_key)
     }
 
@@ -181,7 +181,7 @@ impl Store for WebStore {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, AccountStatus), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         self.get_account_header(account_id).await
     }
 
@@ -192,11 +192,17 @@ impl Store for WebStore {
         self.get_account_header_by_hash(account_hash).await
     }
 
-    async fn get_account(&self, account_id: AccountId) -> Result<AccountRecord, StoreError> {
+    async fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AccountRecord>, StoreError> {
         self.get_account(account_id).await
     }
 
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.get_account_auth(account_id).await
     }
 

@@ -473,7 +473,7 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let account_record = self.get_account(account_id).await?;
+        let account_record = self.get_account_or_error(account_id).await?;
 
         if account_record.is_locked() {
             return Err(ClientError::AccountLocked(account_id));
@@ -689,7 +689,7 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let account: Account = self.get_account(account_id).await?.into();
+        let account: Account = self.get_account_or_error(account_id).await?.into();
 
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
@@ -704,8 +704,8 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account: Account = self.get_account(account_id).await?.into();
-        let account_auth = self.get_account_auth(account_id).await?;
+        let account: Account = self.get_account_or_error(account_id).await?.into();
+        let account_auth = self.get_account_auth_or_error(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
         let account_capabilities = match account.account_type() {

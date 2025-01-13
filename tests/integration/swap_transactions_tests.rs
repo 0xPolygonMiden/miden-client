@@ -163,7 +163,7 @@ async fn test_swap_fully_onchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().unwrap().into();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -189,7 +189,7 @@ async fn test_swap_fully_onchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().unwrap().into();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();
@@ -326,7 +326,8 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Export note from client 1 to client 2
-    let output_note = client1.get_output_note(expected_output_notes[0].id()).await.unwrap();
+    let output_note =
+        client1.get_output_note(expected_output_notes[0].id()).await.unwrap().unwrap();
 
     let tag = build_swap_tag(
         NoteType::Private,
@@ -370,7 +371,7 @@ async fn test_swap_offchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().into();
+    let account_a: Account = client1.get_account(account_a.id()).await.unwrap().unwrap().into();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -396,7 +397,7 @@ async fn test_swap_offchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().into();
+    let account_b: Account = client2.get_account(account_b.id()).await.unwrap().unwrap().into();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();

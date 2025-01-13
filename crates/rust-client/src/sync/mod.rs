@@ -257,8 +257,11 @@ impl<R: FeltRng> Client<R> {
         let (new_peaks, new_authentication_nodes) = {
             let current_partial_mmr = self.build_current_partial_mmr(false).await?;
 
-            let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num).await?;
+            let (current_block, has_relevant_notes) = self
+                .store
+                .get_block_header_by_num(current_block_num)
+                .await?
+                .expect("Current block should be in the store");
 
             apply_mmr_changes(
                 current_partial_mmr,

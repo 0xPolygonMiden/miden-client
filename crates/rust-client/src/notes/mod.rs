@@ -93,18 +93,12 @@ impl<R: FeltRng> Client<R> {
             .map_err(|err| err.into())
     }
 
-    /// Retrieves the input note given a [NoteId].
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if there is no Note with the provided ID.
-    pub async fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        Ok(self
-            .store
-            .get_input_notes(NoteFilter::Unique(note_id))
-            .await?
-            .pop()
-            .expect("The vector always has one element for NoteFilter::Unique"))
+    /// Retrieves the input note given a [NoteId]. Returns `None` if the note is not found.
+    pub async fn get_input_note(
+        &self,
+        note_id: NoteId,
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
+        Ok(self.store.get_input_notes(NoteFilter::Unique(note_id)).await?.pop())
     }
 
     // OUTPUT NOTE DATA RETRIEVAL
@@ -118,14 +112,12 @@ impl<R: FeltRng> Client<R> {
         self.store.get_output_notes(filter).await.map_err(|err| err.into())
     }
 
-    /// Returns the output note with the specified hash.
-    pub async fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
-        Ok(self
-            .store
-            .get_output_notes(NoteFilter::Unique(note_id))
-            .await?
-            .pop()
-            .expect("The vector always has one element for NoteFilter::Unique"))
+    /// Retrieves the output note given a [NoteId]. Returns `None` if the note is not found.
+    pub async fn get_output_note(
+        &self,
+        note_id: NoteId,
+    ) -> Result<Option<OutputNoteRecord>, ClientError> {
+        Ok(self.store.get_output_notes(NoteFilter::Unique(note_id)).await?.pop())
     }
 
     /// Compiles the provided program into a [NoteScript]

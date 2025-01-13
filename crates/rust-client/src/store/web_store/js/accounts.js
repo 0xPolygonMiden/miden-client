@@ -80,8 +80,8 @@ export async function getAccountHeader(accountId) {
       .toArray();
 
     if (allMatchingRecords.length === 0) {
-      console.log("No records found for given ID.");
-      throw new Error("No records found for given ID.");
+      console.log("No account header record found for given ID.");
+      return null;
     }
 
     // Convert nonce to BigInt and sort
@@ -114,7 +114,6 @@ export async function getAccountHeader(accountId) {
     };
     return AccountHeader;
   } catch (error) {
-    console.error("Error fetching most recent account record:", error);
     throw error; // Re-throw the error for further handling
   }
 }
@@ -128,8 +127,8 @@ export async function getAccountHeaderByHash(accountHash) {
       .toArray();
 
     if (allMatchingRecords.length === 0) {
-      console.log("No records found for given hash.");
-      return null; // No records found
+      console.log("No account header record found for given hash.");
+      return null;
     }
 
     // There should be only one match
@@ -154,7 +153,6 @@ export async function getAccountHeaderByHash(accountHash) {
     };
     return AccountHeader;
   } catch (error) {
-    console.error("Error fetching most recent account record:", error);
     throw error; // Re-throw the error for further handling
   }
 }
@@ -169,7 +167,7 @@ export async function getAccountCode(codeRoot) {
 
     if (allMatchingRecords.length === 0) {
       console.log("No records found for given code root.");
-      return null; // No records found
+      return null;
     }
 
     // The first record is the only one due to the uniqueness constraint
@@ -185,7 +183,6 @@ export async function getAccountCode(codeRoot) {
       code: codeBase64,
     };
   } catch (error) {
-    console.error("Error fetching code record:", error);
     throw error; // Re-throw the error for further handling
   }
 }
@@ -200,7 +197,7 @@ export async function getAccountStorage(storageRoot) {
 
     if (allMatchingRecords.length === 0) {
       console.log("No records found for given storage root.");
-      return null; // No records found
+      return null;
     }
 
     // The first record is the only one due to the uniqueness constraint
@@ -215,7 +212,6 @@ export async function getAccountStorage(storageRoot) {
       storage: storageBase64,
     };
   } catch (error) {
-    console.error("Error fetching code record:", error);
     throw error; // Re-throw the error for further handling
   }
 }
@@ -230,7 +226,7 @@ export async function getAccountAssetVault(vaultRoot) {
 
     if (allMatchingRecords.length === 0) {
       console.log("No records found for given vault root.");
-      return null; // No records found
+      return null;
     }
 
     // The first record is the only one due to the uniqueness constraint
@@ -246,7 +242,6 @@ export async function getAccountAssetVault(vaultRoot) {
       assets: assetsBase64,
     };
   } catch (error) {
-    console.error("Error fetching code record:", error);
     throw error; // Re-throw the error for further handling
   }
 }
@@ -260,8 +255,8 @@ export async function getAccountAuth(accountId) {
       .toArray();
 
     if (allMatchingRecords.length === 0) {
-      console.log("No records found for given account ID.");
-      throw new Error("No records found for given ID.");
+      console.log("No account auth records found for given account ID.");
+      return null; // No records found
     }
 
     // The first record is the only one due to the uniqueness constraint
@@ -277,7 +272,6 @@ export async function getAccountAuth(accountId) {
       auth_info: authInfoBase64,
     };
   } catch (err) {
-    console.error("Error fetching account auth:", err);
     throw err; // Re-throw the error for further handling
   }
 }
@@ -311,8 +305,8 @@ export async function fetchAndCacheAccountAuthByPubKey(accountId) {
       .toArray();
 
     if (allMatchingRecords.length === 0) {
-      console.log("No records found for given account ID.");
-      throw new Error("No records found for given ID.");
+      console.log("No account auth records found for given account ID.");
+      return null; // No records found
     }
 
     // The first record is the only one due to the uniqueness constraint
@@ -334,7 +328,6 @@ export async function fetchAndCacheAccountAuthByPubKey(accountId) {
       auth_info: authInfoBase64,
     };
   } catch (err) {
-    console.error("Error fetching account auth by public key:", err);
     throw err; // Re-throw the error for further handling
   }
 }
@@ -353,7 +346,7 @@ export async function insertAccountCode(codeRoot, code) {
     };
 
     // Perform the insert using Dexie
-    await accountCodes.add(data);
+    await accountCodes.put(data);
   } catch (error) {
     console.error(`Error inserting code with root: ${codeRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -371,7 +364,7 @@ export async function insertAccountStorage(storageRoot, storageSlots) {
     };
 
     // Perform the insert using Dexie
-    await accountStorages.add(data);
+    await accountStorages.put(data);
   } catch (error) {
     console.error(`Error inserting storage with root: ${storageRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -389,7 +382,7 @@ export async function insertAccountAssetVault(vaultRoot, assets) {
     };
 
     // Perform the insert using Dexie
-    await accountVaults.add(data);
+    await accountVaults.put(data);
   } catch (error) {
     console.error(`Error inserting vault with root: ${vaultRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed

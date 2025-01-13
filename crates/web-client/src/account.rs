@@ -24,15 +24,18 @@ impl WebClient {
         }
     }
 
-    pub async fn get_account(&mut self, account_id: &AccountId) -> Result<Account, JsValue> {
+    pub async fn get_account(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<Option<Account>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let result = client
                 .get_account(account_id.into())
                 .await
                 .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
-            let account: NativeAccount = result.into();
+            let account: Option<NativeAccount> = result.map(|account| account.into());
 
-            Ok(account.into())
+            Ok(account.map(|account| account.into()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -41,14 +44,14 @@ impl WebClient {
     pub async fn get_account_auth(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<AuthSecretKey, JsValue> {
+    ) -> Result<Option<AuthSecretKey>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_auth_secret_key =
                 client.get_account_auth(account_id.into()).await.map_err(|err| {
                     JsValue::from_str(&format!("Failed to get account auth: {}", err))
                 })?;
 
-            Ok(native_auth_secret_key.into())
+            Ok(native_auth_secret_key.map(|auth_secret_key| auth_secret_key.into()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -57,7 +60,7 @@ impl WebClient {
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<AuthSecretKey, JsValue> {
+    ) -> Result<Option<AuthSecretKey>, JsValue> {
         if let Some(store) = &self.store {
             let native_auth_secret_key = store
                 .fetch_and_cache_account_auth_by_pub_key(&account_id.to_string())
@@ -66,7 +69,7 @@ impl WebClient {
                     JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
                 })?;
 
-            Ok(native_auth_secret_key.into())
+            Ok(native_auth_secret_key.map(|auth_secret_key| auth_secret_key.into()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

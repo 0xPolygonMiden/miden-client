@@ -311,7 +311,7 @@ pub async fn mint_note(
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap();
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
     note.try_into().unwrap()
 }
 
@@ -335,7 +335,7 @@ pub async fn assert_account_has_single_asset(
     asset_account_id: AccountId,
     expected_amount: u64,
 ) {
-    let regular_account: Account = client.get_account(account_id).await.unwrap().into();
+    let regular_account: Account = client.get_account(account_id).await.unwrap().unwrap().into();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();

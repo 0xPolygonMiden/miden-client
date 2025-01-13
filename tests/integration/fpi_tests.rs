@@ -139,7 +139,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             .build()
     } else {
         // Get foreign account current state (after 1st deployment tx)
-        let foreign_account: Account = client.get_account(foreign_account_id).await.unwrap().into();
+        let foreign_account: Account = client.get_account(foreign_account_id).await.unwrap().unwrap().into();
         let foreign_account_inputs = ForeignAccountInputs::from_account(
             foreign_account,
             AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),

@@ -32,7 +32,10 @@ impl WebClient {
         }
     }
 
-    pub async fn get_input_note(&mut self, note_id: String) -> Result<InputNoteRecord, JsValue> {
+    pub async fn get_input_note(
+        &mut self,
+        note_id: String,
+    ) -> Result<Option<InputNoteRecord>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_id: NoteId = Digest::try_from(note_id)
                 .map_err(|err| format!("Failed to parse input note id: {}", err))?
@@ -42,7 +45,7 @@ impl WebClient {
                 .await
                 .map_err(|err| JsValue::from_str(&format!("Failed to get input note: {}", err)))?;
 
-            Ok(result.into())
+            Ok(result.map(|note| note.into()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -65,7 +68,7 @@ impl WebClient {
             let note_id: NoteId = Digest::try_from(note_id)
                 .map_err(|err| format!("Failed to parse output note id: {}", err))?
                 .into();
-            let note: OutputNoteRecord = client.get_output_note(note_id).await.unwrap();
+            let note: OutputNoteRecord = client.get_output_note(note_id).await.unwrap().unwrap();
 
             serde_wasm_bindgen::to_value(&note.id().to_string())
                 .map_err(|e| JsValue::from_str(&e.to_string()))
