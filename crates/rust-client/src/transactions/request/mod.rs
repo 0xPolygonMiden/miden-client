@@ -177,6 +177,8 @@ impl TransactionRequest {
         tx_args
     }
 
+    /// Builds the transaction script based on the account capabilities and the transaction request.
+    /// The debug mode enables the script debug logs.
     pub(crate) fn build_transaction_script(
         &self,
         account_capabilities: AccountCapabilities,
