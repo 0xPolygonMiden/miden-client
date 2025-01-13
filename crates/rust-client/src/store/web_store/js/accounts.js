@@ -336,15 +336,6 @@ export async function fetchAndCacheAccountAuthByPubKey(accountId) {
 
 export async function insertAccountCode(codeRoot, code) {
   try {
-    const existingCode = await accountCodes
-      .where("root")
-      .equals(codeRoot)
-      .first();
-
-    if (existingCode) {
-      return;
-    }
-
     // Create a Blob from the ArrayBuffer
     const codeBlob = new Blob([new Uint8Array(code)]);
 
@@ -355,7 +346,7 @@ export async function insertAccountCode(codeRoot, code) {
     };
 
     // Perform the insert using Dexie
-    await accountCodes.add(data);
+    await accountCodes.put(data);
   } catch (error) {
     console.error(`Error inserting code with root: ${codeRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -364,15 +355,6 @@ export async function insertAccountCode(codeRoot, code) {
 
 export async function insertAccountStorage(storageRoot, storageSlots) {
   try {
-    const existingStorage = await accountStorages
-      .where("root")
-      .equals(storageRoot)
-      .first();
-
-    if (existingStorage) {
-      return; // Exit the function without adding
-    }
-
     const storageSlotsBlob = new Blob([new Uint8Array(storageSlots)]);
 
     // Prepare the data object to insert
@@ -382,7 +364,7 @@ export async function insertAccountStorage(storageRoot, storageSlots) {
     };
 
     // Perform the insert using Dexie
-    await accountStorages.add(data);
+    await accountStorages.put(data);
   } catch (error) {
     console.error(`Error inserting storage with root: ${storageRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -391,15 +373,6 @@ export async function insertAccountStorage(storageRoot, storageSlots) {
 
 export async function insertAccountAssetVault(vaultRoot, assets) {
   try {
-    const existingVault = await accountVaults
-      .where("root")
-      .equals(vaultRoot)
-      .first();
-
-    if (existingVault) {
-      return; // Exit the function without adding
-    }
-
     const assetsBlob = new Blob([new Uint8Array(assets)]);
 
     // Prepare the data object to insert
@@ -409,7 +382,7 @@ export async function insertAccountAssetVault(vaultRoot, assets) {
     };
 
     // Perform the insert using Dexie
-    await accountVaults.add(data);
+    await accountVaults.put(data);
   } catch (error) {
     console.error(`Error inserting vault with root: ${vaultRoot}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed

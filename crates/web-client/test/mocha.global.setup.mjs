@@ -31,7 +31,10 @@ before(async () => {
   });
 
   try {
-    browser = await puppeteer.launch({ headless: true, protocolTimeout: 360000 });
+    browser = await puppeteer.launch({
+      headless: true,
+      protocolTimeout: 360000,
+    });
     testingPage = await browser.newPage();
     await testingPage.goto(TEST_SERVER);
   } catch (error) {
