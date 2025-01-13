@@ -30,9 +30,20 @@ before(async () => {
     shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true, protocolTimeout: 360000 });
-  testingPage = await browser.newPage();
-  await testingPage.goto(TEST_SERVER);
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      protocolTimeout: 360000,
+    });
+    testingPage = await browser.newPage();
+    await testingPage.goto(TEST_SERVER);
+  } catch (error) {
+    console.error("Failed to launch Puppeteer:", error);
+    if (serverProcess && !serverProcess.killed) {
+      serverProcess.kill("SIGTERM");
+    }
+    throw error;
+  }
 
   if (env.DEBUG_MODE) {
     testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
