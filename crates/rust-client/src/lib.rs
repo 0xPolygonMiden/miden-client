@@ -176,6 +176,11 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
+    /// Returns if the client is in debug mode.
+    pub fn is_in_debug_mode(&self) -> bool {
+        self.in_debug_mode
+    }
+
     /// Returns a reference to the client's random number generator. This can be used to generate
     /// randomness for various purposes such as serial numbers, keys, etc.
     pub fn rng(&mut self) -> &mut R {
