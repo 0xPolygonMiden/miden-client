@@ -109,8 +109,8 @@ impl<R: FeltRng> Client<R> {
         self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
-    /// Syncs the client's state with the current state of the Miden network. Returns the block
-    /// number the client has been synced to.
+    /// Syncs the client's state with the current state of the Miden network and returns a
+    /// [SyncSummary] corresponding to the local state update.
     ///
     /// The sync process is done in multiple steps:
     /// 1. A request is sent to the node to get the state updates. This request includes tracked
@@ -124,7 +124,7 @@ impl<R: FeltRng> Client<R> {
     ///    can be consumed by accounts the client is tracking (this is checked by the
     ///    [crate::notes::NoteScreener])
     /// 5. Transactions are updated with their new states.
-    /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
+    /// 6. Tracked public accounts are updated and private accounts are validated against the node
     ///    state.
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     /// 8. All updates are applied to the store to be persisted.
@@ -190,13 +190,9 @@ impl<R: FeltRng> Client<R> {
                 )
                 .await?;
 
-            let (is_last_block, state_sync_update) = if let Some(status) = status {
-                (
-                    matches!(status, SyncStatus::SyncedToLastBlock(_)),
-                    status.into_state_sync_update(),
-                )
-            } else {
-                break;
+            let (is_last_block, state_sync_update): (bool, StateSyncUpdate) = match status {
+                Some(s) => (s.is_last_block(), s.into()),
+                None => break,
             };
 
             let sync_summary: SyncSummary = (&state_sync_update).into();

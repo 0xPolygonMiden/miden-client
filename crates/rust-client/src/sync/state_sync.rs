@@ -83,7 +83,16 @@ pub enum SyncStatus {
 }
 
 impl SyncStatus {
-    pub fn into_state_sync_update(self) -> StateSyncUpdate {
+    pub fn is_last_block(&self) -> bool {
+        match self {
+            SyncStatus::SyncedToLastBlock(_) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Into<StateSyncUpdate> for SyncStatus {
+    fn into(self) -> StateSyncUpdate {
         match self {
             SyncStatus::SyncedToLastBlock(update) => update,
             SyncStatus::SyncedToBlock(update) => update,
@@ -182,7 +191,8 @@ impl StateSync {
     /// # Arguments
     /// * `current_block` - The latest tracked block header.
     /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
-    ///   are relevant to the client.
+    ///   are relevant to the client. This is used to determine whether new MMR authentication nodes
+    ///   are stored for this block.
     /// * `current_partial_mmr` - The current partial MMR.
     /// * `accounts` - The headers of tracked accounts.
     /// * `note_tags` - The note tags to be used in the sync state request.
@@ -363,20 +373,20 @@ impl StateSync {
         mut nullifiers: Vec<NullifierUpdate>,
         block_header: BlockHeader,
     ) -> Result<(NoteUpdates, TransactionUpdates, Vec<NoteTagRecord>), ClientError> {
-        let mut note_updates = NoteUpdates::new_empty();
+        let mut note_updates = NoteUpdates::default();
         let mut public_note_ids = vec![];
 
         for committed_note in note_inclusions {
             let (new_note_update, new_note_ids) =
                 (self.on_note_received)(committed_note, block_header).await?;
-            note_updates.combine_with(new_note_update);
+            note_updates.extend(new_note_update);
             public_note_ids.extend(new_note_ids);
         }
 
         let new_public_notes =
             self.fetch_public_note_details(&public_note_ids, &block_header).await?;
 
-        note_updates.combine_with(NoteUpdates::new(new_public_notes, vec![], vec![], vec![]));
+        note_updates.extend(NoteUpdates::new(new_public_notes, vec![], vec![], vec![]));
 
         // We can remove tags from notes that got committed
         let tags_to_remove = note_updates
@@ -391,7 +401,7 @@ impl StateSync {
             })
             .collect();
 
-        let mut transaction_updates = TransactionUpdates::new_empty();
+        let mut transaction_updates = TransactionUpdates::default();
 
         for transaction_update in transactions {
             let (new_note_update, new_transaction_update) =
@@ -405,15 +415,15 @@ impl StateSync {
                     .any(|note| note.nullifier() == nullifier.nullifier)
             });
 
-            note_updates.combine_with(new_note_update);
-            transaction_updates.combine_with(new_transaction_update);
+            note_updates.extend(new_note_update);
+            transaction_updates.extend(new_transaction_update);
         }
 
         for nullifier_update in nullifiers {
             let (new_note_update, new_transaction_update) =
                 (self.on_nullifier_received)(nullifier_update).await?;
-            note_updates.combine_with(new_note_update);
-            transaction_updates.combine_with(new_transaction_update);
+            note_updates.extend(new_note_update);
+            transaction_updates.extend(new_transaction_update);
         }
 
         Ok((note_updates, transaction_updates, tags_to_remove))

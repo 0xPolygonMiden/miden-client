@@ -82,12 +82,9 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in note_updates
-            .updated_input_notes()
-            .iter()
-            .chain(note_updates.new_input_notes().iter())
-            .filter(|note| note.is_committed())
-        {
+        for input_note in note_updates.committed_input_notes() {
+            // TODO: Map the below error into a better representation (ie, we expected to be able
+            // to convert here)
             if !note_screener
                 .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
                 .await?

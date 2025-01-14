@@ -179,6 +179,7 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 // ------------------------------------------------------------------------------------------------
 
 /// Contains note changes to apply to the store.
+#[derive(Clone, Debug, Default)]
 pub struct NoteUpdates {
     /// A list of new input notes.
     new_input_notes: Vec<InputNoteRecord>,
@@ -206,17 +207,8 @@ impl NoteUpdates {
         }
     }
 
-    pub fn new_empty() -> Self {
-        Self {
-            new_input_notes: Vec::new(),
-            new_output_notes: Vec::new(),
-            updated_input_notes: Vec::new(),
-            updated_output_notes: Vec::new(),
-        }
-    }
-
     /// Combines two [NoteUpdates] into a single one.
-    pub fn combine_with(&mut self, other: Self) {
+    pub fn extend(&mut self, other: Self) {
         self.new_input_notes.extend(other.new_input_notes);
         self.new_output_notes.extend(other.new_output_notes);
         self.updated_input_notes.extend(other.updated_input_notes);
@@ -253,7 +245,16 @@ impl NoteUpdates {
             && self.new_output_notes.is_empty()
     }
 
-    /// Returns the IDs of all notes that have been committed.
+    /// Returns any note that has been committed into the chain in this update (either new or
+    /// already locally tracked)
+    pub fn committed_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
+        self.updated_input_notes
+            .iter()
+            .chain(self.new_input_notes.iter())
+            .filter(|note| note.is_committed())
+    }
+
+    /// Returns the IDs of all notes that have been committed (previously locally tracked).
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
@@ -268,7 +269,7 @@ impl NoteUpdates {
         BTreeSet::from_iter(committed_input_note_ids.chain(committed_output_note_ids))
     }
 
-    /// Returns the IDs of all notes that have been consumed
+    /// Returns the IDs of all notes that have been consumed.
     pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
         let consumed_output_note_ids = self
             .updated_output_notes

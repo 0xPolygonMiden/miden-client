@@ -53,18 +53,20 @@ pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use script_builder::TransactionScriptBuilderError;
 
 // TRANSACTION UPDATES
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Contains transaction changes to apply to the store.
+#[derive(Debug, Clone, Default)]
 pub struct TransactionUpdates {
-    /// Transaction updates for any transaction that was committed between the sync request's
-    /// block number and the response's block number.
+    /// Transaction updates for any transaction that was committed between the sync request's block
+    /// number and the response's block number.
     committed_transactions: Vec<TransactionUpdate>,
     /// Transaction IDs for any transactions that were discarded in the sync.
     discarded_transactions: Vec<TransactionId>,
 }
 
 impl TransactionUpdates {
+    /// Creates a new [TransactionUpdates]
     pub fn new(
         committed_transactions: Vec<TransactionUpdate>,
         discarded_transactions: Vec<TransactionId>,
@@ -75,29 +77,25 @@ impl TransactionUpdates {
         }
     }
 
-    pub fn new_empty() -> Self {
-        Self {
-            committed_transactions: vec![],
-            discarded_transactions: vec![],
-        }
-    }
-
-    pub fn combine_with(&mut self, other: Self) {
+    /// Extends the transaction update information with `other`.
+    pub fn extend(&mut self, other: Self) {
         self.committed_transactions.extend(other.committed_transactions);
         self.discarded_transactions.extend(other.discarded_transactions);
     }
 
+    /// Returns a reference to committed transactions.
     pub fn committed_transactions(&self) -> &[TransactionUpdate] {
         &self.committed_transactions
     }
 
+    /// Returns a reference to discarded transactions.
     pub fn discarded_transactions(&self) -> &[TransactionId] {
         &self.discarded_transactions
     }
 }
 
 // TRANSACTION RESULT
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Represents the result of executing a transaction by the client.
 ///
@@ -203,7 +201,7 @@ impl From<TransactionResult> for ExecutedTransaction {
 }
 
 // TRANSACTION RECORD
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Describes a transaction that has been executed and is being tracked on the Client.
 ///
@@ -273,7 +271,7 @@ impl fmt::Display for TransactionStatus {
 }
 
 // TRANSACTION STORE UPDATE
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Represents the changes that need to be applied to the client store as a result of a
 /// transaction execution.
@@ -601,7 +599,7 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Helper to get the account outgoing assets.
+    /// Helper to get the account outgoing asset.
     ///
     /// Any outgoing assets resulting from executing note scripts but not present in expected output
     /// notes wouldn't be included.
