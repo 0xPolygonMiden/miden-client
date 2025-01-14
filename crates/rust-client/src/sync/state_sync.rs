@@ -238,14 +238,13 @@ impl StateSync {
             )
             .await?;
 
-        let (new_mmr_peaks, new_authentication_nodes) = self
-            .apply_mmr_changes(
-                current_block,
-                current_block_has_relevant_notes,
-                current_partial_mmr,
-                response.mmr_delta,
-            )
-            .await?;
+        let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
+            current_block,
+            current_block_has_relevant_notes,
+            current_partial_mmr,
+            response.mmr_delta,
+        )
+        .await?;
 
         let update = StateSyncUpdate {
             block_header: response.block_header,
@@ -266,33 +265,6 @@ impl StateSync {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
-
-    /// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
-    /// authentication nodes for leaves we track.
-    pub(crate) async fn apply_mmr_changes(
-        &self,
-        current_block: BlockHeader,
-        current_block_has_relevant_notes: bool,
-        mut current_partial_mmr: PartialMmr,
-        mmr_delta: MmrDelta,
-    ) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
-        // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
-        // node doesn't contain the request block itself.
-        let new_authentication_nodes = current_partial_mmr
-            .add(current_block.hash(), current_block_has_relevant_notes)
-            .into_iter();
-
-        // Apply the MMR delta to bring MMR to forest equal to chain tip
-        let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
-            .apply(mmr_delta)
-            .map_err(StoreError::MmrError)?
-            .into_iter()
-            .chain(new_authentication_nodes)
-            .collect();
-
-        Ok((current_partial_mmr.peaks(), new_authentication_nodes))
-    }
-
     /// Compares the state of tracked accounts with the updates received from the node and returns
     /// the accounts that need to be updated.
     ///
@@ -509,6 +481,31 @@ pub async fn on_note_received(
         NoteUpdates::new(vec![], vec![], updated_input_notes, updated_output_notes),
         new_note_ids,
     ))
+}
+
+/// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
+/// authentication nodes for leaves we track.
+pub(crate) async fn apply_mmr_changes(
+    current_block: BlockHeader,
+    current_block_has_relevant_notes: bool,
+    mut current_partial_mmr: PartialMmr,
+    mmr_delta: MmrDelta,
+) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
+    // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
+    // node doesn't contain the request block itself.
+    let new_authentication_nodes = current_partial_mmr
+        .add(current_block.hash(), current_block_has_relevant_notes)
+        .into_iter();
+
+    // Apply the MMR delta to bring MMR to forest equal to chain tip
+    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
+        .apply(mmr_delta)
+        .map_err(StoreError::MmrError)?
+        .into_iter()
+        .chain(new_authentication_nodes)
+        .collect();
+
+    Ok((current_partial_mmr.peaks(), new_authentication_nodes))
 }
 
 /// Default implementation of the [OnTransactionCommitted] callback. It queries the store for the
