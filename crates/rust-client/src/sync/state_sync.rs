@@ -84,16 +84,13 @@ pub enum SyncStatus {
 
 impl SyncStatus {
     pub fn is_last_block(&self) -> bool {
-        match self {
-            SyncStatus::SyncedToLastBlock(_) => true,
-            _ => false,
-        }
+        matches!(self, SyncStatus::SyncedToLastBlock(_))
     }
 }
 
-impl Into<StateSyncUpdate> for SyncStatus {
-    fn into(self) -> StateSyncUpdate {
-        match self {
+impl From<SyncStatus> for StateSyncUpdate {
+    fn from(value: SyncStatus) -> StateSyncUpdate {
+        match value {
             SyncStatus::SyncedToLastBlock(update) => update,
             SyncStatus::SyncedToBlock(update) => update,
         }
