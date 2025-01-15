@@ -8,7 +8,7 @@ help: ## Show description of all commands
 
 FEATURES_WEB_CLIENT=--features "testing"
 FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
-FEATURES_CLI=--features "testing, concurrent"
+FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
