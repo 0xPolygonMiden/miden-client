@@ -2020,7 +2020,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d09a78e8674f983f30e38b5e4a2d21bed592bc95"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -2075,7 +2075,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d09a78e8674f983f30e38b5e4a2d21bed592bc95"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2154,7 +2154,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d09a78e8674f983f30e38b5e4a2d21bed592bc95"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2171,7 +2171,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-prover"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d09a78e8674f983f30e38b5e4a2d21bed592bc95"
 dependencies = [
  "async-trait",
  "axum",
