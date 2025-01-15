@@ -17,7 +17,7 @@ NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="santiagopittella-split-tx-prover-crates-same-repo-approach"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
@@ -130,7 +130,7 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover
-	cargo uninstall miden-tx-prover || echo 'prover not installed'
+	cargo uninstall miden-proving-service || echo 'prover not installed'
 
 .PHONY: prover
 prover: setup-miden-base update-prover-branch build-prover ## Setup prover directory
@@ -145,15 +145,15 @@ update-prover-branch: setup-miden-base ## Checkout and update the specified bran
 
 .PHONY: build-prover
 build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
-	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-tx-prover --locked $(PROVER_FEATURES_TESTING) --release
+	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-tx-prover $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
-	pkill miden-tx-prover || echo 'process not running'
+	pkill miden-proving-service || echo 'process not running'
 
 # --- Installing ----------------------------------------------------------------------------------
 
