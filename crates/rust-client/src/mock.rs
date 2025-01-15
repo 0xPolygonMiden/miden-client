@@ -285,7 +285,7 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn get_account_proofs(
-        &mut self,
+        &self,
         _account_ids: &BTreeSet<ForeignAccount>,
         _code_commitments: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {

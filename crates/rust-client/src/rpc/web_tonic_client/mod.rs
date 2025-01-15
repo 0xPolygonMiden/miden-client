@@ -231,7 +231,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {

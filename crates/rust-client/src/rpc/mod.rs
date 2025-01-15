@@ -130,7 +130,7 @@ pub trait NodeRpcClient {
     /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
     /// one of the tracked accounts is not found in the node, the method will return an error.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_storage_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError>;
