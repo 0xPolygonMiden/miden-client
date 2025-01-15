@@ -196,7 +196,7 @@ async fn test_merkle_store() {
             push.1000 push.{pos} exec.mmr::get
 
             # check the element matches what was inserted at `pos`
-            push.{expected_element} assert_eqw
+            push.{expected_element} assert_eqw.err=999
         "
         )
         .as_str();
@@ -256,7 +256,7 @@ fn create_custom_note(
     let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs =
-        NoteInputs::new(vec![target_account_id.suffix(), target_account_id.prefix().as_felt()])
+        NoteInputs::new(vec![target_account_id.prefix().as_felt(), target_account_id.suffix()])
             .unwrap();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
