@@ -290,6 +290,8 @@ impl Default for TransactionRequestBuilder {
 pub enum TransactionRequestError {
     #[error("foreign account data missing in the account proof")]
     ForeignAccountDataMissing,
+    #[error("foreign account storage slot {0} is not a map type")]
+    ForeignAccountStorageSlotInvalidIndex(u8),
     #[error("requested foreign account with ID {0} does not have an expected storage mode")]
     InvalidForeignAccountId(AccountId),
     #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
@@ -307,12 +309,14 @@ pub enum TransactionRequestError {
     InvalidTransactionScript(AssemblyError),
     #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
-    #[error("transaction script template error: {0}")]
-    ScriptTemplateError(String),
     #[error("note not found: {0}")]
     NoteNotFound(String),
     #[error("note creation error")]
     NoteCreationError(#[from] NoteError),
+    #[error("transaction script template error: {0}")]
+    ScriptTemplateError(String),
+    #[error("storage slot {0} not found in account ID {1}")]
+    StorageSlotNotFound(u8, AccountId),
     #[error("transaction script builder error")]
     TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
 }
@@ -326,35 +330,34 @@ mod tests {
 
     use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountStorageMode, AccountType},
+        accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
         assets::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
         notes::{NoteExecutionMode, NoteTag, NoteType},
-        testing::account_component::AccountMockComponent,
+        testing::{
+            account_component::AccountMockComponent,
+            account_id::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER,
+            },
+        },
         transaction::OutputNote,
         Digest, Felt, ZERO,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{TransactionRequest, TransactionRequestBuilder};
+    use crate::{
+        rpc::domain::accounts::AccountStorageRequirements,
+        transactions::{ForeignAccount, ForeignAccountInputs},
+    };
 
     #[test]
     fn transaction_request_serialization() {
-        let sender_id = AccountId::new_dummy(
-            [0u8; 15],
-            AccountType::RegularAccountImmutableCode,
-            AccountStorageMode::Private,
-        );
-        let target_id = AccountId::new_dummy(
-            [1u8; 15],
-            AccountType::RegularAccountImmutableCode,
-            AccountStorageMode::Public,
-        );
-        let faucet_id = AccountId::new_dummy(
-            [2u8; 15],
-            AccountType::FungibleFaucet,
-            AccountStorageMode::Private,
-        );
+        let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
+        let target_id =
+            AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
+        let faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN).unwrap();
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];
@@ -376,8 +379,7 @@ mod tests {
             advice_vec.push((Digest::new(rng.draw_word()), vec![Felt::new(i)]));
         }
 
-        let account = AccountBuilder::new()
-            .init_seed(Default::default())
+        let account = AccountBuilder::new(Default::default())
             .anchor(AccountIdAnchor::new_unchecked(0, Default::default()))
             .with_component(
                 AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),
@@ -397,10 +399,21 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_public_foreign_accounts([target_id])
-            .unwrap()
-            .with_private_foreign_accounts([account])
-            .unwrap()
+            .with_foreign_accounts([
+                ForeignAccount::public(
+                    target_id,
+                    AccountStorageRequirements::new([(5u8, &[Digest::default()])]),
+                )
+                .unwrap(),
+                ForeignAccount::private(
+                    ForeignAccountInputs::from_account(
+                        account,
+                        AccountStorageRequirements::default(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+            ])
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),

@@ -1,12 +1,15 @@
 use miden_client::{
     accounts::{Account, StorageSlot},
+    rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
-    transactions::{TransactionKernel, TransactionRequestBuilder},
+    transactions::{
+        ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
+    },
     Felt, Word,
 };
 use miden_lib::accounts::auth::RpoFalcon512;
 use miden_objects::{
-    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey},
+    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     BlockHeader, Digest,
@@ -16,7 +19,7 @@ use super::common::*;
 
 // FPI TESTS
 // ================================================================================================
-
+const MAP_KEY: [Felt; 4] = [Felt::new(15), Felt::new(15), Felt::new(15), Felt::new(15)];
 const FPI_STORAGE_VALUE: Word =
     [Felt::new(9u64), Felt::new(12u64), Felt::new(18u64), Felt::new(30u64)];
 
@@ -43,7 +46,6 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
     let (foreign_account, foreign_seed, secret_key, proc_root) =
         foreign_account(storage_mode, &anchor_block);
-
     let foreign_account_id = foreign_account.id();
 
     client
@@ -95,8 +97,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             push.{proc_root}
     
             # push the foreign account id
-            push.{id_first_felt} push.{id_second_felt}
-            # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index]
+            push.{account_id_suffix} push.{account_id_prefix}
+            # => [foreign_id_prefix, foreign_id_suffix, FOREIGN_PROC_ROOT, storage_item_index]
     
             exec.tx::execute_foreign_procedure
             push.{fpi_value} assert_eqw
@@ -105,8 +107,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         end
         ",
         fpi_value = prepare_word(&FPI_STORAGE_VALUE),
-        id_first_felt = foreign_account_id.first_felt().as_int(),
-        id_second_felt = foreign_account_id.second_felt().as_int(),
+        account_id_prefix = foreign_account_id.prefix().as_u64(),
+        account_id_suffix = foreign_account_id.suffix(),
     );
 
     let tx_script =
@@ -124,20 +126,25 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         .unwrap();
     assert!(foreign_accounts.is_empty());
 
-    // Create tx request with FPI
-
+    // Create transaction request with FPI
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
-    let tx_request = if storage_mode == AccountStorageMode::Public {
-        builder.with_public_foreign_accounts([foreign_account_id]).unwrap().build()
+
+    // We will require slot 0, key `MAP_KEY` as well as account proof
+    let storage_requirements =
+        AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
+
+    let foreign_account = if storage_mode == AccountStorageMode::Public {
+        ForeignAccount::public(foreign_account_id, storage_requirements)
     } else {
-        // Get foreign account current state (after 1st deployment tx)
-        let foreign_account = client.get_account(foreign_account_id).await.unwrap().unwrap();
-        builder
-            .with_private_foreign_accounts([foreign_account.account().clone()])
-            .unwrap()
-            .build()
+        // Get current foreign account current state from the store (after 1st deployment tx)
+        let foreign_account: Account =
+            client.get_account(foreign_account_id).await.unwrap().unwrap().into();
+        ForeignAccount::private(
+            ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
+        )
     };
 
+    let tx_request = builder.with_foreign_accounts([foreign_account.unwrap()]).build();
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();
@@ -153,7 +160,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     }
 }
 
-/// Builds a foreign account with a custom component that retrieves a value from its storage.
+/// Builds a foreign account with a custom component that retrieves a value from its storage (map).
 ///
 /// # Returns
 ///
@@ -166,16 +173,26 @@ pub fn foreign_account(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
 ) -> (Account, Word, SecretKey, Digest) {
+    // store our expected value on map from slot 0 (map key 15)
+    let mut storage_map = StorageMap::new();
+    storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
+
     let get_item_component = AccountComponent::compile(
-        "
-        export.get_fpi_item
+        format!(
+            "
+        export.get_fpi_map_item
+            # map key
+            push.{map_key}
+            # item index
             push.0
-            exec.::miden::account::get_item
+            exec.::miden::account::get_map_item
             swapw dropw
         end
         ",
+            map_key = prepare_word(&MAP_KEY)
+        ),
         TransactionKernel::assembler(),
-        vec![StorageSlot::Value(FPI_STORAGE_VALUE)],
+        vec![StorageSlot::Map(storage_map)],
     )
     .unwrap()
     .with_supports_all_types();
@@ -183,8 +200,7 @@ pub fn foreign_account(
     let secret_key = SecretKey::new();
     let auth_component = RpoFalcon512::new(secret_key.public_key());
 
-    let (account, seed) = AccountBuilder::new()
-        .init_seed(Default::default())
+    let (account, seed) = AccountBuilder::new(Default::default())
         .anchor(anchor_block_header.try_into().unwrap())
         .with_component(get_item_component.clone())
         .with_component(auth_component)

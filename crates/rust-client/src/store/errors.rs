@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::MmrError,
     utils::{DeserializationError, HexParseError},
-    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+    AccountError, AccountIdError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::DataStoreError;
 use thiserror::Error;
@@ -26,6 +26,8 @@ pub enum StoreError {
     AccountDataNotFound(AccountId),
     #[error("account error")]
     AccountError(#[from] AccountError),
+    #[error("account id error")]
+    AccountIdError(#[from] AccountIdError),
     #[error("account hash {0} already exists")]
     AccountHashAlreadyExists(Digest),
     #[error("account hash mismatch for account {0}")]

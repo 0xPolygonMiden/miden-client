@@ -2,17 +2,12 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-use alloc::{
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
-    string::String,
-    vec::Vec,
-};
+use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::{AccountDetails, AccountProof, AccountProofs, FpiAccountData},
+    accounts::{AccountDetails, AccountProofs},
     notes::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
@@ -128,12 +123,16 @@ pub trait NodeRpcClient {
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
-    /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
+    /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
+    /// specified foreign accounts, using the `GetAccountProofs` endpoint.
+    ///
+    /// The `code_commitments` parameter is a list of known code hashes
+    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
+    /// one of the tracked accounts is not found in the node, the method will return an error.
     async fn get_account_proofs(
-        &self,
-        account_ids: &BTreeSet<AccountId>,
+        &mut self,
+        account_storage_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
-        include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
@@ -148,52 +147,6 @@ pub trait NodeRpcClient {
             self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
-    }
-
-    /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
-    /// specified foreign accounts.
-    ///
-    /// The `code_commitments` parameter is a list of known code hashes
-    /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
-    /// one of the tracked accounts is not found in the node, the method will return an error.
-    /// The default implementation of this method uses [NodeRpcClient::get_account_proofs].
-    async fn get_fpi_account_data(
-        &self,
-        foreign_accounts: BTreeSet<ForeignAccount>,
-        known_account_code: Vec<AccountCode>,
-    ) -> Result<(u32, Vec<FpiAccountData>), RpcError> {
-        let account_ids = foreign_accounts.iter().map(|acc| acc.account_id());
-        let (block_num, account_proofs) = self
-            .get_account_proofs(&account_ids.collect(), known_account_code, true)
-            .await?;
-
-        let mut account_proofs: BTreeMap<AccountId, AccountProof> =
-            account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
-
-        let mut headers = Vec::new();
-        for foreign_account in foreign_accounts.into_iter() {
-            let fpi_account_data = match foreign_account {
-                ForeignAccount::Public(account_id) => {
-                    let account_proof = account_proofs
-                        .remove(&account_id)
-                        .expect("Proof was requested and received");
-
-                    account_proof.try_into()?
-                },
-                ForeignAccount::Private(foreign_account_inputs) => {
-                    let account_id = foreign_account_inputs.account_header().id();
-                    let proof = account_proofs
-                        .remove(&account_id)
-                        .expect("Proof was requested and received");
-
-                    FpiAccountData::new(account_id, proof.into_parts().1, foreign_account_inputs)
-                },
-            };
-
-            headers.push(fpi_account_data);
-        }
-
-        Ok((block_num, headers))
     }
 
     /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with
