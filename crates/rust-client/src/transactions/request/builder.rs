@@ -1,9 +1,5 @@
 //! Contains structures and functions related to transaction creation.
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    string::ToString,
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -20,7 +16,7 @@ use miden_objects::{
 };
 
 use super::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, TransactionRequest, TransactionRequestError,
+    ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
 
@@ -54,7 +50,7 @@ pub struct TransactionRequestBuilder {
     /// Foreign account data requirements. At execution time, account data will be retrieved from
     /// the network, and injected as advice inputs. Additionally, the account's code will be
     /// added to the executor and prover.
-    foreign_accounts: BTreeSet<ForeignAccount>,
+    foreign_accounts: BTreeMap<AccountId, ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
@@ -75,7 +71,7 @@ impl TransactionRequestBuilder {
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
             expiration_delta: None,
-            foreign_accounts: BTreeSet::default(),
+            foreign_accounts: BTreeMap::default(),
         }
     }
 
@@ -156,41 +152,26 @@ impl TransactionRequestBuilder {
         Ok(self)
     }
 
-    /// Specifies public account IDs that contain data that the transaction will utilize.
+    /// Specifies one or more foreign accounts (public or private) that contain data
+    /// utilized by the transaction.
     ///
-    /// At execution, the client queries the node and retrieves the state and current code for
-    /// these accounts, and injects them as advice inputs.
+    /// At execution, the client queries the node and retrieves the appropriate data,
+    /// depending on whether each foreign account is public or private:
     ///
-    /// # Errors
-    ///
-    /// - If `foreign_account_ids` contains an ID corresponding to a private account.
-    pub fn with_public_foreign_accounts(
+    /// - **Public accounts**: the node retrieves the state and code for the account and injects
+    ///   them as advice inputs.
+    /// - **Private accounts**: the node retrieves a proof of the account's existence and injects
+    ///   that as advice inputs.
+    pub fn with_foreign_accounts(
         mut self,
-        foreign_account_ids: impl IntoIterator<Item = impl Into<AccountId>>,
-    ) -> Result<Self, TransactionRequestError> {
-        for account_id in foreign_account_ids {
-            self.foreign_accounts.insert(ForeignAccount::public(account_id.into())?);
-        }
-
-        Ok(self)
-    }
-
-    /// Specifies private accounts that contain data that the transaction will utilize.
-    /// At execution, the client queries the node and retrieves a proof of the account's existence
-    /// and injects them as advice inputs.
-    ///
-    /// # Errors
-    ///
-    /// - If `foreign_accounts` contains an ID corresponding to a public account.
-    pub fn with_private_foreign_accounts(
-        mut self,
-        foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccountInputs>>,
-    ) -> Result<Self, TransactionRequestError> {
+        foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccount>>,
+    ) -> Self {
         for account in foreign_accounts {
-            self.foreign_accounts.insert(ForeignAccount::private(account.into())?);
+            let foreign_account: ForeignAccount = account.into();
+            self.foreign_accounts.insert(foreign_account.account_id(), foreign_account);
         }
 
-        Ok(self)
+        self
     }
 
     /// Specifies a transaction's expected output notes.
@@ -377,7 +358,7 @@ impl TransactionRequestBuilder {
             expected_future_notes: self.expected_future_notes,
             advice_map: self.advice_map,
             merkle_store: self.merkle_store,
-            foreign_accounts: self.foreign_accounts,
+            foreign_accounts: self.foreign_accounts.into_values().collect(),
             expiration_delta: self.expiration_delta,
         }
     }

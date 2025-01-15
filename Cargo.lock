@@ -2115,7 +2115,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#78ca36c6a3f574ff6131db8e8f51c460d2751d96"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#f9da75e650975ef036d66e612e9c68b84ac98cae"
 
 [[package]]
 name = "miden-stdlib"
