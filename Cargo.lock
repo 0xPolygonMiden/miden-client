@@ -1892,7 +1892,7 @@ dependencies = [
  "comfy-table",
  "figment",
  "miden-client",
- "miden-tx-prover 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-tx-prover",
  "rand",
  "serde",
  "tokio",
@@ -1912,10 +1912,10 @@ dependencies = [
  "deadpool-sqlite",
  "hex",
  "miden-client",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-lib",
+ "miden-objects",
  "miden-rpc-proto",
- "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-tx",
  "miette",
  "pollster",
  "prost",
@@ -1943,8 +1943,8 @@ version = "0.6.0"
 dependencies = [
  "async-trait",
  "miden-client",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-lib",
+ "miden-objects",
  "rand",
  "tokio",
  "toml",
@@ -1958,9 +1958,9 @@ version = "0.6.0"
 dependencies = [
  "console_error_panic_hook",
  "miden-client",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-tx-prover 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
+ "miden-lib",
+ "miden-objects",
+ "miden-tx-prover",
  "rand",
  "serde",
  "serde-wasm-bindgen",
@@ -2020,23 +2020,10 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
-dependencies = [
- "miden-assembly",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miden-stdlib",
- "regex",
- "thiserror 2.0.11",
- "walkdir",
-]
-
-[[package]]
-name = "miden-lib"
-version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "miden-assembly",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-objects",
  "miden-stdlib",
  "regex",
  "thiserror 2.0.11",
@@ -2083,24 +2070,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
-]
-
-[[package]]
-name = "miden-objects"
-version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
-dependencies = [
- "getrandom",
- "miden-assembly",
- "miden-core",
- "miden-crypto",
- "miden-processor",
- "miden-verifier",
- "rand",
- "rand_xoshiro",
- "semver 1.0.24",
- "thiserror 2.0.11",
- "winter-rand-utils",
 ]
 
 [[package]]
@@ -2185,75 +2154,17 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
-dependencies = [
- "async-trait",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miden-processor",
- "miden-prover",
- "miden-verifier",
- "rand",
- "rand_chacha",
- "thiserror 2.0.11",
- "winter-maybe-async",
-]
-
-[[package]]
-name = "miden-tx"
-version = "0.7.0"
 source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "async-trait",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-lib",
+ "miden-objects",
  "miden-processor",
  "miden-prover",
  "miden-verifier",
  "rand",
  "rand_chacha",
  "thiserror 2.0.11",
- "winter-maybe-async",
-]
-
-[[package]]
-name = "miden-tx-prover"
-version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
-dependencies = [
- "async-trait",
- "bytes",
- "clap 4.5.26",
- "figment",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
- "miette",
- "once_cell",
- "opentelemetry 0.27.1",
- "opentelemetry-jaeger",
- "opentelemetry-otlp",
- "opentelemetry-semantic-conventions 0.27.0",
- "opentelemetry_sdk 0.27.1",
- "pingora",
- "pingora-core",
- "pingora-limits",
- "pingora-proxy",
- "prometheus",
- "prost",
- "prost-build",
- "protox",
- "reqwest",
- "serde",
- "serde_qs",
- "thiserror 2.0.11",
- "toml",
- "tonic",
- "tonic-build",
- "tonic-health",
- "tonic-web-wasm-client",
- "tracing-opentelemetry",
- "uuid",
  "winter-maybe-async",
 ]
 
@@ -2267,9 +2178,9 @@ dependencies = [
  "bytes",
  "clap 4.5.26",
  "figment",
- "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
- "miden-tx 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
+ "miden-lib",
+ "miden-objects",
+ "miden-tx",
  "miette",
  "once_cell",
  "opentelemetry 0.27.1",
