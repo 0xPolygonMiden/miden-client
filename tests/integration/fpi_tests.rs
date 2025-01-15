@@ -128,29 +128,19 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     // Create transaction request with FPI
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
-    let tx_request = if storage_mode == AccountStorageMode::Public {
+    let storage_requirements =
+        AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
+    let foreign_account = if storage_mode == AccountStorageMode::Public {
         // Require slot 0, key `MAP_KEY` as well as account proof
-        builder
-            .with_foreign_accounts([ForeignAccount::public(
-                foreign_account_id,
-                AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
-            )
-            .unwrap()])
-            .build()
+        ForeignAccount::public(foreign_account_id, storage_requirements)
     } else {
         // Get foreign account current state (after 1st deployment tx)
-        let foreign_account: Account =
-            client.get_account(foreign_account_id).await.unwrap().unwrap().into();
-        let foreign_account_inputs = ForeignAccountInputs::from_account(
-            foreign_account,
-            AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
+        ForeignAccount::private(
+            ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
         )
-        .unwrap();
-        builder
-            .with_foreign_accounts([ForeignAccount::private(foreign_account_inputs).unwrap()])
-            .build()
     };
 
+    let tx_request = builder.with_foreign_accounts([foreign_account.unwrap()]).build();
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();

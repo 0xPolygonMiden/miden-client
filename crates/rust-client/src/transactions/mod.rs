@@ -851,8 +851,12 @@ fn extend_advice_inputs_for_account(
         foreign_account_inputs.into_parts();
 
     let account_id = account_header.id();
-    let foreign_id_root =
-        Digest::from([account_id.suffix(), account_id.prefix().as_felt(), ZERO, ZERO]);
+    let foreign_id_root = Digest::from([
+        account_id.suffix(),
+        account_id.prefix().as_felt(),
+        ZERO,
+        account_header.nonce(),
+    ]);
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([
