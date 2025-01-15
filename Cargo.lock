@@ -1311,6 +1311,7 @@ dependencies = [
  "comfy-table",
  "figment",
  "miden-client",
+ "miden-lib",
  "miden-remote-provers",
  "rand",
  "serde",
