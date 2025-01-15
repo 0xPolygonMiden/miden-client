@@ -33,8 +33,6 @@ export default [
     plugins: [
       rust({
         cargoArgs: [
-          "--features",
-          "testing",
           "--config",
           `build.rustflags=["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals", "-C", "link-arg=--max-memory=4294967296"]`,
           "--no-default-features",

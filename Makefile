@@ -6,9 +6,8 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_WEB_CLIENT=--features "testing"
 FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
-FEATURES_CLI=--features "testing, concurrent"
+FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
@@ -29,7 +28,7 @@ PROVER_PORT=50051
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
+	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets -- -D warnings
 
 .PHONY: fix
 fix: ## Run Fix with configs
@@ -37,7 +36,7 @@ fix: ## Run Fix with configs
 
 .PHONY: fix-wasm
 fix-wasm: ## Run Fix for the miden-client-web package
-	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
+	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets
 
 .PHONY: format
 format: ## Run format using nightly toolchain
@@ -166,7 +165,7 @@ build: ## Build the CLI binary and client library in release mode
 	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown
 
 # --- Check ---------------------------------------------------------------------------------------
 
@@ -176,4 +175,4 @@ check: ## Build the CLI binary and client library in release mode
 
 .PHONY: check-wasm
 check-wasm: ## Build the client library for wasm32
-	cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	cargo check --package miden-client-web --target wasm32-unknown-unknown
