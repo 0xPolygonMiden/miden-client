@@ -50,8 +50,7 @@ async fn insert_new_wallet<R: FeltRng>(
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-    let (account, seed) = AccountBuilder::new()
-        .init_seed(init_seed)
+    let (account, seed) = AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
         .storage_mode(storage_mode)
@@ -83,8 +82,7 @@ async fn insert_new_fungible_faucet<R: FeltRng>(
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-    let (account, seed) = AccountBuilder::new()
-        .init_seed(init_seed)
+    let (account, seed) = AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(storage_mode)

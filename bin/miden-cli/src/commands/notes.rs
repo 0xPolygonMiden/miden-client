@@ -220,12 +220,13 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
                 let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset)?;
-
                 ("Fungible Asset", faucet, amount)
             },
-            Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
-            },
+            Asset::NonFungible(non_fungible_asset) => (
+                "Non Fungible Asset",
+                non_fungible_asset.faucet_id_prefix().to_hex(),
+                1.0.to_string(),
+            ),
         };
         table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
     }

@@ -14,7 +14,6 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
 NODE_BRANCH="next"
-NODE_FEATURES_TESTING=--features "testing"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -123,7 +122,7 @@ update-node-branch: setup-miden-base ## Checkout and update the specified branch
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features
-	cd $(NODE_DIR) && rm -rf miden-store.sqlite3* && cargo run --locked --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+	cd $(NODE_DIR) && rm -rf miden-store.sqlite3* && cargo run --locked --bin miden-node -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`

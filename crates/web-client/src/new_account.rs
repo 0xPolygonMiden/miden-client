@@ -34,8 +34,7 @@ impl WebClient {
 
             let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-            let (new_account, seed) = match AccountBuilder::new()
-                .init_seed(init_seed)
+            let (new_account, seed) = match AccountBuilder::new(init_seed)
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(account_type)
                 .storage_mode(storage_mode.into())
@@ -95,8 +94,7 @@ impl WebClient {
 
             let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-            let (new_account, seed) = match AccountBuilder::new()
-                .init_seed(init_seed)
+            let (new_account, seed) = match AccountBuilder::new(init_seed)
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())

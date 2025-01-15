@@ -664,13 +664,17 @@ impl<R: FeltRng> Client<R> {
                     // Check if the non fungible asset is in the incoming assets
                     if !incoming_non_fungible_balance_set.contains(&non_fungible) {
                         return Err(ClientError::AssetError(
-                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                            AssetError::NonFungibleFaucetIdTypeMismatch(
+                                non_fungible.faucet_id_prefix(),
+                            ),
                         ));
                     }
                 },
                 _ => {
                     return Err(ClientError::AssetError(
-                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                        AssetError::NonFungibleFaucetIdTypeMismatch(
+                            non_fungible.faucet_id_prefix(),
+                        ),
                     ));
                 },
             }
@@ -784,7 +788,7 @@ impl<R: FeltRng> Client<R> {
                 },
             };
 
-            extend_advice_inputs_for_account(
+            extend_advice_inputs_for_foreign_account(
                 tx_args,
                 &mut self.tx_executor,
                 foreign_account_inputs,
@@ -837,7 +841,7 @@ impl<R: FeltRng> Client<R> {
 
 /// Extends the advice inputs with account data and Merkle proofs, and loads the necessary
 /// [code](AccountCode) in `tx_executor`.
-fn extend_advice_inputs_for_account(
+fn extend_advice_inputs_for_foreign_account(
     tx_args: &mut TransactionArgs,
     tx_executor: &mut TransactionExecutor,
     foreign_account_inputs: ForeignAccountInputs,
@@ -848,7 +852,7 @@ fn extend_advice_inputs_for_account(
 
     let account_id = account_header.id();
     let foreign_id_root =
-        Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
+        Digest::from([account_id.suffix(), account_id.prefix().as_felt(), ZERO, ZERO]);
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([
@@ -873,8 +877,9 @@ fn extend_advice_inputs_for_account(
 
     // Extend the advice inputs with Merkle store data
     tx_args.extend_merkle_store(
-        merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?,
+        merkle_path.inner_nodes(account_id.prefix().as_u64(), account_header.hash())?,
     );
+
     tx_executor.load_account_code(&account_code);
 
     Ok(())
@@ -971,8 +976,7 @@ mod test {
 
         let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-        let account = AccountBuilder::new()
-            .init_seed(Default::default())
+        let account = AccountBuilder::new(Default::default())
             .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))

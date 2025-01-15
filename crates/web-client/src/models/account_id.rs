@@ -28,12 +28,12 @@ impl AccountId {
     }
 
     pub fn prefix(&self) -> Felt {
-        let native_felt: NativeFelt = self.0.first_felt();
+        let native_felt: NativeFelt = self.0.prefix().as_felt();
         native_felt.into()
     }
 
     pub fn suffix(&self) -> Felt {
-        let native_felt: NativeFelt = self.0.second_felt();
+        let native_felt: NativeFelt = self.0.suffix();
         native_felt.into()
     }
 }

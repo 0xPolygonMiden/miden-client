@@ -97,8 +97,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             push.{proc_root}
     
             # push the foreign account id
-            push.{id_first_felt} push.{id_second_felt}
-            # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index]
+            push.{account_id_suffix} push.{account_id_prefix}
+            # => [foreign_id_prefix, foreign_id_suffix, FOREIGN_PROC_ROOT, storage_item_index]
     
             exec.tx::execute_foreign_procedure
             push.{fpi_value} assert_eqw
@@ -107,8 +107,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         end
         ",
         fpi_value = prepare_word(&FPI_STORAGE_VALUE),
-        id_first_felt = foreign_account_id.first_felt().as_int(),
-        id_second_felt = foreign_account_id.second_felt().as_int(),
+        account_id_prefix = foreign_account_id.prefix().as_u64(),
+        account_id_suffix = foreign_account_id.suffix(),
     );
 
     let tx_script =
@@ -128,29 +128,23 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     // Create transaction request with FPI
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
-    let tx_request = if storage_mode == AccountStorageMode::Public {
-        // Require slot 0, key `MAP_KEY` as well as account proof
-        builder
-            .with_foreign_accounts([ForeignAccount::public(
-                foreign_account_id,
-                AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
-            )
-            .unwrap()])
-            .build()
+
+    // We will require slot 0, key `MAP_KEY` as well as account proof
+    let storage_requirements =
+        AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
+
+    let foreign_account = if storage_mode == AccountStorageMode::Public {
+        ForeignAccount::public(foreign_account_id, storage_requirements)
     } else {
-        // Get foreign account current state (after 1st deployment tx)
+        // Get current foreign account current state from the store (after 1st deployment tx)
         let foreign_account: Account =
             client.get_account(foreign_account_id).await.unwrap().unwrap().into();
-        let foreign_account_inputs = ForeignAccountInputs::from_account(
-            foreign_account,
-            AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]),
+        ForeignAccount::private(
+            ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
         )
-        .unwrap();
-        builder
-            .with_foreign_accounts([ForeignAccount::private(foreign_account_inputs).unwrap()])
-            .build()
     };
 
+    let tx_request = builder.with_foreign_accounts([foreign_account.unwrap()]).build();
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();
@@ -206,8 +200,7 @@ pub fn foreign_account(
     let secret_key = SecretKey::new();
     let auth_component = RpoFalcon512::new(secret_key.public_key());
 
-    let (account, seed) = AccountBuilder::new()
-        .init_seed(Default::default())
+    let (account, seed) = AccountBuilder::new(Default::default())
         .anchor(anchor_block_header.try_into().unwrap())
         .with_component(get_item_component.clone())
         .with_component(auth_component)
