@@ -788,7 +788,7 @@ impl<R: FeltRng> Client<R> {
                 },
             };
 
-            extend_advice_inputs_for_account(
+            extend_advice_inputs_for_foreign_account(
                 tx_args,
                 &mut self.tx_executor,
                 foreign_account_inputs,
@@ -841,7 +841,7 @@ impl<R: FeltRng> Client<R> {
 
 /// Extends the advice inputs with account data and Merkle proofs, and loads the necessary
 /// [code](AccountCode) in `tx_executor`.
-fn extend_advice_inputs_for_account(
+fn extend_advice_inputs_for_foreign_account(
     tx_args: &mut TransactionArgs,
     tx_executor: &mut TransactionExecutor,
     foreign_account_inputs: ForeignAccountInputs,
@@ -851,12 +851,8 @@ fn extend_advice_inputs_for_account(
         foreign_account_inputs.into_parts();
 
     let account_id = account_header.id();
-    let foreign_id_root = Digest::from([
-        account_id.suffix(),
-        account_id.prefix().as_felt(),
-        ZERO,
-        account_header.nonce(),
-    ]);
+    let foreign_id_root =
+        Digest::from([account_id.suffix(), account_id.prefix().as_felt(), ZERO, ZERO]);
 
     // Extend the advice inputs with the new data
     tx_args.extend_advice_map([

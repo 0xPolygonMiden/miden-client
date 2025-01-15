@@ -97,8 +97,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             push.{proc_root}
     
             # push the foreign account id
-            push.{id_first_felt} push.{id_second_felt}
-            # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index]
+            push.{account_id_suffix} push.{account_id_prefix}
+            # => [foreign_id_prefix, foreign_id_suffix, FOREIGN_PROC_ROOT, storage_item_index]
     
             exec.tx::execute_foreign_procedure
             push.{fpi_value} assert_eqw
@@ -107,8 +107,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         end
         ",
         fpi_value = prepare_word(&FPI_STORAGE_VALUE),
-        id_first_felt = foreign_account_id.prefix().as_u64(),
-        id_second_felt = foreign_account_id.suffix().as_int(),
+        account_id_prefix = foreign_account_id.prefix().as_u64(),
+        account_id_suffix = foreign_account_id.suffix(),
     );
 
     let tx_script =
@@ -128,13 +128,17 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     // Create transaction request with FPI
     let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
+
+    // We will require slot 0, key `MAP_KEY` as well as account proof
     let storage_requirements =
         AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
+
     let foreign_account = if storage_mode == AccountStorageMode::Public {
-        // Require slot 0, key `MAP_KEY` as well as account proof
         ForeignAccount::public(foreign_account_id, storage_requirements)
     } else {
-        // Get foreign account current state (after 1st deployment tx)
+        // Get current foreign account current state from the store (after 1st deployment tx)
+        let foreign_account: Account =
+            client.get_account(foreign_account_id).await.unwrap().unwrap().into();
         ForeignAccount::private(
             ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
         )
