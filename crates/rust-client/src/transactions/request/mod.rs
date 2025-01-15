@@ -330,11 +330,11 @@ mod tests {
 
     use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountStorageMode, AccountType},
+        accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
         assets::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
         notes::{NoteExecutionMode, NoteTag, NoteType},
-        testing::account_component::AccountMockComponent,
+        testing::{account_component::AccountMockComponent, account_id::{ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER}},
         transaction::OutputNote,
         Digest, Felt, ZERO,
     };
@@ -348,21 +348,9 @@ mod tests {
 
     #[test]
     fn transaction_request_serialization() {
-        let sender_id = AccountId::new_dummy(
-            [0u8; 15],
-            AccountType::RegularAccountImmutableCode,
-            AccountStorageMode::Private,
-        );
-        let target_id = AccountId::new_dummy(
-            [1u8; 15],
-            AccountType::RegularAccountImmutableCode,
-            AccountStorageMode::Public,
-        );
-        let faucet_id = AccountId::new_dummy(
-            [2u8; 15],
-            AccountType::FungibleFaucet,
-            AccountStorageMode::Private,
-        );
+        let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
+        let target_id = AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
+        let faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN).unwrap();
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];

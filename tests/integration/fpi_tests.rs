@@ -107,8 +107,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         end
         ",
         fpi_value = prepare_word(&FPI_STORAGE_VALUE),
-        id_first_felt = foreign_account_id.first_felt().as_int(),
-        id_second_felt = foreign_account_id.second_felt().as_int(),
+        id_first_felt = foreign_account_id.prefix().as_u64(),
+        id_second_felt = foreign_account_id.suffix().as_int(),
     );
 
     let tx_script =

@@ -359,9 +359,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.7.0"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1be3f42a67d6d345ecd59f675f3f012d6974981560836e938c22b424b85ce1be"
+checksum = "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36"
 
 [[package]]
 name = "blake2"
@@ -686,7 +686,7 @@ version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "829d955a0bb380ef178a640b91779e3987da38c9aea133b20614cfed8cdea9c6"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "crossterm_winapi",
  "parking_lot",
  "rustix",
@@ -1703,7 +1703,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "libc",
 ]
 
@@ -2020,7 +2020,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#1386bcc76f5e44745822e86ff72996e60991d0b2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
 dependencies = [
  "miden-assembly",
  "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
@@ -2033,7 +2033,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#599ab11c2baf9a918b9fb7a723dca7ec7b525526"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "miden-assembly",
  "miden-objects 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
@@ -2088,7 +2088,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#1386bcc76f5e44745822e86ff72996e60991d0b2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2106,7 +2106,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#599ab11c2baf9a918b9fb7a723dca7ec7b525526"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2151,7 +2151,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#f9da75e650975ef036d66e612e9c68b84ac98cae"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#0c17dbcb209dd7c48ed70efcd25698af66fc25c5"
 
 [[package]]
 name = "miden-stdlib"
@@ -2185,7 +2185,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#1386bcc76f5e44745822e86ff72996e60991d0b2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
 dependencies = [
  "async-trait",
  "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=next)",
@@ -2202,7 +2202,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#599ab11c2baf9a918b9fb7a723dca7ec7b525526"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "async-trait",
  "miden-lib 0.7.0 (git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error)",
@@ -2219,7 +2219,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-prover"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#1386bcc76f5e44745822e86ff72996e60991d0b2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#bb96b1a95ebf5f4428b149dfcf1a6b50c0e112fe"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2260,7 +2260,7 @@ dependencies = [
 [[package]]
 name = "miden-tx-prover"
 version = "0.7.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#599ab11c2baf9a918b9fb7a723dca7ec7b525526"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-expose-account-id-error#d9ed2946479026e4bd4130b8cb94560fb91e2633"
 dependencies = [
  "async-trait",
  "axum",
@@ -2540,7 +2540,7 @@ version = "0.10.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6174bc48f102d208783c2c84bf931bb75927a617866870de8a4ea85597f871f5"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "cfg-if",
  "foreign-types",
  "libc",
@@ -3391,7 +3391,7 @@ version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03a862b389f93e68874fbf580b9de08dd02facb9a788ebadaf4a3fd33cf58834"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
 ]
 
 [[package]]
@@ -3517,7 +3517,7 @@ version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7753b721174eb8ff87a9a0e799e2d7bc3749323e773db92e0984debb00019d6e"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -3565,7 +3565,7 @@ version = "0.38.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a78891ee6bf2340288408954ac787aa063d8e8817e9f53abb37c695c6d834ef6"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -3656,7 +3656,7 @@ version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "core-foundation",
  "core-foundation-sys",
  "libc",
@@ -4469,7 +4469,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9cd434a998747dd2c4276bc96ee2e0c7a2eadf3cae88e52be55a05fa9053f5"
 dependencies = [
- "bitflags 2.7.0",
+ "bitflags 2.8.0",
  "bytes",
  "http 1.2.0",
  "http-body 1.0.1",

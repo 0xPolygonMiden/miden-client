@@ -256,7 +256,7 @@ fn create_custom_note(
     let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs =
-        NoteInputs::new(vec![target_account_id.first_felt(), target_account_id.second_felt()])
+        NoteInputs::new(vec![target_account_id.suffix(), target_account_id.prefix().as_felt()])
             .unwrap();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
