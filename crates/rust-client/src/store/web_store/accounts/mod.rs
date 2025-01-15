@@ -351,7 +351,7 @@ impl WebStore {
             .into_iter()
             .map(|idxdb_object| {
                 let account_id = AccountId::from_hex(&idxdb_object.account_id)
-                    .map_err(StoreError::AccountError)?;
+                    .map_err(StoreError::AccountIdError)?;
                 let code = AccountCode::from_bytes(&idxdb_object.code)
                     .map_err(StoreError::AccountError)?;
 

@@ -164,7 +164,11 @@ pub async fn show_account<R: FeltRng>(
                 },
                 Asset::NonFungible(non_fungible_asset) => {
                     // TODO: Display non-fungible assets more clearly.
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
+                    (
+                        "Non Fungible Asset",
+                        non_fungible_asset.faucet_id_prefix().to_hex(),
+                        1.0.to_string(),
+                    )
                 },
             };
             table.add_row(vec![asset_type, &faucet, &amount.to_string()]);

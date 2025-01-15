@@ -10,6 +10,7 @@
 * Added caching for foreign account code (#597).
 * Added support for unauthenticated notes consumption in the CLI (#609).
 * [BREAKING] Added foreign procedure invocation support for private accounts (#619).
+* [BREAKING] Added support for specifying map storage slots for FPI (#645)
 
 ### Fixes
 
