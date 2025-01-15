@@ -795,7 +795,7 @@ impl<R: FeltRng> Client<R> {
 
         // Fetch account proofs
         let (block_num, account_proofs) =
-        self.rpc_api.get_account_proofs(&foreign_accounts, known_account_codes).await?;
+            self.rpc_api.get_account_proofs(&foreign_accounts, known_account_codes).await?;
 
         let mut account_proofs: BTreeMap<AccountId, AccountProof> =
             account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
