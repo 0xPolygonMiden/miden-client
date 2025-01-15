@@ -5,9 +5,7 @@ use alloc::{
 use std::{collections::BTreeMap, rc::Rc};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
-    assets::{Asset, AssetVault},
-    Digest, Felt, Word,
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey}, assets::{Asset, AssetVault}, AccountError, Digest, Felt, Word
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, types::Value, Connection, Transaction};
@@ -215,7 +213,7 @@ impl SqliteStore {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
                     |(id, code): (String, Vec<u8>)| {
                         Ok((
-                            AccountId::from_hex(&id).map_err(StoreError::AccountError)?,
+                            AccountId::from_hex(&id).map_err(|err| StoreError::AccountError(AccountError::FinalAccountHeaderIdParsingFailed(err)))?,
                             AccountCode::from_bytes(&code).map_err(StoreError::AccountError)?,
                         ))
                     },

@@ -376,8 +376,7 @@ mod tests {
             advice_vec.push((Digest::new(rng.draw_word()), vec![Felt::new(i)]));
         }
 
-        let account = AccountBuilder::new()
-            .init_seed(Default::default())
+        let account = AccountBuilder::new(Default::default())
             .anchor(AccountIdAnchor::new_unchecked(0, Default::default()))
             .with_component(
                 AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),

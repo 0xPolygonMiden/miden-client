@@ -78,8 +78,7 @@ impl NewFaucetCmd {
 
         let anchor_block = client.get_latest_epoch_block().await?;
 
-        let (new_account, seed) = AccountBuilder::new()
-            .init_seed(init_seed)
+        let (new_account, seed) = AccountBuilder::new(init_seed)
             .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(AccountType::FungibleFaucet)
             .storage_mode(self.storage_mode.into())
@@ -131,8 +130,7 @@ impl NewWalletCmd {
 
         let anchor_block = client.get_latest_epoch_block().await?;
 
-        let (new_account, seed) = AccountBuilder::new()
-            .init_seed(init_seed)
+        let (new_account, seed) = AccountBuilder::new(init_seed)
             .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(account_type)
             .storage_mode(self.storage_mode.into())

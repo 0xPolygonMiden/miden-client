@@ -88,7 +88,7 @@ impl NoteScreener {
         );
 
         let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
-            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), AccountError::FinalAccountHeaderIdParsingFailed(err),))?;
 
         if !account_ids.contains(&account_id) {
             return Ok(vec![]);
@@ -117,7 +117,7 @@ impl NoteScreener {
         })?;
 
         let account_id = AccountId::try_from([account_id_felts[1], account_id_felts[0]])
-            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), AccountError::FinalAccountHeaderIdParsingFailed(err)))?;
 
         Ok(vec![
             (account_id, NoteRelevance::Always),

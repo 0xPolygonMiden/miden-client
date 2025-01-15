@@ -156,7 +156,8 @@ impl ProtoAccountStateHeader {
         account_id: AccountId,
         known_account_codes: &BTreeMap<Digest, AccountCode>,
     ) -> Result<StateHeaders, RpcError> {
-        let ProtoAccountStateHeader { header, storage_header, account_code } = self;
+        // TODO: check how to cast it to native type
+        let ProtoAccountStateHeader { header, storage_header, account_code, storage_maps: _ } = self;
         let account_header = header
             .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
             .into_domain(account_id)?;
@@ -341,3 +342,8 @@ pub enum AccountProofError {
     )]
     InconsistentCodeCommitment,
 }
+
+// ACCOUNT REQUEST
+// ================================================================================================
+
+AccountRequest

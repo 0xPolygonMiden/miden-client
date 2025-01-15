@@ -663,13 +663,13 @@ impl<R: FeltRng> Client<R> {
                     // Check if the non fungible asset is in the incoming assets
                     if !incoming_non_fungible_balance_set.contains(&non_fungible) {
                         return Err(ClientError::AssetError(
-                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                            AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id_prefix()),
                         ));
                     }
                 },
                 _ => {
                     return Err(ClientError::AssetError(
-                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id()),
+                        AssetError::NonFungibleFaucetIdTypeMismatch(non_fungible.faucet_id_prefix()),
                     ));
                 },
             }
@@ -831,9 +831,9 @@ fn extend_advice_inputs_for_account(
     let code_root = account_header.code_commitment();
 
     let foreign_id_root =
-        Digest::from([account_id.second_felt(), account_id.first_felt(), ZERO, ZERO]);
+        Digest::from([account_id.suffix(), account_id.prefix().as_felt(), ZERO, ZERO]);
     let foreign_id_and_nonce =
-        [account_id.second_felt(), account_id.first_felt(), ZERO, account_nonce];
+        [account_id.suffix(), account_id.prefix().as_felt(), ZERO, account_nonce];
 
     // Prepare storage slot data
     let mut slots_data = Vec::new();
@@ -865,7 +865,7 @@ fn extend_advice_inputs_for_account(
 
     // Extend the advice inputs with Merkle store data
     tx_args.extend_merkle_store(
-        merkle_path.inner_nodes(account_id.first_felt().as_int(), account_header.hash())?,
+        merkle_path.inner_nodes(account_id.prefix().as_u64(), account_header.hash())?,
     );
 
     tx_executor.load_account_code(&account_code);
@@ -964,8 +964,7 @@ mod test {
 
         let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-        let account = AccountBuilder::new()
-            .init_seed(Default::default())
+        let account = AccountBuilder::new(Default::default())
             .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))

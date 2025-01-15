@@ -183,8 +183,7 @@ pub fn foreign_account(
     let secret_key = SecretKey::new();
     let auth_component = RpoFalcon512::new(secret_key.public_key());
 
-    let (account, seed) = AccountBuilder::new()
-        .init_seed(Default::default())
+    let (account, seed) = AccountBuilder::new(Default::default())
         .anchor(anchor_block_header.try_into().unwrap())
         .with_component(get_item_component.clone())
         .with_component(auth_component)

@@ -112,8 +112,7 @@ async fn test_mint_with_untracked_account() {
 
         let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-        let (new_account, seed) = AccountBuilder::new()
-            .init_seed(init_seed)
+        let (new_account, seed) = AccountBuilder::new(init_seed)
             .anchor((&anchor_block).try_into().unwrap())
             .account_type(AccountType::RegularAccountImmutableCode)
             .storage_mode(AccountStorageMode::Private)
