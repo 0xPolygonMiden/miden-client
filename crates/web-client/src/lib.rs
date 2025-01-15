@@ -8,7 +8,7 @@ use miden_client::{
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_tx_prover::RemoteTransactionProver;
+use miden_remote_provers::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
