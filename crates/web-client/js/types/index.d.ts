@@ -29,6 +29,7 @@ export {
   NoteType,
   OutputNote,
   OutputNotesArray,
+  ProverWrapper,
   Rpo256,
   SerializedAccountHeader,
   TestUtils,

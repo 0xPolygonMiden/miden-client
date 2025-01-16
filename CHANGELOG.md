@@ -11,6 +11,7 @@
 * Added support for unauthenticated notes consumption in the CLI (#609).
 * [BREAKING] Added foreign procedure invocation support for private accounts (#619).
 * [BREAKING] Added support for specifying map storage slots for FPI (#645)
+* Added per transaction prover support to the web client (#674).
 
 ### Fixes
 

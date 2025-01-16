@@ -348,7 +348,10 @@ export const customTransaction = async (
       faucetAccount.id(),
       transaction_request
     );
-    await client.submit_transaction(transaction_result);
+
+    let prover = window.ProverWrapper.new_local_prover();
+
+    await client.submit_transaction_with_prover(transaction_result, prover);
     await window.helpers.waitForTransaction(
       transaction_result.executed_transaction().id().to_hex()
     );

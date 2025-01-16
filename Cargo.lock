@@ -1380,6 +1380,7 @@ dependencies = [
  "miden-lib",
  "miden-objects",
  "miden-remote-provers",
+ "miden-tx",
  "rand",
  "serde",
  "serde-wasm-bindgen",
