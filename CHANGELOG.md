@@ -15,6 +15,7 @@
 
 ### Fixes
 
+* Print MASM debug logs when executing transactions (#661).
 * Web Store Minor Logging and Error Handling Improvements (#656).
 * Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
 * Fixed client bugs where some note metadata was not being updated (#625).
