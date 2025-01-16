@@ -176,7 +176,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Returns if the client is in debug mode.
+    /// Returns true if the client is in debug mode.
     pub fn is_in_debug_mode(&self) -> bool {
         self.in_debug_mode
     }
