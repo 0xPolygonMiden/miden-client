@@ -4,6 +4,7 @@ use std::{
 };
 
 use miden_client::{accounts::AccountId, assets::FungibleAsset};
+use miden_lib::accounts::faucets::BasicFungibleFaucet;
 use serde::{Deserialize, Serialize};
 
 /// Stores the detail information of a faucet to be stored in the token symbol map file.
@@ -137,11 +138,14 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 
 /// Converts a decimal number, represented as a string, into an integer by shifting
 /// the decimal point to the right by a specified number of decimal places.
-///
-/// The MAX_DECIMALS is 12.
-// TODO: import that constant from the main code and add checks.
-// https://github.com/0xPolygonMiden/miden-client/issues/476
 fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, String> {
+    if n_decimals > BasicFungibleFaucet::MAX_DECIMALS {
+        return Err(format!(
+            "Number of decimals must be less than or equal to {}",
+            BasicFungibleFaucet::MAX_DECIMALS
+        ));
+    }
+
     // Split the string on the decimal point
     let parts: Vec<&str> = decimal_str.split('.').collect();
 
