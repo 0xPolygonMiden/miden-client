@@ -14,7 +14,7 @@ You can either build from source with:
 cargo build --release --features "concurrent"
 ```
 
-The `concurrent` features is enabled to improve proving times.
+The `concurrent` feature is enabled to improve execution and proving times.
 
 Once the binary is built, you can find it on `./target/release/miden`.
 
