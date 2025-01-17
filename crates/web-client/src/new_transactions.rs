@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId, note_type::NoteType, provers::ProverWrapper, transaction_request::TransactionRequest, transaction_result::TransactionResult, transactions::NewSwapTransactionResult
+        account_id::AccountId, note_type::NoteType, provers::TransactionProver, transaction_request::TransactionRequest, transaction_result::TransactionResult, transactions::NewSwapTransactionResult
     },
     WebClient,
 };
@@ -71,7 +71,7 @@ impl WebClient {
     pub async fn submit_transaction_with_prover(
         &mut self,
         transaction_result: &TransactionResult,
-        prover: ProverWrapper,
+        prover: TransactionProver,
     ) -> Result<(), JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();

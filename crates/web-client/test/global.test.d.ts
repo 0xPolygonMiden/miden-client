@@ -29,6 +29,7 @@ import {
   Rpo256,
   TestUtils,
   TransactionFilter,
+  TransactionProver,
   TransactionRequest,
   TransactionRequestBuilder,
   TransactionScriptInputPair,
@@ -68,6 +69,7 @@ declare global {
     Rpo256: typeof Rpo256;
     TestUtils: typeof TestUtils;
     TransactionFilter: typeof TransactionFilter;
+    TransactionProver: typeof TransactionProver;
     TransactionRequest: typeof TransactionRequest;
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;

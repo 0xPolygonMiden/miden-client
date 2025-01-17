@@ -349,7 +349,7 @@ export const customTransaction = async (
       transaction_request
     );
 
-    let prover = window.ProverWrapper.new_local_prover();
+    let prover = window.TransactionProver.new_local_prover();
 
     await client.submit_transaction_with_prover(transaction_result, prover);
     await window.helpers.waitForTransaction(

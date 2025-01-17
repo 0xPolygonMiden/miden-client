@@ -1,32 +1,33 @@
 use alloc::sync::Arc;
 use miden_remote_provers::RemoteTransactionProver;
-use miden_tx::{LocalTransactionProver, TransactionProver};
+use miden_tx::{LocalTransactionProver, TransactionProver as TransactionProverTrait};
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ProverWrapper {
-    prover: Arc<dyn TransactionProver>,
+pub struct TransactionProver {
+    prover: Arc<dyn TransactionProverTrait>,
 }
 
 #[wasm_bindgen]
-impl ProverWrapper {
-    pub fn new_local_prover() -> ProverWrapper {
+impl TransactionProver {
+    pub fn new_local_prover() -> TransactionProver {
         let local_prover = LocalTransactionProver::new(Default::default());
-        ProverWrapper {
+        TransactionProver {
             prover: Arc::new(local_prover),
         }
     }
 
-    pub fn new_remote_prover(endpoint: &str) -> ProverWrapper {
+    pub fn new_remote_prover(endpoint: &str) -> TransactionProver {
         let remote_prover = RemoteTransactionProver::new(endpoint);
-        ProverWrapper {
+        TransactionProver {
             prover: Arc::new(remote_prover),
         }
     }
 }
 
-impl ProverWrapper {
-    pub fn get_prover(&self) -> Arc<dyn TransactionProver> {
+impl TransactionProver {
+    pub fn get_prover(&self) -> Arc<dyn TransactionProverTrait> {
         self.prover.clone()
     }
 }

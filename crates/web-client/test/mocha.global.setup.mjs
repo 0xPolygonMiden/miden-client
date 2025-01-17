@@ -80,9 +80,9 @@ before(async () => {
         OutputNote,
         OutputNotesArray,
         Rpo256,
-        ProverWrapper,
         TestUtils,
         TransactionFilter,
+        TransactionProver,
         TransactionRequest,
         TransactionRequestBuilder,
         TransactionScriptInputPair,
@@ -125,9 +125,9 @@ before(async () => {
       window.OutputNote = OutputNote;
       window.OutputNotesArray = OutputNotesArray;
       window.Rpo256 = Rpo256;
-      window.ProverWrapper = ProverWrapper;
       window.TestUtils = TestUtils;
       window.TransactionFilter = TransactionFilter;
+      window.TransactionProver = TransactionProver;
       window.TransactionRequest = TransactionRequest;
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
