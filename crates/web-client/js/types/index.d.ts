@@ -38,5 +38,6 @@ export {
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
+  Word,
   WebClient,
 } from "./crates/miden_client_web";

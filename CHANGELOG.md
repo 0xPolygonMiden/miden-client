@@ -11,14 +11,17 @@
 * Added support for unauthenticated notes consumption in the CLI (#609).
 * [BREAKING] Added foreign procedure invocation support for private accounts (#619).
 * [BREAKING] Added support for specifying map storage slots for FPI (#645)
+* Limited the number of decimals that an asset can have (#666).
 * Added per transaction prover support to the web client (#674).
 
 ### Fixes
 
+* Print MASM debug logs when executing transactions (#661).
 * Web Store Minor Logging and Error Handling Improvements (#656).
 * Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
 * Fixed client bugs where some note metadata was not being updated (#625).
 * Added Sync Loop to Integration Tests for Small Speedup (#590).
+* Added Serial Num Parameter to Note Recipient Constructor in the Web Client (#671).
 
 ### Changes
 

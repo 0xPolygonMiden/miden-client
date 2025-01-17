@@ -37,6 +37,7 @@ const {
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
+  Word,
   WebClient,
 } = await wasm({
   importHook: () => {
@@ -81,5 +82,6 @@ export {
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
+  Word,
   WebClient,
 };

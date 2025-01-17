@@ -3,11 +3,9 @@ import { testingPage } from "./mocha.global.setup.mjs";
 import {
   badHexId,
   consumeTransaction,
-  fetchAndCacheAccountAuth,
   mintTransaction,
   sendTransaction,
   setupWalletAndFaucet,
-  syncState,
 } from "./webClientTestUtils";
 
 const getInputNote = async (noteId: string) => {
@@ -39,11 +37,15 @@ const setupMintedNote = async () => {
   return { createdNoteId, accountId, faucetId };
 };
 
-const setupConsumedNote = async () => {
+export const setupConsumedNote = async () => {
   const { createdNoteId, accountId, faucetId } = await setupMintedNote();
   await consumeTransaction(accountId, faucetId, createdNoteId);
 
-  return { consumedNoteId: createdNoteId };
+  return {
+    consumedNoteId: createdNoteId,
+    accountId: accountId,
+    faucetId: faucetId,
+  };
 };
 
 const getConsumableNotes = async (accountId?: string) => {

@@ -34,6 +34,7 @@ import {
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
+  Word,
   WebClient,
 } from "../dist/index";
 
@@ -75,6 +76,7 @@ declare global {
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
+    Word: typeof Word;
     create_client: () => Promise<void>;
 
     // Add the helpers namespace

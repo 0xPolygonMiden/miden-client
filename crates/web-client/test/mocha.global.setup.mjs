@@ -87,6 +87,7 @@ before(async () => {
         TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
+        Word,
         WebClient,
       } = await import("./index.js");
       let rpc_url = `http://localhost:${rpc_port}`;
@@ -132,6 +133,7 @@ before(async () => {
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+      window.Word = Word;
 
       // Create a namespace for helper functions
       window.helpers = window.helpers || {};

@@ -134,11 +134,21 @@ pub(crate) struct TransactionScriptBuilder {
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
+    /// Indicates if the script should be compiled in debug mode.
+    in_debug_mode: bool,
 }
 
 impl TransactionScriptBuilder {
-    pub fn new(account_capabilities: AccountCapabilities, expiration_delta: Option<u16>) -> Self {
-        Self { account_capabilities, expiration_delta }
+    pub fn new(
+        account_capabilities: AccountCapabilities,
+        expiration_delta: Option<u16>,
+        in_debug_mode: bool,
+    ) -> Self {
+        Self {
+            account_capabilities,
+            expiration_delta,
+            in_debug_mode,
+        }
     }
 
     /// Builds a transaction script which sends the specified notes with the corresponding
@@ -177,7 +187,8 @@ impl TransactionScriptBuilder {
             self.script_authentication()
         );
 
-        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+        let assembler = TransactionKernel::assembler().with_debug_mode(self.in_debug_mode);
+        let tx_script = TransactionScript::compile(script, vec![], assembler)
             .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
 
         Ok(tx_script)

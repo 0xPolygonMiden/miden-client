@@ -121,9 +121,9 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Compiles the provided program into a [NoteScript]
-    pub fn compile_note_script(&self, note_script_ast: &str) -> Result<NoteScript, ClientError> {
-        NoteScript::compile(note_script_ast, TransactionKernel::assembler())
-            .map_err(ClientError::NoteError)
+    pub fn compile_note_script(&self, note_script: &str) -> Result<NoteScript, ClientError> {
+        let assembler = TransactionKernel::assembler().with_debug_mode(self.in_debug_mode);
+        NoteScript::compile(note_script, assembler).map_err(ClientError::NoteError)
     }
 }
 
