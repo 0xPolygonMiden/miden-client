@@ -11,9 +11,11 @@ use crate::{
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
+#[clap(
+    about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
 the CLI and client configurations, and will be placed by default in the current working \
-directory.")]
+directory."
+)]
 pub struct InitCmd {
     /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
     /// optional. If not provided user will be asked for input.
