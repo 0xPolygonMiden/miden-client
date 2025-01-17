@@ -684,7 +684,7 @@ describe("custom transaction with multiple output notes", () => {
 // ================================================================================================
 
 export const selectProver = async (): Promise<TransactionProver> => {
-  if (window.remote_prover_url) {
+  if (window.remote_prover_url != null) {
     return window.TransactionProver.new_remote_prover(window.remote_prover_url);
   } else {
     return window.TransactionProver.new_local_prover();
