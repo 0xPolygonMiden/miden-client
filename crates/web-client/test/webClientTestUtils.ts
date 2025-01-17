@@ -19,7 +19,6 @@ export const mintTransaction = async (
     async (_targetAccountId, _faucetAccountId, _sync) => {
       const client = window.client;
 
-      await new Promise((r) => setTimeout(r, 20000));
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
 

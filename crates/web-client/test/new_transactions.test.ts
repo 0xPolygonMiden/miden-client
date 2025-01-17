@@ -5,6 +5,7 @@ import {
   mintTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
+import { setupConsumedNote } from "./notes.test";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -328,7 +329,11 @@ export const customTransaction = async (
       ])
     );
 
+    const serialNum = window.Word.new_from_u64s(
+      new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
+    );
     let noteRecipient = new window.NoteRecipient(
+      serialNum,
       compiledNoteScript,
       noteInputs
     );
@@ -414,19 +419,243 @@ export const customTransaction = async (
   }, asserted_value);
 };
 
+const customTxWithMultipleNotes = async (
+  isSerialNumSame: boolean,
+  senderAccountId: string,
+  faucetAccountId: string
+) => {
+  return await testingPage.evaluate(
+    async (_isSerialNumSame, _senderAccountId, _faucetAccountId) => {
+      const client = window.client;
+      const amount = BigInt(10);
+      const targetAccount = await client.new_wallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const targetAccountId = targetAccount.id();
+      const senderAccountId = window.AccountId.from_hex(_senderAccountId);
+      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+
+      // Create custom note with multiple assets to send to target account
+      // Error should happen if serial numbers are the same in each set of
+      // note assets. Otherwise, the transaction should go through.
+      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
+
+      let noteAssets_1 = new window.NoteAssets([
+        new window.FungibleAsset(faucetAccountId, amount),
+      ]);
+      let noteAssets_2 = new window.NoteAssets([
+        new window.FungibleAsset(faucetAccountId, amount),
+      ]);
+
+      let noteMetadata = new window.NoteMetadata(
+        senderAccountId,
+        window.NoteType.public(),
+        window.NoteTag.from_account_id(
+          targetAccountId,
+          window.NoteExecutionMode.new_local()
+        ),
+        window.NoteExecutionHint.none(),
+        undefined
+      );
+
+      let serialNum1 = window.Word.new_from_u64s(
+        new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
+      );
+      let serialNum2 = window.Word.new_from_u64s(
+        new BigUint64Array([BigInt(5), BigInt(6), BigInt(7), BigInt(8)])
+      );
+
+      const p2id_script = `
+        use.miden::account
+        use.miden::note
+        use.miden::contracts::wallets::basic->wallet
+
+        # ERRORS
+        # =================================================================================================
+
+        # P2ID script expects exactly 2 note inputs
+        const.ERR_P2ID_WRONG_NUMBER_OF_INPUTS=0x00020050
+
+        # P2ID's target account address and transaction address do not match
+        const.ERR_P2ID_TARGET_ACCT_MISMATCH=0x00020051
+
+        #! Helper procedure to add all assets of a note to an account.
+        #!
+        #! Inputs:  []
+        #! Outputs: []
+        proc.add_note_assets_to_account
+            push.0 exec.note::get_assets
+            # => [num_of_assets, 0 = ptr, ...]
+
+            # compute the pointer at which we should stop iterating
+            dup.1 add
+            # => [end_ptr, ptr, ...]
+
+            # pad the stack and move the pointer to the top
+            padw movup.5
+            # => [ptr, 0, 0, 0, 0, end_ptr, ...]
+
+            # compute the loop latch
+            dup dup.6 neq
+            # => [latch, ptr, 0, 0, 0, 0, end_ptr, ...]
+
+            while.true
+                # => [ptr, 0, 0, 0, 0, end_ptr, ...]
+
+                # save the pointer so that we can use it later
+                dup movdn.5
+                # => [ptr, 0, 0, 0, 0, ptr, end_ptr, ...]
+
+                # load the asset
+                mem_loadw
+                # => [ASSET, ptr, end_ptr, ...]
+                
+                # pad the stack before call
+                padw swapw padw padw swapdw
+                # => [ASSET, pad(12), ptr, end_ptr, ...]
+
+                # add asset to the account
+                call.wallet::receive_asset
+                # => [pad(16), ptr, end_ptr, ...]
+
+                # clean the stack after call
+                dropw dropw dropw
+                # => [0, 0, 0, 0, ptr, end_ptr, ...]
+
+                # increment the pointer and compare it to the end_ptr
+                movup.4 add.1 dup dup.6 neq
+                # => [latch, ptr+1, ASSET, end_ptr, ...]
+            end
+
+            # clear the stack
+            drop dropw drop
+        end
+
+        #! Pay-to-ID script: adds all assets from the note to the account, assuming ID of the account
+        #! matches target account ID specified by the note inputs.
+        #!
+        #! Requires that the account exposes: 
+        #! - miden::contracts::wallets::basic::receive_asset procedure.
+        #!
+        #! Inputs:  []
+        #! Outputs: []
+        #!
+        #! Note inputs are assumed to be as follows:
+        #! - target_account_id is the ID of the account for which the note is intended.
+        #!
+        #! Panics if:
+        #! - Account does not expose miden::contracts::wallets::basic::receive_asset procedure.
+        #! - Account ID of executing account is not equal to the Account ID specified via note inputs.
+        #! - The same non-fungible asset already exists in the account.
+        #! - Adding a fungible asset would result in amount overflow, i.e., the total amount would be
+        #!   greater than 2^63.
+        begin
+            # store the note inputs to memory starting at address 0
+            push.0 exec.note::get_inputs
+            # => [num_inputs, inputs_ptr]
+
+            # make sure the number of inputs is 2
+            eq.2 assert.err=ERR_P2ID_WRONG_NUMBER_OF_INPUTS
+            # => [inputs_ptr]
+
+            # read the target account ID from the note inputs
+            padw movup.4 mem_loadw drop drop
+            # => [target_account_id_prefix, target_account_id_suffix]
+
+            exec.account::get_id
+            # => [account_id_prefix, account_id_suffix, target_account_id_prefix, target_account_id_suffix, ...]
+
+            # ensure account_id = target_account_id, fails otherwise
+            exec.account::is_id_eq assert.err=ERR_P2ID_TARGET_ACCT_MISMATCH
+            # => []
+
+            exec.add_note_assets_to_account
+            # => []
+        end
+      `;
+
+      let compiledNoteScript = await client.compile_note_script(p2id_script);
+
+      let noteInputs = new window.NoteInputs(
+        new window.FeltArray([
+          targetAccount.id().suffix(),
+          targetAccount.id().prefix(),
+        ])
+      );
+
+      let noteRecipient1 = new window.NoteRecipient(
+        serialNum1,
+        compiledNoteScript,
+        noteInputs
+      );
+      let noteRecipient2 = new window.NoteRecipient(
+        _isSerialNumSame ? serialNum1 : serialNum2,
+        compiledNoteScript,
+        noteInputs
+      );
+
+      let note1 = new window.Note(noteAssets_1, noteMetadata, noteRecipient1);
+      let note2 = new window.Note(noteAssets_2, noteMetadata, noteRecipient2);
+
+      let transaction_request = new window.TransactionRequestBuilder()
+        .with_own_output_notes(
+          new window.OutputNotesArray([
+            window.OutputNote.full(note1),
+            window.OutputNote.full(note2),
+          ])
+        )
+        .build();
+
+      let transactionResult = await client.new_transaction(
+        senderAccountId,
+        transaction_request
+      );
+
+      await client.submit_transaction(transactionResult);
+
+      await window.helpers.waitForTransaction(
+        transactionResult.executed_transaction().id().to_hex()
+      );
+    },
+    isSerialNumSame,
+    senderAccountId,
+    faucetAccountId
+  );
+};
+
 describe("custom transaction tests", () => {
   it("custom transaction completes successfully", async () => {
-    const result = await customTransaction("0");
-
-    expect(1).to.equal(1);
+    await expect(customTransaction("0")).to.be.fulfilled;
   });
 
-  // TODO: Need better error handling throughout the new_transaction
-  // and submit_transaction web-client call stacks to actually detect
-  // this. Otherwise it hangs the test.
-  // it.only("custom transaction fails", async () => {
-  //     const result = await customTransaction("1");
+  it("custom transaction fails", async () => {
+    await expect(customTransaction("1")).to.be.rejected;
+  });
+});
 
-  //     expect(1).to.equal(1);
-  // });
+describe("custom transaction with multiple output notes", () => {
+  const testCases = [
+    {
+      description: "does not fail when output note serial numbers are unique",
+      shouldFail: false,
+    },
+    {
+      description: "fails when output note serial numbers are the same",
+      shouldFail: true,
+    },
+  ];
+
+  testCases.forEach(({ description, shouldFail }) => {
+    it(description, async () => {
+      const { accountId, faucetId } = await setupConsumedNote();
+      if (shouldFail) {
+        await expect(customTxWithMultipleNotes(shouldFail, accountId, faucetId))
+          .to.be.rejected;
+      } else {
+        await expect(customTxWithMultipleNotes(shouldFail, accountId, faucetId))
+          .to.be.fulfilled;
+      }
+    });
+  });
 });
