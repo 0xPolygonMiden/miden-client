@@ -8,23 +8,15 @@ comments: true
 
 ## Install the client
 
-We currently recommend installing and running the client with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
+We currently recommend installing and running the client with the [`concurrent`](#concurrent-feature) feature.
 
 Run the following command to install the miden-client:
 
 ```sh
-cargo install miden-cli --features concurrent,testing
+cargo install miden-cli --features concurrent
 ```
 
-This installs the `miden` binary (at `~/.cargo/bin/miden`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
-
-### `Testing` feature
-
-The `testing` feature speeds up account creation. 
-
-!!! warning "Install the `testing` feature on node and client"
-    - When using the client CLI alongside a locally-running node, make sure to install/execute the node with the `testing` feature. 
-    - Some validations can fail if the flag does not match on both the client and the node.
+This installs the `miden` binary (at `~/.cargo/bin/miden`) with the [`concurrent`](#concurrent-feature) features.
 
 ### `Concurrent` feature
 
