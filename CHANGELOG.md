@@ -12,6 +12,7 @@
 * [BREAKING] Added foreign procedure invocation support for private accounts (#619).
 * [BREAKING] Added support for specifying map storage slots for FPI (#645)
 * Limited the number of decimals that an asset can have (#666).
+* [BREAKING] Removed the `testing` feature from the CLI (#670).
 
 ### Fixes
 
