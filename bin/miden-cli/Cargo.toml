@@ -23,7 +23,7 @@ concurrent = ["miden-client/concurrent"]
 [[test]]
 name = "integration"
 path = "src/tests.rs"
-required-features = ["testing", "concurrent"]
+required-features = ["concurrent"]
 
 [dev-dependencies]
 assert_cmd = { version = "2.0" }
