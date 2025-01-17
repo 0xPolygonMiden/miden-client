@@ -136,6 +136,9 @@ before(async () => {
       // Create a namespace for helper functions
       window.helpers = window.helpers || {};
 
+      // Add the remote prover url to window
+      window.remote_prover_url = prover_url;
+
       window.helpers.waitForTransaction = async (
         transactionId,
         maxWaitTime = 20000,

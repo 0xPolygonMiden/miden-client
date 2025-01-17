@@ -5,6 +5,7 @@ import {
   mintTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
+import { TransactionProver } from "../dist";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -141,7 +142,8 @@ describe("new_send_transaction tests", () => {
 // =======================================================================================================
 
 export const customTransaction = async (
-  asserted_value: string
+  asserted_value: string,
+  with_custom_prover: boolean
 ): Promise<void> => {
   return await testingPage.evaluate(async (_asserted_value: string) => {
     const client = window.client;
@@ -349,9 +351,15 @@ export const customTransaction = async (
       transaction_request
     );
 
-    let prover = window.TransactionProver.new_local_prover();
+    if (with_custom_prover) {
+      await client.submit_transaction_with_prover(
+        transaction_result,
+        await selectProver()
+      );
+    } else {
+      await client.submit_transaction(transaction_result);
+    }
 
-    await client.submit_transaction_with_prover(transaction_result, prover);
     await window.helpers.waitForTransaction(
       transaction_result.executed_transaction().id().to_hex()
     );
@@ -410,7 +418,16 @@ export const customTransaction = async (
       walletAccount.id(),
       transaction_request_2
     );
-    await client.submit_transaction(transaction_result_2);
+
+    if (with_custom_prover) {
+      await client.submit_transaction_with_prover(
+        transaction_result_2,
+        await selectProver()
+      );
+    } else {
+      await client.submit_transaction(transaction_result_2);
+    }
+
     await window.helpers.waitForTransaction(
       transaction_result_2.executed_transaction().id().to_hex()
     );
@@ -419,7 +436,7 @@ export const customTransaction = async (
 
 describe("custom transaction tests", () => {
   it("custom transaction completes successfully", async () => {
-    const result = await customTransaction("0");
+    const result = await customTransaction("0", false);
 
     expect(1).to.equal(1);
   });
@@ -432,4 +449,24 @@ describe("custom transaction tests", () => {
 
   //     expect(1).to.equal(1);
   // });
+});
+
+// CUSTOM PROVERS TEST
+// ================================================================================================
+
+export const selectProver = async (): Promise<TransactionProver> => {
+  if (window.remote_prover_url) {
+    return window.TransactionProver.new_remote_prover(window.remote_prover_url);
+  } else {
+    return window.TransactionProver.new_local_prover();
+  }
+};
+
+describe("use custom transaction prover per request", () => {
+  it("custom transaction prover completes successfully"),
+    async () => {
+      const result = await customTransaction("0", true);
+
+      expect(1).to.equal(1);
+    };
 });
