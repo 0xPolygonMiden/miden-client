@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
+
 use miden_remote_provers::RemoteTransactionProver;
 use miden_tx::{LocalTransactionProver, TransactionProver as TransactionProverTrait};
-
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -13,16 +13,12 @@ pub struct TransactionProver {
 impl TransactionProver {
     pub fn new_local_prover() -> TransactionProver {
         let local_prover = LocalTransactionProver::new(Default::default());
-        TransactionProver {
-            prover: Arc::new(local_prover),
-        }
+        TransactionProver { prover: Arc::new(local_prover) }
     }
 
     pub fn new_remote_prover(endpoint: &str) -> TransactionProver {
         let remote_prover = RemoteTransactionProver::new(endpoint);
-        TransactionProver {
-            prover: Arc::new(remote_prover),
-        }
+        TransactionProver { prover: Arc::new(remote_prover) }
     }
 }
 

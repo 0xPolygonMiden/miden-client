@@ -1,7 +1,9 @@
 use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
-        PaymentTransactionData, SwapTransactionData, TransactionRequestBuilder as NativeTransactionRequestBuilder, TransactionResult as NativeTransactionResult
+        PaymentTransactionData, SwapTransactionData,
+        TransactionRequestBuilder as NativeTransactionRequestBuilder,
+        TransactionResult as NativeTransactionResult,
     },
 };
 use miden_lib::notes::utils::build_swap_tag;
@@ -10,7 +12,9 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId, note_type::NoteType, provers::TransactionProver, transaction_request::TransactionRequest, transaction_result::TransactionResult, transactions::NewSwapTransactionResult
+        account_id::AccountId, note_type::NoteType, provers::TransactionProver,
+        transaction_request::TransactionRequest, transaction_result::TransactionResult,
+        transactions::NewSwapTransactionResult,
     },
     WebClient,
 };
@@ -76,10 +80,7 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();
             client
-                .submit_transaction_with_prover(
-                    native_transaction_result,
-                    prover.get_prover(),
-                )
+                .submit_transaction_with_prover(native_transaction_result, prover.get_prover())
                 .await
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
