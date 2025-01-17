@@ -35,4 +35,5 @@ console_error_panic_hook = "0.1"
 miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+miden-tx = { workspace = true, features = ["testing"] }
 web-sys = { version = "0.3", features = ["console"]}
