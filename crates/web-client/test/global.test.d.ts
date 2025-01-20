@@ -29,6 +29,7 @@ import {
   Rpo256,
   TestUtils,
   TransactionFilter,
+  TransactionProver,
   TransactionRequest,
   TransactionRequestBuilder,
   TransactionScriptInputPair,
@@ -40,6 +41,7 @@ import {
 declare global {
   interface Window {
     client: WebClient;
+    remote_prover_url: string;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountId: typeof AccountId;
@@ -69,6 +71,7 @@ declare global {
     Rpo256: typeof Rpo256;
     TestUtils: typeof TestUtils;
     TransactionFilter: typeof TransactionFilter;
+    TransactionProver: typeof TransactionProver;
     TransactionRequest: typeof TransactionRequest;
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
