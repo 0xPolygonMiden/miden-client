@@ -5,6 +5,7 @@ use alloc::{
 };
 
 use miden_objects::{
+    block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     notes::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
@@ -554,7 +555,7 @@ fn parse_output_note(
         assets,
         metadata,
         state,
-        expected_height,
+        BlockNumber::from(expected_height),
     ))
 }
 
@@ -576,7 +577,7 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
         metadata,
         nullifier,
         recipient_digest,
-        expected_height: note.expected_height(),
+        expected_height: note.expected_height().as_u32(),
         state_discriminant,
         state,
     })

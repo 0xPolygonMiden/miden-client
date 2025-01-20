@@ -1,6 +1,6 @@
 use miden_cli::Cli;
 
-extern crate alloc;
+extern crate std;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {

@@ -2,6 +2,7 @@ use alloc::string::ToString;
 use core::fmt::{self, Display};
 
 use miden_objects::{
+    block::BlockNumber,
     notes::{
         Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
         NoteRecipient, Nullifier, PartialNote,
@@ -36,7 +37,7 @@ pub struct OutputNoteRecord {
     /// The state of the note, with specific fields for each one.
     state: OutputNoteState,
     /// The expected block height at which the note should be included in the chain.
-    expected_height: u32,
+    expected_height: BlockNumber,
 }
 
 impl OutputNoteRecord {
@@ -45,7 +46,7 @@ impl OutputNoteRecord {
         assets: NoteAssets,
         metadata: NoteMetadata,
         state: OutputNoteState,
-        expected_height: u32,
+        expected_height: BlockNumber,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             recipient_digest,
@@ -94,7 +95,7 @@ impl OutputNoteRecord {
         ))
     }
 
-    pub fn expected_height(&self) -> u32 {
+    pub fn expected_height(&self) -> BlockNumber {
         self.expected_height
     }
 
@@ -156,7 +157,7 @@ impl OutputNoteRecord {
 
 // TODO: Improve conversions by implementing into_parts()
 impl OutputNoteRecord {
-    pub fn from_full_note(note: Note, expected_height: u32) -> Self {
+    pub fn from_full_note(note: Note, expected_height: BlockNumber) -> Self {
         let header = *note.header();
         let (assets, recipient) = NoteDetails::from(note).into_parts();
         OutputNoteRecord {
@@ -168,7 +169,7 @@ impl OutputNoteRecord {
         }
     }
 
-    pub fn from_partial_note(partial_note: PartialNote, expected_height: u32) -> Self {
+    pub fn from_partial_note(partial_note: PartialNote, expected_height: BlockNumber) -> Self {
         OutputNoteRecord {
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
@@ -184,7 +185,7 @@ impl OutputNoteRecord {
     /// to filter the full and partial output notes.
     pub fn try_from_output_note(
         output_note: OutputNote,
-        expected_height: u32,
+        expected_height: BlockNumber,
     ) -> Result<Self, NoteRecordError> {
         match output_note {
             OutputNote::Full(note) => Ok(Self::from_full_note(note, expected_height)),

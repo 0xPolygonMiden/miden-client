@@ -8,6 +8,7 @@ use std::{path::PathBuf, string::ToString};
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::BlockNumber,
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -133,7 +134,7 @@ impl Store for SqliteStore {
             .await
     }
 
-    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         self.interact_with_connection(SqliteStore::get_sync_height).await
     }
 
@@ -195,7 +196,7 @@ impl Store for SqliteStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_numbers = block_numbers.to_vec();
         self.interact_with_connection(move |conn| {
@@ -227,7 +228,7 @@ impl Store for SqliteStore {
 
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.interact_with_connection(move |conn| {
             SqliteStore::get_chain_mmr_peaks_by_block_num(conn, block_num)

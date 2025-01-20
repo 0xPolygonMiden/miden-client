@@ -8,7 +8,7 @@ pub struct NoteLocation(NativeNoteLocation);
 #[wasm_bindgen]
 impl NoteLocation {
     pub fn block_num(&self) -> u32 {
-        self.0.block_num()
+        self.0.block_num().as_u32()
     }
 
     pub fn node_index_in_block(&self) -> u16 {

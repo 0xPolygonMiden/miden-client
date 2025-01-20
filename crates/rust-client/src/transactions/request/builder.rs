@@ -5,6 +5,7 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset},
+    block::BlockNumber,
     crypto::{
         merkle::{InnerNodeInfo, MerkleStore},
         rand::FeltRng,
@@ -280,7 +281,7 @@ impl TransactionRequestBuilder {
     ///   note.
     pub fn pay_to_id(
         payment_data: PaymentTransactionData,
-        recall_height: Option<u32>,
+        recall_height: Option<BlockNumber>,
         note_type: NoteType,
         rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {

@@ -515,7 +515,7 @@ async fn test_get_consumable_notes() {
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
-        Some(100),
+        Some(100.into()),
         NoteType::Private,
         client.rng(),
     )
@@ -713,7 +713,7 @@ async fn test_import_expected_note_uncommitted() {
     let imported_note_id = client_2
         .import_note(NoteFile::NoteDetails {
             details: note.into(),
-            after_block_num: 0,
+            after_block_num: 0.into(),
             tag: None,
         })
         .await

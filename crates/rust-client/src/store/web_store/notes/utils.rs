@@ -121,7 +121,7 @@ pub(crate) fn serialize_output_note(
         nullifier,
         state_discriminant,
         state,
-        expected_height: note.expected_height(),
+        expected_height: note.expected_height().as_u32(),
     })
 }
 
@@ -188,7 +188,7 @@ pub fn parse_output_note_idxdb_object(
         note_assets,
         note_metadata,
         state,
-        note_idxdb.expected_height,
+        note_idxdb.expected_height.into(),
     ))
 }
 

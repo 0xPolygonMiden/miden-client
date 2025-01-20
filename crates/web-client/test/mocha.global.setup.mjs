@@ -82,6 +82,7 @@ before(async () => {
         Rpo256,
         TestUtils,
         TransactionFilter,
+        TransactionProver,
         TransactionRequest,
         TransactionRequestBuilder,
         TransactionScriptInputPair,
@@ -127,6 +128,7 @@ before(async () => {
       window.Rpo256 = Rpo256;
       window.TestUtils = TestUtils;
       window.TransactionFilter = TransactionFilter;
+      window.TransactionProver = TransactionProver;
       window.TransactionRequest = TransactionRequest;
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
@@ -135,6 +137,9 @@ before(async () => {
 
       // Create a namespace for helper functions
       window.helpers = window.helpers || {};
+
+      // Add the remote prover url to window
+      window.remote_prover_url = prover_url;
 
       window.helpers.waitForTransaction = async (
         transactionId,

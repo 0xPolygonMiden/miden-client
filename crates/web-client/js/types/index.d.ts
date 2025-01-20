@@ -33,6 +33,7 @@ export {
   SerializedAccountHeader,
   TestUtils,
   TransactionFilter,
+  TransactionProver,
   TransactionRequest,
   TransactionRequestBuilder,
   TransactionScriptInputPair,

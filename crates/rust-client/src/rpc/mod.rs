@@ -13,6 +13,7 @@ use domain::{
 };
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId},
+    block::BlockNumber,
     crypto::merkle::MmrProof,
     notes::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
@@ -73,7 +74,7 @@ pub trait NodeRpcClient {
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
@@ -98,7 +99,7 @@ pub trait NodeRpcClient {
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
@@ -115,7 +116,7 @@ pub trait NodeRpcClient {
 
     async fn sync_notes(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
 
@@ -214,7 +215,7 @@ pub trait NodeRpcClient {
     /// The default implementation of this method uses [NodeRpcClient::get_block_header_by_number].
     async fn get_block_header_with_proof(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
         let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))

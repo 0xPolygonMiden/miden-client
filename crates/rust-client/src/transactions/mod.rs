@@ -13,6 +13,7 @@ pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountDelta, AccountId, AccountType},
     assets::{Asset, NonFungibleAsset},
+    block::BlockNumber,
     crypto::merkle::MerklePath,
     notes::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
@@ -74,7 +75,7 @@ impl TransactionResult {
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
         partial_notes: Vec<(NoteDetails, NoteTag)>,
-        current_block_num: u32,
+        current_block_num: BlockNumber,
         current_timestamp: Option<u64>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
@@ -132,7 +133,7 @@ impl TransactionResult {
     }
 
     /// Returns the block against which the transaction was executed.
-    pub fn block_num(&self) -> u32 {
+    pub fn block_num(&self) -> BlockNumber {
         self.transaction.block_header().block_num()
     }
 
@@ -174,7 +175,7 @@ pub struct TransactionRecord {
     pub input_note_nullifiers: Vec<Digest>,
     pub output_notes: OutputNotes,
     pub transaction_script: Option<TransactionScript>,
-    pub block_num: u32,
+    pub block_num: BlockNumber,
     pub transaction_status: TransactionStatus,
 }
 
@@ -188,7 +189,7 @@ impl TransactionRecord {
         input_note_nullifiers: Vec<Digest>,
         output_notes: OutputNotes,
         transaction_script: Option<TransactionScript>,
-        block_num: u32,
+        block_num: BlockNumber,
         transaction_status: TransactionStatus,
     ) -> TransactionRecord {
         TransactionRecord {
@@ -211,7 +212,7 @@ pub enum TransactionStatus {
     /// Transaction has been submitted but not yet committed.
     Pending,
     /// Transaction has been committed and included at the specified block number.
-    Committed(u32),
+    Committed(BlockNumber),
     /// Transaction has been discarded and isn't included in the node.
     Discarded,
 }
@@ -743,7 +744,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         foreign_accounts: BTreeSet<ForeignAccount>,
         tx_args: &mut TransactionArgs,
-    ) -> Result<Option<u32>, ClientError> {
+    ) -> Result<Option<BlockNumber>, ClientError> {
         if foreign_accounts.is_empty() {
             return Ok(None);
         }

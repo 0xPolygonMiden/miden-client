@@ -5,14 +5,16 @@ use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
+    notes::{
+        build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType,
+    },
     transactions::{
         PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
         TransactionResult,
     },
     Client,
 };
-use miden_remote_provers::RemoteTransactionProver;
+use miden_proving_service_client::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{
@@ -142,7 +144,7 @@ impl SendCmd {
 
         let transaction_request = TransactionRequestBuilder::pay_to_id(
             payment_transaction,
-            self.recall_height,
+            self.recall_height.map(BlockNumber::from),
             (&self.note_type).into(),
             client.rng(),
         )

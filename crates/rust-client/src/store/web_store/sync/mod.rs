@@ -5,6 +5,7 @@ use alloc::{
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     notes::{NoteId, NoteTag},
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -58,13 +59,13 @@ impl WebStore {
         Ok(tags)
     }
 
-    pub(super) async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    pub(super) async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         let promise = idxdb_get_sync_height();
         let js_value = JsFuture::from(promise).await.unwrap();
         let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value).unwrap();
 
         let block_num_as_u32: u32 = block_num_idxdb.block_num.parse::<u32>().unwrap();
-        Ok(block_num_as_u32)
+        Ok(block_num_as_u32.into())
     }
 
     pub(super) async fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
@@ -162,7 +163,7 @@ impl WebStore {
             update_account(&account.clone()).await.unwrap();
         }
 
-        for (account_id, _) in updated_accounts.mismatched_offchain_accounts() {
+        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
             lock_account(account_id).await.unwrap();
         }
 

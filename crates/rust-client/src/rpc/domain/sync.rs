@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::MmrDelta, notes::NoteId, transaction::TransactionId,
-    BlockHeader, Digest,
+    accounts::AccountId, block::BlockNumber, crypto::merkle::MmrDelta, notes::NoteId,
+    transaction::TransactionId, BlockHeader, Digest,
 };
 
 use super::{notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate};
@@ -14,7 +14,7 @@ use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
 /// Represents a `SyncStateResponse` with fields converted into domain types.
 pub struct StateSyncInfo {
     /// The block number of the chain tip at the moment of the response.
-    pub chain_tip: u32,
+    pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
     /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1).
@@ -141,7 +141,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
 
         Ok(Self {
-            chain_tip,
+            chain_tip: chain_tip.into(),
             block_header,
             mmr_delta,
             account_hash_updates,

@@ -217,7 +217,7 @@ async fn test_swap_fully_onchain() {
 }
 
 #[tokio::test]
-async fn test_swap_offchain() {
+async fn test_swap_private() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;

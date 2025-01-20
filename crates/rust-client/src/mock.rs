@@ -10,7 +10,7 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{AccountCode, AccountId},
     assets::{FungibleAsset, NonFungibleAsset},
-    block::Block,
+    block::{Block, BlockNumber},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
@@ -127,17 +127,17 @@ impl MockRpcApi {
     }
 
     /// Returns the chain tip block number.
-    fn get_chain_tip_block_num(&self) -> u32 {
+    fn get_chain_tip_block_num(&self) -> BlockNumber {
         self.blocks.last().map(|b| b.header().block_num()).unwrap()
     }
 
     /// Retrieves a block by its block number.
-    fn get_block_by_num(&self, block_num: u32) -> Option<&Block> {
-        self.blocks.get(block_num as usize)
+    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&Block> {
+        self.blocks.get(block_num.as_usize())
     }
 
     /// Generates a sync state response based on the request block number.
-    pub fn get_sync_state_request(&self, request_block_num: u32) -> SyncStateResponse {
+    pub fn get_sync_state_request(&self, request_block_num: BlockNumber) -> SyncStateResponse {
         // Determine the next block number to sync
         let next_block_num = self
             .notes
@@ -156,7 +156,7 @@ impl MockRpcApi {
         // Prepare the MMR delta
         let mmr_delta = self
             .get_mmr()
-            .get_delta((request_block_num + 1) as usize, next_block_num as usize)
+            .get_delta((request_block_num.as_u32() + 1) as usize, next_block_num.as_usize())
             .ok()
             .map(Into::into);
 
@@ -169,12 +169,12 @@ impl MockRpcApi {
             .iter()
             .map(|n| NullifierUpdate {
                 nullifier: Some(n.inner().into()),
-                block_num: next_block_num,
+                block_num: next_block_num.as_u32(),
             })
             .collect();
 
         SyncStateResponse {
-            chain_tip: self.get_chain_tip_block_num(),
+            chain_tip: self.get_chain_tip_block_num().as_u32(),
             block_header: Some(next_block.header().into()),
             mmr_delta,
             accounts: vec![],
@@ -185,7 +185,10 @@ impl MockRpcApi {
     }
 
     /// Retrieves notes that are included in the specified block number.
-    fn get_notes_in_block(&self, block_num: u32) -> impl Iterator<Item = NoteSyncRecord> + '_ {
+    fn get_notes_in_block(
+        &self,
+        block_num: BlockNumber,
+    ) -> impl Iterator<Item = NoteSyncRecord> + '_ {
         self.notes.values().filter_map(move |note| {
             if note.location().map_or(false, |loc| loc.block_num() == block_num) {
                 let proof = note.proof()?;
@@ -206,7 +209,7 @@ use alloc::boxed::Box;
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
-        _block_num: u32,
+        _block_num: BlockNumber,
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
@@ -222,7 +225,7 @@ impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
@@ -237,10 +240,10 @@ impl NodeRpcClient for MockRpcApi {
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
-        if block_num == Some(0) {
+        if block_num == Some(0.into()) {
             return Ok((self.blocks.first().unwrap().header(), None));
         }
         let block = self
@@ -250,7 +253,7 @@ impl NodeRpcClient for MockRpcApi {
             .unwrap();
 
         let mmr_proof = if include_mmr_proof {
-            Some(self.get_mmr().open(block_num.unwrap() as usize).unwrap())
+            Some(self.get_mmr().open(block_num.unwrap().as_usize()).unwrap())
         } else {
             None
         };

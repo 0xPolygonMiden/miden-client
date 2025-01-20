@@ -2,6 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -258,7 +259,7 @@ impl From<Note> for InputNoteRecord {
             created_at: None,
             state: ExpectedNoteState {
                 metadata: Some(metadata),
-                after_block_num: 0,
+                after_block_num: BlockNumber::from(0),
                 tag: Some(metadata.tag()),
             }
             .into(),
