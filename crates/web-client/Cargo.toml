@@ -23,6 +23,7 @@ miden-client = { version = "0.6", path = "../rust-client", default-features = fa
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["tx-prover"] }
+miden-tx = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { version = "0.6" }
