@@ -2,9 +2,9 @@ use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
 use std::num::NonZeroUsize;
 
 use miden_objects::{
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{
@@ -262,7 +262,7 @@ mod test {
     use alloc::vec::Vec;
 
     use miden_lib::transaction::TransactionKernel;
-    use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
+    use miden_objects::{block::BlockHeader, crypto::merkle::MmrPeaks};
 
     use crate::store::{
         sqlite_store::{tests::create_test_store, SqliteStore},

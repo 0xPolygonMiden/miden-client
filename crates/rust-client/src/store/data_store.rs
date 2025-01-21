@@ -6,11 +6,10 @@ use alloc::{
 
 use miden_objects::{
     accounts::{Account, AccountId},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
-    BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 

@@ -1,4 +1,4 @@
-use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
+use miden_objects::{block::BlockHeader, crypto::merkle::MerklePath};
 
 use super::MissingFieldHelper;
 use crate::rpc::{errors::RpcConversionError, generated::block};

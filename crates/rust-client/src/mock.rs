@@ -10,7 +10,7 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{AccountCode, AccountId},
     assets::{FungibleAsset, NonFungibleAsset},
-    block::{Block, BlockNumber},
+    block::{Block, BlockHeader, BlockNumber},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
@@ -21,7 +21,7 @@ use miden_objects::{
         notes::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word,
+    Felt, Word,
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;

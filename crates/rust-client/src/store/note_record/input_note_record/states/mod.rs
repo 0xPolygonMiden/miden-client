@@ -4,9 +4,9 @@ use core::fmt::{self, Display};
 use chrono::{Local, TimeZone};
 use miden_objects::{
     accounts::AccountId,
+    block::BlockHeader,
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 pub use miden_tx::utils::{
     ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,

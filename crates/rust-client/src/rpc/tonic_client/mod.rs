@@ -9,12 +9,12 @@ use std::{collections::BTreeMap, time::Duration};
 use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;

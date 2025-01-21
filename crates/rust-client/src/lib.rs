@@ -45,8 +45,8 @@ pub mod auth {
 }
 
 /// Provides types for working with blocks within the Miden rollup network.
-pub mod blocks {
-    pub use miden_objects::BlockHeader;
+pub mod block {
+    pub use miden_objects::block::BlockHeader;
 }
 
 /// Provides cryptographic types and utilities used within the Miden rollup

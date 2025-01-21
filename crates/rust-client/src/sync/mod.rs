@@ -7,11 +7,11 @@ use core::cmp::max;
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
     notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 use tracing::info;
 

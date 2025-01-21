@@ -1,9 +1,10 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
+    block::BlockHeader,
     crypto::merkle::MerklePath,
     notes::{Note, NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
-    BlockHeader, Digest, Felt,
+    Digest, Felt,
 };
 
 use super::{MissingFieldHelper, RpcConversionError};

@@ -2,9 +2,9 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
-    BlockHeader, Digest,
+    Digest,
 };
 use tracing::warn;
 
@@ -57,8 +57,10 @@ impl<R: FeltRng> Client<R> {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database.
     async fn retrieve_and_store_genesis(&mut self) -> Result<BlockHeader, ClientError> {
-        let (genesis_block, _) =
-            self.rpc_api.get_block_header_by_number(Some(0.into()), false).await?;
+        let (genesis_block, _) = self
+            .rpc_api
+            .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
+            .await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");

@@ -13,11 +13,10 @@ use domain::{
 };
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrProof,
     notes::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader,
 };
 
 pub mod domain;

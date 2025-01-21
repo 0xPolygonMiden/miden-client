@@ -10,10 +10,10 @@ use core::fmt::Debug;
 use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
+    Digest, Word,
 };
 
 use crate::{

@@ -8,10 +8,10 @@ use std::{path::PathBuf, string::ToString};
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
+    Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
 use tonic::async_trait;

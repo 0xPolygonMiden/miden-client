@@ -1,8 +1,12 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    accounts::AccountId, block::BlockNumber, crypto::merkle::MmrDelta, notes::NoteId,
-    transaction::TransactionId, BlockHeader, Digest,
+    accounts::AccountId,
+    block::{BlockHeader, BlockNumber},
+    crypto::merkle::MmrDelta,
+    notes::NoteId,
+    transaction::TransactionId,
+    Digest,
 };
 
 use super::{notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate};
