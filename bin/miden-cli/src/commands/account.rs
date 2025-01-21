@@ -9,6 +9,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
+    errors::CliError,
     utils::{load_config_file, load_faucet_details_map, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
@@ -35,7 +36,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub async fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), String> {
+    pub async fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), CliError> {
         match self {
             AccountCmd {
                 list: false,
@@ -58,8 +59,12 @@ impl AccountCmd {
                         let default_account = if id == "none" {
                             None
                         } else {
-                            let account_id: AccountId = AccountId::from_hex(id)
-                                .map_err(|_| "Input number was not a valid Account Id")?;
+                            let account_id: AccountId = AccountId::from_hex(id).map_err(|err| {
+                                CliError::AccountId(
+                                    err,
+                                    "Input number was not a valid Account ID".to_string(),
+                                )
+                            })?;
 
                             // Check whether we're tracking that account
                             let (account, _) =
@@ -90,7 +95,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
+async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
     let accounts = client.get_account_headers().await?;
 
     let mut table =
@@ -119,11 +124,11 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
 pub async fn show_account<R: FeltRng>(
     client: Client<R>,
     account_id: AccountId,
-) -> Result<(), String> {
+) -> Result<(), CliError> {
     let account: Account = client
         .get_account(account_id)
         .await?
-        .ok_or(format!("Account with ID {account_id} not found"))?
+        .ok_or(CliError::Custom(format!("Account with ID {account_id} not found")))?
         .into();
 
     let mut table = create_dynamic_table(&[
@@ -191,7 +196,9 @@ pub async fn show_account<R: FeltRng>(
         ]);
 
         for (idx, entry) in account_storage.slots().iter().enumerate() {
-            let item = account_storage.get_item(idx as u8).map_err(|e| e.to_string())?;
+            let item = account_storage
+                .get_item(idx as u8)
+                .map_err(|err| CliError::Account(err, "Index out of bounds".to_string()))?;
 
             // Last entry is reserved so I don't think the user cares about it. Also, to keep the
             // output smaller, if the [StorageSlot] is a value and it's 0 we assume it's not
@@ -217,7 +224,7 @@ pub async fn show_account<R: FeltRng>(
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
+fn account_type_display_name(account_id: &AccountId) -> Result<String, CliError> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
             let faucet_details_map = load_faucet_details_map()?;
@@ -232,19 +239,20 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
 }
 
 /// Loads config file and displays current default account ID.
-fn display_default_account_id() -> Result<(), String> {
+fn display_default_account_id() -> Result<(), CliError> {
     let (cli_config, _) = load_config_file()?;
 
-    let default_account = cli_config.default_account_id.ok_or(
-        "No default account found in the CLI options from the client config file.".to_string(),
-    )?;
+    let default_account = cli_config.default_account_id.ok_or(CliError::Config(
+        "Default account".to_string(),
+        "No default account found in the configuration file".to_string(),
+    ))?;
     println!("Current default account ID: {default_account}");
     Ok(())
 }
 
 /// Sets the provided account ID as the default account ID if provided. Unsets the current default
 /// account ID if `None` is provided.
-pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), String> {
+pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), CliError> {
     // load config
     let (mut current_config, config_path) = load_config_file()?;
 
@@ -259,7 +267,7 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
 pub(crate) fn maybe_set_default_account(
     current_config: &mut CliConfig,
     account_id: AccountId,
-) -> Result<(), String> {
+) -> Result<(), CliError> {
     if current_config.default_account_id.is_some() {
         return Ok(());
     }

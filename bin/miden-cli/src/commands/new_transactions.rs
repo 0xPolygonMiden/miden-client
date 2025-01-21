@@ -6,6 +6,7 @@ use miden_client::{
     assets::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
     note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
+    store::NoteRecordError,
     transaction::{
         PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
         TransactionResult,
@@ -17,6 +18,7 @@ use tracing::info;
 
 use crate::{
     create_dynamic_table,
+    errors::CliError,
     utils::{
         get_input_acc_id_by_prefix_or_default, load_config_file, load_faucet_details_map,
         parse_account_id, SHARED_TOKEN_DOCUMENTATION,
@@ -61,7 +63,7 @@ pub struct MintCmd {
 }
 
 impl MintCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
@@ -75,7 +77,9 @@ impl MintCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?
+        .map_err(|err| {
+            CliError::Transaction("Failed to build mint transaction".to_string(), err.to_string())
+        })?
         .build();
 
         execute_transaction(
@@ -122,7 +126,7 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -146,7 +150,12 @@ impl SendCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?
+        .map_err(|err| {
+            CliError::Transaction(
+                "Failed to build payment transaction".to_string(),
+                err.to_string(),
+            )
+        })?
         .build();
 
         execute_transaction(
@@ -188,7 +197,7 @@ pub struct SwapCmd {
 }
 
 impl SwapCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -213,7 +222,9 @@ impl SwapCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?
+        .map_err(|err| {
+            CliError::Transaction("Failed to build swap transaction".to_string(), err.to_string())
+        })?
         .build();
 
         execute_transaction(
@@ -230,7 +241,9 @@ impl SwapCmd {
             &swap_transaction.offered_asset(),
             &swap_transaction.requested_asset(),
         )
-        .map_err(|err| err.to_string())?
+        .map_err(|err| {
+            CliError::Transaction("Failed to build swap tag".to_string(), err.to_string())
+        })?
         .into();
         println!(
             "To receive updates about the payback Swap Note run `miden tags add {}`",
@@ -262,7 +275,7 @@ pub struct ConsumeNotesCmd {
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
         let mut authenticated_notes = Vec::new();
@@ -271,12 +284,20 @@ impl ConsumeNotesCmd {
         for note_id in &self.list_of_notes {
             let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
-                .map_err(|err| err.to_string())?;
+                .map_err(|_| CliError::Custom(format!("Input note ID {note_id} is neither a valid Note ID nor a prefix of a known Note ID")))?;
 
             if note_record.is_authenticated() {
                 authenticated_notes.push(note_record.id());
             } else {
-                unauthenticated_notes.push((note_record.try_into()?, None));
+                unauthenticated_notes.push((
+                    note_record.try_into().map_err(|err: NoteRecordError| {
+                        CliError::Transaction(
+                            "Failed to convert note record".to_string(),
+                            err.to_string(),
+                        )
+                    })?,
+                    None,
+                ));
             }
         }
 
@@ -291,7 +312,10 @@ impl ConsumeNotesCmd {
         }
 
         if authenticated_notes.is_empty() && unauthenticated_notes.is_empty() {
-            return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
+            return Err(CliError::Transaction(
+                "Input notes check failed".to_string(),
+                "No input notes were provided and the store does not contain any notes consumable by {account_id}".to_string(),
+            ));
         }
 
         let transaction_request = TransactionRequestBuilder::consume_notes(authenticated_notes)
@@ -318,7 +342,7 @@ async fn execute_transaction(
     transaction_request: TransactionRequest,
     force: bool,
     delegated_proving: bool,
-) -> Result<(), String> {
+) -> Result<(), CliError> {
     println!("Executing transaction...");
     let transaction_execution_result =
         client.new_transaction(account_id, transaction_request).await?;
@@ -347,10 +371,12 @@ async fn execute_transaction(
 
     if delegated_proving {
         let (cli_config, _) = load_config_file()?;
-        let remote_prover_endpoint = cli_config
-            .remote_prover_endpoint
-            .as_ref()
-            .ok_or("Remote prover endpoint not found in config file")?;
+        let remote_prover_endpoint =
+            cli_config.remote_prover_endpoint.as_ref().ok_or(CliError::Config(
+                "Remote prover endpoint".to_string(),
+                "remote prover endpoint is not set in the configuration file".to_string(),
+            ))?;
+
         let remote_prover =
             Arc::new(RemoteTransactionProver::new(&remote_prover_endpoint.to_string()));
         client
@@ -373,7 +399,7 @@ async fn execute_transaction(
     Ok(())
 }
 
-fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), String> {
+fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), CliError> {
     println!("The transaction will have the following effects:\n");
 
     // INPUT NOTES
@@ -433,8 +459,8 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for (faucet_id, amount) in account_delta.vault().fungible().iter() {
-            let asset = FungibleAsset::new(*faucet_id, amount.unsigned_abs())
-                .map_err(|err| err.to_string())?;
+            let asset =
+                FungibleAsset::new(*faucet_id, amount.unsigned_abs()).map_err(CliError::Asset)?;
             let (faucet_fmt, amount_fmt) = faucet_details_map.format_fungible_asset(&asset)?;
 
             if amount.is_positive() {

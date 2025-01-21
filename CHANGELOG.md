@@ -18,6 +18,7 @@
 * Created functions for creating standard notes and note scripts easily on the web client (#686).
 * [BREAKING] Renamed plural modules to singular (#687).
 * [BREAKING] Made `idxdb` only usable on WASM targets (#685).
+* Improved CLI error messages (#682).
 
 ### Fixes
 
