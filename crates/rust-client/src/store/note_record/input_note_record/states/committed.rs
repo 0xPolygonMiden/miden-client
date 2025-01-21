@@ -13,6 +13,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Committed] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CommittedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional

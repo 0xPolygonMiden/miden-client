@@ -82,6 +82,10 @@ test: ## Run tests
 test-deps: ## Install dependencies for tests
 	CODEGEN=1 cargo install cargo-nextest
 
+.PHONY: test-docs
+test-docs: ## Run documentation tests
+	CODEGEN=1 cargo test --doc $(FEATURES_CLIENT)
+
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test

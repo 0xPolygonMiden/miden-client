@@ -12,39 +12,40 @@ miden-client = { version = "0.6" }
 
 ### Features
 
-The Miden client library supports the [`testing`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#testing-feature) and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
+The Miden client library supports the `testing` and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
 
 ```toml
 miden-client = { version = "0.6", features = ["testing", "concurrent"] }
 ```
 
+The library also supports several other features. Please refer to the crate's documentation to learn more.
+
 ## Client instantiation
 
 Spin up a client using the following Rust code and supplying a store and RPC endpoint. 
 
-The current supported store is the `SqliteDataStore`, which is a SQLite implementation of the `Store` trait.
-
 ```rust
-let client: Client<TonicRpcClient, SqliteDataStore> = {
-    
-    let store = SqliteStore::new((&client_config).into()).await.map_err(ClientError::StoreError)?;
-
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
-
-    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    let tx_prover = LocalTransactionProver::new(ProvingOptions::default());
-
-    let client = Client::new(
-        Box::new(TonicRpcClient::new(&client_config.rpc)),
-        rng,
-        Arc::new(store),
-        Arc::new(authenticator),
-        Arc::new(tx_prover),
-        false, // set to true if you want a client with debug mode
-    )
-};
+    let client: Client<RpoRandomCoin> = {
+        // Create the SQLite store from the client configuration.
+        let sqlite_store = SqliteStore::new("path/to/store".try_into()?).await?;
+        let store = Arc::new(sqlite_store);
+        // Generate a random seed for the RpoRandomCoin.
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+        // Initialize the random coin using the generated seed.
+        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+        // Create a store authenticator with the store and random coin.
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+        // Instantiate the client using a Tonic RPC client
+        let endpoint = Endpoint::new("https".into(), "localhost".into(), 57291);
+        Client::new(
+            Box::new(TonicRpcClient::new(endpoint, 10_000)),
+            rng,
+            store,
+            Arc::new(authenticator),
+            false, // Set to true for debug mode, if needed.
+        )
+    };
 ```
 
 ## Create local account

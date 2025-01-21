@@ -1,8 +1,68 @@
 //! The `accounts` module provides types and client APIs for managing accounts within the Miden
-//! rollup network .
+//! rollup network.
 //!
-//! Once accounts start being tracked by the client, their state will be
-//! updated accordingly on every transaction, and validated against the rollup on every sync.
+//! Once accounts start being tracked by the client, their state will be updated accordingly on
+//! every transaction, and validated against the rollup on every sync.
+//!
+//! An account can store assets and define rules for manipulating them.
+//!
+//! # Overview
+//!
+//! This module exposes several key features:
+//!
+//! - **Account types:** Use the [`AccountBuilder`] to construct new accounts, specifying account
+//!   type, storage mode (public/private), and attaching necessary components (e.g., basic wallet or
+//!   fungible faucet).
+//!
+//! - **Account Tracking:** Accounts added via the client are persisted to the local store, where
+//!   their state (including nonce, balance, and metadata) is updated upon every synchronization
+//!   with the network.
+//!
+//! - **Data retrieval APIs:** The module also provides methods to fetch account-related data.
+//!
+//! # Example
+//!
+//! To add a new account to the client's store, you might use the [`Client::add_account`] method as
+//! follows:
+//!
+//! ```rust
+//! # use miden_client::accounts::{Account, AccountBuilder, AccountType, BasicWalletComponent};
+//! # use miden_objects::accounts::{AuthSecretKey, AccountStorageMode};
+//! # use miden_client::crypto::{FeltRng, SecretKey};
+//! # async fn add_new_account_example(client: &mut miden_client::Client<impl FeltRng>) -> Result<(), miden_client::ClientError> {
+//! let key_pair = SecretKey::with_rng(client.rng());
+//! # let random_seed = Default::default();
+//!
+//! let (account, seed) = AccountBuilder::new(random_seed)
+//!     .account_type(AccountType::RegularAccountImmutableCode)
+//!     .storage_mode(AccountStorageMode::Private)
+//!     .with_component(BasicWalletComponent)
+//!     .build()?;
+//!
+//! // Add the account to the client. The account seed and authentication key are required for new accounts.
+//! client.add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Account composition
+//!
+//! An account consists of the following components:
+//! - Account ID, which uniquely identifies the account and also defines basic properties of the
+//!   account.
+//! - Account vault, which stores assets owned by the account.
+//! - Account storage, which is a key-value map (both keys and values are words) used to store
+//!   arbitrary user-defined data.
+//! - Account code, which is a set of Miden VM programs defining the public interface of the
+//!   account.
+//! - Account nonce, a value which is incremented whenever account state is updated.
+//!
+//! Out of the above components account ID is always immutable (once defined it can never be
+//! changed). Other components may be mutated throughout the lifetime of the account. However,
+//! account state can be changed only by invoking one of account interface methods.
+//!
+//! For more details on account management and synchronization, refer to the Miden client
+//! documentation.
 
 use alloc::vec::Vec;
 

@@ -13,12 +13,13 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Invalid] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
     /// information.
     pub metadata: NoteMetadata,
-    /// Inclusion proof for the note inside the chain block.
+    /// Inclusion proof for the note inside the chain block, verified to be invalid.
     pub invalid_inclusion_proof: NoteInclusionProof,
     /// Root of the note tree inside the block that invalidates the note inclusion proof.
     pub block_note_root: Digest,

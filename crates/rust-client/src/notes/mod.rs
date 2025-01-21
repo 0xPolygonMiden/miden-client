@@ -1,5 +1,61 @@
 //! Contains the Client APIs related to notes. Notes can contain assets and scripts that are
 //! executed as part of transactions.
+//!
+//! This module enables the tracking, retrieval, and processing of notes.
+//! It offers methods to query input and output notes from the store, check their consumability,
+//! compile note scripts, and retrieve notes based on partial ID matching.
+//!
+//! ## Overview
+//!
+//! The module exposes APIs to:
+//!
+//! - Retrieve input notes and output notes.
+//! - Determine the consumability of notes using the [NoteScreener].
+//! - Compile note scripts from source code with `compile_note_script`.
+//! - Retrieve an input note by a prefix of its ID using the helper function
+//!   [get_input_note_with_id_prefix].
+//!
+//! ## Example
+//!
+//! ```rust
+//! use miden_client::{
+//!     Client,
+//!     notes,
+//!     notes::{get_input_note_with_id_prefix, NoteScreener},
+//!     store::NoteFilter,
+//!     crypto::FeltRng,
+//! };
+//! use miden_objects::accounts::AccountId;
+//!
+//! # async fn example(client: &Client<impl FeltRng>) -> Result<(), Box<dyn std::error::Error>> {
+//! // Retrieve all committed input notes
+//! let input_notes = client.get_input_notes(NoteFilter::Committed).await?;
+//! println!("Found {} committed input notes.", input_notes.len());
+//!
+//! // Check consumability for a specific note
+//! if let Some(note) = input_notes.first() {
+//!     let consumability = client.get_note_consumability(note.clone()).await?;
+//!     println!("Note consumability: {:?}", consumability);
+//! }
+//!
+//! // Retrieve an input note by a partial ID match
+//! let note_prefix = "0x70b7ec";
+//! match get_input_note_with_id_prefix(client, note_prefix).await {
+//!     Ok(note) => println!("Found note with matching prefix: {}", note.id().to_hex()),
+//!     Err(err) => println!("Error retrieving note: {:?}", err),
+//! }
+//!
+//! // Compile the note script
+//! let script_src = "begin push.9 push.12 add end";
+//! let note_script = client.compile_note_script(script_src)?;
+//! println!("Compiled note script successfully.");
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For further details on the API and error handling, refer to the specific function and type
+//! documentations in this module.
 
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
@@ -121,7 +177,8 @@ impl<R: FeltRng> Client<R> {
         Ok(self.store.get_output_notes(NoteFilter::Unique(note_id)).await?.pop())
     }
 
-    /// Compiles the provided program into a [NoteScript]
+    /// Compiles the provided program into a [NoteScript].
+    /// The assembler uses the debug mode if the client is using debug mode.
     pub fn compile_note_script(&self, note_script: &str) -> Result<NoteScript, ClientError> {
         let assembler = TransactionKernel::assembler().with_debug_mode(self.in_debug_mode);
         NoteScript::compile(note_script, assembler).map_err(ClientError::NoteError)

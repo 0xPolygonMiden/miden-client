@@ -1,3 +1,7 @@
+//! This module provides an SQLite-backed implementation of the [Store] trait (enabled with the
+//! `sqlite` feature). It enables persistence of accounts, transactions, notes, block headers, and
+//! MMR nodes using an SQLite database.
+
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},

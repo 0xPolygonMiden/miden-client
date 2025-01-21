@@ -14,6 +14,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ProcessingAuthenticated] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcessingAuthenticatedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
