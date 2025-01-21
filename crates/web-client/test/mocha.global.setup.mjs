@@ -45,9 +45,7 @@ before(async () => {
     throw error;
   }
 
-  if (env.DEBUG_MODE) {
-    testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
-  }
+  testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
 
   // Creates the client in the test context and attach to window object
   await testingPage.evaluate(
