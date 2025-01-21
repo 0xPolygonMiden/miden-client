@@ -1,6 +1,7 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    block::BlockNumber,
     crypto::rand::FeltRng,
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
@@ -185,7 +186,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         previous_note: Option<InputNoteRecord>,
         details: NoteDetails,
-        after_block_num: u32,
+        after_block_num: BlockNumber,
         tag: Option<NoteTag>,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
         let mut note_record = previous_note.unwrap_or({
@@ -237,7 +238,7 @@ impl<R: FeltRng> Client<R> {
     /// proof.
     async fn check_expected_note(
         &mut self,
-        mut request_block_num: u32,
+        mut request_block_num: BlockNumber,
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
     ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
@@ -249,7 +250,7 @@ impl<R: FeltRng> Client<R> {
 
             let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
 
-            if sync_notes.block_header.block_num() == sync_notes.chain_tip {
+            if sync_notes.block_header.block_num() == sync_notes.chain_tip.into() {
                 return Ok(None);
             }
 

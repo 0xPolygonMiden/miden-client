@@ -7,10 +7,11 @@ use core::cmp::max;
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
     notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 use tracing::info;
 
@@ -33,7 +34,7 @@ pub use tags::{NoteTagRecord, NoteTagSource};
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
-    pub block_num: u32,
+    pub block_num: BlockNumber,
     /// IDs of new notes received.
     pub received_notes: Vec<NoteId>,
     /// IDs of tracked notes that received inclusion proofs.
@@ -50,7 +51,7 @@ pub struct SyncSummary {
 
 impl SyncSummary {
     pub fn new(
-        block_num: u32,
+        block_num: BlockNumber,
         received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
@@ -69,7 +70,7 @@ impl SyncSummary {
         }
     }
 
-    pub fn new_empty(block_num: u32) -> Self {
+    pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
             received_notes: vec![],
@@ -150,7 +151,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
-    pub async fn get_sync_height(&self) -> Result<u32, ClientError> {
+    pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
         self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
@@ -175,7 +176,7 @@ impl<R: FeltRng> Client<R> {
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         _ = self.ensure_genesis_in_place().await?;
-        let mut total_sync_summary = SyncSummary::new_empty(0);
+        let mut total_sync_summary = SyncSummary::new_empty(0.into());
         loop {
             let response = self.sync_state_once().await?;
             let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
@@ -242,15 +243,15 @@ impl<R: FeltRng> Client<R> {
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
-        let (public_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
         let updated_public_accounts = self
             .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
             .await?;
 
-        let mismatched_offchain_accounts = self
-            .validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        let mismatched_private_accounts = self
+            .validate_local_account_hashes(&response.account_hash_updates, &private_accounts)
             .await?;
 
         // Build PartialMmr with current data and apply updates
@@ -278,7 +279,7 @@ impl<R: FeltRng> Client<R> {
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_public_accounts.iter().map(|acc| acc.id()).collect(),
-            mismatched_offchain_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
+            mismatched_private_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
 
@@ -290,7 +291,7 @@ impl<R: FeltRng> Client<R> {
             new_authentication_nodes,
             updated_accounts: AccountUpdates::new(
                 updated_public_accounts,
-                mismatched_offchain_accounts,
+                mismatched_private_accounts,
             ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             transactions_to_discard,
@@ -573,10 +574,10 @@ impl<R: FeltRng> Client<R> {
             .map_err(ClientError::RpcError)
     }
 
-    /// Validates account hash updates and returns a vector with all the offchain account
+    /// Validates account hash updates and returns a vector with all the private account
     /// mismatches.
     ///
-    /// Offchain account mismatches happen when the hash account of the local tracked account
+    /// Private account mismatches happen when the hash account of the local tracked account
     /// doesn't match the hash account of the account in the node. This would be an anomaly and may
     /// happen for two main reasons:
     /// - A different client made a transaction with the account, changing its state.
@@ -585,13 +586,13 @@ impl<R: FeltRng> Client<R> {
     async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_offchain_accounts: &[AccountHeader],
+        current_private_accounts: &[AccountHeader],
     ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
         let mut mismatched_accounts = vec![];
 
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let mismatched_account = current_offchain_accounts
+            let mismatched_account = current_private_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 

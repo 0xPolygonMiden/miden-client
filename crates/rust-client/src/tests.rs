@@ -143,7 +143,7 @@ async fn test_get_input_note() {
         .import_note(NoteFile::NoteDetails {
             details: note.into(),
             tag: None,
-            after_block_num: 0,
+            after_block_num: 0.into(),
         })
         .await
         .unwrap();
@@ -385,11 +385,11 @@ async fn test_sync_state_mmr() {
 
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
-    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1), false).await.unwrap();
+    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1.into()), false).await.unwrap();
     partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
-    let (block_4, _) = rpc_api.get_block_header_by_number(Some(4), false).await.unwrap();
+    let (block_4, _) = rpc_api.get_block_header_by_number(Some(4.into()), false).await.unwrap();
     partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
 }
 
@@ -501,7 +501,7 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: committed_note.clone().into(),
-            after_block_num: 0,
+            after_block_num: 0.into(),
             tag: None,
         })
         .await
@@ -510,7 +510,7 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: expected_note.clone().into(),
-            after_block_num: 0,
+            after_block_num: 0.into(),
             tag: None,
         })
         .await

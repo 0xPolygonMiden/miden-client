@@ -2,9 +2,9 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    block::{block_epoch_from_number, block_num_from_epoch},
+    block::{BlockHeader, BlockNumber},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
-    BlockHeader, Digest,
+    Digest,
 };
 use tracing::warn;
 
@@ -46,7 +46,7 @@ impl<R: FeltRng> Client<R> {
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
-        let genesis = self.store.get_block_header_by_num(0).await?;
+        let genesis = self.store.get_block_header_by_num(0.into()).await?;
 
         match genesis {
             Some((block, _)) => Ok(block),
@@ -57,7 +57,10 @@ impl<R: FeltRng> Client<R> {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database.
     async fn retrieve_and_store_genesis(&mut self) -> Result<BlockHeader, ClientError> {
-        let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
+        let (genesis_block, _) = self
+            .rpc_api
+            .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
+            .await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
@@ -114,8 +117,12 @@ impl<R: FeltRng> Client<R> {
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
 
-        let track_latest = if current_block_num != 0 {
-            match self.store.get_block_header_by_num(current_block_num - 1).await? {
+        let track_latest = if current_block_num.as_u32() != 0 {
+            match self
+                .store
+                .get_block_header_by_num(BlockNumber::from(current_block_num.as_u32() - 1))
+                .await?
+            {
                 Some((_, previous_block_had_notes)) => previous_block_had_notes,
                 None => false,
             }
@@ -145,10 +152,10 @@ impl<R: FeltRng> Client<R> {
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
-        if current_partial_mmr.is_tracked(block_num as usize) {
+        if current_partial_mmr.is_tracked(block_num.as_usize()) {
             warn!("Current partial MMR already contains the requested data");
             let (block_header, _) = self
                 .store
@@ -163,14 +170,14 @@ impl<R: FeltRng> Client<R> {
         // might be of a forest arbitrarily higher
         let path_nodes = adjust_merkle_path_for_forest(
             &mmr_proof.merkle_path,
-            block_num as usize,
+            block_num,
             current_partial_mmr.forest(),
         );
 
         let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
 
         current_partial_mmr
-            .track(block_num as usize, block_header.hash(), &merkle_path)
+            .track(block_num.as_usize(), block_header.hash(), &merkle_path)
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
@@ -185,9 +192,12 @@ impl<R: FeltRng> Client<R> {
     /// Returns the epoch block for the specified block number.
     ///
     /// If the epoch block header is not stored, it will be retrieved and stored.
-    pub async fn get_epoch_block(&mut self, block_num: u32) -> Result<BlockHeader, ClientError> {
-        let epoch = block_epoch_from_number(block_num);
-        let epoch_block_number = block_num_from_epoch(epoch);
+    pub async fn get_epoch_block(
+        &mut self,
+        block_num: BlockNumber,
+    ) -> Result<BlockHeader, ClientError> {
+        let epoch = block_num.block_epoch();
+        let epoch_block_number = BlockNumber::from_epoch(epoch);
 
         if let Some((epoch_block, _)) =
             self.store.get_block_header_by_num(epoch_block_number).await?
@@ -195,7 +205,7 @@ impl<R: FeltRng> Client<R> {
             return Ok(epoch_block);
         }
 
-        if epoch_block_number == 0 {
+        if epoch_block_number == 0.into() {
             return self.ensure_genesis_in_place().await;
         }
 
@@ -229,16 +239,16 @@ impl<R: FeltRng> Client<R> {
 /// - `forest`: The target size of the forest.
 fn adjust_merkle_path_for_forest(
     merkle_path: &MerklePath,
-    block_num: usize,
+    block_num: BlockNumber,
     forest: usize,
 ) -> Vec<(InOrderIndex, Digest)> {
-    if forest - 1 < block_num {
+    if forest - 1 < block_num.as_usize() {
         panic!("Can't adjust merkle path for a forest that does not include the block number");
     }
 
     let rightmost_index = InOrderIndex::from_leaf_pos(forest - 1);
 
-    let mut idx = InOrderIndex::from_leaf_pos(block_num);
+    let mut idx = InOrderIndex::from_leaf_pos(block_num.as_usize());
     let mut path_nodes = vec![];
     for node in merkle_path.iter() {
         idx = idx.sibling();

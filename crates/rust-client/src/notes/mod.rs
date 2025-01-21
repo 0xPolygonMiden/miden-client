@@ -24,6 +24,7 @@ pub use miden_lib::notes::{
     utils::{build_p2id_recipient, build_swap_tag},
 };
 pub use miden_objects::{
+    block::BlockNumber,
     notes::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
         NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,

@@ -6,6 +6,7 @@ use alloc::{
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     transaction::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
@@ -228,7 +229,7 @@ pub(super) fn serialize_transaction_data(
         output_notes.to_bytes(),
         script_hash,
         tx_script,
-        executed_transaction.block_header().block_num(),
+        executed_transaction.block_header().block_num().as_u32(),
         None,
         false,
     ))
@@ -284,7 +285,6 @@ fn parse_transaction(
     let account_id = AccountId::from_hex(&account_id)?;
     let id: Digest = id.try_into()?;
     let init_account_state: Digest = init_account_state.try_into()?;
-
     let final_account_state: Digest = final_account_state.try_into()?;
 
     let input_note_nullifiers: Vec<Digest> = Vec::<Digest>::read_from_bytes(&input_notes)
@@ -299,6 +299,7 @@ fn parse_transaction(
     let transaction_status = if discarded {
         TransactionStatus::Discarded
     } else {
+        let commit_height = commit_height.map(BlockNumber::from);
         commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
     };
 
@@ -310,7 +311,7 @@ fn parse_transaction(
         input_note_nullifiers,
         output_notes,
         transaction_script,
-        block_num,
+        block_num: block_num.into(),
         transaction_status,
     })
 }

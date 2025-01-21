@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    block::{BlockHeader, BlockNumber},
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{
@@ -18,7 +18,7 @@ pub struct ProcessingUnauthenticatedNoteState {
     /// information.
     pub metadata: NoteMetadata,
     /// Block height after which the note is expected to be committed.
-    pub after_block_num: u32,
+    pub after_block_num: BlockNumber,
     /// Information about the submission of the note.
     pub submission_data: NoteSubmissionData,
 }
@@ -103,7 +103,7 @@ impl miden_tx::utils::Deserializable for ProcessingUnauthenticatedNoteState {
         source: &mut R,
     ) -> Result<Self, miden_tx::utils::DeserializationError> {
         let metadata = NoteMetadata::read_from(source)?;
-        let after_block_num = u32::read_from(source)?;
+        let after_block_num = BlockNumber::read_from(source)?;
         let submission_data = NoteSubmissionData::read_from(source)?;
         Ok(ProcessingUnauthenticatedNoteState {
             metadata,

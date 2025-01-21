@@ -698,7 +698,7 @@ async fn debug_mode_outputs_logs() {
     // Export the note
     let note_file: NoteFile = NoteFile::NoteDetails {
         details: note.clone().into(),
-        after_block_num: 0,
+        after_block_num: 0.into(),
         tag: Some(note.metadata().tag()),
     };
 

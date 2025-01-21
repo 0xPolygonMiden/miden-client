@@ -9,11 +9,12 @@ use std::{collections::BTreeMap, time::Duration};
 use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
@@ -101,11 +102,11 @@ impl NodeRpcClient for TonicRpcClient {
 
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         let request = GetBlockHeaderByNumberRequest {
-            block_num,
+            block_num: block_num.as_ref().map(BlockNumber::as_u32),
             include_mmr_proof: Some(include_mmr_proof),
         };
 
@@ -137,7 +138,7 @@ impl NodeRpcClient for TonicRpcClient {
 
             Some(MmrProof {
                 forest: forest as usize,
-                position: block_header.block_num() as usize,
+                position: block_header.block_num().as_usize(),
                 merkle_path,
             })
         } else {
@@ -168,7 +169,7 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
+                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {
@@ -202,7 +203,7 @@ impl NodeRpcClient for TonicRpcClient {
     /// into a [StateSyncInfo] struct.
     async fn sync_state(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
@@ -214,7 +215,7 @@ impl NodeRpcClient for TonicRpcClient {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
-            block_num,
+            block_num: block_num.as_u32(),
             account_ids,
             note_tags,
             nullifiers,
@@ -330,7 +331,7 @@ impl NodeRpcClient for TonicRpcClient {
             .into_inner();
 
         let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
-        let block_num = response.block_num;
+        let block_num = response.block_num.into();
 
         // sanity check response
         if requested_accounts != response.account_proofs.len() {
@@ -378,12 +379,12 @@ impl NodeRpcClient for TonicRpcClient {
 
     async fn sync_notes(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
-        let request = SyncNoteRequest { block_num, note_tags };
+        let request = SyncNoteRequest { block_num: block_num.as_u32(), note_tags };
 
         let rpc_api = self.rpc_api().await?;
 

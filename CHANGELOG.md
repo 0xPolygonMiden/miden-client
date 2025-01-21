@@ -14,6 +14,7 @@
 * Limited the number of decimals that an asset can have (#666).
 * [BREAKING] Removed the `testing` feature from the CLI (#670).
 * Added per transaction prover support to the web client (#674).
+* [BREAKING] Added `BlockNumber` structure (#677).
 
 ### Fixes
 

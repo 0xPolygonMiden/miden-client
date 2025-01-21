@@ -2,6 +2,7 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockNumber,
     transaction::{OutputNotes, TransactionScript},
     Digest,
 };
@@ -42,9 +43,9 @@ impl WebStore {
             .into_iter()
             .map(|tx_idxdb| {
                 let native_account_id = AccountId::from_hex(&tx_idxdb.account_id).unwrap();
-                let block_num_as_u32: u32 = tx_idxdb.block_num.parse::<u32>().unwrap();
-                let commit_height_as_u32: Option<u32> =
-                    tx_idxdb.commit_height.map(|height| height.parse::<u32>().unwrap());
+                let block_num: BlockNumber = tx_idxdb.block_num.parse::<u32>().unwrap().into();
+                let commit_height: Option<BlockNumber> =
+                    tx_idxdb.commit_height.map(|height| height.parse::<u32>().unwrap().into());
 
                 let id: Digest = tx_idxdb.id.try_into()?;
                 let init_account_state: Digest = tx_idxdb.init_account_state.try_into()?;
@@ -69,8 +70,8 @@ impl WebStore {
                         None
                     };
 
-                let transaction_status = commit_height_as_u32
-                    .map_or(TransactionStatus::Pending, TransactionStatus::Committed);
+                let transaction_status =
+                    commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
 
                 Ok(TransactionRecord {
                     id: id.into(),
@@ -80,7 +81,7 @@ impl WebStore {
                     input_note_nullifiers,
                     output_notes,
                     transaction_script,
-                    block_num: block_num_as_u32,
+                    block_num,
                     transaction_status,
                 })
             })

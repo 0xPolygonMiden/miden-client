@@ -2,9 +2,10 @@ use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::Nullifier,
-    BlockHeader, Digest, Word,
+    Digest, Word,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
@@ -40,6 +41,7 @@ impl WebStore {
         Ok(WebStore {})
     }
 }
+
 #[async_trait(?Send)]
 impl Store for WebStore {
     fn get_current_timestamp(&self) -> Option<u64> {
@@ -61,7 +63,7 @@ impl Store for WebStore {
         self.remove_note_tag(tag).await
     }
 
-    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         self.get_sync_height().await
     }
 
@@ -117,7 +119,7 @@ impl Store for WebStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(block_numbers).await
     }
@@ -142,7 +144,7 @@ impl Store for WebStore {
 
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num).await
     }

@@ -1,5 +1,5 @@
 use miden_client::{
-    notes::get_input_note_with_id_prefix,
+    notes::{get_input_note_with_id_prefix, BlockNumber},
     transactions::{
         PaymentTransactionData, SwapTransactionData,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
@@ -160,7 +160,7 @@ impl WebClient {
             let send_transaction_request = if let Some(recall_height) = recall_height {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
-                    Some(recall_height),
+                    Some(BlockNumber::from(recall_height)),
                     note_type.into(),
                     client.rng(),
                 )

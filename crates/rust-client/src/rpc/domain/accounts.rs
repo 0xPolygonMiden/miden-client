@@ -7,6 +7,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
+    block::BlockNumber,
     crypto::merkle::{MerklePath, SmtProof},
     Digest, Felt,
 };
@@ -207,7 +208,7 @@ impl ProtoAccountStateHeader {
 // ================================================================================================
 
 /// Contains a block number, and a list of account proofs at that block.
-pub type AccountProofs = (u32, Vec<AccountProof>);
+pub type AccountProofs = (BlockNumber, Vec<AccountProof>);
 
 /// Account state headers.
 pub struct StateHeaders {

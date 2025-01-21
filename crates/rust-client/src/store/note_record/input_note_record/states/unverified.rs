@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    block::{BlockHeader, BlockNumber},
     notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{
@@ -84,10 +84,12 @@ impl NoteStateHandler for UnverifiedNoteState {
             consumer_transaction,
         };
 
+        let after_block_num =
+            self.inclusion_proof.location().block_num().as_u32().saturating_sub(1);
         Ok(Some(
             ProcessingUnauthenticatedNoteState {
                 metadata: self.metadata,
-                after_block_num: self.inclusion_proof.location().block_num() - 1,
+                after_block_num: BlockNumber::from(after_block_num),
                 submission_data,
             }
             .into(),

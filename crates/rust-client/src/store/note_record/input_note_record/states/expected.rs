@@ -2,9 +2,9 @@ use alloc::string::ToString;
 
 use miden_objects::{
     accounts::AccountId,
+    block::{BlockHeader, BlockNumber},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{
@@ -20,7 +20,7 @@ pub struct ExpectedNoteState {
     /// retrieving it from the node. Imported or future notes may not have metadata.
     pub metadata: Option<NoteMetadata>,
     /// Block height after which the note is expected to be committed.
-    pub after_block_num: u32,
+    pub after_block_num: BlockNumber,
     /// A tag used to identify the note. The tag may not be known if the note was imported without
     /// it or if it's a future note.
     pub tag: Option<NoteTag>,
@@ -117,7 +117,7 @@ impl miden_tx::utils::Deserializable for ExpectedNoteState {
         source: &mut R,
     ) -> Result<Self, miden_tx::utils::DeserializationError> {
         let metadata = Option::<NoteMetadata>::read_from(source)?;
-        let after_block_num = u32::read_from(source)?;
+        let after_block_num = BlockNumber::read_from(source)?;
         let tag = Option::<NoteTag>::read_from(source)?;
         Ok(ExpectedNoteState { metadata, after_block_num, tag })
     }

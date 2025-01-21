@@ -2,9 +2,10 @@ use alloc::string::ToString;
 
 use miden_objects::{
     accounts::AccountId,
+    block::BlockHeader,
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::{

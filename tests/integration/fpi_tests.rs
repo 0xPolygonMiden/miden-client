@@ -1,5 +1,6 @@
 use miden_client::{
     accounts::{Account, StorageSlot},
+    block::BlockHeader,
     rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
     transactions::{
@@ -12,7 +13,7 @@ use miden_objects::{
     accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::common::*;

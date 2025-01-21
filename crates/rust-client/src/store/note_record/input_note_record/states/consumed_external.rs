@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    block::BlockHeader,
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{InputNoteState, NoteStateHandler};

@@ -1,4 +1,4 @@
-use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
+use miden_objects::{block::BlockHeader, crypto::merkle::MerklePath};
 
 use super::MissingFieldHelper;
 use crate::rpc::{errors::RpcConversionError, generated::block};
@@ -11,7 +11,7 @@ impl From<&BlockHeader> for block::BlockHeader {
         Self {
             version: header.version(),
             prev_hash: Some(header.prev_hash().into()),
-            block_num: header.block_num(),
+            block_num: header.block_num().as_u32(),
             chain_root: Some(header.chain_root().into()),
             account_root: Some(header.account_root().into()),
             nullifier_root: Some(header.nullifier_root().into()),
@@ -48,7 +48,7 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
                 .prev_hash
                 .ok_or(block::BlockHeader::missing_field(stringify!(prev_hash)))?
                 .try_into()?,
-            value.block_num,
+            value.block_num.into(),
             value
                 .chain_root
                 .ok_or(block::BlockHeader::missing_field(stringify!(chain_root)))?

@@ -45,7 +45,7 @@ impl TransactionRecord {
     // }
 
     pub fn block_num(&self) -> u32 {
-        self.0.block_num
+        self.0.block_num.as_u32()
     }
 
     pub fn transaction_status(&self) -> TransactionStatus {

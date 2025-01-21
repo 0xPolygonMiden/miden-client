@@ -9,7 +9,7 @@ pub struct SyncSummary(NativeSyncSummary);
 #[wasm_bindgen]
 impl SyncSummary {
     pub fn block_num(&self) -> u32 {
-        self.0.block_num
+        self.0.block_num.as_u32()
     }
 
     pub fn received_notes(&self) -> Vec<NoteId> {
