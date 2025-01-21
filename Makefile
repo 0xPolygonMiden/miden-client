@@ -158,7 +158,7 @@ kill-prover: ## Kill prover process
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Install the CLI binary
-	cargo install $(FEATURES_CLI) --path bin/miden-cli
+	cargo install $(FEATURES_CLI) --path bin/miden-cli --locked
 
 # --- Building ------------------------------------------------------------------------------------
 
