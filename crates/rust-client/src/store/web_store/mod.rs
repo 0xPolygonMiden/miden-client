@@ -2,10 +2,10 @@ use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::Nullifier,
-    BlockHeader, Digest, Word,
+    Digest, Word,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;

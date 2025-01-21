@@ -5,9 +5,9 @@ use alloc::{
 };
 
 use miden_objects::{
-    block::BlockNumber,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
