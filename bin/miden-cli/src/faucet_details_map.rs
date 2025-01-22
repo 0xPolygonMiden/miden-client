@@ -28,16 +28,16 @@ impl FaucetDetailsMap {
                     Ok(token_symbol_map) => token_symbol_map,
                     Err(err) => {
                         return Err(CliError::Config(
+                            Box::new(err),
                             "Failed to parse token_symbol_map file".to_string(),
-                            err.to_string(),
                         ))
                     },
                 },
                 Err(err) => {
                     if err.kind() != std::io::ErrorKind::NotFound {
                         return Err(CliError::Config(
+                            Box::new(err),
                             "Failed to read token_symbol_map file".to_string(),
-                            err.to_string(),
                         ));
                     }
                     BTreeMap::new()
@@ -48,8 +48,12 @@ impl FaucetDetailsMap {
         for faucet in token_symbol_map.values() {
             if !faucet_ids.insert(faucet.id.clone()) {
                 return Err(CliError::Config(
-                    "Faucet ID appears more than once in the token symbol map".to_string(),
-                    faucet.id.clone(),
+                    format!(
+                        "Faucet ID {} appears more than once in the token symbol map",
+                        faucet.id.clone()
+                    )
+                    .into(),
+                    "Failed to parse token_symbol_map file".to_string(),
                 ));
             }
         }
@@ -101,7 +105,7 @@ impl FaucetDetailsMap {
         } else {
             let FaucetDetails { id, decimals: faucet_decimals } =
                 self.0.get(asset).ok_or(CliError::Config(
-                    "Token symbol not found in the map file".to_string(),
+                    "Token symbol not found in the map file".to_string().into(),
                     asset.to_string(),
                 ))?;
 
@@ -132,7 +136,7 @@ impl FaucetDetailsMap {
                 .0
                 .get(&token_symbol)
                 .ok_or(CliError::Config(
-                    "Token symbol not found in the map file".to_string(),
+                    "Token symbol not found in the map file".to_string().into(),
                     token_symbol.clone(),
                 ))?
                 .decimals;

@@ -70,7 +70,7 @@ pub(crate) async fn parse_account_id(
 
 pub(crate) fn update_config(config_path: &Path, client_config: CliConfig) -> Result<(), CliError> {
     let config_as_toml_string = toml::to_string_pretty(&client_config).map_err(|err| {
-        CliError::Config("Failed to parse config file as TOML".to_string(), err.to_string())
+        CliError::Config("Failed to parse config file as TOML".to_string().into(), err.to_string())
     })?;
 
     info!("Writing config file at: {:?}", config_path);
@@ -98,9 +98,9 @@ pub(super) fn load_config_file() -> Result<(CliConfig, PathBuf), CliError> {
 
 /// Loads the client configuration.
 fn load_config(config_file: &Path) -> Result<CliConfig, CliError> {
-    Figment::from(Toml::file(config_file))
-        .extract()
-        .map_err(|err| CliError::Config("Failed to load config file".to_string(), err.to_string()))
+    Figment::from(Toml::file(config_file)).extract().map_err(|err| {
+        CliError::Config("Failed to load config file".to_string().into(), err.to_string())
+    })
 }
 
 /// Returns the faucet details map using the config file.

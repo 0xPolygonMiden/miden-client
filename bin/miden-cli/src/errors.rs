@@ -1,3 +1,5 @@
+use std::error::Error as StdError;
+
 use miden_client::ClientError;
 use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
@@ -31,12 +33,12 @@ pub enum CliError {
     #[error("account error: {1} with error {0}")]
     #[diagnostic(code(cli::account_error))]
     Account(#[source] AccountError, String),
-    #[error("config error: {0} with error {1}")]
+    #[error("config error: {1} with error {0}")]
     #[diagnostic(
         code(cli::config_error),
         help("Check if the configuration file exists and is well-formed.")
     )]
-    Config(String, String),
+    Config(Box<dyn StdError + Send + Sync>, String),
     #[error("parse error: {0} with error {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
     Parse(String, String),

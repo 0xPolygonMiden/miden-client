@@ -39,7 +39,7 @@ impl InitCmd {
     pub fn execute(&self, config_file_path: PathBuf) -> Result<(), CliError> {
         if config_file_path.exists() {
             return Err(CliError::Config(
-                "Error with the configuration file".to_string(),
+                "Error with the configuration file".to_string().into(),
                 format!(
                     "The file \"{}\" already exists in the working directory. Please try using another directory or removing the file.",
                     CLIENT_CONFIG_FILE_NAME
@@ -66,16 +66,19 @@ impl InitCmd {
         };
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config).map_err(|err| {
-            CliError::Config("Failed to serialize config".to_string(), err.to_string())
+            CliError::Config("Failed to serialize config".to_string().into(), err.to_string())
         })?;
 
-        let mut file_handle =
-            File::options().write(true).create_new(true).open(&config_file_path).map_err(
-                |err| CliError::Config("Failed to create config file".to_string(), err.to_string()),
-            )?;
+        let mut file_handle = File::options()
+            .write(true)
+            .create_new(true)
+            .open(&config_file_path)
+            .map_err(|err| {
+                CliError::Config("Failed to create config file".to_string().into(), err.to_string())
+            })?;
 
         file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-            CliError::Config("Failed to write config file".to_string(), err.to_string())
+            CliError::Config("Failed to write config file".to_string().into(), err.to_string())
         })?;
 
         println!("Config file successfully created at: {:?}", config_file_path);

@@ -243,7 +243,7 @@ fn display_default_account_id() -> Result<(), CliError> {
     let (cli_config, _) = load_config_file()?;
 
     let default_account = cli_config.default_account_id.ok_or(CliError::Config(
-        "Default account".to_string(),
+        "Default account".to_string().into(),
         "No default account found in the configuration file".to_string(),
     ))?;
     println!("Current default account ID: {default_account}");
