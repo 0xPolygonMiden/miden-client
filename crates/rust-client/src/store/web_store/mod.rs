@@ -21,7 +21,7 @@ use crate::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-compile_error!("The `idxdb` feature is only supported when targeting wasm32.")
+compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
 
 pub mod accounts;
 pub mod chain_data;
