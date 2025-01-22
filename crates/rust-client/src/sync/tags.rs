@@ -1,9 +1,9 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountId},
+    account::{Account, AccountId},
     crypto::rand::FeltRng,
-    notes::{NoteExecutionMode, NoteId, NoteTag},
+    note::{NoteExecutionMode, NoteId, NoteTag},
     NoteError,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};

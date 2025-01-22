@@ -5,7 +5,7 @@ use alloc::{
 
 use chrono::Utc;
 use miden_objects::{
-    notes::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
+    note::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
     utils::Deserializable,
     Digest, Word,
 };

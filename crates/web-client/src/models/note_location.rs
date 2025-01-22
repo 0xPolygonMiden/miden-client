@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteLocation as NativeNoteLocation;
+use miden_objects::note::NoteLocation as NativeNoteLocation;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]

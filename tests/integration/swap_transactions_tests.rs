@@ -4,9 +4,9 @@ use miden_client::{
     transactions::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset},
-    notes::{NoteDetails, NoteFile, NoteId, NoteType},
+    account::{AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset},
+    note::{NoteDetails, NoteFile, NoteId, NoteType},
 };
 
 use super::common::*;

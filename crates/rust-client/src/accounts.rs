@@ -6,16 +6,16 @@
 
 use alloc::vec::Vec;
 
-pub use miden_lib::accounts::{
+pub use miden_lib::account::{
     auth::RpoFalcon512 as RpoFalcon512Component,
     faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
     wallets::BasicWallet as BasicWalletComponent,
 };
-pub use miden_objects::accounts::{
+pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
-use miden_objects::{accounts::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
+use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
 use super::Client;
 use crate::{
@@ -220,7 +220,7 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{Account, AccountData, AuthSecretKey},
+        account::{Account, AccountData, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,

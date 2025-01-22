@@ -1,5 +1,5 @@
 use miden_objects::{
-    notes::{
+    note::{
         NoteInputs as NativeNoteInputs, NoteRecipient as NativeNoteRecipient,
         NoteScript as NativeNoteScript,
     },

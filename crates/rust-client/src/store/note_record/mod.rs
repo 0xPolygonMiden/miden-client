@@ -12,7 +12,7 @@
 //! ## Type conversion
 //!
 //! We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
-//! [Note](miden_objects::notes::Note), although this is not always possible. Check both
+//! [Note](miden_objects::note::Note), although this is not always possible. Check both
 //! [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
 
 use alloc::string::{String, ToString};

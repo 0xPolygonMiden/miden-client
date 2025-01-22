@@ -1,10 +1,10 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrDelta,
-    notes::NoteId,
+    note::NoteId,
     transaction::TransactionId,
     Digest,
 };

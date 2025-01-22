@@ -3,7 +3,7 @@ use alloc::string::ToString;
 use miden_objects::{
     block::BlockNumber,
     crypto::rand::FeltRng,
-    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
+    note::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
 
 use crate::{
@@ -240,7 +240,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         mut request_block_num: BlockNumber,
         tag: NoteTag,
-        expected_note: &miden_objects::notes::NoteDetails,
+        expected_note: &miden_objects::note::NoteDetails,
     ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
         let current_block_num = self.get_sync_height().await?;
         loop {

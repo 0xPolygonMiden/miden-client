@@ -4,7 +4,7 @@ use alloc::{
 };
 
 use js_sys::{Array, Promise};
-use miden_objects::{notes::Nullifier, Digest};
+use miden_objects::{note::Nullifier, Digest};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::*;

@@ -1,6 +1,6 @@
 use miden_client::store::OutputNoteRecord;
 use miden_objects::{
-    notes::{NoteId, NoteScript as NativeNoteScript},
+    note::{NoteId, NoteScript as NativeNoteScript},
     Digest,
 };
 use wasm_bindgen::prelude::*;

@@ -1,8 +1,8 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
-    assets::{Asset, AssetVault},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
+    asset::{Asset, AssetVault},
     utils::Deserializable,
     Digest, Felt, Word,
 };

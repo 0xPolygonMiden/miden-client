@@ -5,14 +5,14 @@ use miden_client::{
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::FungibleAsset,
+    account::{AccountId, AccountStorageMode},
+    asset::FungibleAsset,
     crypto::{
         hash::rpo::Rpo256,
         merkle::{MerkleStore, MerkleTree, NodeIndex},
         rand::{FeltRng, RpoRandomCoin},
     },
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },

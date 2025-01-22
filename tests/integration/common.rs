@@ -18,10 +18,10 @@ use miden_client::{
     Client, ClientError, Word,
 };
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset, TokenSymbol},
+    account::{Account, AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
-    notes::{NoteId, NoteType},
+    note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
     Felt, FieldElement,
 };

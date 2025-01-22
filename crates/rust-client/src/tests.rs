@@ -3,18 +3,18 @@ use alloc::vec::Vec;
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
-    notes::utils,
+    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    note::utils,
     transaction::TransactionKernel,
 };
 use miden_objects::{
-    accounts::{
+    account::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
         AccountType, AuthSecretKey,
     },
-    assets::{FungibleAsset, TokenSymbol},
+    asset::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
         NoteType,
     },
@@ -446,7 +446,7 @@ async fn test_mint_transaction() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -472,7 +472,7 @@ async fn test_get_output_notes() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -533,7 +533,7 @@ async fn test_transaction_request_expiration() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -566,7 +566,7 @@ async fn test_import_processing_note_returns_error() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
