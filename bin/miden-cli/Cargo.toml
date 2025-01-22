@@ -39,10 +39,10 @@ miden-client = { version = "0.6", path = "../../crates/rust-client", features = 
 miden-lib = { workspace = true }
 miden-proving-service-client = { workspace = true , features = ["std", "tx-prover"]}
 miden-objects = { workspace = true }
-miette ={ workspace = true }
+miette = { workspace = true }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
-thiserror ={ workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }
