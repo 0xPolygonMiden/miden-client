@@ -176,11 +176,11 @@ async fn test_merkle_store() {
                             use.miden::kernels::tx::memory
 
                             begin
-                                # leaf count -> mem[1000][0]
-                                push.{num_leaves} push.1000 mem_store
+                                # leaf count -> mem[4000][0]
+                                push.{num_leaves} push.4000 mem_store
 
-                                # merkle root -> mem[1001]
-                                push.{} push.1001 mem_storew dropw
+                                # merkle root -> mem[4004]
+                                push.{} push.4004 mem_storew dropw
                         ",
         merkle_root.to_hex()
     );
@@ -193,7 +193,7 @@ async fn test_merkle_store() {
         code += format!(
             "
             # get element at index `pos` from the merkle store in mem[1000] and push it to stack
-            push.1000 push.{pos} exec.mmr::get
+            push.4000 push.{pos} exec.mmr::get
 
             # check the element matches what was inserted at `pos`
             push.{expected_element} assert_eqw.err=999
