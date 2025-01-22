@@ -32,7 +32,10 @@ pub enum CliError {
     #[diagnostic(code(cli::account_error))]
     Account(#[source] AccountError, String),
     #[error("config error: {0} with error {1}")]
-    #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
+    #[diagnostic(
+        code(cli::config_error),
+        help("Check if the configuration file exists and is well-formed.")
+    )]
     Config(String, String),
     #[error("parse error: {0} with error {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
