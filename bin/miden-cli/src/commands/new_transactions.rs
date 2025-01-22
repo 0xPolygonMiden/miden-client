@@ -284,7 +284,7 @@ impl ConsumeNotesCmd {
         for note_id in &self.list_of_notes {
             let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
-                .map_err(|_| CliError::Custom(format!("Input note ID {note_id} is neither a valid Note ID nor a prefix of a known Note ID")))?;
+                .map_err(|_| CliError::Input(format!("Input note ID {note_id} is neither a valid Note ID nor a prefix of a known Note ID")))?;
 
             if note_record.is_authenticated() {
                 authenticated_notes.push(note_record.id());

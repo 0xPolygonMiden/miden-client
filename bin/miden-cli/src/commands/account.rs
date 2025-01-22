@@ -128,7 +128,7 @@ pub async fn show_account<R: FeltRng>(
     let account: Account = client
         .get_account(account_id)
         .await?
-        .ok_or(CliError::Custom(format!("Account with ID {account_id} not found")))?
+        .ok_or(CliError::Input(format!("Account with ID {account_id} not found")))?
         .into();
 
     let mut table = create_dynamic_table(&[

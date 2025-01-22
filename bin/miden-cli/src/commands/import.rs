@@ -104,10 +104,7 @@ fn validate_paths(paths: &[PathBuf]) -> Result<(), CliError> {
     let invalid_path = paths.iter().find(|path| !path.exists());
 
     if let Some(path) = invalid_path {
-        Err(CliError::Custom(format!(
-            "The path `{}` does not exist",
-            path.to_string_lossy()
-        )))
+        Err(CliError::Input(format!("The path `{}` does not exist", path.to_string_lossy())))
     } else {
         Ok(())
     }

@@ -33,9 +33,9 @@ pub(crate) async fn get_input_acc_id_by_prefix_or_default(
     } else {
         let (cli_config, _) = load_config_file()?;
 
-        cli_config.default_account_id.ok_or(CliError::Custom(
-            "No input account ID nor default account defined".to_string(),
-        ))?
+        cli_config
+            .default_account_id
+            .ok_or(CliError::Input("No input account ID nor default account defined".to_string()))?
     };
 
     parse_account_id(client, &account_id_str).await
@@ -62,7 +62,7 @@ pub(crate) async fn parse_account_id(
 
     let account_id = get_account_with_id_prefix(client, account_id)
     .await
-    .map_err(|_| CliError::Custom(format!("Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")))?
+    .map_err(|_| CliError::Input(format!("Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")))?
     .id();
 
     Ok(account_id)

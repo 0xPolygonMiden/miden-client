@@ -43,9 +43,9 @@ pub enum CliError {
     #[error("faucet error: {0}")]
     #[diagnostic(code(cli::faucet_error))]
     Faucet(String),
-    #[error("error: {0}")]
-    #[diagnostic(code(cli::custom_error))]
-    Custom(String),
+    #[error("input error: {0}")]
+    #[diagnostic(code(cli::input_error))]
+    Input(String),
     #[error("import error: {0}")]
     #[diagnostic(code(cli::import_error), help("Check the file name."))]
     Import(String),
