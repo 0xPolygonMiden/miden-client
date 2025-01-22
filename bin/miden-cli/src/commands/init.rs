@@ -11,7 +11,11 @@ use crate::{
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(about = "Initialize the client")]
+#[clap(
+    about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
+the CLI and client configurations, and will be placed by default in the current working \
+directory."
+)]
 pub struct InitCmd {
     /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
     /// optional. If not provided user will be asked for input.
@@ -34,7 +38,7 @@ impl InitCmd {
     pub fn execute(&self, config_file_path: PathBuf) -> Result<(), String> {
         if config_file_path.exists() {
             return Err(format!(
-                "The file \"{}\" already exists in the working directory.",
+                "A filed named \"{}\" already exists in the working directory. Please try using another directory or removing the file.",
                 CLIENT_CONFIG_FILE_NAME
             )
             .to_string());

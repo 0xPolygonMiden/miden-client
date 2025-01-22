@@ -16,7 +16,7 @@ use tracing::info;
 use crate::{commands::account::maybe_set_default_account, utils::load_config_file, Parser};
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Import client objects such as accounts and notes")]
+#[clap(about = "Import client objects. It is capable of importing notes and accounts.")]
 pub struct ImportCmd {
     /// Paths to the files that contains the account/note data.
     #[arg()]
