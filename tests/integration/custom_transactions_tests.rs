@@ -252,7 +252,7 @@ fn create_custom_note(
         .replace("{expected_note_arg_1}", &expected_note_args[0..=3].join("."))
         .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
-        .replace("{mem_address_2}", &(mem_addr + 1).to_string());
+        .replace("{mem_address_2}", &(mem_addr + 4).to_string());
     let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs =
