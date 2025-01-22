@@ -33,7 +33,7 @@
 //! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
 //! // Attempt to synchronize the client's state with the Miden network.
 //! // The requested data is based on the client's state: it gets updates for accounts, relevant notes, etc.
-//! // For more information on the data that getes requested, see the doc comments for `sync_state()`
+//! // For more information on the data that gets requested, see the doc comments for `sync_state()`
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);

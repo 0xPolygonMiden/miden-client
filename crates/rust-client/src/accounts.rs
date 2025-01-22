@@ -45,24 +45,7 @@
 //! # }
 //! ```
 //!
-//! ## Account composition
-//!
-//! An account consists of the following components:
-//! - Account ID, which uniquely identifies the account and also defines basic properties of the
-//!   account.
-//! - Account vault, which stores assets owned by the account.
-//! - Account storage, which is a key-value map (both keys and values are words) used to store
-//!   arbitrary user-defined data.
-//! - Account code, which is a set of Miden VM programs defining the public interface of the
-//!   account.
-//! - Account nonce, a value which is incremented whenever account state is updated.
-//!
-//! Out of the above components account ID is always immutable (once defined it can never be
-//! changed). Other components may be mutated throughout the lifetime of the account. However,
-//! account state can be changed only by invoking one of account interface methods.
-//!
-//! For more details on account management and synchronization, refer to the Miden client
-//! documentation.
+//! For more details on accounts, refer to the [Account] documentation.
 
 use alloc::vec::Vec;
 

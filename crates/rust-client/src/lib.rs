@@ -1,6 +1,6 @@
 //! A no_std-compatible client library for interacting with the Miden rollup network.
 //!
-//! This crate provides a lightweight client that handles connections to Miden node, manages
+//! This crate provides a lightweight client that handles connections to the Miden node, manages
 //! accounts and their state, and facilitates executing, proving, and submitting transactions.
 //!
 //! For a protocol-level overview and guides for getting started, please visit the official
@@ -25,7 +25,7 @@
 //! - **Sync:** Provides functionality to synchronize the local state with the current state on the
 //!   Miden network.
 //!
-//! - **transactions:** Offers capabilities to build, execute, prove, and submit transactions.
+//! - **Transactions:** Offers capabilities to build, execute, prove, and submit transactions.
 //!
 //! Additionally, the crate re-exports several utility modules:
 //!
@@ -203,7 +203,7 @@ use tracing::info;
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
 /// - Keeps track of the current and historical states of a set of accounts and related objects such
 ///   as notes and transactions.
-/// - Connects to the Miden node to periodically sync with the current state of the network.
+/// - Connects to a Miden node to periodically sync with the current state of the network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client<R: FeltRng> {
     /// The client's store, which provides a way to write and read entities to provide persistence.

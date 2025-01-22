@@ -12,8 +12,8 @@
 //!   that includes execution details and relevant notes for state tracking.
 //! - Prove transactions (locally or remotely) using a [TransactionProver] and submit the proven
 //!   transactions to the network.
-//! - Track and update the state of transactions, including their status (e.g., `Pending``,
-//!   `Committed`, or `Discarded``).
+//! - Track and update the state of transactions, including their status (e.g., `Pending`,
+//!   `Committed`, or `Discarded`).
 //!
 //! ## Example
 //!

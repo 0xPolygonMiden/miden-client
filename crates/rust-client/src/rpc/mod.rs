@@ -1,4 +1,4 @@
-//! Provides an interface for the client to communicate with Miden node using
+//! Provides an interface for the client to communicate with a Miden node using
 //! Remote Procedure Calls (RPC).
 //! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
 //!

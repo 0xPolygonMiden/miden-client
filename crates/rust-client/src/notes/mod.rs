@@ -54,8 +54,8 @@
 //! # }
 //! ```
 //!
-//! For further details on the API and error handling, refer to the specific function and type
-//! documentations in this module.
+//! For more details on the API and error handling, see the documentation for the specific functions
+//! and types in this module.
 
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
