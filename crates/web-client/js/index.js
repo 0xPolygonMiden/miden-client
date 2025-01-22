@@ -25,6 +25,7 @@ const {
   NoteInputs,
   NoteMetadata,
   NoteRecipient,
+  NoteScript,
   NoteTag,
   NoteType,
   OutputNote,
