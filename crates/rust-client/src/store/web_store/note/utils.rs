@@ -14,7 +14,7 @@ use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
 use crate::{
-    notes::NoteUpdates,
+    note::NoteUpdates,
     store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
 };
 

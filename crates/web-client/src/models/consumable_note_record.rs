@@ -1,5 +1,5 @@
 use miden_client::{
-    notes::{NoteConsumability as NativeNoteConsumability, NoteRelevance},
+    note::{NoteConsumability as NativeNoteConsumability, NoteRelevance},
     store::InputNoteRecord as NativeInputNoteRecord,
 };
 use wasm_bindgen::prelude::*;

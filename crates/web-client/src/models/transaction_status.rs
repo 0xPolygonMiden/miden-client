@@ -1,4 +1,4 @@
-use miden_client::transactions::TransactionStatus as NativeTransactionStatus;
+use miden_client::transaction::TransactionStatus as NativeTransactionStatus;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]

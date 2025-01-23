@@ -487,7 +487,7 @@ mod tests {
 
     use super::{insert_account_auth, AuthSecretKey};
     use crate::store::{
-        sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+        sqlite_store::{account::insert_account_code, tests::create_test_store},
         Store,
     };
 

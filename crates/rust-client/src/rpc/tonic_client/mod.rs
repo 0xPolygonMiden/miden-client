@@ -22,8 +22,8 @@ use tracing::info;
 
 use super::{
     domain::{
-        accounts::{AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::NetworkNote,
+        account::{AccountProof, AccountProofs, AccountUpdateSummary},
+        note::NetworkNote,
     },
     generated::{
         requests::{
@@ -36,9 +36,7 @@ use super::{
     AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
     StateSyncInfo,
 };
-use crate::{
-    rpc::generated::requests::GetBlockHeaderByNumberRequest, transactions::ForeignAccount,
-};
+use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction::ForeignAccount};
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -173,13 +171,13 @@ impl NodeRpcClient for TonicRpcClient {
             };
 
             let note = match note.details {
-                // On-chain notes include details
+                // Public notes include details
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
                     NetworkNote::Public(note, inclusion_details)
                 },
-                // Off-chain notes do not have details
+                // Private notes do not have details
                 None => {
                     let note_metadata = note
                         .metadata

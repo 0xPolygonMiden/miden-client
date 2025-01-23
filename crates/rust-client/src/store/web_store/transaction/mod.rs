@@ -10,10 +10,10 @@ use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
-use super::{accounts::utils::update_account, notes::utils::apply_note_updates_tx, WebStore};
+use super::{account::utils::update_account, note::utils::apply_note_updates_tx, WebStore};
 use crate::{
     store::{StoreError, TransactionFilter},
-    transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
 mod js_bindings;

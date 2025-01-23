@@ -10,7 +10,7 @@ use tracing::warn;
 
 use super::NoteUpdates;
 use crate::{
-    notes::NoteScreener,
+    note::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
 };

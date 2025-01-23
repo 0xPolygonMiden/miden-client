@@ -1,5 +1,5 @@
 use miden_client::{
-    accounts::{
+    account::{
         AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
         RpoFalcon512Component,
     },

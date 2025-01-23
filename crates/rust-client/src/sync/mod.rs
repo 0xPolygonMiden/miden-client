@@ -69,20 +69,20 @@ use miden_objects::{
 use tracing::info;
 
 use crate::{
-    accounts::AccountUpdates,
-    notes::NoteUpdates,
+    account::AccountUpdates,
+    note::NoteUpdates,
     rpc::domain::{
-        notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
+        note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 
-mod block_headers;
-use block_headers::apply_mmr_changes;
+mod block_header;
+use block_header::apply_mmr_changes;
 
-mod tags;
-pub use tags::{NoteTagRecord, NoteTagSource};
+mod tag;
+pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
@@ -221,7 +221,7 @@ impl<R: FeltRng> Client<R> {
     /// 3. Tracked notes are updated with their new states.
     /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
     ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::notes::NoteScreener])
+    ///    [crate::note::NoteScreener])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
     ///    state.
@@ -649,7 +649,7 @@ impl<R: FeltRng> Client<R> {
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state. If we receive a stale
+            // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_account.is_some() {
                 let account_by_hash =

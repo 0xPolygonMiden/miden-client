@@ -43,8 +43,8 @@ use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::{AccountDetails, AccountProofs},
-    notes::{NetworkNote, NoteSyncInfo},
+    account::{AccountDetails, AccountProofs},
+    note::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
 use miden_objects::{
@@ -81,7 +81,7 @@ pub use web_tonic_client::WebTonicRpcClient;
 use crate::{
     store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
     sync::get_nullifier_prefix,
-    transactions::ForeignAccount,
+    transaction::ForeignAccount,
 };
 
 // NODE RPC CLIENT TRAIT

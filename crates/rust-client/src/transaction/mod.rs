@@ -81,8 +81,8 @@ use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
-    notes::{NoteScreener, NoteUpdates},
-    rpc::domain::accounts::AccountProof,
+    note::{NoteScreener, NoteUpdates},
+    rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -1007,7 +1007,7 @@ mod test {
     };
 
     use super::PaymentTransactionData;
-    use crate::{mock::create_test_client, transactions::TransactionRequestBuilder};
+    use crate::{mock::create_test_client, transaction::TransactionRequestBuilder};
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {

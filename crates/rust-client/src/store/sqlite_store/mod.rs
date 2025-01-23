@@ -27,15 +27,15 @@ use super::{
 use crate::{
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-mod accounts;
+mod account;
 mod chain_data;
 mod errors;
-mod notes;
+mod note;
 mod sync;
-mod transactions;
+mod transaction;
 
 // SQLITE STORE
 // ================================================================================================

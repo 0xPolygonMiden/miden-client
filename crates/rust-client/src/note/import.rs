@@ -17,7 +17,7 @@ use miden_objects::{
 };
 
 use crate::{
-    rpc::{domain::notes::NetworkNote, RpcError},
+    rpc::{domain::note::NetworkNote, RpcError},
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
