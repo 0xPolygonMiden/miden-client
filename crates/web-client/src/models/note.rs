@@ -1,9 +1,15 @@
+use miden_client::notes::{
+    NoteExecutionHint as NativeNoteExecutionHint, NoteExecutionMode as NativeNoteExecutionMode,
+    NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
+    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag,
+};
+use miden_lib::note::{scripts as native_scripts, utils};
 use miden_objects::note::Note as NativeNote;
 use wasm_bindgen::prelude::*;
 
 use super::{
-    note_assets::NoteAssets, note_id::NoteId, note_metadata::NoteMetadata,
-    note_recipient::NoteRecipient,
+    account_id::AccountId, felt::Felt, note_assets::NoteAssets, note_id::NoteId,
+    note_metadata::NoteMetadata, note_recipient::NoteRecipient, note_type::NoteType, word::Word,
 };
 
 #[wasm_bindgen]
@@ -31,6 +37,68 @@ impl Note {
 
     pub fn recipient(&self) -> NoteRecipient {
         self.0.recipient().clone().into()
+    }
+
+    pub fn create_p2id_note(
+        sender: &AccountId,
+        target: &AccountId,
+        assets: &NoteAssets,
+        note_type: &NoteType,
+        serial_num: &Word,
+        aux: &Felt,
+    ) -> Self {
+        let recipient = utils::build_p2id_recipient(target.into(), serial_num.into()).unwrap();
+        let tag = NativeNoteTag::from_account_id(
+            target.into(),
+            miden_client::notes::NoteExecutionMode::Local,
+        )
+        .unwrap();
+
+        let metadata = NativeNoteMetadata::new(
+            sender.into(),
+            note_type.into(),
+            tag,
+            NativeNoteExecutionHint::always(),
+            (*aux).into(),
+        )
+        .unwrap();
+
+        NativeNote::new(assets.into(), metadata, recipient).into()
+    }
+
+    pub fn create_p2idr_note(
+        sender: &AccountId,
+        target: &AccountId,
+        assets: &NoteAssets,
+        note_type: &NoteType,
+        serial_num: &Word,
+        recall_height: u32,
+        aux: &Felt,
+    ) -> Self {
+        let note_script = native_scripts::p2idr();
+
+        let inputs = NativeNoteInputs::new(vec![
+            target.suffix().into(),
+            target.prefix().into(),
+            recall_height.into(),
+        ])
+        .unwrap();
+
+        let recipient = NativeNoteRecipient::new(serial_num.into(), note_script, inputs);
+
+        let tag =
+            NativeNoteTag::from_account_id(target.into(), NativeNoteExecutionMode::Local).unwrap();
+
+        let metadata = NativeNoteMetadata::new(
+            sender.into(),
+            note_type.into(),
+            tag,
+            NativeNoteExecutionHint::always(),
+            (*aux).into(),
+        )
+        .unwrap();
+
+        NativeNote::new(assets.into(), metadata, recipient).into()
     }
 }
 

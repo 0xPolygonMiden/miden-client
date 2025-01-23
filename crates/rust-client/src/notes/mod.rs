@@ -34,6 +34,11 @@ pub use miden_objects::{
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 
+/// Contains functions to simplify standard note scripts creation.
+pub mod scripts {
+    pub use miden_lib::note::scripts::{p2id, p2idr, swap};
+}
+
 /// Note retrieval methods.
 impl<R: FeltRng> Client<R> {
     // INPUT NOTE DATA RETRIEVAL
