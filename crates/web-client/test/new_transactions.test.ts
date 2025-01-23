@@ -6,7 +6,6 @@ import {
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
-import { NoteScript } from "../dist";
 import { setupConsumedNote } from "./notes.test";
 
 // NEW_MINT_TRANSACTION TESTS

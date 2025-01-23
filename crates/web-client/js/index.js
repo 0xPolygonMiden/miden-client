@@ -71,6 +71,7 @@ export {
   NoteInputs,
   NoteMetadata,
   NoteRecipient,
+  NoteScript,
   NoteTag,
   NoteType,
   OutputNote,
