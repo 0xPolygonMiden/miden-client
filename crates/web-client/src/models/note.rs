@@ -3,8 +3,8 @@ use miden_client::notes::{
     NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
     NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag,
 };
-use miden_lib::notes::{scripts as native_scripts, utils};
-use miden_objects::notes::Note as NativeNote;
+use miden_lib::note::{scripts as native_scripts, utils};
+use miden_objects::note::Note as NativeNote;
 use wasm_bindgen::prelude::*;
 
 use super::{
