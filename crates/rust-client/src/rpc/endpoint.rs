@@ -15,7 +15,7 @@ pub struct Endpoint {
     /// The hostname or IP address of the endpoint.
     host: String,
     /// The port number of the endpoint.
-    port: u16,
+    port: Option<u16>,
 }
 
 impl Endpoint {
@@ -28,7 +28,7 @@ impl Endpoint {
     /// * `protocol` - The protocol to use for the connection (e.g., "http", "https").
     /// * `host` - The hostname or IP address of the endpoint.
     /// * `port` - The port number to connect to.
-    pub const fn new(protocol: String, host: String, port: u16) -> Self {
+    pub const fn new(protocol: String, host: String, port: Option<u16>) -> Self {
         Self { protocol, host, port }
     }
 
@@ -40,14 +40,17 @@ impl Endpoint {
         &self.host
     }
 
-    pub fn port(&self) -> u16 {
+    pub fn port(&self) -> Option<u16> {
         self.port
     }
 }
 
 impl fmt::Display for Endpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}://{}:{}", self.protocol, self.host, self.port)
+        match self.port {
+            Some(port) => write!(f, "{}://{}:{}", self.protocol, self.host, port),
+            None => write!(f, "{}://{}", self.protocol, self.host),
+        }
     }
 }
 
@@ -56,7 +59,7 @@ impl Default for Endpoint {
         Self {
             protocol: "http".to_string(),
             host: "localhost".to_string(),
-            port: Self::MIDEN_NODE_PORT,
+            port: Some(Self::MIDEN_NODE_PORT),
         }
     }
 }
@@ -85,29 +88,25 @@ impl TryFrom<&str> for Endpoint {
                 // skip the separator
                 let hostname = &hostname[3..];
 
-                (protocol, hostname, port)
+                (protocol, hostname, Some(port))
             },
             (Some(protocol_idx), None) => {
                 let (protocol, hostname) = endpoint.split_at(protocol_idx);
                 // skip the separator
                 let hostname = &hostname[3..];
 
-                (protocol, hostname, Self::MIDEN_NODE_PORT)
+                (protocol, hostname, None)
             },
             (None, Some(port_idx)) => {
                 let (hostname, port) = endpoint.split_at(port_idx);
                 let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
 
-                ("https", hostname, port)
+                ("https", hostname, Some(port))
             },
-            (None, None) => ("https", endpoint, Self::MIDEN_NODE_PORT),
+            (None, None) => ("https", endpoint, None),
         };
 
-        Ok(Endpoint {
-            protocol: protocol.to_string(),
-            host: hostname.to_string(),
-            port,
-        })
+        Ok(Endpoint::new(protocol.to_string(), hostname.to_string(), port))
     }
 }
 
@@ -123,7 +122,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
-            port: Endpoint::MIDEN_NODE_PORT,
+            port: Some(Endpoint::MIDEN_NODE_PORT),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -135,7 +134,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "192.168.0.1".to_string(),
-            port: Endpoint::MIDEN_NODE_PORT,
+            port: Some(Endpoint::MIDEN_NODE_PORT),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -147,7 +146,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
-            port: 8000,
+            port: Some(8000),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -159,7 +158,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "192.168.0.1".to_string(),
-            port: 8000,
+            port: Some(8000),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -171,7 +170,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "hkttp".to_string(),
             host: "some.test.domain".to_string(),
-            port: Endpoint::MIDEN_NODE_PORT,
+            port: Some(Endpoint::MIDEN_NODE_PORT),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -183,7 +182,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "192.168.0.1".to_string(),
-            port: Endpoint::MIDEN_NODE_PORT,
+            port: Some(Endpoint::MIDEN_NODE_PORT),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -195,7 +194,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "some.test.domain".to_string(),
-            port: 8080,
+            port: Some(8080),
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -207,7 +206,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "192.168.0.1".to_string(),
-            port: 8080,
+            port: Some(8080),
         };
 
         assert_eq!(endpoint, expected_endpoint);
