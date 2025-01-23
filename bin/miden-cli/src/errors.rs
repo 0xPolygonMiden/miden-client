@@ -24,7 +24,7 @@ pub enum CliError {
         code(cli::config_error),
         help("Check if the configuration file exists and is well-formed.")
     )]
-    Config(Box<dyn StdError + Send + Sync>, String),
+    Config(#[source] Box<dyn StdError + Send + Sync>, String),
     #[error("export error: {0}")]
     #[diagnostic(code(cli::export_error), help("Check the ID."))]
     Export(String),
@@ -45,10 +45,10 @@ pub enum CliError {
     MissingFlag(String),
     #[error("parse error: {1} with error {0}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
-    Parse(Box<dyn StdError + Send + Sync>, String),
+    Parse(#[source] Box<dyn StdError + Send + Sync>, String),
     #[error("transaction error: {1} with error {0}")]
     #[diagnostic(code(cli::transaction_error))]
-    Transaction(Box<dyn StdError + Send + Sync>, String),
+    Transaction(#[source] Box<dyn StdError + Send + Sync>, String),
 }
 
 impl From<CliError> for String {
