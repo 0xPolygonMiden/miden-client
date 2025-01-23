@@ -1,4 +1,4 @@
-use miden_objects::accounts::{Account as NativeAccount, AccountType as NativeAccountType};
+use miden_objects::account::{Account as NativeAccount, AccountType as NativeAccountType};
 use wasm_bindgen::prelude::*;
 
 use super::{

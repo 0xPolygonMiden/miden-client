@@ -1,6 +1,6 @@
 use alloc::string::{String, ToString};
 
-use miden_objects::{accounts::AccountId, notes::NoteId, utils::DeserializationError, NoteError};
+use miden_objects::{account::AccountId, note::NoteId, utils::DeserializationError, NoteError};
 use thiserror::Error;
 
 // RPC ERROR

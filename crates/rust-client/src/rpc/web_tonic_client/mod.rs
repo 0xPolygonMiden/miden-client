@@ -7,10 +7,10 @@ use alloc::{
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId},
+    account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,

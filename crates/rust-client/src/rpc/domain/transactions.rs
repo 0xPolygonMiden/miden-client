@@ -1,6 +1,4 @@
-use miden_objects::{
-    accounts::AccountId, crypto::hash::rpo::RpoDigest, transaction::TransactionId,
-};
+use miden_objects::{account::AccountId, crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
 use crate::rpc::{
     errors::RpcConversionError,
