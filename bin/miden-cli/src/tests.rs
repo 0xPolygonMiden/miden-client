@@ -19,7 +19,7 @@ use miden_client::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
-    rpc::TonicRpcClient,
+    rpc::{Endpoint, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
@@ -77,8 +77,16 @@ fn test_init_with_params() {
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
+    let local_node_address = Endpoint::default();
+
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--rpc",
+        &local_node_address.to_string(),
+        "--store-path",
+        store_path.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Assert the config file contains the specified contents
@@ -95,7 +103,13 @@ fn test_init_with_params() {
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--rpc",
+        &local_node_address.to_string(),
+        "--store-path",
+        store_path.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
@@ -454,7 +468,16 @@ fn test_cli_empty_commands() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+
+    let local_node_address = Endpoint::default();
+
+    init_cmd.args([
+        "init",
+        "--rpc",
+        &local_node_address.to_string(),
+        "--store-path",
+        store_path.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();

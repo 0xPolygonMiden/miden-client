@@ -122,7 +122,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
-            port: Some(Endpoint::MIDEN_NODE_PORT),
+            port: None,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -134,7 +134,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "192.168.0.1".to_string(),
-            port: Some(Endpoint::MIDEN_NODE_PORT),
+            port: None,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -170,7 +170,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "hkttp".to_string(),
             host: "some.test.domain".to_string(),
-            port: Some(Endpoint::MIDEN_NODE_PORT),
+            port: None,
         };
 
         assert_eq!(endpoint, expected_endpoint);
@@ -182,7 +182,7 @@ mod test {
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "192.168.0.1".to_string(),
-            port: Some(Endpoint::MIDEN_NODE_PORT),
+            port: None,
         };
 
         assert_eq!(endpoint, expected_endpoint);
