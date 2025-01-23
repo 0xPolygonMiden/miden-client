@@ -59,10 +59,10 @@ use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
-    notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
     Digest,
 };

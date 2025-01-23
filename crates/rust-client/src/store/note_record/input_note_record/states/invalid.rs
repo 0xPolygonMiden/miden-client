@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::BlockHeader,
-    notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
     Digest,
 };
@@ -71,7 +71,7 @@ impl NoteStateHandler for InvalidNoteState {
 
     fn consumed_locally(
         &self,
-        _consumer_account: miden_objects::accounts::AccountId,
+        _consumer_account: miden_objects::account::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
         _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {

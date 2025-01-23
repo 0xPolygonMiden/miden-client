@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteInclusionProof as NativeNoteInclusionProof;
+use miden_objects::note::NoteInclusionProof as NativeNoteInclusionProof;
 use wasm_bindgen::prelude::*;
 
 use super::{merkle_path::MerklePath, note_location::NoteLocation};

@@ -1,4 +1,4 @@
-use miden_objects::accounts::Account as NativeAccount;
+use miden_objects::account::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
 use crate::{

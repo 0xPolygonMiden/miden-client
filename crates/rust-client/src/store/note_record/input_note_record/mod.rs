@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{BlockHeader, BlockNumber},
-    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    note::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest,

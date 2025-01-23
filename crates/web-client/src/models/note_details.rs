@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteDetails as NativeNoteDetails;
+use miden_objects::note::NoteDetails as NativeNoteDetails;
 use wasm_bindgen::prelude::*;
 
 use super::{note_assets::NoteAssets, note_recipient::NoteRecipient};

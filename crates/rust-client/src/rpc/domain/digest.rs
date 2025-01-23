@@ -2,7 +2,7 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::{self, Debug, Display, Formatter};
 
 use hex::ToHex;
-use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
+use miden_objects::{note::NoteId, Digest, Felt, StarkField};
 
 use crate::rpc::{errors::RpcConversionError, generated::digest};
 

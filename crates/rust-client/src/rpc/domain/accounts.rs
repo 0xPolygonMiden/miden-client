@@ -6,7 +6,7 @@ use alloc::{
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     block::BlockNumber,
     crypto::merkle::{MerklePath, SmtProof},
     Digest, Felt,

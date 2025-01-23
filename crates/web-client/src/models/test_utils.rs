@@ -1,5 +1,5 @@
 use miden_client::testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
-use miden_objects::accounts::AccountId as NativeAccountId;
+use miden_objects::account::AccountId as NativeAccountId;
 use wasm_bindgen::prelude::*;
 
 use super::account_id::AccountId;

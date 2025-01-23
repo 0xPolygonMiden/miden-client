@@ -1,6 +1,6 @@
 use miden_objects::{
-    accounts::AccountId as NativeAccountId,
-    notes::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag},
+    account::AccountId as NativeAccountId,
+    note::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag},
 };
 use wasm_bindgen::prelude::*;
 
