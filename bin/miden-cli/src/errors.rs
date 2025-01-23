@@ -43,9 +43,9 @@ pub enum CliError {
     #[error("missing flag: {0}")]
     #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
     MissingFlag(String),
-    #[error("parse error: {0} with error {1}")]
+    #[error("parse error: {1} with error {0}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
-    Parse(String, String),
+    Parse(Box<dyn StdError + Send + Sync>, String),
     #[error("transaction error: {1} with error {0}")]
     #[diagnostic(code(cli::transaction_error))]
     Transaction(Box<dyn StdError + Send + Sync>, String),

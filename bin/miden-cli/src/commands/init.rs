@@ -50,8 +50,9 @@ impl InitCmd {
         let mut cli_config = CliConfig::default();
 
         if let Some(endpoint) = &self.rpc {
-            let endpoint = CliEndpoint::try_from(endpoint.as_str())
-                .map_err(|err| CliError::Parse("Failed to parse RPC endpoint".to_string(), err))?;
+            let endpoint = CliEndpoint::try_from(endpoint.as_str()).map_err(|err| {
+                CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
+            })?;
 
             cli_config.rpc.endpoint = endpoint;
         }

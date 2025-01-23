@@ -90,13 +90,13 @@ impl FaucetDetailsMap {
     /// - The token symbol isn't present in the token symbol map file.
     pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, CliError> {
         let (amount, asset) = arg.split_once("::").ok_or(CliError::Parse(
+            "separator `::` not found".into(),
             "Failed to parse amount and asset".to_string(),
-            "separator `::` not found".to_string(),
         ))?;
         let (faucet_id, amount) = if asset.starts_with("0x") {
-            let amount = amount.parse::<u64>().map_err(|err| {
-                CliError::Parse("Failed to parse u64".to_string(), err.to_string())
-            })?;
+            let amount = amount
+                .parse::<u64>()
+                .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
             (
                 AccountId::from_hex(asset)
                     .map_err(|err| CliError::AccountId(err, "Invalid faucet ID".to_string()))?,
@@ -170,11 +170,12 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, CliError> {
     if n_decimals > BasicFungibleFaucet::MAX_DECIMALS {
         return Err(CliError::Parse(
-            "Faucet maximum decimals".to_string(),
             format!(
                 "Number of decimals must be less than or equal to {}",
                 BasicFungibleFaucet::MAX_DECIMALS
-            ),
+            )
+            .into(),
+            "Faucet maximum decimals".to_string(),
         ));
     }
 
@@ -183,15 +184,15 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
 
     if parts.len() > 2 {
         return Err(CliError::Parse(
-            "Decimals".to_string(),
-            "Not a valid number: More than one decimal point".to_string(),
+            "More than one decimal point".into(),
+            "Decimals format".to_string(),
         ));
     }
 
     // Validate that the parts are valid numbers
     for part in &parts {
         part.parse::<u64>()
-            .map_err(|err| CliError::Parse("Failed to parse u64".to_string(), err.to_string()))?;
+            .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
     }
 
     // Get the integer part
@@ -207,8 +208,8 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
     // Check if the fractional part has more than N decimals
     if fractional_part.len() > n_decimals.into() {
         return Err(CliError::Parse(
+            format!("Amount has more than {} decimal places", n_decimals).into(),
             "Failed to parse fractional part".to_string(),
-            format!("Amount has more than {} decimal places", n_decimals),
         ));
     }
 
@@ -223,7 +224,7 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
     // Convert the combined string to an integer
     combined
         .parse::<u64>()
-        .map_err(|err| CliError::Parse("Failed to parse u64".to_string(), err.to_string()))
+        .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))
 }
 
 // HELPER TESTS
