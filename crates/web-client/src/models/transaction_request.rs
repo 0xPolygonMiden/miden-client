@@ -3,7 +3,7 @@ use miden_client::transactions::{
     TransactionRequestBuilder as NativeTransactionRequestBuilder,
 };
 use miden_objects::{
-    notes::{
+    note::{
         Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId,
         NoteTag as NativeNoteTag,
     },

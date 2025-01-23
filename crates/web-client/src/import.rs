@@ -1,4 +1,4 @@
-use miden_objects::{accounts::AccountData, notes::NoteFile, utils::Deserializable};
+use miden_objects::{account::AccountData, note::NoteFile, utils::Deserializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 

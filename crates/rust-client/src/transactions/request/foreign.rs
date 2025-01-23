@@ -3,7 +3,7 @@ use alloc::{string::ToString, vec::Vec};
 use core::cmp::Ordering;
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader, StorageSlot},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader, StorageSlot},
     crypto::merkle::{MerklePath, SmtProof},
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};

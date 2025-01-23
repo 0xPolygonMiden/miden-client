@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use miden_objects::{
     block::BlockHeader,
     crypto::merkle::MerklePath,
-    notes::{Note, NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
+    note::{Note, NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
     Digest, Felt,
 };
 

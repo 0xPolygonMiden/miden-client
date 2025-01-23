@@ -12,10 +12,10 @@ use domain::{
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrProof,
-    notes::{NoteId, NoteTag, Nullifier},
+    note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
 
@@ -80,7 +80,7 @@ pub trait NodeRpcClient {
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
     ///
     /// For any NoteType::Private note, the return data is only the
-    /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
+    /// [miden_objects::note::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 

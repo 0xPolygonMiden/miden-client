@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miden_lib::notes::scripts::{p2id, p2idr, swap};
+use miden_lib::note::scripts::{p2id, p2idr, swap};
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;

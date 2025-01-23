@@ -4,7 +4,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::MerkleError, notes::NoteId, AccountError, AssetError,
+    account::AccountId, crypto::merkle::MerkleError, note::NoteId, AccountError, AssetError,
     Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{

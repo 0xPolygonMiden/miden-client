@@ -1,4 +1,4 @@
-use miden_objects::{accounts::AccountId as NativeAccountId, Felt as NativeFelt};
+use miden_objects::{account::AccountId as NativeAccountId, Felt as NativeFelt};
 use wasm_bindgen::prelude::*;
 
 use super::felt::Felt;

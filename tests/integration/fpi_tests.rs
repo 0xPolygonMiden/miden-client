@@ -8,9 +8,9 @@ use miden_client::{
     },
     Felt, Word,
 };
-use miden_lib::accounts::auth::RpoFalcon512;
+use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
-    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
+    account::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     Digest,

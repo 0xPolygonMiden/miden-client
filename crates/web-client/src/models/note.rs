@@ -1,4 +1,4 @@
-use miden_objects::notes::Note as NativeNote;
+use miden_objects::note::Note as NativeNote;
 use wasm_bindgen::prelude::*;
 
 use super::{
