@@ -46,9 +46,9 @@ pub enum CliError {
     #[error("parse error: {0} with error {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
     Parse(String, String),
-    #[error("transaction error: {0} with error {1}")]
+    #[error("transaction error: {1} with error {0}")]
     #[diagnostic(code(cli::transaction_error))]
-    Transaction(String, String),
+    Transaction(Box<dyn StdError + Send + Sync>, String),
 }
 
 impl From<CliError> for String {

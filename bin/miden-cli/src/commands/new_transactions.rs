@@ -78,7 +78,7 @@ impl MintCmd {
             client.rng(),
         )
         .map_err(|err| {
-            CliError::Transaction("Failed to build mint transaction".to_string(), err.to_string())
+            CliError::Transaction(err.into(), "Failed to build mint transaction".to_string())
         })?
         .build();
 
@@ -151,10 +151,7 @@ impl SendCmd {
             client.rng(),
         )
         .map_err(|err| {
-            CliError::Transaction(
-                "Failed to build payment transaction".to_string(),
-                err.to_string(),
-            )
+            CliError::Transaction(err.into(), "Failed to build payment transaction".to_string())
         })?
         .build();
 
@@ -223,7 +220,7 @@ impl SwapCmd {
             client.rng(),
         )
         .map_err(|err| {
-            CliError::Transaction("Failed to build swap transaction".to_string(), err.to_string())
+            CliError::Transaction(err.into(), "Failed to build swap transaction".to_string())
         })?
         .build();
 
@@ -241,9 +238,7 @@ impl SwapCmd {
             &swap_transaction.offered_asset(),
             &swap_transaction.requested_asset(),
         )
-        .map_err(|err| {
-            CliError::Transaction("Failed to build swap tag".to_string(), err.to_string())
-        })?
+        .map_err(|err| CliError::Transaction(err.into(), "Failed to build swap tag".to_string()))?
         .into();
         println!(
             "To receive updates about the payback Swap Note run `miden tags add {}`",
@@ -292,8 +287,8 @@ impl ConsumeNotesCmd {
                 unauthenticated_notes.push((
                     note_record.try_into().map_err(|err: NoteRecordError| {
                         CliError::Transaction(
+                            err.into(),
                             "Failed to convert note record".to_string(),
-                            err.to_string(),
                         )
                     })?,
                     None,
@@ -313,8 +308,8 @@ impl ConsumeNotesCmd {
 
         if authenticated_notes.is_empty() && unauthenticated_notes.is_empty() {
             return Err(CliError::Transaction(
+                "No input notes were provided and the store does not contain any notes consumable by {account_id}".into(),
                 "Input notes check failed".to_string(),
-                "No input notes were provided and the store does not contain any notes consumable by {account_id}".to_string(),
             ));
         }
 
