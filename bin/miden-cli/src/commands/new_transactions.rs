@@ -2,13 +2,11 @@ use std::{io, sync::Arc};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::AccountId,
+    account::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    notes::{
-        build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType,
-    },
-    transactions::{
+    note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
+    transaction::{
         PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
         TransactionResult,
     },

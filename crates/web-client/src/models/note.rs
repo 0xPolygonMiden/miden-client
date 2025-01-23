@@ -1,4 +1,4 @@
-use miden_client::notes::{
+use miden_client::note::{
     NoteExecutionHint as NativeNoteExecutionHint, NoteExecutionMode as NativeNoteExecutionMode,
     NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
     NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag,
@@ -50,7 +50,7 @@ impl Note {
         let recipient = utils::build_p2id_recipient(target.into(), serial_num.into()).unwrap();
         let tag = NativeNoteTag::from_account_id(
             target.into(),
-            miden_client::notes::NoteExecutionMode::Local,
+            miden_client::note::NoteExecutionMode::Local,
         )
         .unwrap();
 

@@ -1,4 +1,4 @@
-use miden_client::transactions::TransactionRecord as NativeTransactionRecord;
+use miden_client::transaction::TransactionRecord as NativeTransactionRecord;
 use wasm_bindgen::prelude::*;
 
 use super::{

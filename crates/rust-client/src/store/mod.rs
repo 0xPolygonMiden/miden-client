@@ -18,7 +18,7 @@ use miden_objects::{
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements

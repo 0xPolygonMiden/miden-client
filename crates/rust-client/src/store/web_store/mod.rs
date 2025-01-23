@@ -17,14 +17,14 @@ use super::{
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-pub mod accounts;
+pub mod account;
 pub mod chain_data;
-pub mod notes;
+pub mod note;
 pub mod sync;
-pub mod transactions;
+pub mod transaction;
 
 // Initialize IndexedDB
 #[wasm_bindgen(module = "/src/store/web_store/js/schema.js")]

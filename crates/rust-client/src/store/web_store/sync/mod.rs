@@ -13,9 +13,9 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    accounts::{lock_account, utils::update_account},
+    account::{lock_account, utils::update_account},
     chain_data::utils::serialize_chain_mmr_node,
-    notes::utils::apply_note_updates_tx,
+    note::utils::apply_note_updates_tx,
     WebStore,
 };
 use crate::{

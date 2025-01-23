@@ -8,8 +8,8 @@ use super::SqliteStore;
 use crate::{
     store::{
         sqlite_store::{
-            accounts::{lock_account, update_account},
-            notes::apply_note_updates_tx,
+            account::{lock_account, update_account},
+            note::apply_note_updates_tx,
         },
         StoreError,
     },

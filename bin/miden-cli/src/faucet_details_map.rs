@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{accounts::AccountId, assets::FungibleAsset};
+use miden_client::{account::AccountId, assets::FungibleAsset};
 use miden_lib::account::faucets::BasicFungibleFaucet;
 use serde::{Deserialize, Serialize};
 

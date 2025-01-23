@@ -9,7 +9,7 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
 use super::TransactionRequestError;
-use crate::rpc::domain::accounts::{AccountProof, AccountStorageRequirements, StateHeaders};
+use crate::rpc::domain::account::{AccountProof, AccountStorageRequirements, StateHeaders};
 
 // FOREIGN ACCOUNT
 // ================================================================================================

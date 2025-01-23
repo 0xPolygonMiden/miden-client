@@ -1,6 +1,6 @@
 use miden_client::{
-    notes::{get_input_note_with_id_prefix, BlockNumber},
-    transactions::{
+    note::{get_input_note_with_id_prefix, BlockNumber},
+    transaction::{
         PaymentTransactionData, SwapTransactionData,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
