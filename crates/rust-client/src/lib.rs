@@ -128,10 +128,10 @@ mod errors;
 /// Provides types and utilities for working with assets within the Miden rollup network.
 pub mod assets {
     pub use miden_objects::{
-        accounts::delta::{
+        account::delta::{
             AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
         },
-        assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
+        asset::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
     };
 }
 
@@ -139,7 +139,7 @@ pub mod assets {
 /// rollup network.
 pub mod auth {
     pub use miden_lib::AuthScheme;
-    pub use miden_objects::accounts::AuthSecretKey;
+    pub use miden_objects::account::AuthSecretKey;
     pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
 

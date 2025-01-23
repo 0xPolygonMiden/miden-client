@@ -1,6 +1,6 @@
 use miden_objects::{
-    accounts::AccountId as NativeAccountId,
-    assets::{Asset as NativeAsset, FungibleAsset as FungibleAssetNative},
+    account::AccountId as NativeAccountId,
+    asset::{Asset as NativeAsset, FungibleAsset as FungibleAssetNative},
     Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;

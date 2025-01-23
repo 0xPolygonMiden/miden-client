@@ -1,4 +1,4 @@
-use miden_objects::accounts::AccountStorage as NativeAccountStorage;
+use miden_objects::account::AccountStorage as NativeAccountStorage;
 use wasm_bindgen::prelude::*;
 
 use super::rpo_digest::RpoDigest;

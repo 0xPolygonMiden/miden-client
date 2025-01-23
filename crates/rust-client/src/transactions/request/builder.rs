@@ -1,16 +1,16 @@
 //! Contains structures and functions related to transaction creation.
 use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
+use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::AccountId,
-    assets::{Asset, FungibleAsset},
+    account::AccountId,
+    asset::{Asset, FungibleAsset},
     block::BlockNumber,
     crypto::{
         merkle::{InnerNodeInfo, MerkleStore},
         rand::FeltRng,
     },
-    notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
+    note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{OutputNote, TransactionScript},
     vm::AdviceMap,
     Digest, Felt, FieldElement,

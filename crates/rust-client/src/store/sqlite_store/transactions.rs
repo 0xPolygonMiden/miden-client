@@ -5,7 +5,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     transaction::{

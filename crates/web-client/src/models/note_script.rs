@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteScript as NativeNoteScript;
+use miden_objects::note::NoteScript as NativeNoteScript;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]

@@ -7,7 +7,7 @@ use alloc::{
 use miden_objects::{
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
-    notes::{
+    note::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
     Digest, Word,

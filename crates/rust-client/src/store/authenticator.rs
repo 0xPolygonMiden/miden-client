@@ -1,7 +1,7 @@
 use alloc::{sync::Arc, vec::Vec};
 
 use miden_objects::{
-    accounts::{AccountDelta, AuthSecretKey},
+    account::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, utils::sync::RwLock, AuthenticationError};

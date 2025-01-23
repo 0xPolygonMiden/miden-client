@@ -27,7 +27,7 @@
 //!
 //! ```rust
 //! # use miden_client::accounts::{Account, AccountBuilder, AccountType, BasicWalletComponent};
-//! # use miden_objects::accounts::{AuthSecretKey, AccountStorageMode};
+//! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
 //! # use miden_client::crypto::{FeltRng, SecretKey};
 //! # async fn add_new_account_example(client: &mut miden_client::Client<impl FeltRng>) -> Result<(), miden_client::ClientError> {
 //! let key_pair = SecretKey::with_rng(client.rng());
@@ -49,16 +49,16 @@
 
 use alloc::vec::Vec;
 
-pub use miden_lib::accounts::{
+pub use miden_lib::account::{
     auth::RpoFalcon512 as RpoFalcon512Component,
     faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
     wallets::BasicWallet as BasicWalletComponent,
 };
-pub use miden_objects::accounts::{
+pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
-use miden_objects::{accounts::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
+use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
 use super::Client;
 use crate::{

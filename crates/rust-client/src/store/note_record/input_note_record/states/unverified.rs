@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::{BlockHeader, BlockNumber},
-    notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
 };
 
@@ -75,7 +75,7 @@ impl NoteStateHandler for UnverifiedNoteState {
 
     fn consumed_locally(
         &self,
-        consumer_account: miden_objects::accounts::AccountId,
+        consumer_account: miden_objects::account::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
         _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {

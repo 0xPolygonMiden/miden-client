@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::BlockHeader,
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
     Digest,
 };
@@ -61,7 +61,7 @@ impl NoteStateHandler for CommittedNoteState {
 
     fn consumed_locally(
         &self,
-        consumer_account: miden_objects::accounts::AccountId,
+        consumer_account: miden_objects::account::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
         current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {

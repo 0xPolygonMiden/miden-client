@@ -1,4 +1,4 @@
-use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier};
+use miden_objects::{crypto::hash::rpo::RpoDigest, note::Nullifier};
 
 use crate::rpc::{errors::RpcConversionError, generated::digest::Digest};
 

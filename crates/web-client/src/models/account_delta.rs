@@ -1,4 +1,4 @@
-use miden_objects::accounts::AccountDelta as NativeAccountDelta;
+use miden_objects::account::AccountDelta as NativeAccountDelta;
 use wasm_bindgen::prelude::*;
 
 use super::{

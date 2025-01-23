@@ -25,7 +25,7 @@
 //!     store::NoteFilter,
 //!     crypto::FeltRng,
 //! };
-//! use miden_objects::accounts::AccountId;
+//! use miden_objects::account::AccountId;
 //!
 //! # async fn example(client: &Client<impl FeltRng>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Retrieve all committed input notes
@@ -60,7 +60,7 @@
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
+use miden_objects::{account::AccountId, crypto::rand::FeltRng};
 
 use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
@@ -75,13 +75,13 @@ mod note_screener;
 // RE-EXPORTS
 // ================================================================================================
 
-pub use miden_lib::notes::{
+pub use miden_lib::note::{
     create_p2id_note, create_p2idr_note, create_swap_note,
     utils::{build_p2id_recipient, build_swap_tag},
 };
 pub use miden_objects::{
     block::BlockNumber,
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
         NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
         Nullifier,

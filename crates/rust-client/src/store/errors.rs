@@ -1,7 +1,7 @@
 use alloc::string::String;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     crypto::merkle::MmrError,
     utils::{DeserializationError, HexParseError},
     AccountError, AccountIdError, AssetVaultError, Digest, NoteError, TransactionScriptError,

@@ -1,5 +1,5 @@
 use miden_objects::{
-    notes::{Note as NativeNote, NoteHeader as NativeNoteHeader, PartialNote as NativePartialNote},
+    note::{Note as NativeNote, NoteHeader as NativeNoteHeader, PartialNote as NativePartialNote},
     transaction::OutputNote as NativeOutputNote,
 };
 use wasm_bindgen::prelude::*;
