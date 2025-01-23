@@ -20,7 +20,7 @@
 //! The following example demonstrates how to create and submit a transaction:
 //!
 //! ```rust
-//! use miden_client::{Client,transactions::{TransactionRequestBuilder, PaymentTransactionData, TransactionResult}};
+//! use miden_client::{Client,transaction::{TransactionRequestBuilder, PaymentTransactionData, TransactionResult}};
 //! use miden_objects::account::AccountId;
 //! use miden_objects::asset::FungibleAsset;
 //! use miden_objects::note::NoteType;

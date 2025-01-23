@@ -26,7 +26,7 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::accounts::{Account, AccountBuilder, AccountType, BasicWalletComponent};
+//! # use miden_client::account::{Account, AccountBuilder, AccountType, BasicWalletComponent};
 //! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
 //! # use miden_client::crypto::{FeltRng, SecretKey};
 //! # async fn add_new_account_example(client: &mut miden_client::Client<impl FeltRng>) -> Result<(), miden_client::ClientError> {

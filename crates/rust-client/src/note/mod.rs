@@ -20,8 +20,7 @@
 //! ```rust
 //! use miden_client::{
 //!     Client,
-//!     notes,
-//!     notes::{get_input_note_with_id_prefix, NoteScreener},
+//!     note::{get_input_note_with_id_prefix, NoteScreener},
 //!     store::NoteFilter,
 //!     crypto::FeltRng,
 //! };
