@@ -199,7 +199,7 @@ export const customTransaction = async (
 
       let expectedNoteArgs = noteArgs.map((felt) => felt.as_int());
       let memAddress = "1000";
-      let memAddress2 = "1001";
+      let memAddress2 = "1004";
       let expectedNoteArg1 = expectedNoteArgs.slice(0, 4).join(".");
       let expectedNoteArg2 = expectedNoteArgs.slice(4, 8).join(".");
       let note_script = `
@@ -223,7 +223,7 @@ export const customTransaction = async (
                 # => [num_of_assets, 0 = ptr, ...]
 
                 # compute the pointer at which we should stop iterating
-                dup.1 add
+                mul.4 dup.1 add
                 # => [end_ptr, ptr, ...]
 
                 # pad the stack and move the pointer to the top
@@ -258,8 +258,8 @@ export const customTransaction = async (
                     # => [0, 0, 0, 0, ptr, end_ptr, ...]
 
                     # increment the pointer and compare it to the end_ptr
-                    movup.4 add.1 dup dup.6 neq
-                    # => [latch, ptr+1, ASSET, end_ptr, ...]
+                    movup.4 add.4 dup dup.6 neq
+                    # => [latch, ptr+4, ASSET, end_ptr, ...]
                 end
 
                 # clear the stack
@@ -288,7 +288,7 @@ export const customTransaction = async (
                 mem_loadw
                 # => [NOTE_ARG_1]
                 
-                push.${expectedNoteArg1} assert_eqw
+                push.${expectedNoteArg1} assert_eqw.err=101
                 # => []
 
                 # read second word
@@ -297,7 +297,7 @@ export const customTransaction = async (
                 mem_loadw
                 # => [NOTE_ARG_2]
 
-                push.${expectedNoteArg2} assert_eqw
+                push.${expectedNoteArg2} assert_eqw.err=102
                 # => []
 
                 # store the note inputs to memory starting at address 0
@@ -305,7 +305,7 @@ export const customTransaction = async (
                 # => [num_inputs, inputs_ptr]
 
                 # make sure the number of inputs is 1
-                eq.2 assert
+                eq.2 assert.err=103
                 # => [inputs_ptr]
 
                 # read the target account id from the note inputs
@@ -316,7 +316,7 @@ export const customTransaction = async (
                 # => [account_id_prefix, target_account_id_prefix, ...]
 
                 # ensure account_id = target_account_id, fails otherwise
-                assert_eq
+                assert_eq.err=104
                 # => [...]
 
                 exec.add_note_assets_to_account
