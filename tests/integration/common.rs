@@ -1,18 +1,18 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    accounts::{
+    account::{
         AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
         RpoFalcon512Component,
     },
     auth::AuthSecretKey,
     crypto::FeltRng,
-    notes::create_p2id_note,
+    note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-    transactions::{
+    transaction::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
     Client, ClientError, Word,

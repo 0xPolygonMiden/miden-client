@@ -1,9 +1,9 @@
 use miden_client::{
-    accounts::{Account, StorageSlot},
+    account::{Account, StorageSlot},
     block::BlockHeader,
-    rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
+    rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
-    transactions::{
+    transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
     Felt, Word,

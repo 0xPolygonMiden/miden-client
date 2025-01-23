@@ -1,6 +1,6 @@
 use miden_client::{
     store::{InputNoteState, NoteFilter},
-    transactions::{PaymentTransactionData, TransactionRequestBuilder},
+    transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},

@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::{
+    account::{
         AccountBuilder, AccountStorageMode, AccountType, BasicFungibleFaucetComponent,
         BasicWalletComponent, RpoFalcon512Component,
     },

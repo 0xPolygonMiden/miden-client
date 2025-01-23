@@ -1,7 +1,7 @@
 use miden_client::{
-    accounts::Account,
-    notes::{build_swap_tag, Note},
-    transactions::{SwapTransactionData, TransactionRequestBuilder},
+    account::Account,
+    note::{build_swap_tag, Note},
+    transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},

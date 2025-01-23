@@ -1,10 +1,10 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    accounts::AccountId,
+    account::AccountId,
     assets::Asset,
     crypto::{Digest, FeltRng},
-    notes::{
+    note::{
         get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
         NoteConsumability, NoteInputs, NoteMetadata,
@@ -312,9 +312,9 @@ where
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
     match note_record_metadata {
         Some(metadata) => match metadata.note_type() {
-            miden_client::notes::NoteType::Private => "Private",
-            miden_client::notes::NoteType::Encrypted => "Encrypted",
-            miden_client::notes::NoteType::Public => "Public",
+            miden_client::note::NoteType::Private => "Private",
+            miden_client::note::NoteType::Encrypted => "Encrypted",
+            miden_client::note::NoteType::Public => "Public",
         },
         None => "-",
     }

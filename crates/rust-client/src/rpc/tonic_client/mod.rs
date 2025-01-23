@@ -22,8 +22,8 @@ use tracing::info;
 
 use super::{
     domain::{
-        accounts::{AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::NetworkNote,
+        account::{AccountProof, AccountProofs, AccountUpdateSummary},
+        note::NetworkNote,
     },
     generated::{
         requests::{
@@ -36,9 +36,7 @@ use super::{
     AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
     StateSyncInfo,
 };
-use crate::{
-    rpc::generated::requests::GetBlockHeaderByNumberRequest, transactions::ForeignAccount,
-};
+use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction::ForeignAccount};
 
 // TONIC RPC CLIENT
 // ================================================================================================

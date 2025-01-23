@@ -8,7 +8,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{accounts::AccountId, crypto::FeltRng, Client};
+use miden_client::{account::AccountId, crypto::FeltRng, Client};
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};

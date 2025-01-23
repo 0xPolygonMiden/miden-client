@@ -31,8 +31,8 @@ use uuid::Uuid;
 use crate::{
     rpc::{
         domain::{
-            accounts::{AccountDetails, AccountProofs},
-            notes::{NetworkNote, NoteSyncInfo},
+            account::{AccountDetails, AccountProofs},
+            note::{NetworkNote, NoteSyncInfo},
             sync::StateSyncInfo,
         },
         generated::{
@@ -42,7 +42,7 @@ use crate::{
         NodeRpcClient, RpcError,
     },
     store::{sqlite_store::SqliteStore, StoreAuthenticator},
-    transactions::ForeignAccount,
+    transaction::ForeignAccount,
     Client,
 };
 

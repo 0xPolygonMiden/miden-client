@@ -16,20 +16,20 @@ use miden_objects::{
 use tracing::info;
 
 use crate::{
-    accounts::AccountUpdates,
-    notes::NoteUpdates,
+    account::AccountUpdates,
+    note::NoteUpdates,
     rpc::domain::{
-        notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
+        note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 
-mod block_headers;
-use block_headers::apply_mmr_changes;
+mod block_header;
+use block_header::apply_mmr_changes;
 
-mod tags;
-pub use tags::{NoteTagRecord, NoteTagSource};
+mod tag;
+pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {

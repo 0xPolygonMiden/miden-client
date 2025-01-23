@@ -8,12 +8,12 @@ pub use alloc::boxed::Box;
 #[cfg(feature = "std")]
 extern crate std;
 
-pub mod accounts;
-pub mod notes;
+pub mod account;
+pub mod note;
 pub mod rpc;
 pub mod store;
 pub mod sync;
-pub mod transactions;
+pub mod transaction;
 
 #[cfg(test)]
 pub mod mock;

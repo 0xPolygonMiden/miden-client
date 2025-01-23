@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use miden_client::{
-    accounts::Account,
-    notes::NoteRelevance,
-    rpc::{domain::accounts::AccountDetails, NodeRpcClient, TonicRpcClient},
+    account::Account,
+    note::NoteRelevance,
+    rpc::{domain::account::AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
         input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
         NoteFilter, OutputNoteState, TransactionFilter,
     },
     sync::NoteTagSource,
-    transactions::{
+    transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
