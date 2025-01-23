@@ -96,7 +96,11 @@ before(async () => {
       const client = new WebClient();
       await client.create_client(rpc_url, prover_url);
 
+      let isolatedClient = new WebClient();
+      await isolatedClient.create_client(rpc_url, prover_url);
+
       window.client = client;
+      window.isolatedClient = isolatedClient;
       window.Account = Account;
       window.AccountHeader = AccountHeader;
       window.AccountId = AccountId;
@@ -164,6 +168,11 @@ before(async () => {
           timeWaited += delayInterval;
         }
       };
+
+      window.helpers.refreshIsolatedClient = async () => {
+        window.isolatedClient = new WebClient();
+        await window.isolatedClient.create_client(rpc_url, prover_url);
+      }
     },
     LOCAL_MIDEN_NODE_PORT,
     env.REMOTE_PROVER ? REMOTE_TX_PROVER_PORT : null

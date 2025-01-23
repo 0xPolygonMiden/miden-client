@@ -421,10 +421,15 @@
 
       // Done
       async function testCreateNewWallet() {
+        const initSeed = new Uint8Array(32);
+        crypto.getRandomValues(initSeed)
+
         console.log("testCreateNewWallet started");
         let webClient = await createMidenWebClient();
+        const wallet = await webClient.new_wallet(AccountStorageMode.public(), true, initSeed)
+        console.log("Wallet id: ")
+        console.log(wallet.id().to_string())
 
-        // await createNewWallet(webClient, "Private", true);
 
         console.log("testCreateNewWallet finished");
       }

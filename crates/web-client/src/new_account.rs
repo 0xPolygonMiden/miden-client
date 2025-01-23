@@ -22,8 +22,6 @@ impl WebClient {
         init_seed: Option<Vec<u8>>,
     ) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let key_pair = SecretKey::with_rng(client.rng());
-
             let mut final_seed = [0u8; 32]; // Default seed
             if let Some(seed) = init_seed {
                 if seed.len() == 32 {
@@ -31,7 +29,11 @@ impl WebClient {
                 } else {
                     return Err(JsValue::from_str("Invalid init_seed length; must be 32 bytes."));
                 }
-            }   
+            }
+
+            client.rng().fill_bytes(&mut final_seed);
+
+            let key_pair = SecretKey::with_rng(client.rng());
 
             let account_type = if mutable {
                 AccountType::RegularAccountUpdatableCode
