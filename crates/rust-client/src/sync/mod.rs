@@ -596,7 +596,7 @@ impl<R: FeltRng> Client<R> {
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state. If we receive a stale
+            // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_account.is_some() {
                 let account_by_hash =

@@ -150,13 +150,13 @@ impl NodeRpcClient for WebTonicRpcClient {
             };
 
             let note = match note.details {
-                // On-chain notes include details
+                // Public notes include details
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
                     NetworkNote::Public(note, inclusion_details)
                 },
-                // Off-chain notes do not have details
+                // Private notes do not have details
                 None => {
                     let note_metadata = note
                         .metadata
