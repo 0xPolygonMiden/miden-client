@@ -31,8 +31,7 @@ impl WebClient {
                 } else {
                     return Err(JsValue::from_str("Invalid init_seed length; must be 32 bytes."));
                 }
-            }
-            client.rng().fill_bytes(&mut final_seed);
+            }   
 
             let account_type = if mutable {
                 AccountType::RegularAccountUpdatableCode

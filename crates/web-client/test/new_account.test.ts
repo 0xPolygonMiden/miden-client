@@ -128,6 +128,9 @@ describe("new_wallet tests", () => {
     const wallet1 = await createNewWallet(StorageMode.PUBLIC, false, initSeed);
     const wallet2 = await createNewWallet(StorageMode.PUBLIC, false, initSeed);
 
+    console.log({wallet1})
+    console.log({wallet2})
+
     expect(wallet1.id).to.equal(wallet2.id);
   })
 });
