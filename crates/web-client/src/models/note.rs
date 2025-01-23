@@ -63,7 +63,7 @@ impl Note {
         )
         .unwrap();
 
-        NativeNote::new(assets.into(), metadata.into(), recipient).into()
+        NativeNote::new(assets.into(), metadata, recipient).into()
     }
 
     pub fn create_p2idr_note(
@@ -98,7 +98,7 @@ impl Note {
         )
         .unwrap();
 
-        NativeNote::new(assets.into(), metadata.into(), recipient).into()
+        NativeNote::new(assets.into(), metadata, recipient).into()
     }
 }
 
