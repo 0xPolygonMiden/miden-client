@@ -45,6 +45,7 @@ miden init --network https://18.203.155.106:1234
 # You can use one of the pre-defined networks
 miden init --network testnet
 miden init --network devnet
+miden init --network localhost
 
 # You can use the --store_path flag to override the default store config
 miden init --store_path db/store.sqlite3
