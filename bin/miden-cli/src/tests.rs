@@ -82,7 +82,7 @@ fn test_init_with_params() {
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args([
         "init",
-        "--rpc",
+        "--network",
         &local_node_address.to_string(),
         "--store-path",
         store_path.to_str().unwrap(),
@@ -105,7 +105,7 @@ fn test_init_with_params() {
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args([
         "init",
-        "--rpc",
+        "--network",
         &local_node_address.to_string(),
         "--store-path",
         store_path.to_str().unwrap(),
@@ -473,7 +473,7 @@ fn test_cli_empty_commands() {
 
     init_cmd.args([
         "init",
-        "--rpc",
+        "--network",
         &local_node_address.to_string(),
         "--store-path",
         store_path.to_str().unwrap(),
