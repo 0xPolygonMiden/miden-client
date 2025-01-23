@@ -7,19 +7,19 @@ use thiserror::Error;
 
 #[derive(Debug, Diagnostic, Error)]
 pub enum CliError {
-    #[error("account error: {1} with error {0}")]
+    #[error("account error: {1}")]
     #[diagnostic(code(cli::account_error))]
     Account(#[source] AccountError, String),
-    #[error("account id error: {0} with error {1}")]
+    #[error("account id error: {0}")]
     #[diagnostic(code(cli::accountid_error), help("Check the account ID format."))]
     AccountId(#[source] AccountIdError, String),
-    #[error("asset error: {0}")]
+    #[error("asset error")]
     #[diagnostic(code(cli::asset_error))]
     Asset(#[source] AssetError),
     #[error("client error")]
     #[diagnostic(code(cli::client_error))]
     Client(#[from] ClientError),
-    #[error("config error: {1} with error {0}")]
+    #[error("config error: {1}")]
     #[diagnostic(
         code(cli::config_error),
         help("Check if the configuration file exists and is well-formed.")
@@ -43,10 +43,10 @@ pub enum CliError {
     #[error("missing flag: {0}")]
     #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
     MissingFlag(String),
-    #[error("parse error: {1} with error {0}")]
+    #[error("parse error: {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
     Parse(#[source] Box<dyn StdError + Send + Sync>, String),
-    #[error("transaction error: {1} with error {0}")]
+    #[error("transaction error: {1}")]
     #[diagnostic(code(cli::transaction_error))]
     Transaction(#[source] Box<dyn StdError + Send + Sync>, String),
 }
