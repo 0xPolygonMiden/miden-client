@@ -5,9 +5,9 @@ use std::{
 };
 
 use miden_client::{
-    accounts::{AccountData, AccountId},
+    account::{AccountData, AccountId},
     crypto::FeltRng,
-    notes::NoteFile,
+    note::NoteFile,
     utils::Deserializable,
     Client, ClientError,
 };

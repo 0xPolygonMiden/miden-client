@@ -1,4 +1,4 @@
-use miden_client::transactions::{
+use miden_client::transaction::{
     NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
     TransactionRequestBuilder as NativeTransactionRequestBuilder,
 };

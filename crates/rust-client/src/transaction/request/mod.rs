@@ -357,8 +357,8 @@ mod tests {
 
     use super::{TransactionRequest, TransactionRequestBuilder};
     use crate::{
-        rpc::domain::accounts::AccountStorageRequirements,
-        transactions::{ForeignAccount, ForeignAccountInputs},
+        rpc::domain::account::AccountStorageRequirements,
+        transaction::{ForeignAccount, ForeignAccountInputs},
     };
 
     #[test]

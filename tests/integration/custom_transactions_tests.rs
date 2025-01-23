@@ -1,6 +1,6 @@
 use miden_client::{
-    notes::NoteExecutionHint,
-    transactions::{TransactionRequest, TransactionRequestBuilder},
+    note::NoteExecutionHint,
+    transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
     ZERO,
 };

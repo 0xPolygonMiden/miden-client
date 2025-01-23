@@ -33,7 +33,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::{
+    transaction::{
         TransactionRequestBuilder, TransactionRequestError, TransactionScriptBuilderError,
     },
     Client, ClientError,

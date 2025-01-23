@@ -20,8 +20,8 @@ use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
-        accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::{NetworkNote, NoteSyncInfo},
+        account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
+        note::{NetworkNote, NoteSyncInfo},
         sync::StateSyncInfo,
     },
     generated::{
@@ -34,7 +34,7 @@ use super::{
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
-use crate::transactions::ForeignAccount;
+use crate::transaction::ForeignAccount;
 
 pub struct WebTonicRpcClient {
     endpoint: String,

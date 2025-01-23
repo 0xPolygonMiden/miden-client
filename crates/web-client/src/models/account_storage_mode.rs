@@ -1,4 +1,4 @@
-use miden_client::accounts::AccountStorageMode as NativeAccountStorageMode;
+use miden_client::account::AccountStorageMode as NativeAccountStorageMode;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]

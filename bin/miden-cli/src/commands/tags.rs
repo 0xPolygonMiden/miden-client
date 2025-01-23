@@ -1,6 +1,6 @@
 use miden_client::{
     crypto::FeltRng,
-    notes::{NoteExecutionMode, NoteTag},
+    note::{NoteExecutionMode, NoteTag},
     Client,
 };
 use tracing::info;

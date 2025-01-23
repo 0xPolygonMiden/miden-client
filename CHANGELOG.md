@@ -16,6 +16,7 @@
 * Added per transaction prover support to the web client (#674).
 * [BREAKING] Added `BlockNumber` structure (#677).
 * Created functions for creating standard notes and note scripts easily on the web client (#686).
+* [BREAKING] Renamed plural modules to singular (#687).
 * [BREAKING] Made `idxdb` only usable on WASM targets (#685).
 
 ### Fixes

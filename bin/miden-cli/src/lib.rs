@@ -3,7 +3,7 @@ use std::{env, sync::Arc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    accounts::AccountHeader,
+    account::AccountHeader,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
