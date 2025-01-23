@@ -25,16 +25,25 @@ interface NewAccountTestResult {
 
 export const createNewWallet = async (
   storageMode: StorageMode,
-  mutable: boolean
+  mutable: boolean,
+  initSeed?: Uint8Array
 ): Promise<NewAccountTestResult> => {
+
+  // Serialize initSeed for Puppeteer
+  const serializedInitSeed = initSeed ? Array.from(initSeed) : null;
+
   return await testingPage.evaluate(
-    async (_storageMode, _mutable) => {
+    async (_storageMode, _mutable, _serializedInitSeed) => {
       const client = window.client;
       const accountStorageMode =
         _storageMode === "private"
           ? window.AccountStorageMode.private()
           : window.AccountStorageMode.public();
-      const newWallet = await client.new_wallet(accountStorageMode, _mutable);
+
+      // Reconstruct Uint8Array inside the browser context
+      const _initSeed = _serializedInitSeed ? new Uint8Array(_serializedInitSeed) : undefined;
+
+      const newWallet = await client.new_wallet(accountStorageMode, _mutable, _initSeed);
 
       return {
         id: newWallet.id().to_string(),
@@ -50,7 +59,8 @@ export const createNewWallet = async (
       };
     },
     storageMode,
-    mutable
+    mutable,
+    serializedInitSeed
   );
 };
 
@@ -110,6 +120,16 @@ describe("new_wallet tests", () => {
       expect(result.is_new).to.equal(true);
     });
   });
+
+  it("Constructs the same account when given the same init seed", async () => {
+    const initSeed = new Uint8Array(32);
+    crypto.getRandomValues(initSeed)
+
+    const wallet1 = await createNewWallet(StorageMode.PUBLIC, false, initSeed);
+    const wallet2 = await createNewWallet(StorageMode.PUBLIC, false, initSeed);
+
+    expect(wallet1.id).to.equal(wallet2.id);
+  })
 });
 
 // new_faucet tests
