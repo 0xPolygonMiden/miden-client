@@ -5,8 +5,8 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
-    assets::{Asset, AssetVault},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
+    asset::{Asset, AssetVault},
     Digest, Word,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};

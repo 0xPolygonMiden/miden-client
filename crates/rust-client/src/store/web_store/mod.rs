@@ -1,10 +1,10 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::Nullifier,
+    note::Nullifier,
     Digest, Word,
 };
 use tonic::async_trait;

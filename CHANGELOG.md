@@ -15,6 +15,7 @@
 * [BREAKING] Removed the `testing` feature from the CLI (#670).
 * Added per transaction prover support to the web client (#674).
 * [BREAKING] Added `BlockNumber` structure (#677).
+* Created functions for creating standard notes and note scripts easily on the web client (#686).
 * [BREAKING] Made `idxdb` only usable on WASM targets (#685).
 
 ### Fixes

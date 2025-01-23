@@ -1,4 +1,4 @@
-use miden_objects::accounts::AccountCode as NativeAccountCode;
+use miden_objects::account::AccountCode as NativeAccountCode;
 use wasm_bindgen::prelude::*;
 
 use super::rpo_digest::RpoDigest;

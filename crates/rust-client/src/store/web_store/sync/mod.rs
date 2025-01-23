@@ -4,9 +4,9 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
-    notes::{NoteId, NoteTag},
+    note::{NoteId, NoteTag},
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;

@@ -3,7 +3,7 @@ use core::fmt::{self, Display};
 
 use miden_objects::{
     block::BlockNumber,
-    notes::{
+    note::{
         Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
         NoteRecipient, Nullifier, PartialNote,
     },

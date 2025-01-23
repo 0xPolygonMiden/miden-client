@@ -16,9 +16,9 @@ use miden_client::{
     ClientError,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteType},
+    account::{AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset},
+    note::{NoteFile, NoteType},
     transaction::{ProvenTransaction, TransactionWitness},
 };
 

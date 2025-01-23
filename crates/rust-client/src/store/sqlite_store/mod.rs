@@ -7,10 +7,10 @@ use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
+    note::{NoteTag, Nullifier},
     Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};

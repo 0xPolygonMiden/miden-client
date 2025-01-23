@@ -8,17 +8,17 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountCode, AccountId},
-    assets::{FungibleAsset, NonFungibleAsset},
+    account::{AccountCode, AccountId},
+    asset::{FungibleAsset, NonFungibleAsset},
     block::{Block, BlockHeader, BlockNumber},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteId, NoteTag},
+    note::{Note, NoteId, NoteTag},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
-        notes::NoteBuilder,
+        note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
     Felt, Word,
@@ -103,7 +103,7 @@ impl MockRpcApi {
     }
 
     /// Seals a block with the given notes and nullifiers.
-    fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::notes::Nullifier>) {
+    fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::note::Nullifier>) {
         for note in notes {
             self.mock_chain.add_pending_note(note);
         }
@@ -302,7 +302,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn check_nullifiers_by_prefix(
         &mut self,
         _prefix: &[u16],
-    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
     }

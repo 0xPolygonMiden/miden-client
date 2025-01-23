@@ -2,7 +2,7 @@
 // ================================================================================================
 use core::fmt::Display;
 
-use miden_objects::{accounts::Account, Word};
+use miden_objects::{account::Account, Word};
 
 /// Represents a stored account state along with its status.
 ///

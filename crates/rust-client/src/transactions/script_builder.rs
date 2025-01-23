@@ -5,8 +5,8 @@ use alloc::{
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountIdPrefix, AuthSecretKey},
-    notes::PartialNote,
+    account::{AccountId, AccountIdPrefix, AuthSecretKey},
+    note::PartialNote,
     transaction::TransactionScript,
     Felt, TransactionScriptError,
 };
