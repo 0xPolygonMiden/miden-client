@@ -59,7 +59,7 @@ fn test_init_without_params() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init"]);
+    init_cmd.args(["init", "--network", "localhost"]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     sync_cli(&temp_dir);
