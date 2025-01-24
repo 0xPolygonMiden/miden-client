@@ -41,7 +41,6 @@ import {
 declare global {
   interface Window {
     client: WebClient;
-    isolatedClient: WebClient;
     remote_prover_url: string;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
@@ -77,6 +76,7 @@ declare global {
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
+    WebClient: typeof WebClient;
     Word: typeof Word;
     create_client: () => Promise<void>;
 
@@ -87,7 +87,7 @@ declare global {
         maxWaitTime?: number,
         delayInterval?: number
       ) => Promise<void>;
-      refreshIsolatedClient: () => Promise<void>;
+      refreshClient: (initSeed?: Uint8Array) => Promise<void>;
     };
   }
 }

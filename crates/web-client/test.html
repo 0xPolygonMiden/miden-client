@@ -123,13 +123,13 @@
         });
       }
 
-      async function createMidenWebClient(dbName = "MidenClientDB") {
+      async function createMidenWebClient(dbName = "MidenClientDB", initSeed) {
         try {
           // let rpc_url = "http://18.203.155.106:57291"
           let rpc_url = "http://localhost:57291";
           let envoy_proxy_url = "http://localhost:8080";
           const webClient = new WebClient();
-          await webClient.create_client(rpc_url);
+          await webClient.create_client(rpc_url, null, initSeed);
           return webClient;
         } catch (error) {
           console.error("Failed to create client with web store:", error);
@@ -421,12 +421,15 @@
 
       // Done
       async function testCreateNewWallet() {
-        const initSeed = new Uint8Array(32);
-        crypto.getRandomValues(initSeed)
-
+        const initSeed = new Uint8Array([
+            223, 198, 73, 130, 93, 79, 220, 107, 25, 181, 91, 235,
+            101, 105, 136, 172, 151, 161, 174, 73, 142, 81, 238, 192,
+            227, 93, 54, 113, 136, 223, 75, 174
+        ]);
+        
         console.log("testCreateNewWallet started");
-        let webClient = await createMidenWebClient();
-        const wallet = await webClient.new_wallet(AccountStorageMode.public(), true, initSeed)
+        const webClient = await createMidenWebClient("MidenClientDB", initSeed);
+        const wallet = await webClient.new_wallet(AccountStorageMode.public(), true)
         console.log("Wallet id: ")
         console.log(wallet.id().to_string())
 

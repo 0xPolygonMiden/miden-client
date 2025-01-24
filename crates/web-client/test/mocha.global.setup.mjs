@@ -96,11 +96,7 @@ before(async () => {
       const client = new WebClient();
       await client.create_client(rpc_url, prover_url);
 
-      let isolatedClient = new WebClient();
-      await isolatedClient.create_client(rpc_url, prover_url);
-
       window.client = client;
-      window.isolatedClient = isolatedClient;
       window.Account = Account;
       window.AccountHeader = AccountHeader;
       window.AccountId = AccountId;
@@ -135,6 +131,7 @@ before(async () => {
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+      window.WebClient = WebClient;
       window.Word = Word;
 
       // Create a namespace for helper functions
@@ -169,9 +166,10 @@ before(async () => {
         }
       };
 
-      window.helpers.refreshIsolatedClient = async () => {
-        window.isolatedClient = new WebClient();
-        await window.isolatedClient.create_client(rpc_url, prover_url);
+      window.helpers.refreshClient = async (initSeed) => {
+        const client = new WebClient();
+        await client.create_client(rpc_url, prover_url, initSeed);
+        window.client = client;
       }
     },
     LOCAL_MIDEN_NODE_PORT,

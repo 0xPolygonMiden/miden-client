@@ -15,6 +15,7 @@
 * [BREAKING] Removed the `testing` feature from the CLI (#670).
 * Added per transaction prover support to the web client (#674).
 * [BREAKING] Added `BlockNumber` structure (#677).
+* Added fixed seed option for web client generation (#688)
 
 ### Fixes
 

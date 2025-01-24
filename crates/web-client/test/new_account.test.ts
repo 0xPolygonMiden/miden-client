@@ -35,22 +35,21 @@ export const createNewWallet = async (
 
   return await testingPage.evaluate(
     async (_storageMode, _mutable, _serializedInitSeed, _isolatedClient) => {
-      const client = window.client;
-      const isolatedClient = window.isolatedClient;
+      if(_isolatedClient) {
+        // Reconstruct Uint8Array inside the browser context
+        const _initSeed = _serializedInitSeed ? new Uint8Array(_serializedInitSeed) : undefined;
+
+        await window.helpers.refreshClient(_initSeed);
+      }
+
+      let client = window.client;
       const accountStorageMode =
         _storageMode === "private"
           ? window.AccountStorageMode.private()
           : window.AccountStorageMode.public();
 
-      // Reconstruct Uint8Array inside the browser context
-      const _initSeed = _serializedInitSeed ? new Uint8Array(_serializedInitSeed) : undefined;
 
-      let newWallet 
-      if(_isolatedClient)  {
-        newWallet = await isolatedClient.new_wallet(accountStorageMode, _mutable, _initSeed);
-      } else {
-        newWallet = await client.new_wallet(accountStorageMode, _mutable, _initSeed);
-      }
+      const newWallet = await client.new_wallet(accountStorageMode, _mutable);
 
       return {
         id: newWallet.id().to_string(),
@@ -133,13 +132,11 @@ describe("new_wallet tests", () => {
     const initSeed = new Uint8Array(32);
     crypto.getRandomValues(initSeed)
 
-    const wallet1 = await createNewWallet(StorageMode.PUBLIC, false, initSeed);
-    const wallet2 = await createNewWallet(StorageMode.PUBLIC, false, initSeed, true);
+    // Isolate the client instance both times to ensure the outcome is deterministic 
+    await createNewWallet(StorageMode.PUBLIC, false, initSeed, true);
 
-    console.log({wallet1})
-    console.log({wallet2})
-
-    expect(wallet1.id).to.equal(wallet2.id);
+    // This should fail, as the wallet is already tracked within the same browser context 
+    await expect(createNewWallet(StorageMode.PUBLIC, false, initSeed, true)).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/)
   })
 });
 
