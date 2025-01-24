@@ -1511,9 +1511,9 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7532561ba51c1edcdc510e4e4a097357d49a2b6ea899d9982176dc5608bfd32e"
+checksum = "4622f71888d4641577d145dd561165824b9b9293fd0be2306326f11bcf39e67d"
 dependencies = [
  "getrandom",
  "miden-assembly",
