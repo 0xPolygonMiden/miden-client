@@ -172,7 +172,7 @@ before(async () => {
         const client = new WebClient();
         await client.create_client(rpc_url, prover_url, initSeed);
         window.client = client;
-      }
+      };
     },
     LOCAL_MIDEN_NODE_PORT,
     env.REMOTE_PROVER ? REMOTE_TX_PROVER_PORT : null

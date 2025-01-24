@@ -29,15 +29,16 @@ export const createNewWallet = async (
   initSeed?: Uint8Array,
   isolatedClient?: boolean
 ): Promise<NewAccountTestResult> => {
-
   // Serialize initSeed for Puppeteer
   const serializedInitSeed = initSeed ? Array.from(initSeed) : null;
 
   return await testingPage.evaluate(
     async (_storageMode, _mutable, _serializedInitSeed, _isolatedClient) => {
-      if(_isolatedClient) {
+      if (_isolatedClient) {
         // Reconstruct Uint8Array inside the browser context
-        const _initSeed = _serializedInitSeed ? new Uint8Array(_serializedInitSeed) : undefined;
+        const _initSeed = _serializedInitSeed
+          ? new Uint8Array(_serializedInitSeed)
+          : undefined;
 
         await window.helpers.refreshClient(_initSeed);
       }
@@ -47,7 +48,6 @@ export const createNewWallet = async (
         _storageMode === "private"
           ? window.AccountStorageMode.private()
           : window.AccountStorageMode.public();
-
 
       const newWallet = await client.new_wallet(accountStorageMode, _mutable);
 
@@ -130,14 +130,16 @@ describe("new_wallet tests", () => {
 
   it("Constructs the same account when given the same init seed", async () => {
     const initSeed = new Uint8Array(32);
-    crypto.getRandomValues(initSeed)
+    crypto.getRandomValues(initSeed);
 
-    // Isolate the client instance both times to ensure the outcome is deterministic 
+    // Isolate the client instance both times to ensure the outcome is deterministic
     await createNewWallet(StorageMode.PUBLIC, false, initSeed, true);
 
-    // This should fail, as the wallet is already tracked within the same browser context 
-    await expect(createNewWallet(StorageMode.PUBLIC, false, initSeed, true)).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/)
-  })
+    // This should fail, as the wallet is already tracked within the same browser context
+    await expect(
+      createNewWallet(StorageMode.PUBLIC, false, initSeed, true)
+    ).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/);
+  });
 });
 
 // new_faucet tests
