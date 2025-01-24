@@ -9,16 +9,16 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteTag, Nullifier},
+    note::{NoteId, NoteTag, Nullifier},
     Digest, Word,
 };
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements

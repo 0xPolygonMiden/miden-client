@@ -7,10 +7,10 @@ use alloc::{
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId},
+    account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
@@ -20,8 +20,8 @@ use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
-        accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::{NetworkNote, NoteSyncInfo},
+        account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
+        note::{NetworkNote, NoteSyncInfo},
         sync::StateSyncInfo,
     },
     generated::{
@@ -34,7 +34,7 @@ use super::{
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
-use crate::transactions::ForeignAccount;
+use crate::transaction::ForeignAccount;
 
 pub struct WebTonicRpcClient {
     endpoint: String,
@@ -150,13 +150,13 @@ impl NodeRpcClient for WebTonicRpcClient {
             };
 
             let note = match note.details {
-                // On-chain notes include details
+                // Public notes include details
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
                     NetworkNote::Public(note, inclusion_details)
                 },
-                // Off-chain notes do not have details
+                // Private notes do not have details
                 None => {
                     let note_metadata = note
                         .metadata

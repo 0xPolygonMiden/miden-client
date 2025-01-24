@@ -64,6 +64,7 @@ declare global {
     NoteInputs: typeof NoteInputs;
     NoteMetadata: typeof NoteMetadata;
     NoteRecipient: typeof NoteRecipient;
+    NoteScript: typeof NoteScript;
     NoteTag: typeof NoteTag;
     NoteType: typeof NoteType;
     OutputNote: typeof OutputNote;

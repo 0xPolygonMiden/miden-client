@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
+    account::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
 

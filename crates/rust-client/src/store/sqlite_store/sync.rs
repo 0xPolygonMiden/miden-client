@@ -1,6 +1,6 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, notes::NoteTag};
+use miden_objects::{block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Connection, Transaction};
 
@@ -8,8 +8,8 @@ use super::SqliteStore;
 use crate::{
     store::{
         sqlite_store::{
-            accounts::{lock_account, update_account},
-            notes::apply_note_updates_tx,
+            account::{lock_account, update_account},
+            note::apply_note_updates_tx,
         },
         StoreError,
     },

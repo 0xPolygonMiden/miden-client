@@ -7,10 +7,10 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     assembly::AssemblyError,
     crypto::merkle::MerkleStore,
-    notes::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
+    note::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
     Digest, Felt, NoteError, Word,
@@ -337,12 +337,12 @@ pub enum TransactionRequestError {
 mod tests {
     use std::vec::Vec;
 
-    use miden_lib::{notes::create_p2id_note, transaction::TransactionKernel};
+    use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
-        assets::FungibleAsset,
+        account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
+        asset::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
-        notes::{NoteExecutionMode, NoteTag, NoteType},
+        note::{NoteExecutionMode, NoteTag, NoteType},
         testing::{
             account_component::AccountMockComponent,
             account_id::{
@@ -357,8 +357,8 @@ mod tests {
 
     use super::{TransactionRequest, TransactionRequestBuilder};
     use crate::{
-        rpc::domain::accounts::AccountStorageRequirements,
-        transactions::{ForeignAccount, ForeignAccountInputs},
+        rpc::domain::account::AccountStorageRequirements,
+        transaction::{ForeignAccount, ForeignAccountInputs},
     };
 
     #[test]
@@ -394,7 +394,7 @@ mod tests {
                 AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),
             )
             .account_type(AccountType::RegularAccountImmutableCode)
-            .storage_mode(miden_objects::accounts::AccountStorageMode::Private)
+            .storage_mode(miden_objects::account::AccountStorageMode::Private)
             .build_existing()
             .unwrap();
 

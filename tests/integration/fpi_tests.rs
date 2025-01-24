@@ -1,16 +1,16 @@
 use miden_client::{
-    accounts::{Account, StorageSlot},
+    account::{Account, StorageSlot},
     block::BlockHeader,
-    rpc::domain::accounts::{AccountStorageRequirements, StorageMapKey},
+    rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
-    transactions::{
+    transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
     Felt, Word,
 };
-use miden_lib::accounts::auth::RpoFalcon512;
+use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
-    accounts::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
+    account::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     Digest,

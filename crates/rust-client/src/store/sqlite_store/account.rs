@@ -5,8 +5,8 @@ use alloc::{
 use std::{collections::BTreeMap, rc::Rc};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
-    assets::{Asset, AssetVault},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
+    asset::{Asset, AssetVault},
     AccountError, Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -476,7 +476,7 @@ pub(super) fn parse_account_columns(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::{AccountCode, AccountComponent, AccountId},
+        account::{AccountCode, AccountComponent, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::{
             account_component::BASIC_WALLET_CODE,
@@ -487,7 +487,7 @@ mod tests {
 
     use super::{insert_account_auth, AuthSecretKey};
     use crate::store::{
-        sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+        sqlite_store::{account::insert_account_code, tests::create_test_store},
         Store,
     };
 
@@ -500,7 +500,7 @@ mod tests {
             .with_supports_all_types();
         let account_code = AccountCode::from_components(
             &[account_component],
-            miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
+            miden_objects::account::AccountType::RegularAccountUpdatableCode,
         )
         .unwrap();
         store

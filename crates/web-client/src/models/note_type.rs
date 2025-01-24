@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteType as NativeNoteType;
+use miden_objects::note::NoteType as NativeNoteType;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy)]

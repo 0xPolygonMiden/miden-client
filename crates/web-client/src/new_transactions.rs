@@ -1,13 +1,13 @@
 use miden_client::{
-    notes::{get_input_note_with_id_prefix, BlockNumber},
-    transactions::{
+    note::{get_input_note_with_id_prefix, BlockNumber},
+    transaction::{
         PaymentTransactionData, SwapTransactionData,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
 };
-use miden_lib::notes::utils::build_swap_tag;
-use miden_objects::{accounts::AccountId as NativeAccountId, assets::FungibleAsset};
+use miden_lib::note::utils::build_swap_tag;
+use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset};
 use wasm_bindgen::prelude::*;
 
 use crate::{

@@ -1,10 +1,10 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::Nullifier,
+    note::Nullifier,
     Digest, Word,
 };
 use tonic::async_trait;
@@ -17,14 +17,17 @@ use super::{
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-pub mod accounts;
+#[cfg(not(target_arch = "wasm32"))]
+compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
+
+pub mod account;
 pub mod chain_data;
-pub mod notes;
+pub mod note;
 pub mod sync;
-pub mod transactions;
+pub mod transaction;
 
 // Initialize IndexedDB
 #[wasm_bindgen(module = "/src/store/web_store/js/schema.js")]

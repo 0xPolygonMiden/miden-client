@@ -1,15 +1,15 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrDelta,
-    notes::NoteId,
+    note::NoteId,
     transaction::TransactionId,
     Digest,
 };
 
-use super::{notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate};
+use super::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate};
 use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
 
 // STATE SYNC INFO
@@ -91,7 +91,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                 .try_into()?;
 
-            let committed_note = super::notes::CommittedNote::new(
+            let committed_note = super::note::CommittedNote::new(
                 note_id,
                 note.note_index as u16,
                 merkle_path,

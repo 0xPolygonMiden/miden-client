@@ -9,20 +9,20 @@ use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
     self,
-    accounts::{
+    account::{
         AccountBuilder, AccountId, AccountStorageMode, AccountType, BasicWalletComponent,
         RpoFalcon512Component,
     },
     auth::AuthSecretKey,
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
-    transactions::{OutputNote, TransactionRequestBuilder},
+    transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
     Client, Felt,
 };

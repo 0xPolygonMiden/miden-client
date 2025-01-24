@@ -1,5 +1,5 @@
 use miden_client::{
-    accounts::{
+    account::{
         AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
         RpoFalcon512Component,
     },
@@ -7,7 +7,7 @@ use miden_client::{
     crypto::SecretKey,
     Felt,
 };
-use miden_objects::assets::TokenSymbol;
+use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};

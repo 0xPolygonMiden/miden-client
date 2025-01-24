@@ -3,8 +3,8 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{accounts::AccountId, assets::FungibleAsset};
-use miden_lib::accounts::faucets::BasicFungibleFaucet;
+use miden_client::{account::AccountId, assets::FungibleAsset};
+use miden_lib::account::faucets::BasicFungibleFaucet;
 use serde::{Deserialize, Serialize};
 
 /// Stores the detail information of a faucet to be stored in the token symbol map file.

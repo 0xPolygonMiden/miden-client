@@ -5,7 +5,7 @@ use alloc::{
 
 use chrono::Utc;
 use miden_objects::{
-    notes::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
+    note::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
     utils::Deserializable,
     Digest, Word,
 };
@@ -14,7 +14,7 @@ use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
 use crate::{
-    notes::NoteUpdates,
+    note::NoteUpdates,
     store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
 };
 

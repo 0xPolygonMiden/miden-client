@@ -11,11 +11,11 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountType},
-    assets::{Asset, NonFungibleAsset},
+    account::{Account, AccountCode, AccountDelta, AccountId, AccountType},
+    asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
     crypto::merkle::MerklePath,
-    notes::{Note, NoteDetails, NoteId, NoteTag},
+    note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, Word, ZERO,
 };
@@ -28,8 +28,8 @@ use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
-    notes::{NoteScreener, NoteUpdates},
-    rpc::domain::accounts::AccountProof,
+    note::{NoteScreener, NoteUpdates},
+    rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
@@ -937,12 +937,12 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 
 #[cfg(test)]
 mod test {
-    use miden_lib::{accounts::auth::RpoFalcon512, transaction::TransactionKernel};
+    use miden_lib::{account::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        accounts::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
-        assets::{Asset, FungibleAsset},
+        account::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
+        asset::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
-        notes::NoteType,
+        note::NoteType,
         testing::{
             account_component::BASIC_WALLET_CODE,
             account_id::{
@@ -954,7 +954,7 @@ mod test {
     };
 
     use super::PaymentTransactionData;
-    use crate::{mock::create_test_client, transactions::TransactionRequestBuilder};
+    use crate::{mock::create_test_client, transaction::TransactionRequestBuilder};
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
@@ -992,7 +992,7 @@ mod test {
             .add_account(
                 &account,
                 None,
-                &miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
+                &miden_objects::account::AuthSecretKey::RpoFalcon512(secret_key.clone()),
                 false,
             )
             .await

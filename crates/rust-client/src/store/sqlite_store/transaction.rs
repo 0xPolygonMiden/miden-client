@@ -5,7 +5,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     transaction::{
@@ -17,12 +17,12 @@ use rusqlite::{params, Connection, Transaction};
 use tracing::info;
 
 use super::{
-    accounts::update_account, notes::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
+    account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
 };
 use crate::{
-    rpc::domain::transactions::TransactionUpdate,
+    rpc::domain::transaction::TransactionUpdate,
     store::{StoreError, TransactionFilter},
-    transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =

@@ -1,11 +1,11 @@
 use miden_client::{
     store::{InputNoteState, NoteFilter},
-    transactions::{PaymentTransactionData, TransactionRequestBuilder},
+    transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteTag, NoteType},
+    account::{AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset},
+    note::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
 
@@ -316,7 +316,7 @@ async fn test_onchain_notes_sync_with_tag() {
         .add_note_tag(
             NoteTag::from_account_id(
                 target_account_id,
-                miden_objects::notes::NoteExecutionMode::Local,
+                miden_objects::note::NoteExecutionMode::Local,
             )
             .unwrap(),
         )

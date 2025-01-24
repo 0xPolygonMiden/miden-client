@@ -73,6 +73,7 @@ before(async () => {
         NoteInputs,
         NoteMetadata,
         NoteRecipient,
+        NoteScript,
         NoteTag,
         NoteType,
         OutputNote,
@@ -119,6 +120,7 @@ before(async () => {
       window.NoteInputs = NoteInputs;
       window.NoteMetadata = NoteMetadata;
       window.NoteRecipient = NoteRecipient;
+      window.NoteScript = NoteScript;
       window.NoteTag = NoteTag;
       window.NoteType = NoteType;
       window.OutputNote = OutputNote;

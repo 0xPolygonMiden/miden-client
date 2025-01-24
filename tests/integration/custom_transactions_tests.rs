@@ -1,18 +1,18 @@
 use miden_client::{
-    notes::NoteExecutionHint,
-    transactions::{TransactionRequest, TransactionRequestBuilder},
+    note::NoteExecutionHint,
+    transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::FungibleAsset,
+    account::{AccountId, AccountStorageMode},
+    asset::FungibleAsset,
     crypto::{
         hash::rpo::Rpo256,
         merkle::{MerkleStore, MerkleTree, NodeIndex},
         rand::{FeltRng, RpoRandomCoin},
     },
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
@@ -176,11 +176,11 @@ async fn test_merkle_store() {
                             use.miden::kernels::tx::memory
 
                             begin
-                                # leaf count -> mem[1000][0]
-                                push.{num_leaves} push.1000 mem_store
+                                # leaf count -> mem[4000][0]
+                                push.{num_leaves} push.4000 mem_store
 
-                                # merkle root -> mem[1001]
-                                push.{} push.1001 mem_storew dropw
+                                # merkle root -> mem[4004]
+                                push.{} push.4004 mem_storew dropw
                         ",
         merkle_root.to_hex()
     );
@@ -193,7 +193,7 @@ async fn test_merkle_store() {
         code += format!(
             "
             # get element at index `pos` from the merkle store in mem[1000] and push it to stack
-            push.1000 push.{pos} exec.mmr::get
+            push.4000 push.{pos} exec.mmr::get
 
             # check the element matches what was inserted at `pos`
             push.{expected_element} assert_eqw.err=999
@@ -252,7 +252,7 @@ fn create_custom_note(
         .replace("{expected_note_arg_1}", &expected_note_args[0..=3].join("."))
         .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
-        .replace("{mem_address_2}", &(mem_addr + 1).to_string());
+        .replace("{mem_address_2}", &(mem_addr + 4).to_string());
     let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs =
