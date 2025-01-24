@@ -3,25 +3,25 @@ on:
   push:
     branches: [main, next]
   pull_request:
-    types: [opened, repoened, synchronize]
+    types: [opened, reopened, synchronize]
 
 jobs:
   build:
-    name: Build Client and CLI with Rust ${{matrix.toolchain}} on ${{matrix.os}}
-    runs-on: ${{matrix.os}}-latest
+    name: Build Client and CLI with on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install Rust with ${{matrix.toolchain}} toolchain
-        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - name: Install Rust toolchain
+        run: rustup update --no-self-update
       - name: make - build
         run: make build
   build-wasm:
-    name: Build Client with Rust ${{matrix.toolchain}} on ${{matrix.os}} for wasm
-    runs-on: ${{matrix.os}}-latest
+    name: Build Client on ubuntu-latest for wasm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install Rust with ${{matrix.toolchain}} toolchain
-        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - name: Install Rust toolchain
+        run: rustup update --no-self-update
       - name: Add wasm32-unknown-unknown target
         run: rustup target add wasm32-unknown-unknown
       - name: make - build-wasm
