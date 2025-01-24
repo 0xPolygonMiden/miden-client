@@ -1574,8 +1574,9 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.6.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#fc35e175e7fdbbb65be1db0272284ef4ea802290"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c2edb867ffc4cd908bb98b48f326016e36158129faba39aef574a0f33433b60"
 
 [[package]]
 name = "miden-stdlib"
