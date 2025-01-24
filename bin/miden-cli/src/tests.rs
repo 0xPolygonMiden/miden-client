@@ -59,7 +59,7 @@ fn test_init_without_params() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init"]);
+    init_cmd.args(["init", "--network", "localhost"]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     sync_cli(&temp_dir);
@@ -78,7 +78,7 @@ fn test_init_with_params() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Assert the config file contains the specified contents
@@ -95,7 +95,7 @@ fn test_init_with_params() {
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
@@ -139,7 +139,7 @@ async fn test_mint_with_untracked_account() {
 
     // On CLI create the faucet and mint
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Create faucet account
@@ -208,7 +208,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     }
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Import genesis accounts
@@ -278,7 +278,13 @@ async fn test_cli_export_import_note() {
 
     // Init and create basic wallet on second client
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path_2.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--network",
+        "localhost",
+        "--store-path",
+        store_path_2.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Create wallet account
@@ -295,7 +301,13 @@ async fn test_cli_export_import_note() {
 
     // On first client init, create a faucet and mint
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--network",
+        "localhost",
+        "--store-path",
+        store_path_1.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Create faucet account
@@ -395,12 +407,24 @@ async fn test_cli_export_import_account() {
 
     // Init the first client
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--network",
+        "localhost",
+        "--store-path",
+        store_path_1.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Init the second client
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path_2.to_str().unwrap()]);
+    init_cmd.args([
+        "init",
+        "--network",
+        "localhost",
+        "--store-path",
+        store_path_2.to_str().unwrap(),
+    ]);
     init_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Create wallet account
@@ -454,7 +478,8 @@ fn test_cli_empty_commands() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
@@ -481,7 +506,7 @@ async fn test_consume_unauthenticated_note() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Create wallet account
@@ -713,7 +738,7 @@ async fn debug_mode_outputs_logs() {
     std::fs::create_dir(temp_dir.clone()).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
     // Import the note

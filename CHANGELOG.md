@@ -19,6 +19,7 @@
 * [BREAKING] Renamed plural modules to singular (#687).
 * [BREAKING] Made `idxdb` only usable on WASM targets (#685).
 * Added fixed seed option for web client generation (#688)
+* [BREAKING] Updated `init` command in the CLI to receive a `--network` flag (#690).
 
 ### Fixes
 
