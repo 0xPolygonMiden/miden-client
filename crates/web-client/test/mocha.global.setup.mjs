@@ -133,6 +133,7 @@ before(async () => {
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+      window.WebClient = WebClient;
       window.Word = Word;
 
       // Create a namespace for helper functions
@@ -165,6 +166,12 @@ before(async () => {
           await new Promise((r) => setTimeout(r, delayInterval));
           timeWaited += delayInterval;
         }
+      };
+
+      window.helpers.refreshClient = async (initSeed) => {
+        const client = new WebClient();
+        await client.create_client(rpc_url, prover_url, initSeed);
+        window.client = client;
       };
     },
     LOCAL_MIDEN_NODE_PORT,
