@@ -62,8 +62,8 @@ pub mod sqlite_store;
 #[cfg(feature = "idxdb")]
 pub mod web_store;
 
-mod account_record;
-pub use account_record::{AccountRecord, AccountStatus};
+mod account;
+pub use account::{AccountRecord, AccountStatus, AccountUpdates};
 mod note_record;
 pub use note_record::{
     input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,

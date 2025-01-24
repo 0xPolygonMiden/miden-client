@@ -1,5 +1,5 @@
-//! The `accounts` module provides types and client APIs for managing accounts within the Miden
-//! rollup network.
+//! The `account` module provides types and client APIs for managing accounts within the Miden
+//! network.
 //!
 //! Once accounts start being tracked by the client, their state will be updated accordingly on
 //! every transaction, and validated against the rollup on every sync.
@@ -29,9 +29,11 @@
 //! # use miden_client::account::{Account, AccountBuilder, AccountType, BasicWalletComponent};
 //! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
 //! # use miden_client::crypto::{FeltRng, SecretKey};
-//! # async fn add_new_account_example(client: &mut miden_client::Client<impl FeltRng>) -> Result<(), miden_client::ClientError> {
+//! # async fn add_new_account_example(
+//! #     client: &mut miden_client::Client<impl FeltRng>
+//! # ) -> Result<(), miden_client::ClientError> {
+//! #   let random_seed = Default::default();
 //! let key_pair = SecretKey::with_rng(client.rng());
-//! # let random_seed = Default::default();
 //!
 //! let (account, seed) = AccountBuilder::new(random_seed)
 //!     .account_type(AccountType::RegularAccountImmutableCode)
@@ -39,9 +41,14 @@
 //!     .with_component(BasicWalletComponent)
 //!     .build()?;
 //!
-//! // Add the account to the client. The account seed and authentication key are required for new accounts.
-//! client.add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;
-//! # Ok(())
+//! // Add the account to the client. The account seed and authentication key are required
+//! // for new accounts.
+//! client.add_account(&account,
+//!     Some(seed),
+//!     &AuthSecretKey::RpoFalcon512(key_pair),
+//!     false
+//! ).await?;
+//! #   Ok(())
 //! # }
 //! ```
 //!
@@ -58,7 +65,7 @@ pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
-use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
+use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
@@ -217,40 +224,6 @@ impl<R: FeltRng> Client<R> {
         self.get_account_auth(account_id)
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
-    }
-}
-
-// ACCOUNT UPDATES
-// ================================================================================================
-
-/// Contains account changes to apply to the store.
-pub struct AccountUpdates {
-    /// Updated public accounts.
-    updated_public_accounts: Vec<Account>,
-    /// Node account hashes that don't match the current tracked state for private accounts.
-    mismatched_private_accounts: Vec<(AccountId, Digest)>,
-}
-
-impl AccountUpdates {
-    /// Creates a new instance of `AccountUpdates`.
-    pub fn new(
-        updated_public_accounts: Vec<Account>,
-        mismatched_private_accounts: Vec<(AccountId, Digest)>,
-    ) -> Self {
-        Self {
-            updated_public_accounts,
-            mismatched_private_accounts,
-        }
-    }
-
-    /// Returns the updated public accounts.
-    pub fn updated_public_accounts(&self) -> &[Account] {
-        &self.updated_public_accounts
-    }
-
-    /// Returns the mismatched private accounts.
-    pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
-        &self.mismatched_private_accounts
     }
 }
 

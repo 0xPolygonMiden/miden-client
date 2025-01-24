@@ -31,7 +31,7 @@ pub use states::{
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible).
 ///
-/// Notes can also be consumed as unauthenticated notes, where the note's existence is verified on
+/// Notes can also be consumed as unauthenticated notes, where their existence is verified by
 /// the network.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {

@@ -44,7 +44,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! miden-client = "0.6.0"
+//! miden-client = "0.7.0"
 //! ```
 //!
 //! ## Example

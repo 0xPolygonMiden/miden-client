@@ -69,12 +69,11 @@ use miden_objects::{
 use tracing::info;
 
 use crate::{
-    account::AccountUpdates,
     note::NoteUpdates,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
+    store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 

@@ -19,7 +19,7 @@ miden-client = { version = "0.6" }
 | `sqlite`     | Includes `SqliteStore`, a SQLite implementation of the `Store` trait. This relies on the standard library. **Disabled by default.**                                                           |
 | `tonic`      | Includes `TonicRpcClient`, a Tonic client to communicate with Miden node. This relies on the standard library. **Disabled by default.**                                                        |
 | `web-tonic`  | Includes `WebTonicRpcClient`, a Tonic client to communicate with the Miden node in the browser. **Disabled by default.**                                   |
-| `testing`    | Useful feature that lowers PoW difficulty when enabled, meant to be used during development and not in production. **Disabled by default.**             |
+| `testing`    | Enables functions meant to be used in testing environments. **Disabled by default.**             |
 
 Features `sqlite` and `idxdb` are mutually exclusive.
 
