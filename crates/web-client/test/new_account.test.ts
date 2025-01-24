@@ -26,21 +26,21 @@ interface NewAccountTestResult {
 export const createNewWallet = async (
   storageMode: StorageMode,
   mutable: boolean,
-  initSeed?: Uint8Array,
+  clientSeed?: Uint8Array,
   isolatedClient?: boolean
 ): Promise<NewAccountTestResult> => {
   // Serialize initSeed for Puppeteer
-  const serializedInitSeed = initSeed ? Array.from(initSeed) : null;
+  const serializedClientSeed = clientSeed ? Array.from(clientSeed) : null;
 
   return await testingPage.evaluate(
-    async (_storageMode, _mutable, _serializedInitSeed, _isolatedClient) => {
+    async (_storageMode, _mutable, _serializedClientSeed, _isolatedClient) => {
       if (_isolatedClient) {
         // Reconstruct Uint8Array inside the browser context
-        const _initSeed = _serializedInitSeed
-          ? new Uint8Array(_serializedInitSeed)
+        const _clientSeed = _serializedClientSeed
+          ? new Uint8Array(_serializedClientSeed)
           : undefined;
 
-        await window.helpers.refreshClient(_initSeed);
+        await window.helpers.refreshClient(_clientSeed);
       }
 
       let client = window.client;
@@ -66,7 +66,7 @@ export const createNewWallet = async (
     },
     storageMode,
     mutable,
-    serializedInitSeed,
+    serializedClientSeed,
     isolatedClient
   );
 };
@@ -129,15 +129,15 @@ describe("new_wallet tests", () => {
   });
 
   it("Constructs the same account when given the same init seed", async () => {
-    const initSeed = new Uint8Array(32);
-    crypto.getRandomValues(initSeed);
+    const clientSeed = new Uint8Array(32);
+    crypto.getRandomValues(clientSeed);
 
     // Isolate the client instance both times to ensure the outcome is deterministic
-    await createNewWallet(StorageMode.PUBLIC, false, initSeed, true);
+    await createNewWallet(StorageMode.PUBLIC, false, clientSeed, true);
 
     // This should fail, as the wallet is already tracked within the same browser context
     await expect(
-      createNewWallet(StorageMode.PUBLIC, false, initSeed, true)
+      createNewWallet(StorageMode.PUBLIC, false, clientSeed, true)
     ).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/);
   });
 });
