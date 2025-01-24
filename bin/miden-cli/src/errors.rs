@@ -10,7 +10,7 @@ pub enum CliError {
     #[error("account error: {1}")]
     #[diagnostic(code(cli::account_error))]
     Account(#[source] AccountError, String),
-    #[error("account id error: {0}")]
+    #[error("account id error: {1}")]
     #[diagnostic(code(cli::accountid_error), help("Check the account ID format."))]
     AccountId(#[source] AccountIdError, String),
     #[error("asset error")]
