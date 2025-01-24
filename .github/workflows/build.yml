@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build Client and CLI with on ubuntu-latest
+    name: Build Client and CLI on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
