@@ -188,12 +188,8 @@ pub async fn show_account<R: FeltRng>(
 
         println!("Storage: \n");
 
-        let mut table = create_dynamic_table(&[
-            "Item Slot Index",
-            "Item Slot Type",
-            "Value Arity",
-            "Value/Commitment",
-        ]);
+        let mut table =
+            create_dynamic_table(&["Item Slot Index", "Item Slot Type", "Value/Commitment"]);
 
         for (idx, entry) in account_storage.slots().iter().enumerate() {
             let item = account_storage

@@ -1,14 +1,21 @@
+use std::{collections::BTreeMap, fs, io::Write, path::PathBuf};
+
 use clap::{Parser, ValueEnum};
 use miden_client::{
     account::{
-        AccountBuilder, AccountStorageMode, AccountType, BasicFungibleFaucetComponent,
-        BasicWalletComponent, RpoFalcon512Component,
+        component::{
+            AccountComponent, AccountComponentTemplate, BasicFungibleFaucet, BasicWallet,
+            InitStorageData, MapRepresentation, PlaceholderType, RpoFalcon512, StorageValue,
+        },
+        AccountBuilder, AccountStorageMode, AccountType,
     },
     assets::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
-    Client, Felt,
+    utils::Deserializable,
+    Client, Felt, Word,
 };
+use miden_lib::utils::parse_hex_string_as_word;
 
 use crate::{
     commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
@@ -30,6 +37,81 @@ impl From<CliAccountStorageMode> for AccountStorageMode {
     }
 }
 
+/// Helper function to process extra component templates.
+/// It reads user input for each placeholder in a component template.
+// TODO: this could take a TOML file with key-values
+fn process_component_templates(
+    extra_components: &[AccountComponentTemplate],
+) -> Result<Vec<AccountComponent>, CliError> {
+    let mut account_components = vec![];
+    for component_template in extra_components {
+        let mut init_storage_data = BTreeMap::new();
+        for (placeholder_key, placeholder_type) in
+            component_template.metadata().get_unique_storage_placeholders()
+        {
+            print!(
+                "Enter hex value for placeholder '{}' (type: {}): ",
+                placeholder_key, placeholder_type
+            );
+            std::io::stdout().flush()?;
+
+            let mut input_value = String::new();
+            std::io::stdin().read_line(&mut input_value)?;
+            let input_value = input_value.trim();
+
+            match placeholder_type {
+                PlaceholderType::Felt => {
+                    let value = input_value
+                        .strip_prefix("0x")
+                        .ok_or("error parsing input: Missing 0x prefix".to_string())
+                        .map(|hex| {
+                            u64::from_str_radix(hex, 16).map_err(|e| {
+                                CliError::Parse(e.into(), "failed to parse hex from input".into())
+                            })
+                        })
+                        .map_err(|e| {
+                            CliError::Parse(e.into(), "failed to parse hex from input".into())
+                        })??;
+
+                    init_storage_data
+                        .insert(placeholder_key.clone(), StorageValue::Felt(Felt::new(value)));
+                },
+                PlaceholderType::Map => {
+                    // TODO: Test this case further
+                    let map: MapRepresentation = toml::from_str(input_value).map_err(|e| {
+                        CliError::Parse(e.into(), "failed to parse map from input".into())
+                    })?;
+                    let map = map.try_build_map(&Default::default()).map_err(|e| {
+                        CliError::Parse(e.into(), "failed to parse map from input".into())
+                    })?;
+
+                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Map(map));
+                },
+                PlaceholderType::Word => {
+                    let word: Word = parse_hex_string_as_word(input_value).map_err(|e| {
+                        CliError::Parse(e.into(), "failed to parse hex from input".into())
+                    })?;
+
+                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Word(word));
+                },
+            }
+        }
+        let component = AccountComponent::from_template(
+            component_template,
+            &InitStorageData::new(init_storage_data),
+        )
+        .map_err(|e| CliError::Account(e, "error instantiating component from template".into()))?
+        .with_supports_all_types();
+
+        account_components.push(component);
+    }
+
+    Ok(account_components)
+}
+
+// NEW FAUCET
+// ================================================================================================
+
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account.
 pub struct NewFaucetCmd {
@@ -47,6 +129,9 @@ pub struct NewFaucetCmd {
     decimals: Option<u8>,
     #[clap(short, long)]
     max_supply: Option<u64>,
+    #[clap(short, long)]
+    /// List of additional component template files to include.
+    template_files: Vec<PathBuf>,
 }
 
 impl NewFaucetCmd {
@@ -60,6 +145,18 @@ impl NewFaucetCmd {
                 "`token-symbol`, `decimals` and `max-supply` flags must be provided for a fungible faucet"
                     .to_string(),
             ));
+        }
+
+        let mut extra_components = Vec::new();
+        for path in &self.template_files {
+            let bytes = fs::read(path)?;
+            let template = AccountComponentTemplate::read_from_bytes(&bytes).map_err(|e| {
+                CliError::AccountComponentError(
+                    Box::new(e),
+                    "failed to read account component template".into(),
+                )
+            })?;
+            extra_components.push(template);
         }
 
         let decimals = self.decimals.expect("decimals must be provided");
@@ -78,18 +175,23 @@ impl NewFaucetCmd {
 
         let anchor_block = client.get_latest_epoch_block().await?;
 
-        let (new_account, seed) = AccountBuilder::new(init_seed)
+        let mut builder = AccountBuilder::new(init_seed)
             .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(AccountType::FungibleFaucet)
             .storage_mode(self.storage_mode.into())
-            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-            .with_component(
-                BasicFungibleFaucetComponent::new(symbol, decimals, max_supply).map_err(|err| {
-                    CliError::Account(err, "Failed to create a faucet".to_string())
-                })?,
-            )
+            .with_component(RpoFalcon512::new(key_pair.public_key()))
+            .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
+                |err| CliError::Account(err, "failed to create a faucet component".to_string()),
+            )?);
+
+        //add any extra component templates
+        for component in process_component_templates(&extra_components)? {
+            builder = builder.with_component(component);
+        }
+
+        let (new_account, seed) = builder
             .build()
-            .map_err(|err| CliError::Account(err, "Failed to create a faucet".to_string()))?;
+            .map_err(|err| CliError::Account(err, "error building account".into()))?;
 
         client
             .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
@@ -105,6 +207,9 @@ impl NewFaucetCmd {
     }
 }
 
+// NEW WALLET
+// ================================================================================================
+
 #[derive(Debug, Parser, Clone)]
 /// Create a new wallet account.
 pub struct NewWalletCmd {
@@ -114,10 +219,25 @@ pub struct NewWalletCmd {
     #[clap(short, long)]
     /// Defines if the account code is mutable (by default it isn't mutable).
     pub mutable: bool,
+    #[clap(short, long)]
+    /// Optional list of additional component package files to include.
+    pub template_files: Vec<PathBuf>,
 }
 
 impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+        let mut extra_components = Vec::new();
+        for path in &self.template_files {
+            let bytes = fs::read(path)?;
+            let template = AccountComponentTemplate::read_from_bytes(&bytes).map_err(|e| {
+                CliError::AccountComponentError(
+                    Box::new(e),
+                    "failed to read account component template".into(),
+                )
+            })?;
+            extra_components.push(template);
+        }
+
         let key_pair = SecretKey::with_rng(client.rng());
 
         let mut init_seed = [0u8; 32];
@@ -131,14 +251,21 @@ impl NewWalletCmd {
 
         let anchor_block = client.get_latest_epoch_block().await?;
 
-        let (new_account, seed) = AccountBuilder::new(init_seed)
+        let mut builder = AccountBuilder::new(init_seed)
             .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
             .account_type(account_type)
             .storage_mode(self.storage_mode.into())
-            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-            .with_component(BasicWalletComponent)
+            .with_component(RpoFalcon512::new(key_pair.public_key()))
+            .with_component(BasicWallet);
+
+        //add any extra component templates
+        for component in process_component_templates(&extra_components)? {
+            builder = builder.with_component(component);
+        }
+
+        let (new_account, seed) = builder
             .build()
-            .map_err(|err| CliError::Account(err, "Failed to create a wallet".to_string()))?;
+            .map_err(|err| CliError::Account(err, "failed to create a wallet".to_string()))?;
 
         client
             .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)

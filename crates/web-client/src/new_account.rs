@@ -1,7 +1,7 @@
 use miden_client::{
     account::{
-        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
-        RpoFalcon512Component,
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
+        AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
     crypto::SecretKey,
@@ -38,8 +38,8 @@ impl WebClient {
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(account_type)
                 .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-                .with_component(BasicWalletComponent)
+                .with_component(RpoFalcon512::new(key_pair.public_key()))
+                .with_component(BasicWallet)
                 .build()
             {
                 Ok(result) => result,
@@ -98,16 +98,12 @@ impl WebClient {
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-                .with_component(
-                    BasicFungibleFaucetComponent::new(symbol, decimals, max_supply).map_err(
-                        |err| {
-                            JsValue::from_str(
-                                format!("Failed to create new faucet: {}", err).as_str(),
-                            )
-                        },
-                    )?,
-                )
+                .with_component(RpoFalcon512::new(key_pair.public_key()))
+                .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
+                    |err| {
+                        JsValue::from_str(format!("Failed to create new faucet: {}", err).as_str())
+                    },
+                )?)
                 .build()
             {
                 Ok(result) => result,

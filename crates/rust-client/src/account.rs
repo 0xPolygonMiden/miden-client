@@ -6,14 +6,9 @@
 
 use alloc::vec::Vec;
 
-pub use miden_lib::account::{
-    auth::RpoFalcon512 as RpoFalcon512Component,
-    faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
-    wallets::BasicWallet as BasicWalletComponent,
-};
 pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
+    AccountStorageMode, AccountType, StorageSlot,
 };
 use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
@@ -22,6 +17,23 @@ use crate::{
     store::{AccountRecord, AccountStatus},
     ClientError,
 };
+
+// RE-EXPORTS
+// ================================================================================================
+
+pub mod component {
+    pub use miden_lib::account::{
+        auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet,
+    };
+    pub use miden_objects::account::{
+        AccountComponent, AccountComponentMetadata, AccountComponentTemplate, FeltRepresentation,
+        InitStorageData, MapRepresentation, PlaceholderType, StorageEntry, StoragePlaceholder,
+        StorageSlotType, StorageValue, WordRepresentation,
+    };
+}
+
+// CLIENT METHODS
+// ================================================================================================
 
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
