@@ -7,6 +7,8 @@ use miden_client::{account::AccountId, assets::FungibleAsset};
 use miden_lib::account::faucets::BasicFungibleFaucet;
 use serde::{Deserialize, Serialize};
 
+use crate::errors::CliError;
+
 /// Stores the detail information of a faucet to be stored in the token symbol map file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FaucetDetails {
@@ -19,18 +21,24 @@ impl FaucetDetailsMap {
     /// Creates a new instance of the `FaucetDetailsMap` struct by loading the token symbol map file
     /// from the specified `token_symbol_map_filepath`. If the file doesn't exist, an empty map is
     /// created.
-    pub fn new(token_symbol_map_filepath: PathBuf) -> Result<Self, String> {
+    pub fn new(token_symbol_map_filepath: PathBuf) -> Result<Self, CliError> {
         let token_symbol_map: BTreeMap<String, FaucetDetails> =
             match std::fs::read_to_string(token_symbol_map_filepath) {
                 Ok(content) => match toml::from_str(&content) {
                     Ok(token_symbol_map) => token_symbol_map,
                     Err(err) => {
-                        return Err(format!("Failed to parse token_symbol_map file: {}", err))
+                        return Err(CliError::Config(
+                            Box::new(err),
+                            "Failed to parse token_symbol_map file".to_string(),
+                        ))
                     },
                 },
                 Err(err) => {
                     if err.kind() != std::io::ErrorKind::NotFound {
-                        return Err(format!("Failed to read token_symbol_map file: {}", err));
+                        return Err(CliError::Config(
+                            Box::new(err),
+                            "Failed to read token_symbol_map file".to_string(),
+                        ));
                     }
                     BTreeMap::new()
                 },
@@ -39,9 +47,13 @@ impl FaucetDetailsMap {
         let mut faucet_ids = BTreeSet::new();
         for faucet in token_symbol_map.values() {
             if !faucet_ids.insert(faucet.id.clone()) {
-                return Err(format!(
-                    "Faucet ID '{}' appears more than once in the token symbol map",
-                    faucet.id
+                return Err(CliError::Config(
+                    format!(
+                        "Faucet ID {} appears more than once in the token symbol map",
+                        faucet.id.clone()
+                    )
+                    .into(),
+                    "Failed to parse token_symbol_map file".to_string(),
                 ));
             }
         }
@@ -76,26 +88,37 @@ impl FaucetDetailsMap {
     /// - A faucet ID was provided but the amount isn't in base units.
     /// - The amount has more than the allowed number of decimals.
     /// - The token symbol isn't present in the token symbol map file.
-    pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, String> {
-        let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, CliError> {
+        let (amount, asset) = arg.split_once("::").ok_or(CliError::Parse(
+            "separator `::` not found".into(),
+            "Failed to parse amount and asset".to_string(),
+        ))?;
         let (faucet_id, amount) = if asset.starts_with("0x") {
-            let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
-            (AccountId::from_hex(asset).map_err(|err| err.to_string())?, amount)
+            let amount = amount
+                .parse::<u64>()
+                .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
+            (
+                AccountId::from_hex(asset)
+                    .map_err(|err| CliError::AccountId(err, "Invalid faucet ID".to_string()))?,
+                amount,
+            )
         } else {
-            let FaucetDetails { id, decimals: faucet_decimals } = self
-                .0
-                .get(asset)
-                .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
+            let FaucetDetails { id, decimals: faucet_decimals } =
+                self.0.get(asset).ok_or(CliError::Config(
+                    "Token symbol not found in the map file".to_string().into(),
+                    asset.to_string(),
+                ))?;
 
             // Convert from decimal to integer.
             let amount = parse_number_as_base_units(amount, *faucet_decimals)?;
 
-            let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
+            let faucet_id = AccountId::from_hex(id)
+                .map_err(|err| CliError::AccountId(err, "Invalid faucet ID".to_string()))?;
 
             (faucet_id, amount)
         };
 
-        FungibleAsset::new(faucet_id, amount).map_err(|err| err.to_string())
+        FungibleAsset::new(faucet_id, amount).map_err(CliError::Asset)
     }
 
     /// Formats a [FungibleAsset] into a tuple containing the faucet and the amount. The returned
@@ -104,12 +127,18 @@ impl FaucetDetailsMap {
     ///   token's decimals.
     /// - If the faucet isn't tracked, the faucet ID is returned along with the amount in base
     ///   units.
-    pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> Result<(String, String), String> {
+    pub fn format_fungible_asset(
+        &self,
+        asset: &FungibleAsset,
+    ) -> Result<(String, String), CliError> {
         if let Some(token_symbol) = self.get_token_symbol(&asset.faucet_id()) {
             let decimals = self
                 .0
                 .get(&token_symbol)
-                .ok_or("Token symbol should be present in the token symbol map".to_string())?
+                .ok_or(CliError::Config(
+                    "Token symbol not found in the map file".to_string().into(),
+                    token_symbol.clone(),
+                ))?
                 .decimals;
             let amount = format_amount_from_faucet_units(asset.amount(), decimals);
 
@@ -138,11 +167,15 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 
 /// Converts a decimal number, represented as a string, into an integer by shifting
 /// the decimal point to the right by a specified number of decimal places.
-fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, String> {
+fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, CliError> {
     if n_decimals > BasicFungibleFaucet::MAX_DECIMALS {
-        return Err(format!(
-            "Number of decimals must be less than or equal to {}",
-            BasicFungibleFaucet::MAX_DECIMALS
+        return Err(CliError::Parse(
+            format!(
+                "Number of decimals must be less than or equal to {}",
+                BasicFungibleFaucet::MAX_DECIMALS
+            )
+            .into(),
+            "Faucet maximum decimals".to_string(),
         ));
     }
 
@@ -150,12 +183,16 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
     let parts: Vec<&str> = decimal_str.split('.').collect();
 
     if parts.len() > 2 {
-        return Err("Not a valid number: More than one decimal point".to_string());
+        return Err(CliError::Parse(
+            "More than one decimal point".into(),
+            "Decimals format".to_string(),
+        ));
     }
 
     // Validate that the parts are valid numbers
     for part in &parts {
-        part.parse::<u64>().map_err(|err| format!("Not a valid number: {err}"))?;
+        part.parse::<u64>()
+            .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
     }
 
     // Get the integer part
@@ -170,7 +207,10 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
 
     // Check if the fractional part has more than N decimals
     if fractional_part.len() > n_decimals.into() {
-        return Err(format!("Amount has more than {} decimal places", n_decimals));
+        return Err(CliError::Parse(
+            format!("Amount has more than {} decimal places", n_decimals).into(),
+            "Failed to parse fractional part".to_string(),
+        ));
     }
 
     // Add extra zeros if the fractional part is shorter than N decimals
@@ -182,7 +222,9 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
     let combined = format!("{}{}", integer_part, &fractional_part[0..n_decimals.into()]);
 
     // Convert the combined string to an integer
-    combined.parse::<u64>().map_err(|err| err.to_string())
+    combined
+        .parse::<u64>()
+        .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))
 }
 
 // HELPER TESTS
@@ -190,31 +232,22 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
 
 #[test]
 fn test_parse_number_as_base_units() {
-    assert_eq!(parse_number_as_base_units("18446744.073709551615", 12), Ok(u64::MAX));
-    assert_eq!(parse_number_as_base_units("7531.2468", 8), Ok(753124680000));
-    assert_eq!(parse_number_as_base_units("7531.2468", 4), Ok(75312468));
-    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
-    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
-    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
-    assert_eq!(parse_number_as_base_units("1234", 8), Ok(123400000000));
-    assert_eq!(parse_number_as_base_units("1", 0), Ok(1));
-    assert_eq!(
-        parse_number_as_base_units("1.1", 0),
-        Err("Amount has more than 0 decimal places".to_string())
-    );
-    assert_eq!(
+    assert_eq!(parse_number_as_base_units("18446744.073709551615", 12).unwrap(), u64::MAX);
+    assert_eq!(parse_number_as_base_units("7531.2468", 8).unwrap(), 753124680000);
+    assert_eq!(parse_number_as_base_units("7531.2468", 4).unwrap(), 75312468);
+    assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
+    assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
+    assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
+    assert_eq!(parse_number_as_base_units("1234", 8).unwrap(), 123400000000);
+    assert_eq!(parse_number_as_base_units("1", 0).unwrap(), 1);
+    assert!(matches!(parse_number_as_base_units("1.1", 0), Err(CliError::Parse(_, _))),);
+    assert!(matches!(
         parse_number_as_base_units("18446744.073709551615", 11),
-        Err("Amount has more than 11 decimal places".to_string())
-    );
-    assert_eq!(
-        parse_number_as_base_units("123u3.23", 4),
-        Err("Not a valid number: invalid digit found in string".to_string())
-    );
-    assert_eq!(
-        parse_number_as_base_units("2.k3", 4),
-        Err("Not a valid number: invalid digit found in string".to_string())
-    );
-    assert_eq!(parse_number_as_base_units("12.345000", 4), Ok(123450));
+        Err(CliError::Parse(_, _))
+    ),);
+    assert!(matches!(parse_number_as_base_units("123u3.23", 4), Err(CliError::Parse(_, _))),);
+    assert!(matches!(parse_number_as_base_units("2.k3", 4), Err(CliError::Parse(_, _))),);
+    assert_eq!(parse_number_as_base_units("12.345000", 4).unwrap(), 123450);
     assert!(parse_number_as_base_units("0.0001.00000001", 12).is_err());
 }
 
