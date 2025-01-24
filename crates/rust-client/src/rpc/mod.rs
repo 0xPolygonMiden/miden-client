@@ -19,7 +19,7 @@
 //! #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
-//! let endpoint = Endpoint::new("https".into(), "localhost".into(), 57291);
+//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let mut rpc_client = TonicRpcClient::new(endpoint, 1000);
 //!
 //! // Fetch the latest block header (by passing None).
