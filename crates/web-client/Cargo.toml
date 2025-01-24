@@ -1,10 +1,10 @@
 [package]
 name = "miden-client-web"
-version = "0.6.0"
+version = "0.7.0"
 description = "Web Client library that facilitates interaction with the Miden rollup"
 readme = "README.md"
 categories = ["no-std"]
-documentation = "https://docs.rs/miden-client-web/0.6.0"
+documentation = "https://docs.rs/miden-client-web/0.7.0"
 keywords = ["miden", "client", "web", "wasm"]
 license.workspace = true
 authors.workspace = true
@@ -19,7 +19,7 @@ crate-type = ["cdylib"]
 testing = ["miden-client/testing"]
 
 [dependencies]
-miden-client = { version = "0.6", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
+miden-client = { version = "0.7", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-proving-service-client = { workspace = true }

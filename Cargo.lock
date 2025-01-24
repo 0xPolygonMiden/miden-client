@@ -1313,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "miden-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -1370,7 +1370,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-tests"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "miden-client",
@@ -1385,7 +1385,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-web"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "console_error_panic_hook",
  "miden-client",
