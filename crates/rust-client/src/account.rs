@@ -6,20 +6,6 @@
 //!
 //! An account can store assets and define rules for manipulating them.
 //!
-//! # Overview
-//!
-//! This module exposes several key features:
-//!
-//! - **Account types:** Use the [`AccountBuilder`] to construct new accounts, specifying account
-//!   type, storage mode (public/private), and attaching necessary components (e.g., basic wallet or
-//!   fungible faucet).
-//!
-//! - **Account Tracking:** Accounts added via the client are persisted to the local store, where
-//!   their state (including nonce, balance, and metadata) is updated upon every synchronization
-//!   with the network.
-//!
-//! - **Data retrieval APIs:** The module also provides methods to fetch account-related data.
-//!
 //! # Example
 //!
 //! To add a new account to the client's store, you might use the [`Client::add_account`] method as
@@ -73,6 +59,17 @@ use crate::{
     ClientError,
 };
 
+/// This account section of the client contains functionality for:
+///
+/// - **Account creation:** Use the [`AccountBuilder`] to construct new accounts, specifying account
+///   type, storage mode (public/private), and attaching necessary components (e.g., basic wallet or
+///   fungible faucet). After creation, they can be added to the client.
+///
+/// - **Account tracking:** Accounts added via the client are persisted to the local store, where
+///   their state (including nonce, balance, and metadata) is updated upon every synchronization
+///   with the network.
+///
+/// - **Data retrieval:** The module also provides methods to fetch account-related data.
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
