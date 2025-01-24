@@ -77,6 +77,7 @@ declare global {
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
+    WebClient: typeof WebClient;
     Word: typeof Word;
     create_client: () => Promise<void>;
 
@@ -87,6 +88,7 @@ declare global {
         maxWaitTime?: number,
         delayInterval?: number
       ) => Promise<void>;
+      refreshClient: (initSeed?: Uint8Array) => Promise<void>;
     };
   }
 }
