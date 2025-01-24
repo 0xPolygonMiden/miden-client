@@ -1,6 +1,7 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{fs::File, io::Write, path::PathBuf, str::FromStr};
 
 use clap::Parser;
+use miden_client::rpc::Endpoint;
 
 use crate::{
     config::{CliConfig, CliEndpoint},
@@ -10,6 +11,39 @@ use crate::{
 // Init COMMAND
 // ================================================================================================
 
+#[derive(Debug, Clone)]
+enum Network {
+    Custom(String),
+    Devnet,
+    Localhost,
+    Testnet,
+}
+
+impl FromStr for Network {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "devnet" => Ok(Network::Devnet),
+            "localhost" => Ok(Network::Localhost),
+            "testnet" => Ok(Network::Testnet),
+            custom => Ok(Network::Custom(custom.to_string())),
+        }
+    }
+}
+
+impl Network {
+    /// Converts the Network variant to its corresponding RPC endpoint string
+    pub fn to_rpc_endpoint(&self) -> String {
+        match self {
+            Network::Custom(custom) => custom.clone(),
+            Network::Devnet => "https://rpc.devnet.miden.io".to_string(),
+            Network::Localhost => Endpoint::default().to_string(),
+            Network::Testnet => "https://rpc.testnet.miden.io".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Parser)]
 #[clap(
     about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
@@ -17,10 +51,10 @@ the CLI and client configurations, and will be placed by default in the current 
 directory."
 )]
 pub struct InitCmd {
-    /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
-    /// optional. If not provided user will be asked for input.
-    #[clap(long)]
-    rpc: Option<String>,
+    /// Network configuration to use. Options are devnet, testnet, localhost or a custom RPC
+    /// endpoint. Defaults to the testnet network.
+    #[clap(long, short, default_value = "testnet")]
+    network: Option<Network>,
 
     /// Store file path.
     #[clap(long)]
@@ -46,9 +80,9 @@ impl InitCmd {
 
         let mut cli_config = CliConfig::default();
 
-        if let Some(endpoint) = &self.rpc {
-            let endpoint =
-                CliEndpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
+        if let Some(endpoint) = &self.network {
+            let endpoint = CliEndpoint::try_from(endpoint.to_rpc_endpoint().as_str())
+                .map_err(|err| err.to_string())?;
 
             cli_config.rpc.endpoint = endpoint;
         }
