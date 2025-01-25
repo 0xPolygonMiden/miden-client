@@ -38,8 +38,11 @@ figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.6", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
 miden-lib = { workspace = true }
 miden-proving-service-client = { workspace = true , features = ["std", "tx-prover"]}
+miden-objects = { workspace = true }
+miette = { workspace = true }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }

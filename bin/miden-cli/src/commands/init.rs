@@ -5,6 +5,7 @@ use miden_client::rpc::Endpoint;
 
 use crate::{
     config::{CliConfig, CliEndpoint},
+    errors::CliError,
     CLIENT_CONFIG_FILE_NAME,
 };
 
@@ -69,20 +70,24 @@ pub struct InitCmd {
 }
 
 impl InitCmd {
-    pub fn execute(&self, config_file_path: PathBuf) -> Result<(), String> {
+    pub fn execute(&self, config_file_path: PathBuf) -> Result<(), CliError> {
         if config_file_path.exists() {
-            return Err(format!(
-                "A filed named \"{}\" already exists in the working directory. Please try using another directory or removing the file.",
-                CLIENT_CONFIG_FILE_NAME
-            )
-            .to_string());
+            return Err(CliError::Config(
+                "Error with the configuration file".to_string().into(),
+                format!(
+                    "The file \"{}\" already exists in the working directory. Please try using another directory or removing the file.",
+                    CLIENT_CONFIG_FILE_NAME
+                ),
+            ));
         }
 
         let mut cli_config = CliConfig::default();
 
         if let Some(endpoint) = &self.network {
-            let endpoint = CliEndpoint::try_from(endpoint.to_rpc_endpoint().as_str())
-                .map_err(|err| err.to_string())?;
+            let endpoint =
+                CliEndpoint::try_from(endpoint.to_rpc_endpoint().as_str()).map_err(|err| {
+                    CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
+                })?;
 
             cli_config.rpc.endpoint = endpoint;
         }
@@ -96,18 +101,21 @@ impl InitCmd {
             None => None,
         };
 
-        let config_as_toml_string = toml::to_string_pretty(&cli_config)
-            .map_err(|err| format!("Error formatting config: {err}"))?;
+        let config_as_toml_string = toml::to_string_pretty(&cli_config).map_err(|err| {
+            CliError::Config("Failed to serialize config".to_string().into(), err.to_string())
+        })?;
 
         let mut file_handle = File::options()
             .write(true)
             .create_new(true)
             .open(&config_file_path)
-            .map_err(|err| format!("Error opening the file: {err}"))?;
+            .map_err(|err| {
+                CliError::Config("Failed to create config file".to_string().into(), err.to_string())
+            })?;
 
-        file_handle
-            .write(config_as_toml_string.as_bytes())
-            .map_err(|err| format!("Error writing to file: {err}"))?;
+        file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
+            CliError::Config("Failed to write config file".to_string().into(), err.to_string())
+        })?;
 
         println!("Config file successfully created at: {:?}", config_file_path);
 
