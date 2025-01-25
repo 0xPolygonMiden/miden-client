@@ -62,8 +62,7 @@ impl AccountCmd {
                                 .map_err(|_| "Input number was not a valid Account Id")?;
 
                             // Check whether we're tracking that account
-                            let (account, _) =
-                                client.get_account_header_or_error(account_id).await?;
+                            let (account, _) = client.try_get_account_header(account_id).await?;
 
                             Some(account.id())
                         };

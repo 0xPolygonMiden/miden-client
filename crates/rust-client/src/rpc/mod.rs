@@ -1,5 +1,6 @@
 //! Provides an interface for the client to communicate with a Miden node using
 //! Remote Procedure Calls (RPC).
+//!
 //! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
 //!
 //! - Submit proven transactions.
@@ -16,7 +17,7 @@
 //! # use miden_client::rpc::{NodeRpcClient, TonicRpcClient};
 //! # use miden_objects::block::BlockNumber;
 //! # use miden_client::rpc::Endpoint;
-//! #[tokio::main]
+//! ##[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
@@ -55,6 +56,8 @@ use miden_objects::{
     transaction::ProvenTransaction,
 };
 
+/// Contains domain types related to RPC requests and responses, as well as utility functions
+/// for dealing with them.
 pub mod domain;
 
 mod errors;

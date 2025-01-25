@@ -1,6 +1,7 @@
-//! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
-//! and retrieving data, such as account states, transaction history, block headers, notes, and MMR
-//! authentication nodes.
+//! Defines the storage interfaces used by the Miden client.
+//!
+//! It provides mechanisms for persisting and retrieving data, such as account states, transaction
+//! history, block headers, notes, and MMR nodes.
 //!
 //! ## Overview
 //!

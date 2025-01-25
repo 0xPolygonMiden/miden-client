@@ -1,9 +1,9 @@
 //! The `account` module provides types and client APIs for managing accounts within the Miden
 //! network.
 //!
-//! Once accounts start being tracked by the client, their state will be updated accordingly on
-//! every transaction, and validated against the rollup on every sync.
-//!
+//! Accounts are foundational entities of the Miden protocol. They store assets and define
+//! rules for manipulating them. Once an account is registered with the client, its state will
+//! be updated accordingly, and validated against the network state on every sync.
 //! An account can store assets and define rules for manipulating them.
 //!
 //! # Example
@@ -59,7 +59,7 @@ use crate::{
     ClientError,
 };
 
-/// This account section of the client contains functionality for:
+/// This section of the [Client] contains methods for:
 ///
 /// - **Account creation:** Use the [`AccountBuilder`] to construct new accounts, specifying account
 ///   type, storage mode (public/private), and attaching necessary components (e.g., basic wallet or
@@ -84,7 +84,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// - Trying to import a new account without providing its seed.
+    /// - If the account is new but no seed is provided.
     /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked.
@@ -196,7 +196,13 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 
-    pub async fn get_account_or_error(
+    /// Attempts to retrieve an [AccountRecord] by its [AccountId].
+    ///
+    /// # Errors
+    ///
+    /// - If the account record is not found.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account(
         &self,
         account_id: AccountId,
     ) -> Result<AccountRecord, ClientError> {
@@ -205,7 +211,13 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    pub async fn get_account_header_or_error(
+    /// Attempts to retrieve an [AccountHeader] by its [AccountId].
+    ///
+    /// # Errors
+    ///
+    /// - If the account header is not found.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account_header(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountHeader, AccountStatus), ClientError> {
@@ -214,7 +226,13 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    pub async fn get_account_auth_or_error(
+    /// Attempts to retrieve an [AuthSecretKey] by the [AccountId] associated with the account.
+    ///
+    /// # Errors
+    ///
+    /// - If the key is not found for the passed `account_id`.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account_auth(
         &self,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, ClientError> {

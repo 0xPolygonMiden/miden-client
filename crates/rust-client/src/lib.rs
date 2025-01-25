@@ -1,18 +1,17 @@
-//! A no_std-compatible client library for interacting with the Miden rollup network.
+//! A no_std-compatible client library for interacting with the Miden network.
 //!
 //! This crate provides a lightweight client that handles connections to the Miden node, manages
 //! accounts and their state, and facilitates executing, proving, and submitting transactions.
 //!
 //! For a protocol-level overview and guides for getting started, please visit the official
-//! [Polygon Miden docs](https://docs.polygon.technology/miden/).
+//! [Polygon Miden docs](https://0xpolygonmiden.github.io/miden-docs/).
 //!
 //! ## Overview
 //!
 //! The library is organized into several key modules:
 //!
-//! - **Accounts:** Provides types, builders, and client APIs for managing accounts. Once accounts
-//!   are tracked by the client, their state is updated with every transaction and validated during
-//!   each sync.
+//! - **Accounts:** Provides types for managing accounts. Once accounts are tracked by the client,
+//!   their state is updated with every transaction and validated during each sync.
 //!
 //! - **Notes:** Contains types and utilities for working with notes in the Miden client.
 //!
@@ -102,7 +101,7 @@
 #[macro_use]
 extern crate alloc;
 
-pub use alloc::boxed::Box;
+use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -125,7 +124,7 @@ mod errors;
 // RE-EXPORTS
 // ================================================================================================
 
-/// Provides types and utilities for working with assets within the Miden rollup network.
+/// Provides types and utilities for working with assets within the Miden network.
 pub mod assets {
     pub use miden_objects::{
         account::delta::{
@@ -136,14 +135,14 @@ pub mod assets {
 }
 
 /// Provides authentication-related types and functionalities for the Miden
-/// rollup network.
+/// network.
 pub mod auth {
     pub use miden_lib::AuthScheme;
     pub use miden_objects::account::AuthSecretKey;
     pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
 
-/// Provides types for working with blocks within the Miden rollup network.
+/// Provides types for working with blocks within the Miden network.
 pub mod block {
     pub use miden_objects::block::BlockHeader;
 }
@@ -178,7 +177,7 @@ pub mod utils {
 }
 
 /// Provides test utilities for working with accounts and account IDs
-/// within the Miden rollup network. This module is only available when the `testing` feature is
+/// within the Miden network. This module is only available when the `testing` feature is
 /// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
@@ -198,7 +197,7 @@ use tracing::info;
 // MIDEN CLIENT
 // ================================================================================================
 
-/// A light client for connecting to the Miden rollup network.
+/// A light client for connecting to the Miden network.
 ///
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
 /// - Keeps track of the current and historical states of a set of accounts and related objects such

@@ -182,7 +182,8 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Compiles the provided program into a [NoteScript].
-    /// The assembler uses the debug mode if the client is using debug mode.
+    ///
+    /// The assembler uses the debug mode if the client was instantiated with debug mode on.
     pub fn compile_note_script(&self, note_script: &str) -> Result<NoteScript, ClientError> {
         let assembler = TransactionKernel::assembler().with_debug_mode(self.in_debug_mode);
         NoteScript::compile(note_script, assembler).map_err(ClientError::NoteError)

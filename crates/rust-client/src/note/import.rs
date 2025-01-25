@@ -40,7 +40,9 @@ impl<R: FeltRng> Client<R> {
     ///   inclusion proof and metadata. The block header data is only fetched from the node if the
     ///   note is committed in the past relative to the client.
     ///
-    /// An error is returned if an attempt is made to overwrite a note that is currently processing.
+    /// # Errors
+    ///
+    /// - If an attempt is made to overwrite a note that is currently processing.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let id = match &note_file {
             NoteFile::NoteId(id) => *id,

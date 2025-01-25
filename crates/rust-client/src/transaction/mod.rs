@@ -1,5 +1,5 @@
-//! Provides APIs for transaction creation, execution, and proving.  
-//! Additionally handles proof submission to the network.
+//! Provides APIs for creating, executing, proving, and submitting transactions to the Miden
+//! network.
 //!
 //! ## Overview
 //!
@@ -20,28 +20,37 @@
 //! The following example demonstrates how to create and submit a transaction:
 //!
 //! ```rust
-//! use miden_client::{Client,transaction::{TransactionRequestBuilder, PaymentTransactionData, TransactionResult}};
-//! use miden_objects::account::AccountId;
-//! use miden_objects::asset::FungibleAsset;
-//! use miden_objects::note::NoteType;
-//! use miden_client::crypto::FeltRng;
+//! use miden_client::{
+//!     crypto::FeltRng,
+//!     transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionResult},
+//!     Client,
+//! };
+//! use miden_objects::{account::AccountId, asset::FungibleAsset, note::NoteType};
+//! # use std::error::Error;
 //!
 //! /// Executes, proves and submits a P2ID transaction.
-//! /// This transaction is executed by `sender_id`, and creates an output note containing 100 tokens of `faucet_id`'s fungible asset.
-//! async fn create_and_submit_transaction<R:rand::Rng>(client: &mut Client<impl FeltRng>, sender_id: AccountId, target_id: AccountId, faucet_id: AccountId) -> Result<(), Box<dyn std::error::Error>> {
+//! ///
+//! /// This transaction is executed by `sender_id`, and creates an output note
+//! /// containing 100 tokens of `faucet_id`'s fungible asset.
+//! async fn create_and_submit_transaction<R: rand::Rng>(
+//!     client: &mut Client<impl FeltRng>,
+//!     sender_id: AccountId,
+//!     target_id: AccountId,
+//!     faucet_id: AccountId,
+//! ) -> Result<(), Box<dyn Error>> {
 //!     // Create an asset representing the amount to be transferred.
 //!     let asset = FungibleAsset::new(faucet_id, 100)?;
 //!
 //!     // Build a transaction request for a pay-to-id transaction.
 //!     let tx_request = TransactionRequestBuilder::pay_to_id(
 //!         PaymentTransactionData::new(vec![asset.into()], sender_id, target_id),
-//!         None,  // No recall height provided
+//!         None, // No recall height
 //!         NoteType::Private,
 //!         client.rng(),
 //!     )?
 //!     .build();
 //!
-//!     // Execute the transaction; this returns a TransactionResult.
+//!     // Execute the transaction. This returns a TransactionResult.
 //!     let tx_result: TransactionResult = client.new_transaction(sender_id, tx_request).await?;
 //!
 //!     // Prove and submit the transaction, persisting its details to the local store.
@@ -529,7 +538,7 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let account_record = self.get_account_or_error(account_id).await?;
+        let account_record = self.try_get_account(account_id).await?;
 
         if account_record.is_locked() {
             return Err(ClientError::AccountLocked(account_id));
@@ -750,7 +759,7 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let account: Account = self.get_account_or_error(account_id).await?.into();
+        let account: Account = self.try_get_account(account_id).await?.into();
 
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
@@ -765,8 +774,8 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account: Account = self.get_account_or_error(account_id).await?.into();
-        let account_auth = self.get_account_auth_or_error(account_id).await?;
+        let account: Account = self.try_get_account(account_id).await?.into();
+        let account_auth = self.try_get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
         let account_capabilities = match account.account_type() {

@@ -1,6 +1,8 @@
-//! This module provides an SQLite-backed implementation of the [Store] trait (enabled with the
-//! `sqlite` feature). It enables persistence of accounts, transactions, notes, block headers, and
-//! MMR nodes using an SQLite database.
+//! This module provides an SQLite-backed implementation of the [Store] trait.
+//!
+//! It is compiled only when the `sqlite` feature flag is enabled.
+//! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
+//! nodes using an SQLite database.
 
 use alloc::{
     boxed::Box,
@@ -40,7 +42,7 @@ mod transaction;
 // SQLITE STORE
 // ================================================================================================
 
-/// Represents a pool of connections with an sqlite database. The pool is used to interact
+/// Represents a pool of connections with an SQLite database. The pool is used to interact
 /// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.

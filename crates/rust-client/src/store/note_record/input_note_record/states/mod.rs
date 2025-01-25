@@ -54,8 +54,8 @@ pub enum InputNoteState {
     ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState),
     /// Unauthenticated note consumed locally by the client and confirmed by the network.
     ConsumedUnauthenticatedLocal(ConsumedUnauthenticatedLocalNoteState),
-    /// Note consumed in the network by an external account (e.g. an account not tracked by the
-    /// client).
+    /// Note consumed by an external account (e.g. an account not tracked by the client) and
+    /// confirmed by the network.
     ConsumedExternal(ConsumedExternalNoteState),
 }
 

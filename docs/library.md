@@ -12,10 +12,10 @@ miden-client = { version = "0.6" }
 
 ### Features
 
-The Miden client library supports the `testing` and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
+The Miden client library supports the [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) feature which is recommended for developing applications with the client. To use it, add the following to your project's `Cargo.toml`:
 
 ```toml
-miden-client = { version = "0.6", features = ["testing", "concurrent"] }
+miden-client = { version = "0.6", features = ["concurrent"] }
 ```
 
 The library also supports several other features. Please refer to the crate's documentation to learn more.

@@ -1,5 +1,5 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
-//! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
+//! network. It ensures that the client maintains a valid, up-to-date view of the chain.
 //!
 //! ## Overview
 //!
@@ -32,8 +32,9 @@
 //! # use miden_objects::crypto::rand::FeltRng;
 //! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
 //! // Attempt to synchronize the client's state with the Miden network.
-//! // The requested data is based on the client's state: it gets updates for accounts, relevant notes, etc.
-//! // For more information on the data that gets requested, see the doc comments for `sync_state()`
+//! // The requested data is based on the client's state: it gets updates for accounts, relevant
+//! // notes, etc. For more information on the data that gets requested, see the doc comments for
+//! // `sync_state()`.
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);
