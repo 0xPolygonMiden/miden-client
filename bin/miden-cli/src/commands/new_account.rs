@@ -115,23 +115,24 @@ fn process_component_templates(
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account.
 pub struct NewFaucetCmd {
-    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     /// Storage mode of the account.
+    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     storage_mode: CliAccountStorageMode,
-    #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible).
+    #[clap(short, long)]
     non_fungible: bool,
-    #[clap(short, long)]
     /// Token symbol of the faucet.
-    token_symbol: Option<String>,
     #[clap(short, long)]
+    token_symbol: Option<String>,
     /// Decimals of the faucet.
+    #[clap(short, long)]
     decimals: Option<u8>,
+    /// Maximum amount of assets that the fungible faucet can distribute.
     #[clap(short, long)]
     max_supply: Option<u64>,
+    /// Optional list of files specifying addional components to add to the account.
     #[clap(short, long)]
-    /// List of additional component template files to include.
-    template_files: Vec<PathBuf>,
+    extra_components: Vec<PathBuf>,
 }
 
 impl NewFaucetCmd {
@@ -213,15 +214,15 @@ impl NewFaucetCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a new wallet account.
 pub struct NewWalletCmd {
-    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     /// Storage mode of the account.
+    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     pub storage_mode: CliAccountStorageMode,
-    #[clap(short, long)]
     /// Defines if the account code is mutable (by default it isn't mutable).
-    pub mutable: bool,
     #[clap(short, long)]
-    /// Optional list of additional component package files to include.
-    pub template_files: Vec<PathBuf>,
+    pub mutable: bool,
+    /// Optional list of files specifying addional components to add to the account.
+    #[clap(short, long)]
+    pub extra_components: Vec<PathBuf>,
 }
 
 impl NewWalletCmd {
