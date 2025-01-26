@@ -4,7 +4,6 @@
 //! Accounts are foundational entities of the Miden protocol. They store assets and define
 //! rules for manipulating them. Once an account is registered with the client, its state will
 //! be updated accordingly, and validated against the network state on every sync.
-//! An account can store assets and define rules for manipulating them.
 //!
 //! # Example
 //!

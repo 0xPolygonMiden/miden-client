@@ -1,8 +1,8 @@
 //! This module provides an SQLite-backed implementation of the [Store] trait.
 //!
-//! It is compiled only when the `sqlite` feature flag is enabled.
 //! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
 //! nodes using an SQLite database.
+//! It is compiled only when the `sqlite` feature flag is enabled.
 
 use alloc::{
     boxed::Box,

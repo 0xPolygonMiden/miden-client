@@ -63,31 +63,29 @@
 //! use rand::Rng;
 //!
 //! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
-//! let client: Client<RpoRandomCoin> = {
-//!     // Create the SQLite store from the client configuration.
-//!     let sqlite_store = SqliteStore::new("path/to/store".try_into()?).await?;
-//!     let store = Arc::new(sqlite_store);
+//! // Create the SQLite store from the client configuration.
+//! let sqlite_store = SqliteStore::new("path/to/store".try_into()?).await?;
+//! let store = Arc::new(sqlite_store);
 //!
-//!     // Generate a random seed for the RpoRandomCoin.
-//!     let mut rng = rand::thread_rng();
-//!     let coin_seed: [u64; 4] = rng.gen();
+//! // Generate a random seed for the RpoRandomCoin.
+//! let mut rng = rand::thread_rng();
+//! let coin_seed: [u64; 4] = rng.gen();
 //!
-//!     // Initialize the random coin using the generated seed.
-//!     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+//! // Initialize the random coin using the generated seed.
+//! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 //!
-//!     // Create a store authenticator with the store and random coin.
-//!     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+//! // Create a store authenticator with the store and random coin.
+//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 //!
-//!     // Instantiate the client using a Tonic RPC client
-//!     let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//!     Client::new(
-//!         Box::new(TonicRpcClient::new(endpoint, 10_000)),
-//!         rng,
-//!         store,
-//!         Arc::new(authenticator),
-//!         false, // Set to true for debug mode, if needed.
-//!     )
-//! };
+//! // Instantiate the client using a Tonic RPC client
+//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let client: Client<RpoRandomCoin> = Client::new(
+//!     Box::new(TonicRpcClient::new(endpoint, 10_000)),
+//!     rng,
+//!     store,
+//!     Arc::new(authenticator),
+//!     false, // Set to true for debug mode, if needed.
+//! );
 //!
 //! # Ok(())
 //! # }
@@ -125,7 +123,7 @@ mod errors;
 // ================================================================================================
 
 /// Provides types and utilities for working with assets within the Miden network.
-pub mod assets {
+pub mod asset {
     pub use miden_objects::{
         account::delta::{
             AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,

@@ -1,7 +1,7 @@
 use clap::Parser;
 use miden_client::{
     account::{Account, AccountId, AccountType, StorageSlot},
-    assets::Asset,
+    asset::Asset,
     crypto::FeltRng,
     Client, ZERO,
 };
