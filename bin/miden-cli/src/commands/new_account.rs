@@ -149,7 +149,7 @@ impl NewFaucetCmd {
         }
 
         let mut extra_components = Vec::new();
-        for path in &self.template_files {
+        for path in &self.extra_components {
             let bytes = fs::read(path)?;
             let template = AccountComponentTemplate::read_from_bytes(&bytes).map_err(|e| {
                 CliError::AccountComponentError(
@@ -228,7 +228,7 @@ pub struct NewWalletCmd {
 impl NewWalletCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let mut extra_components = Vec::new();
-        for path in &self.template_files {
+        for path in &self.extra_components {
             let bytes = fs::read(path)?;
             let template = AccountComponentTemplate::read_from_bytes(&bytes).map_err(|e| {
                 CliError::AccountComponentError(

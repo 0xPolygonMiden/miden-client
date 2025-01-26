@@ -7,7 +7,7 @@ use std::{
 
 use miden_lib::note::scripts::{p2id, p2idr, swap};
 use miden_rpc_proto::write_proto;
-use miette::{Error, IntoDiagnostic};
+use miette::IntoDiagnostic;
 use prost::Message;
 
 const STD_PROTO_OUT_DIR: &str = "src/rpc/generated/std";
