@@ -1,3 +1,12 @@
+//! Provides an IndexedDB-backed implementation of the [Store] trait for web environments.
+//!
+//! This module enables persistence of client data (accounts, transactions, notes, block headers,
+//! etc.) when running in a browser. It uses wasm-bindgen to interface with JavaScript and
+//! IndexedDB, allowing the Miden client to store and retrieve data asynchronously.
+//!
+//! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
+//! feature enabled.
+
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{

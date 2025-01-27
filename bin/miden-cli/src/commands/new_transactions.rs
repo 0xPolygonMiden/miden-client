@@ -3,7 +3,7 @@ use std::{io, sync::Arc};
 use clap::{Parser, ValueEnum};
 use miden_client::{
     account::AccountId,
-    assets::{FungibleAsset, NonFungibleDeltaAction},
+    asset::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
     note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
     store::NoteRecordError,

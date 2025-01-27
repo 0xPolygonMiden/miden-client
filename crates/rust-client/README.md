@@ -12,14 +12,16 @@ miden-client = { version = "0.6" }
 
 ## Crate Features
 
-- `concurrent`: used to enable concurrency during execution and proof generation. Disabled by default.
-- `idxdb`: includes `WebStore`, an IdexedDB implementation of the `Store` trait. Disabled by default.
-- `sqlite`: includes `SqliteStore`, a SQLite implementation of the `Store` trait. Disabled by default.
-- `tonic`: includes `TonicRpcClient`, a Tonic client to communicate with Miden node. Disabled by default.
-- `web-tonic`: includes `WebTonicRpcClient`, an Tonic client to communicate with the Miden node in the browser. Disabled by default.
-- `testing`: useful feature that lowers PoW difficulty when enabled, meant to be used during development and not on production. Disabled by default.
+| Features     | Description                                                                                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `concurrent` | Used to enable concurrency during execution and proof generation. **Disabled by default.**                                                               |
+| `idxdb`      | Includes `WebStore`, an IndexedDB implementation of the `Store` trait. **Disabled by default.**                                                          |
+| `sqlite`     | Includes `SqliteStore`, a SQLite implementation of the `Store` trait. This relies on the standard library. **Disabled by default.**                                                           |
+| `tonic`      | Includes `TonicRpcClient`, a Tonic client to communicate with Miden node. This relies on the standard library. **Disabled by default.**                                                        |
+| `web-tonic`  | Includes `WebTonicRpcClient`, a Tonic client to communicate with the Miden node in the browser. **Disabled by default.**                                   |
+| `testing`    | Enables functions meant to be used in testing environments. **Disabled by default.**             |
 
-To compile with `no_std`, disable default features via `--no-default-features` flag.
+Features `sqlite` and `idxdb` are mutually exclusive.
 
 ### Store and RpcClient implementations
 

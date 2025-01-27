@@ -1,5 +1,25 @@
-//! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
-//! and retrieving data, such as account states, transaction history, and block headers.
+//! Defines the storage interfaces used by the Miden client.
+//!
+//! It provides mechanisms for persisting and retrieving data, such as account states, transaction
+//! history, block headers, notes, and MMR nodes.
+//!
+//! ## Overview
+//!
+//! The storage module is central to the Miden client’s persistence layer. It defines the
+//! [`Store`] trait which abstracts over any concrete storage implementation. The trait exposes
+//! methods to (among others):
+//!
+//! - Retrieve and update transactions, notes, and accounts.
+//! - Store and query block headers along with MMR peaks and authentication nodes.
+//! - Manage note tags for synchronizing with the node.
+//!
+//! These are all used by the Miden client to provide transaction execution in the correct contexts.
+//!
+//! In addition to the main [`Store`] trait, the module provides types for filtering queries, such
+//! as [`TransactionFilter`] and [`NoteFilter`], to narrow down the set of returned transactions or
+//! notes. For more advanced usage, see the documentation of individual methods in the [`Store`]
+//! trait.
+
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -43,8 +63,8 @@ pub mod sqlite_store;
 #[cfg(feature = "idxdb")]
 pub mod web_store;
 
-mod account_record;
-pub use account_record::{AccountRecord, AccountStatus};
+mod account;
+pub use account::{AccountRecord, AccountStatus, AccountUpdates};
 mod note_record;
 pub use note_record::{
     input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,

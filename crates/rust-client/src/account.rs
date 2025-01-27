@@ -1,8 +1,43 @@
-//! The `accounts` module provides types and client APIs for managing accounts within the Miden
-//! rollup network .
+//! The `account` module provides types and client APIs for managing accounts within the Miden
+//! network.
 //!
-//! Once accounts start being tracked by the client, their state will be
-//! updated accordingly on every transaction, and validated against the rollup on every sync.
+//! Accounts are foundational entities of the Miden protocol. They store assets and define
+//! rules for manipulating them. Once an account is registered with the client, its state will
+//! be updated accordingly, and validated against the network state on every sync.
+//!
+//! # Example
+//!
+//! To add a new account to the client's store, you might use the [`Client::add_account`] method as
+//! follows:
+//!
+//! ```rust
+//! # use miden_client::account::{Account, AccountBuilder, AccountType, BasicWalletComponent};
+//! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
+//! # use miden_client::crypto::{FeltRng, SecretKey};
+//! # async fn add_new_account_example(
+//! #     client: &mut miden_client::Client<impl FeltRng>
+//! # ) -> Result<(), miden_client::ClientError> {
+//! #   let random_seed = Default::default();
+//! let key_pair = SecretKey::with_rng(client.rng());
+//!
+//! let (account, seed) = AccountBuilder::new(random_seed)
+//!     .account_type(AccountType::RegularAccountImmutableCode)
+//!     .storage_mode(AccountStorageMode::Private)
+//!     .with_component(BasicWalletComponent)
+//!     .build()?;
+//!
+//! // Add the account to the client. The account seed and authentication key are required
+//! // for new accounts.
+//! client.add_account(&account,
+//!     Some(seed),
+//!     &AuthSecretKey::RpoFalcon512(key_pair),
+//!     false
+//! ).await?;
+//! #   Ok(())
+//! # }
+//! ```
+//!
+//! For more details on accounts, refer to the [Account] documentation.
 
 use alloc::vec::Vec;
 
@@ -10,7 +45,7 @@ pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot,
 };
-use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
+use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
@@ -35,6 +70,17 @@ pub mod component {
 // CLIENT METHODS
 // ================================================================================================
 
+/// This section of the [Client] contains methods for:
+///
+/// - **Account creation:** Use the [`AccountBuilder`] to construct new accounts, specifying account
+///   type, storage mode (public/private), and attaching necessary components (e.g., basic wallet or
+///   fungible faucet). After creation, they can be added to the client.
+///
+/// - **Account tracking:** Accounts added via the client are persisted to the local store, where
+///   their state (including nonce, balance, and metadata) is updated upon every synchronization
+///   with the network.
+///
+/// - **Data retrieval:** The module also provides methods to fetch account-related data.
 impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
@@ -49,7 +95,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// - Trying to import a new account without providing its seed.
+    /// - If the account is new but no seed is provided.
     /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked.
@@ -161,7 +207,13 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 
-    pub async fn get_account_or_error(
+    /// Attempts to retrieve an [AccountRecord] by its [AccountId].
+    ///
+    /// # Errors
+    ///
+    /// - If the account record is not found.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account(
         &self,
         account_id: AccountId,
     ) -> Result<AccountRecord, ClientError> {
@@ -170,7 +222,13 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    pub async fn get_account_header_or_error(
+    /// Attempts to retrieve an [AccountHeader] by its [AccountId].
+    ///
+    /// # Errors
+    ///
+    /// - If the account header is not found.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account_header(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountHeader, AccountStatus), ClientError> {
@@ -179,47 +237,19 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    pub async fn get_account_auth_or_error(
+    /// Attempts to retrieve an [AuthSecretKey] by the [AccountId] associated with the account.
+    ///
+    /// # Errors
+    ///
+    /// - If the key is not found for the passed `account_id`.
+    /// - If the underlying store operation fails.
+    pub async fn try_get_account_auth(
         &self,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, ClientError> {
         self.get_account_auth(account_id)
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
-    }
-}
-
-// ACCOUNT UPDATES
-// ================================================================================================
-
-/// Contains account changes to apply to the store.
-pub struct AccountUpdates {
-    /// Updated public accounts.
-    updated_public_accounts: Vec<Account>,
-    /// Node account hashes that don't match the current tracked state for private accounts.
-    mismatched_private_accounts: Vec<(AccountId, Digest)>,
-}
-
-impl AccountUpdates {
-    /// Creates a new instance of `AccountUpdates`.
-    pub fn new(
-        updated_public_accounts: Vec<Account>,
-        mismatched_private_accounts: Vec<(AccountId, Digest)>,
-    ) -> Self {
-        Self {
-            updated_public_accounts,
-            mismatched_private_accounts,
-        }
-    }
-
-    /// Returns the updated public accounts.
-    pub fn updated_public_accounts(&self) -> &[Account] {
-        &self.updated_public_accounts
-    }
-
-    /// Returns the mismatched private accounts.
-    pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
-        &self.mismatched_private_accounts
     }
 }
 

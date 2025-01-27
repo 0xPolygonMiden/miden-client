@@ -9,7 +9,7 @@ use miden_client::{
         },
         AccountBuilder, AccountStorageMode, AccountType,
     },
-    assets::TokenSymbol,
+    asset::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,

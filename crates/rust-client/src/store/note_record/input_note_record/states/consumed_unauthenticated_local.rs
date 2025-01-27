@@ -9,6 +9,7 @@ use miden_objects::{
 use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ConsumedUnauthenticatedLocal] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedUnauthenticatedLocalNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
