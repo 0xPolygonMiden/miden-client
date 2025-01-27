@@ -42,7 +42,7 @@ impl Endpoint {
         Self::new("https".into(), "rpc.devnet.miden.io".into(), None)
     }
 
-    /// Returns the [Endpoint] associated with the devnet network.
+    /// Returns the [Endpoint] for a default node running in `localhost`.
     pub fn localhost() -> Self {
         Self::new("https".into(), "localhost".into(), Some(Self::MIDEN_NODE_PORT))
     }
