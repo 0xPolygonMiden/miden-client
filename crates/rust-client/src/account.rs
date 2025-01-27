@@ -11,7 +11,7 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::account::{Account, AccountBuilder, AccountType, BasicWalletComponent};
+//! # use miden_client::account::{Account, AccountBuilder, AccountType, component::BasicWallet};
 //! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
 //! # use miden_client::crypto::{FeltRng, SecretKey};
 //! # async fn add_new_account_example(
@@ -23,7 +23,7 @@
 //! let (account, seed) = AccountBuilder::new(random_seed)
 //!     .account_type(AccountType::RegularAccountImmutableCode)
 //!     .storage_mode(AccountStorageMode::Private)
-//!     .with_component(BasicWalletComponent)
+//!     .with_component(BasicWallet)
 //!     .build()?;
 //!
 //! // Add the account to the client. The account seed and authentication key are required
