@@ -4,7 +4,7 @@ use miden_client::{
         AccountBuilder, AccountStorageMode, AccountType, BasicFungibleFaucetComponent,
         BasicWalletComponent, RpoFalcon512Component,
     },
-    assets::TokenSymbol,
+    asset::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
     Client, Felt,

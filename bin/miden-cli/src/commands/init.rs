@@ -52,12 +52,12 @@ the CLI and client configurations, and will be placed by default in the current 
 directory."
 )]
 pub struct InitCmd {
-    /// Network configuration to use. Options are devnet, testnet, localhost or a custom RPC
+    /// Network configuration to use. Options are `devnet`, `testnet`, `localhost` or a custom RPC
     /// endpoint. Defaults to the testnet network.
     #[clap(long, short, default_value = "testnet")]
     network: Option<Network>,
 
-    /// Store file path.
+    /// Path to the store file.
     #[clap(long)]
     store_path: Option<String>,
 

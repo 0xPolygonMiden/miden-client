@@ -1,3 +1,13 @@
+//! Provides note importing methods.
+//!
+//! This module allows users to import notes into the client's store.
+//! Depending on the variant of [NoteFile] provided, the client will either fetch note details
+//! from the network or create a new note record from supplied data. If a note already exists in
+//! the store, it is updated with the new information. Additionally, the appropriate note tag
+//! is tracked based on the imported note's metadata.
+//!
+//! For more specific information on how the process is performed, refer to the docs for
+//! [Client::import_note()].
 use alloc::string::ToString;
 
 use miden_objects::{
@@ -29,6 +39,10 @@ impl<R: FeltRng> Client<R> {
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
     ///   inclusion proof and metadata. The block header data is only fetched from the node if the
     ///   note is committed in the past relative to the client.
+    ///
+    /// # Errors
+    ///
+    /// - If an attempt is made to overwrite a note that is currently processing.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let id = match &note_file {
             NoteFile::NoteId(id) => *id,
@@ -77,7 +91,7 @@ impl<R: FeltRng> Client<R> {
     /// passed via `previous_note` so it can be updated. The note information is fetched from the
     /// node and stored in the client's store.
     ///
-    /// Errors:
+    /// # Errors:
     /// - If the note doesn't exist on the node.
     /// - If the note exists but is private.
     async fn import_note_record_by_id(

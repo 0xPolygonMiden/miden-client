@@ -1,8 +1,12 @@
 // ACCOUNT RECORD
 // ================================================================================================
+use alloc::vec::Vec;
 use core::fmt::Display;
 
-use miden_objects::{account::Account, Word};
+use miden_objects::{
+    account::{Account, AccountId},
+    Digest, Word,
+};
 
 /// Represents a stored account state along with its status.
 ///
@@ -81,5 +85,39 @@ impl Display for AccountStatus {
             AccountStatus::Tracked => write!(f, "Tracked"),
             AccountStatus::Locked => write!(f, "Locked"),
         }
+    }
+}
+
+// ACCOUNT UPDATES
+// ================================================================================================
+
+/// Contains account changes to apply to the store.
+pub struct AccountUpdates {
+    /// Updated public accounts.
+    updated_public_accounts: Vec<Account>,
+    /// Node account hashes that don't match the current tracked state for private accounts.
+    mismatched_private_accounts: Vec<(AccountId, Digest)>,
+}
+
+impl AccountUpdates {
+    /// Creates a new instance of `AccountUpdates`.
+    pub fn new(
+        updated_public_accounts: Vec<Account>,
+        mismatched_private_accounts: Vec<(AccountId, Digest)>,
+    ) -> Self {
+        Self {
+            updated_public_accounts,
+            mismatched_private_accounts,
+        }
+    }
+
+    /// Returns the updated public accounts.
+    pub fn updated_public_accounts(&self) -> &[Account] {
+        &self.updated_public_accounts
+    }
+
+    /// Returns the mismatched private accounts.
+    pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
+        &self.mismatched_private_accounts
     }
 }
