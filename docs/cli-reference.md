@@ -34,7 +34,12 @@ Creates a configuration file for the client in the current directory.
 # This file contains information useful for the CLI like the RPC provider and database path
 miden init
 
-# You can use the --network flag to override the default rpc config
+# You can set up the CLI for any of the default networks
+miden init --network testnet # This is the default value if no network is provided
+miden init --network devnet
+miden init --network localhost
+
+# You can use the --network flag to override the default RPC config
 miden init --network 18.203.155.106
 # You can specify the port
 miden init --network 18.203.155.106:8080
@@ -42,10 +47,6 @@ miden init --network 18.203.155.106:8080
 miden init --network https://18.203.155.106
 # You can specify both
 miden init --network https://18.203.155.106:1234
-# You can use one of the pre-defined networks
-miden init --network testnet
-miden init --network devnet
-miden init --network localhost
 
 # You can use the --store_path flag to override the default store config
 miden init --store_path db/store.sqlite3

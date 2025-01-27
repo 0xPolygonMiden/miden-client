@@ -35,8 +35,7 @@ Example:
 const webClient = new WebClient();
 
 // Creates the internal client of a previously instantiated WebClient.
-// Can provide `node_url` as an optional parameter. Defaults to "http://18.203.155.106:57291" which is the URL
-// of the remote miden node.
+// Can provide `node_url` as an optional parameter. Defaults to the tesnet RPC URL.
 await webClient.create_client();
 ```
 Example specifying a specific node URL:
