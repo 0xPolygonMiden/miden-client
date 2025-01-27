@@ -146,7 +146,7 @@ pub struct StateSync {
     /// Callback to be executed when a new note inclusion is received.
     on_note_received: OnNoteReceived,
     /// Callback to be executed when a transaction is committed.
-    on_committed_transaction: OnTransactionCommitted,
+    on_transaction_committed: OnTransactionCommitted,
     /// Callback to be executed when a nullifier is received.
     on_nullifier_received: OnNullifierReceived,
 }
@@ -163,13 +163,13 @@ impl StateSync {
     pub fn new(
         rpc_api: Arc<dyn NodeRpcClient + Send>,
         on_note_received: OnNoteReceived,
-        on_committed_transaction: OnTransactionCommitted,
+        on_transaction_committed: OnTransactionCommitted,
         on_nullifier_received: OnNullifierReceived,
     ) -> Self {
         Self {
             rpc_api,
             on_note_received,
-            on_committed_transaction,
+            on_transaction_committed,
             on_nullifier_received,
         }
     }
@@ -261,6 +261,7 @@ impl StateSync {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+
     /// Compares the state of tracked accounts with the updates received from the node and returns
     /// the accounts that need to be updated.
     ///
@@ -373,7 +374,7 @@ impl StateSync {
 
         for transaction_update in transactions {
             let (new_note_update, new_transaction_update) =
-                (self.on_committed_transaction)(transaction_update).await?;
+                (self.on_transaction_committed)(transaction_update).await?;
 
             // Remove nullifiers if they were consumed by the transaction
             nullifiers.retain(|nullifier| {
@@ -419,6 +420,34 @@ impl StateSync {
 
         Ok(return_notes)
     }
+}
+
+// HELPERS
+// ================================================================================================
+
+/// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
+/// authentication nodes for leaves we track.
+pub(crate) async fn apply_mmr_changes(
+    current_block: BlockHeader,
+    current_block_has_relevant_notes: bool,
+    mut current_partial_mmr: PartialMmr,
+    mmr_delta: MmrDelta,
+) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
+    // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
+    // node doesn't contain the request block itself.
+    let new_authentication_nodes = current_partial_mmr
+        .add(current_block.hash(), current_block_has_relevant_notes)
+        .into_iter();
+
+    // Apply the MMR delta to bring MMR to forest equal to chain tip
+    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
+        .apply(mmr_delta)
+        .map_err(StoreError::MmrError)?
+        .into_iter()
+        .chain(new_authentication_nodes)
+        .collect();
+
+    Ok((current_partial_mmr.peaks(), new_authentication_nodes))
 }
 
 // DEFAULT CALLBACK IMPLEMENTATIONS
@@ -477,31 +506,6 @@ pub async fn on_note_received(
         NoteUpdates::new(vec![], vec![], updated_input_notes, updated_output_notes),
         new_note_ids,
     ))
-}
-
-/// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
-/// authentication nodes for leaves we track.
-pub(crate) async fn apply_mmr_changes(
-    current_block: BlockHeader,
-    current_block_has_relevant_notes: bool,
-    mut current_partial_mmr: PartialMmr,
-    mmr_delta: MmrDelta,
-) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
-    // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
-    // node doesn't contain the request block itself.
-    let new_authentication_nodes = current_partial_mmr
-        .add(current_block.hash(), current_block_has_relevant_notes)
-        .into_iter();
-
-    // Apply the MMR delta to bring MMR to forest equal to chain tip
-    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
-        .apply(mmr_delta)
-        .map_err(StoreError::MmrError)?
-        .into_iter()
-        .chain(new_authentication_nodes)
-        .collect();
-
-    Ok((current_partial_mmr.peaks(), new_authentication_nodes))
 }
 
 /// Default implementation of the [OnTransactionCommitted] callback. It queries the store for the
