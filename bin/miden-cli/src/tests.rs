@@ -10,8 +10,8 @@ use config::RpcConfig;
 use miden_client::{
     self,
     account::{
-        AccountBuilder, AccountId, AccountStorageMode, AccountType, BasicWalletComponent,
-        RpoFalcon512Component,
+        component::{BasicWallet, RpoFalcon512},
+        AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
     auth::AuthSecretKey,
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
@@ -124,8 +124,8 @@ async fn test_mint_with_untracked_account() {
             .anchor((&anchor_block).try_into().unwrap())
             .account_type(AccountType::RegularAccountImmutableCode)
             .storage_mode(AccountStorageMode::Private)
-            .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-            .with_component(BasicWalletComponent)
+            .with_component(RpoFalcon512::new(key_pair.public_key()))
+            .with_component(BasicWallet)
             .build()
             .unwrap();
 

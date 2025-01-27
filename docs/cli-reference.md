@@ -85,9 +85,10 @@ For the `--default` flag, if `<ID>` is "none" then the previous default account 
 
 Creates a new wallet account.
 
-This command has two optional flags:
-- `--storage-type <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
+This command has three optional flags:
+- `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--mutable`: Makes the account code mutable (it's immutable by default).
+- `--extra_components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
 
 After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
 
@@ -95,11 +96,28 @@ After creating an account with the `new-wallet` command, it is automatically sto
 
 Creates a new faucet account.
 
-This command has two optional flags:
-- `--storage-type <type>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
+This command has three optional flags:
+- `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--non-fungible`: Makes the faucet asset non-fungible (it's fungible by default).
+- `--extra_components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
 
 After creating an account with the `new-faucet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
+
+#### Examples
+
+```bash
+# Create a new wallet with default settings (private storage, immutable, no extra components)
+miden new-wallet
+
+# Create a new wallet with public storage and a mutable code
+miden new-wallet --storage-mode public --mutable
+
+# Create a new wallet that includes extra components from local templates
+miden new-wallet --extra-components template1,template2
+
+# Create a fungible faucet 
+miden new-faucet --token-symbol TST --decimals 10 --max-supply 100000 --storage-mode private
+```
 
 ### `info`
 
