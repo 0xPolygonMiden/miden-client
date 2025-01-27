@@ -1,6 +1,8 @@
 use alloc::sync::Arc;
 
-use miden_client::transaction::{LocalTransactionProver, TransactionProverTrait};
+use miden_client::transaction::{
+    LocalTransactionProver, TransactionProver as TransactionProverTrait,
+};
 use miden_proving_service_client::RemoteTransactionProver;
 use wasm_bindgen::prelude::*;
 
