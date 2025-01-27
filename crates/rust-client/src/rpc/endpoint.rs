@@ -44,7 +44,7 @@ impl Endpoint {
 
     /// Returns the [Endpoint] for a default node running in `localhost`.
     pub fn localhost() -> Self {
-        Self::new("https".into(), "localhost".into(), Some(Self::MIDEN_NODE_PORT))
+        Self::new("http".into(), "localhost".into(), Some(Self::MIDEN_NODE_PORT))
     }
 
     pub fn protocol(&self) -> &str {
