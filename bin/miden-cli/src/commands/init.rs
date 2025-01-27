@@ -102,7 +102,7 @@ impl InitCmd {
         };
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config).map_err(|err| {
-            CliError::Config("Failed to serialize config".to_string().into(), err.to_string())
+            CliError::Config("failed to serialize config".to_string().into(), err.to_string())
         })?;
 
         let mut file_handle = File::options()
@@ -110,11 +110,11 @@ impl InitCmd {
             .create_new(true)
             .open(&config_file_path)
             .map_err(|err| {
-                CliError::Config("Failed to create config file".to_string().into(), err.to_string())
+                CliError::Config("failed to create config file".to_string().into(), err.to_string())
             })?;
 
         file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
-            CliError::Config("Failed to write config file".to_string().into(), err.to_string())
+            CliError::Config("failed to write config file".to_string().into(), err.to_string())
         })?;
 
         println!("Config file successfully created at: {:?}", config_file_path);

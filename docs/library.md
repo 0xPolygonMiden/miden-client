@@ -63,8 +63,8 @@ let (new_account, seed) = AccountBuilder::new(init_seed) // Seed should be rando
     .anchor((&anchor_block).try_into().unwrap())
     .account_type(AccountType::RegularAccountImmutableCode)
     .storage_mode(AccountStorageMode::Private)
-    .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-    .with_component(BasicWalletComponent)
+    .with_component(RpoFalcon512::new(key_pair.public_key()))
+    .with_component(BasicWallet)
     .build()?;
 
 client.add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;
@@ -81,8 +81,8 @@ let (new_account, seed) = AccountBuilder::new(init_seed) // Seed should be rando
     .anchor((&anchor_block).try_into().unwrap())
     .account_type(AccountType::RegularAccountImmutableCode)
     .storage_mode(AccountStorageMode::Public)
-    .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-    .with_component(BasicWalletComponent)
+    .with_component(RpoFalcon512::new(key_pair.public_key()))
+    .with_component(BasicWallet)
     .build()?;
 
 client.add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false).await?;

@@ -1511,9 +1511,9 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7532561ba51c1edcdc510e4e4a097357d49a2b6ea899d9982176dc5608bfd32e"
+checksum = "4622f71888d4641577d145dd561165824b9b9293fd0be2306326f11bcf39e67d"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -2962,9 +2962,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "trybuild"
-version = "1.0.102"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f14b5c02a137632f68194ec657ecb92304138948e8957c932127eb1b58c23be"
+checksum = "b812699e0c4f813b872b373a4471717d9eb550da14b311058a4d9cf4173cbca6"
 dependencies = [
  "dissimilar",
  "glob",
@@ -2993,9 +2993,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adb9e6ca4f869e1180728b7950e35922a7fc6397f7b641499e8f3ef06e50dc83"
+checksum = "11cd88e12b17c6494200a9c1b683a04fcac9573ed74cd1b62aeb2727c5592243"
 
 [[package]]
 name = "unicode-linebreak"
