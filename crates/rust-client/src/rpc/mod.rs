@@ -1,6 +1,43 @@
-//! Provides an interface for the client to communicate with Miden nodes using
-//! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
-//! transactions.
+//! Provides an interface for the client to communicate with a Miden node using
+//! Remote Procedure Calls (RPC).
+//!
+//! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
+//!
+//! - Submit proven transactions.
+//! - Retrieve block headers (optionally with MMR proofs).
+//! - Sync state updates (including notes, nullifiers, and account updates).
+//! - Fetch details for specific notes and accounts.
+//!
+//! In addition, the module provides implementations for different environments (e.g. tonic-based or
+//! web-based) via feature flags ( `tonic` and `web-tonic`).
+//!
+//! ## Example
+//!
+//! ```no_run
+//! # use miden_client::rpc::{NodeRpcClient, TonicRpcClient};
+//! # use miden_objects::block::BlockNumber;
+//! # use miden_client::rpc::Endpoint;
+//! ##[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a Tonic RPC client instance (assumes default endpoint configuration).
+//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000);
+//!
+//! // Fetch the latest block header (by passing None).
+//! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
+//!
+//! println!("Latest block number: {}", block_header.block_num());
+//! if let Some(proof) = mmr_proof {
+//!     println!("MMR proof received accordingly");
+//! }
+//!
+//! #    Ok(())
+//! # }
+//! ```
+//! The client also makes use of this component in order to communicate with the node.
+//!
+//! For further details and examples, see the documentation for the individual methods in the
+//! [NodeRpcClient] trait.
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
@@ -19,6 +56,8 @@ use miden_objects::{
     transaction::ProvenTransaction,
 };
 
+/// Contains domain types related to RPC requests and responses, as well as utility functions
+/// for dealing with them.
 pub mod domain;
 
 mod errors;

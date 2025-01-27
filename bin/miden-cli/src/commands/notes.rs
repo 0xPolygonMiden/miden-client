@@ -2,7 +2,7 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     account::AccountId,
-    assets::Asset,
+    asset::Asset,
     crypto::{Digest, FeltRng},
     note::{
         get_input_note_with_id_prefix,
