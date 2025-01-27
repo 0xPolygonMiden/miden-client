@@ -93,7 +93,6 @@ impl Cli {
 
         // Define whether we want to use the executor's debug mode based on the env var and
         // the flag override
-
         let in_debug_mode = match env::var("MIDEN_DEBUG") {
             Ok(value) if value.to_lowercase() == "true" => true,
             _ => self.debug,

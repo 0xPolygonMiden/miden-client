@@ -11,7 +11,7 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::account::{Account, AccountBuilder, AccountType, BasicWalletComponent};
+//! # use miden_client::account::{Account, AccountBuilder, AccountType, component::BasicWallet};
 //! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
 //! # use miden_client::crypto::{FeltRng, SecretKey};
 //! # async fn add_new_account_example(
@@ -23,7 +23,7 @@
 //! let (account, seed) = AccountBuilder::new(random_seed)
 //!     .account_type(AccountType::RegularAccountImmutableCode)
 //!     .storage_mode(AccountStorageMode::Private)
-//!     .with_component(BasicWalletComponent)
+//!     .with_component(BasicWallet)
 //!     .build()?;
 //!
 //! // Add the account to the client. The account seed and authentication key are required
@@ -41,14 +41,9 @@
 
 use alloc::vec::Vec;
 
-pub use miden_lib::account::{
-    auth::RpoFalcon512 as RpoFalcon512Component,
-    faucets::BasicFungibleFaucet as BasicFungibleFaucetComponent,
-    wallets::BasicWallet as BasicWalletComponent,
-};
 pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
+    AccountStorageMode, AccountType, StorageSlot,
 };
 use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
 
@@ -57,6 +52,23 @@ use crate::{
     store::{AccountRecord, AccountStatus},
     ClientError,
 };
+
+// RE-EXPORTS
+// ================================================================================================
+
+pub mod component {
+    pub use miden_lib::account::{
+        auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet,
+    };
+    pub use miden_objects::account::{
+        AccountComponent, AccountComponentMetadata, AccountComponentTemplate, FeltRepresentation,
+        InitStorageData, MapRepresentation, PlaceholderType, StorageEntry, StoragePlaceholder,
+        StorageSlotType, StorageValue, WordRepresentation,
+    };
+}
+
+// CLIENT METHODS
+// ================================================================================================
 
 /// This section of the [Client] contains methods for:
 ///

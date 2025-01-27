@@ -2,8 +2,8 @@ use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
     account::{
-        AccountBuilder, AccountType, BasicFungibleFaucetComponent, BasicWalletComponent,
-        RpoFalcon512Component,
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
+        AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
     crypto::FeltRng,
@@ -106,8 +106,8 @@ pub async fn insert_new_wallet<R: FeltRng>(
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
         .storage_mode(storage_mode)
-        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-        .with_component(BasicWalletComponent)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicWallet)
         .build()
         .unwrap();
 
@@ -138,8 +138,8 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(storage_mode)
-        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-        .with_component(BasicFungibleFaucetComponent::new(symbol, 10, max_supply).unwrap())
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicFungibleFaucet::new(symbol, 10, max_supply).unwrap())
         .build()
         .unwrap();
 

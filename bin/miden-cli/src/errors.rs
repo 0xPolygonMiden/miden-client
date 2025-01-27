@@ -5,11 +5,16 @@ use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
 use thiserror::Error;
 
+type SourceError = Box<dyn StdError + Send + Sync>;
+
 #[derive(Debug, Diagnostic, Error)]
 pub enum CliError {
     #[error("account error: {1}")]
     #[diagnostic(code(cli::account_error))]
     Account(#[source] AccountError, String),
+    #[error("account component error: {1}")]
+    #[diagnostic(code(cli::account_error))]
+    AccountComponentError(#[source] SourceError, String),
     #[error("account id error: {1}")]
     #[diagnostic(code(cli::accountid_error), help("Check the account ID format."))]
     AccountId(#[source] AccountIdError, String),
@@ -24,7 +29,7 @@ pub enum CliError {
         code(cli::config_error),
         help("Check if the configuration file exists and is well-formed.")
     )]
-    Config(#[source] Box<dyn StdError + Send + Sync>, String),
+    Config(#[source] SourceError, String),
     #[error("export error: {0}")]
     #[diagnostic(code(cli::export_error), help("Check the ID."))]
     Export(String),
@@ -45,10 +50,10 @@ pub enum CliError {
     MissingFlag(String),
     #[error("parse error: {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
-    Parse(#[source] Box<dyn StdError + Send + Sync>, String),
+    Parse(#[source] SourceError, String),
     #[error("transaction error: {1}")]
     #[diagnostic(code(cli::transaction_error))]
-    Transaction(#[source] Box<dyn StdError + Send + Sync>, String),
+    Transaction(#[source] SourceError, String),
 }
 
 impl From<CliError> for String {
