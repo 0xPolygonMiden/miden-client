@@ -112,8 +112,8 @@ fn process_component_templates(
 // NEW FAUCET
 // ================================================================================================
 
-#[derive(Debug, Parser, Clone)]
 /// Create a new faucet account.
+#[derive(Debug, Parser, Clone)]
 pub struct NewFaucetCmd {
     /// Storage mode of the account.
     #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
@@ -211,8 +211,8 @@ impl NewFaucetCmd {
 // NEW WALLET
 // ================================================================================================
 
-#[derive(Debug, Parser, Clone)]
 /// Create a new wallet account.
+#[derive(Debug, Parser, Clone)]
 pub struct NewWalletCmd {
     /// Storage mode of the account.
     #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
