@@ -4,14 +4,15 @@ use miden_client::{
         AccountBuilder, AccountStorageMode, AccountType, BasicFungibleFaucetComponent,
         BasicWalletComponent, RpoFalcon512Component,
     },
-    assets::TokenSymbol,
+    asset::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
     Client, Felt,
 };
 
 use crate::{
-    commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
+    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
+    CLIENT_BINARY_NAME,
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -49,16 +50,16 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
         }
 
         if self.token_symbol.is_none() || self.decimals.is_none() || self.max_supply.is_none() {
-            return Err(
+            return Err(CliError::MissingFlag(
                 "`token-symbol`, `decimals` and `max-supply` flags must be provided for a fungible faucet"
                     .to_string(),
-            );
+            ));
         }
 
         let decimals = self.decimals.expect("decimals must be provided");
@@ -69,8 +70,7 @@ impl NewFaucetCmd {
         let mut init_seed = [0u8; 32];
         client.rng().fill_bytes(&mut init_seed);
 
-        let symbol = TokenSymbol::new(token_symbol.as_str())
-            .map_err(|err| format!("token symbol is invalid: {}", err))?;
+        let symbol = TokenSymbol::new(token_symbol.as_str()).map_err(CliError::Asset)?;
         let max_supply = Felt::try_from(
             self.max_supply.expect("max supply must be provided").to_le_bytes().as_slice(),
         )
@@ -84,11 +84,12 @@ impl NewFaucetCmd {
             .storage_mode(self.storage_mode.into())
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
             .with_component(
-                BasicFungibleFaucetComponent::new(symbol, decimals, max_supply)
-                    .map_err(|err| format!("failed to create faucet: {}", err))?,
+                BasicFungibleFaucetComponent::new(symbol, decimals, max_supply).map_err(|err| {
+                    CliError::Account(err, "Failed to create a faucet".to_string())
+                })?,
             )
             .build()
-            .map_err(|err| format!("failed to create faucet: {}", err))?;
+            .map_err(|err| CliError::Account(err, "Failed to create a faucet".to_string()))?;
 
         client
             .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
@@ -116,7 +117,7 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let key_pair = SecretKey::with_rng(client.rng());
 
         let mut init_seed = [0u8; 32];
@@ -137,7 +138,7 @@ impl NewWalletCmd {
             .with_component(RpoFalcon512Component::new(key_pair.public_key()))
             .with_component(BasicWalletComponent)
             .build()
-            .map_err(|err| format!("failed to create wallet: {}", err))?;
+            .map_err(|err| CliError::Account(err, "Failed to create a wallet".to_string()))?;
 
         client
             .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)

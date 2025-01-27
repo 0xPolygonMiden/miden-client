@@ -9,6 +9,7 @@ use miden_objects::{
 use super::{InputNoteState, NoteStateHandler};
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ConsumedExternal] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedExternalNoteState {
     /// Block height at which the note was nullified.

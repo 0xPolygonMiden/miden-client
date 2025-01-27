@@ -18,7 +18,10 @@
 * Created functions for creating standard notes and note scripts easily on the web client (#686).
 * [BREAKING] Renamed plural modules to singular (#687).
 * [BREAKING] Made `idxdb` only usable on WASM targets (#685).
+* Added fixed seed option for web client generation (#688)
 * [BREAKING] Updated `init` command in the CLI to receive a `--network` flag (#690).
+* Improved CLI error messages (#682).
+* [BREAKING] Renamed APIs for retrieving account information to use the `try_get_*` naming convention, and added/improved module documentation (#683).
 
 ### Fixes
 

@@ -12,6 +12,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Unverified] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnverifiedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
