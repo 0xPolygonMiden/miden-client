@@ -1,3 +1,9 @@
+//! This module provides an SQLite-backed implementation of the [Store] trait.
+//!
+//! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
+//! nodes using an SQLite database.
+//! It is compiled only when the `sqlite` feature flag is enabled.
+
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -7,10 +13,11 @@ use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
+    note::{NoteTag, Nullifier},
+    Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
 use tonic::async_trait;
@@ -22,20 +29,20 @@ use super::{
 use crate::{
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-mod accounts;
+mod account;
 mod chain_data;
 mod errors;
-mod notes;
+mod note;
 mod sync;
-mod transactions;
+mod transaction;
 
 // SQLITE STORE
 // ================================================================================================
 
-/// Represents a pool of connections with an sqlite database. The pool is used to interact
+/// Represents a pool of connections with an SQLite database. The pool is used to interact
 /// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.
@@ -133,7 +140,7 @@ impl Store for SqliteStore {
             .await
     }
 
-    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         self.interact_with_connection(SqliteStore::get_sync_height).await
     }
 
@@ -199,7 +206,7 @@ impl Store for SqliteStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_numbers = block_numbers.to_vec();
         self.interact_with_connection(move |conn| {
@@ -231,7 +238,7 @@ impl Store for SqliteStore {
 
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.interact_with_connection(move |conn| {
             SqliteStore::get_chain_mmr_peaks_by_block_num(conn, block_num)

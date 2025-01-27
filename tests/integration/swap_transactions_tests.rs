@@ -1,12 +1,12 @@
 use miden_client::{
-    accounts::Account,
-    notes::{build_swap_tag, Note},
-    transactions::{SwapTransactionData, TransactionRequestBuilder},
+    account::Account,
+    note::{build_swap_tag, Note},
+    transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset},
-    notes::{NoteDetails, NoteFile, NoteId, NoteType},
+    account::{AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset},
+    note::{NoteDetails, NoteFile, NoteId, NoteType},
 };
 
 use super::common::*;
@@ -217,7 +217,7 @@ async fn test_swap_fully_onchain() {
 }
 
 #[tokio::test]
-async fn test_swap_offchain() {
+async fn test_swap_private() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;

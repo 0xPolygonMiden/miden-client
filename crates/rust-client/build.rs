@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miden_lib::notes::scripts::{p2id, p2idr, swap};
+use miden_lib::note::scripts::{p2id, p2idr, swap};
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
@@ -13,22 +13,25 @@ use prost::Message;
 const STD_PROTO_OUT_DIR: &str = "src/rpc/generated/std";
 const NO_STD_PROTO_OUT_DIR: &str = "src/rpc/generated/nostd";
 
+/// Defines whether the build script should generate files in `/src`.
+/// The docs.rs build pipeline has a read-only filesystem, so we have to avoid writing to `src`,
+/// otherwise the docs will fail to build there. Note that writing to `OUT_DIR` is fine.
+const CODEGEN: bool = option_env!("CODEGEN").is_some();
+
 fn main() -> miette::Result<()> {
+    println!("cargo::rerun-if-env-changed=CODEGEN");
+    if !CODEGEN {
+        return Ok(());
+    }
+
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
     let dest_path = PathBuf::from(out_dir);
 
-    // updates the generated files from protobuf. Only do so when this is not docs.rs building the
-    // documentation.
-    if env::var("DOCS_RS").is_err() && env::var("CODEGEN").unwrap_or("0".to_string()) == "1" {
-        write_proto(&dest_path).unwrap();
-        compile_tonic_client_proto(&dest_path)?;
-        replace_no_std_types();
-        generate_known_script_roots().unwrap();
-    }
-
-    Ok(())
+    write_proto(&dest_path).map_err(miette::Report::msg)?;
+    compile_tonic_client_proto(&dest_path)?;
+    replace_no_std_types();
+    generate_known_script_roots().into_diagnostic()
 }
-
 // NODE RPC CLIENT PROTO CODEGEN
 // ===============================================================================================
 
@@ -91,7 +94,7 @@ fn replace_no_std_types() {
 fn generate_known_script_roots() -> std::io::Result<()> {
     // Get the output directory from the environment variables
     let out_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("src/notes/script_roots.rs");
+    let dest_path = Path::new(&out_dir).join("src/note/script_roots.rs");
     let mut f = File::create(&dest_path)?;
     // Write the top-level doc comment
     writeln!(f, "//! Well-known note script roots.")?;

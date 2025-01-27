@@ -1,12 +1,14 @@
 use clap::Parser;
 use miden_client::{crypto::FeltRng, Client};
 
+use crate::errors::CliError;
+
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Sync this client with the latest state of the Miden network.")]
 pub struct SyncCmd {}
 
 impl SyncCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let new_details = client.sync_state().await?;
 
         println!("State synced to block {}", new_details.block_num);

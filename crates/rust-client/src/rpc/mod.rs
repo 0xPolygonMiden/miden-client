@@ -1,24 +1,63 @@
-//! Provides an interface for the client to communicate with Miden nodes using
-//! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
-//! transactions.
+//! Provides an interface for the client to communicate with a Miden node using
+//! Remote Procedure Calls (RPC).
+//!
+//! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
+//!
+//! - Submit proven transactions.
+//! - Retrieve block headers (optionally with MMR proofs).
+//! - Sync state updates (including notes, nullifiers, and account updates).
+//! - Fetch details for specific notes and accounts.
+//!
+//! In addition, the module provides implementations for different environments (e.g. tonic-based or
+//! web-based) via feature flags ( `tonic` and `web-tonic`).
+//!
+//! ## Example
+//!
+//! ```no_run
+//! # use miden_client::rpc::{NodeRpcClient, TonicRpcClient};
+//! # use miden_objects::block::BlockNumber;
+//! # use miden_client::rpc::Endpoint;
+//! ##[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a Tonic RPC client instance (assumes default endpoint configuration).
+//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000);
+//!
+//! // Fetch the latest block header (by passing None).
+//! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
+//!
+//! println!("Latest block number: {}", block_header.block_num());
+//! if let Some(proof) = mmr_proof {
+//!     println!("MMR proof received accordingly");
+//! }
+//!
+//! #    Ok(())
+//! # }
+//! ```
+//! The client also makes use of this component in order to communicate with the node.
+//!
+//! For further details and examples, see the documentation for the individual methods in the
+//! [NodeRpcClient] trait.
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    accounts::{AccountDetails, AccountProofs},
-    notes::{NetworkNote, NoteSyncInfo},
+    account::{AccountDetails, AccountProofs},
+    note::{NetworkNote, NoteSyncInfo},
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId},
+    account::{Account, AccountCode, AccountHeader, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrProof,
-    notes::{NoteId, NoteTag, Nullifier},
+    note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
-    BlockHeader,
 };
 
+/// Contains domain types related to RPC requests and responses, as well as utility functions
+/// for dealing with them.
 pub mod domain;
 
 mod errors;
@@ -45,7 +84,7 @@ pub use web_tonic_client::WebTonicRpcClient;
 use crate::{
     store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
     sync::get_nullifier_prefix,
-    transactions::ForeignAccount,
+    transaction::ForeignAccount,
 };
 
 // NODE RPC CLIENT TRAIT
@@ -73,14 +112,14 @@ pub trait NodeRpcClient {
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
         &self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
     ///
     /// For any NoteType::Private note, the return data is only the
-    /// [miden_objects::notes::NoteMetadata], whereas for NoteType::Onchain notes, the return
+    /// [miden_objects::note::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
     async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 
@@ -98,7 +137,7 @@ pub trait NodeRpcClient {
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
@@ -112,7 +151,7 @@ pub trait NodeRpcClient {
 
     async fn sync_notes(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
 
@@ -211,7 +250,7 @@ pub trait NodeRpcClient {
     /// The default implementation of this method uses [NodeRpcClient::get_block_header_by_number].
     async fn get_block_header_with_proof(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
         let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))

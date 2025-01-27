@@ -29,16 +29,19 @@ import {
   Rpo256,
   TestUtils,
   TransactionFilter,
+  TransactionProver,
   TransactionRequest,
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
+  Word,
   WebClient,
 } from "../dist/index";
 
 declare global {
   interface Window {
     client: WebClient;
+    remote_prover_url: string;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountId: typeof AccountId;
@@ -61,6 +64,7 @@ declare global {
     NoteInputs: typeof NoteInputs;
     NoteMetadata: typeof NoteMetadata;
     NoteRecipient: typeof NoteRecipient;
+    NoteScript: typeof NoteScript;
     NoteTag: typeof NoteTag;
     NoteType: typeof NoteType;
     OutputNote: typeof OutputNote;
@@ -68,10 +72,13 @@ declare global {
     Rpo256: typeof Rpo256;
     TestUtils: typeof TestUtils;
     TransactionFilter: typeof TransactionFilter;
+    TransactionProver: typeof TransactionProver;
     TransactionRequest: typeof TransactionRequest;
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
+    WebClient: typeof WebClient;
+    Word: typeof Word;
     create_client: () => Promise<void>;
 
     // Add the helpers namespace
@@ -81,6 +88,7 @@ declare global {
         maxWaitTime?: number,
         delayInterval?: number
       ) => Promise<void>;
+      refreshClient: (initSeed?: Uint8Array) => Promise<void>;
     };
   }
 }

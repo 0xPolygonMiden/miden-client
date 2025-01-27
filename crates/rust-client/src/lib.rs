@@ -1,19 +1,113 @@
+//! A no_std-compatible client library for interacting with the Miden network.
+//!
+//! This crate provides a lightweight client that handles connections to the Miden node, manages
+//! accounts and their state, and facilitates executing, proving, and submitting transactions.
+//!
+//! For a protocol-level overview and guides for getting started, please visit the official
+//! [Polygon Miden docs](https://0xpolygonmiden.github.io/miden-docs/).
+//!
+//! ## Overview
+//!
+//! The library is organized into several key modules:
+//!
+//! - **Accounts:** Provides types for managing accounts. Once accounts are tracked by the client,
+//!   their state is updated with every transaction and validated during each sync.
+//!
+//! - **Notes:** Contains types and utilities for working with notes in the Miden client.
+//!
+//! - **RPC:** Facilitates communication with Miden node, exposing RPC methods for syncing state,
+//!   fetching block headers, and submitting transactions.
+//!
+//! - **Store:** Defines and implements the persistence layer for accounts, transactions, notes, and
+//!   other entities.
+//!
+//! - **Sync:** Provides functionality to synchronize the local state with the current state on the
+//!   Miden network.
+//!
+//! - **Transactions:** Offers capabilities to build, execute, prove, and submit transactions.
+//!
+//! Additionally, the crate re-exports several utility modules:
+//!
+//! - **Assets:** Types and utilities for working with assets.
+//! - **Auth:** Authentication-related types and functionalities.
+//! - **Blocks:** Types for handling block headers.
+//! - **Crypto:** Cryptographic types and utilities, including random number generators.
+//! - **Utils:** Miscellaneous utilities for serialization and common operations.
+//!
+//! The library is designed to work in both `no_std` and `std` environments and is
+//! configurable via Cargo features.
+//!
+//! ## Usage
+//!
+//! To use the Miden client library in your project, add it as a dependency in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! miden-client = "0.7.0"
+//! ```
+//!
+//! ## Example
+//!
+//! Below is a brief example illustrating how to instantiate the client:
+//!
+//! ```rust
+//! use std::sync::Arc;
+//!
+//! use miden_client::{
+//!     crypto::RpoRandomCoin,
+//!     rpc::{Endpoint, TonicRpcClient},
+//!     store::{sqlite_store::SqliteStore, Store, StoreAuthenticator},
+//!     Client, Felt,
+//! };
+//! use miden_objects::crypto::rand::FeltRng;
+//! use rand::Rng;
+//!
+//! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create the SQLite store from the client configuration.
+//! let sqlite_store = SqliteStore::new("path/to/store".try_into()?).await?;
+//! let store = Arc::new(sqlite_store);
+//!
+//! // Generate a random seed for the RpoRandomCoin.
+//! let mut rng = rand::thread_rng();
+//! let coin_seed: [u64; 4] = rng.gen();
+//!
+//! // Initialize the random coin using the generated seed.
+//! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+//!
+//! // Create a store authenticator with the store and random coin.
+//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+//!
+//! // Instantiate the client using a Tonic RPC client
+//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let client: Client<RpoRandomCoin> = Client::new(
+//!     Box::new(TonicRpcClient::new(endpoint, 10_000)),
+//!     rng,
+//!     store,
+//!     Arc::new(authenticator),
+//!     false, // Set to true for debug mode, if needed.
+//! );
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For additional usage details, configuration options, and examples, consult the documentation for
+//! each module.
+
 #![no_std]
 
 #[macro_use]
 extern crate alloc;
 
-pub use alloc::boxed::Box;
-
 #[cfg(feature = "std")]
 extern crate std;
 
-pub mod accounts;
-pub mod notes;
+pub mod account;
+pub mod note;
 pub mod rpc;
 pub mod store;
 pub mod sync;
-pub mod transactions;
+pub mod transaction;
 
 #[cfg(test)]
 pub mod mock;
@@ -26,27 +120,27 @@ mod errors;
 // RE-EXPORTS
 // ================================================================================================
 
-/// Provides types and utilities for working with assets within the Miden rollup network.
-pub mod assets {
+/// Provides types and utilities for working with assets within the Miden network.
+pub mod asset {
     pub use miden_objects::{
-        accounts::delta::{
+        account::delta::{
             AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
         },
-        assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
+        asset::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
     };
 }
 
 /// Provides authentication-related types and functionalities for the Miden
-/// rollup network.
+/// network.
 pub mod auth {
     pub use miden_lib::AuthScheme;
-    pub use miden_objects::accounts::AuthSecretKey;
+    pub use miden_objects::account::AuthSecretKey;
     pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
 
-/// Provides types for working with blocks within the Miden rollup network.
-pub mod blocks {
-    pub use miden_objects::BlockHeader;
+/// Provides types for working with blocks within the Miden network.
+pub mod block {
+    pub use miden_objects::block::BlockHeader;
 }
 
 /// Provides cryptographic types and utilities used within the Miden rollup
@@ -79,7 +173,7 @@ pub mod utils {
 }
 
 /// Provides test utilities for working with accounts and account IDs
-/// within the Miden rollup network. This module is only available when the `testing` feature is
+/// within the Miden network. This module is only available when the `testing` feature is
 /// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
@@ -99,13 +193,12 @@ use tracing::info;
 // MIDEN CLIENT
 // ================================================================================================
 
-/// A light client for connecting to the Miden rollup network.
+/// A light client for connecting to the Miden network.
 ///
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
 /// - Keeps track of the current and historical states of a set of accounts and related objects such
 ///   as notes and transactions.
-/// - Connects to one or more Miden nodes to periodically sync with the current state of the
-///   network.
+/// - Connects to a Miden node to periodically sync with the current state of the network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client<R: FeltRng> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
@@ -118,7 +211,10 @@ pub struct Client<R: FeltRng> {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
     tx_prover: Arc<LocalTransactionProver>,
+    /// An instance of a [TransactionExecutor] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
+    /// Flag to enable the debug mode for scripts compilation and execution.
+    in_debug_mode: bool,
 }
 
 /// Construction and access methods.
@@ -169,7 +265,13 @@ impl<R: FeltRng> Client<R> {
             rpc_api,
             tx_executor,
             tx_prover,
+            in_debug_mode,
         }
+    }
+
+    /// Returns true if the client is in debug mode.
+    pub fn is_in_debug_mode(&self) -> bool {
+        self.in_debug_mode
     }
 
     /// Returns a reference to the client's random number generator. This can be used to generate

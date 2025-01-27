@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    block::{BlockHeader, BlockNumber},
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{
@@ -12,13 +12,14 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ProcessingUnauthenticated] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcessingUnauthenticatedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
     /// information.
     pub metadata: NoteMetadata,
     /// Block height after which the note is expected to be committed.
-    pub after_block_num: u32,
+    pub after_block_num: BlockNumber,
     /// Information about the submission of the note.
     pub submission_data: NoteSubmissionData,
 }
@@ -49,7 +50,7 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
 
     fn consumed_locally(
         &self,
-        _consumer_account: miden_objects::accounts::AccountId,
+        _consumer_account: miden_objects::account::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
         _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
@@ -103,7 +104,7 @@ impl miden_tx::utils::Deserializable for ProcessingUnauthenticatedNoteState {
         source: &mut R,
     ) -> Result<Self, miden_tx::utils::DeserializationError> {
         let metadata = NoteMetadata::read_from(source)?;
-        let after_block_num = u32::read_from(source)?;
+        let after_block_num = BlockNumber::read_from(source)?;
         let submission_data = NoteSubmissionData::read_from(source)?;
         Ok(ProcessingUnauthenticatedNoteState {
             metadata,

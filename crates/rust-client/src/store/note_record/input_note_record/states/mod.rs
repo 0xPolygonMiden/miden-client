@@ -3,10 +3,10 @@ use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
 use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    account::AccountId,
+    block::BlockHeader,
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 pub use miden_tx::utils::{
     ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
@@ -38,23 +38,24 @@ use super::NoteRecordError;
 
 /// The possible states of a tracked note.
 pub enum InputNoteState {
-    /// Tracked by the client but without a chain inclusion proof.
+    /// Tracked by the client but without a network inclusion proof.
     Expected(ExpectedNoteState),
-    /// With inclusion proof but not yet verified.
+    /// The store holds the note's inclusion proof, but  it was not yet verified.
     Unverified(UnverifiedNoteState),
-    /// With verified inclusion proof.
+    /// The store holds the note's inclusion proof, which was verified.
     Committed(CommittedNoteState),
-    /// With invalid inclusion proof.
+    /// The store holds the note's inclusion proof, which is invalid.
     Invalid(InvalidNoteState),
-    /// Authenticated note being consumed locally by the client, awaiting chain confirmation.
+    /// Authenticated note being consumed locally by the client, awaiting network confirmation.
     ProcessingAuthenticated(ProcessingAuthenticatedNoteState),
-    /// Unauthenticated note being consumed locally by the client, awaiting chain confirmation.
+    /// Unauthenticated note being consumed locally by the client, awaiting network confirmation.
     ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState),
-    /// Authenticated note consumed locally by the client and confirmed by the chain.
+    /// Authenticated note consumed locally by the client and confirmed by the network.
     ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState),
-    /// Unauthenticated note consumed locally by the client and confirmed by the chain.
+    /// Unauthenticated note consumed locally by the client and confirmed by the network.
     ConsumedUnauthenticatedLocal(ConsumedUnauthenticatedLocalNoteState),
-    /// Note consumed in chain by an external account (e.g. an account not tracked by the client).
+    /// Note consumed by an external account (e.g. an account not tracked by the client) and
+    /// confirmed by the network.
     ConsumedExternal(ConsumedExternalNoteState),
 }
 

@@ -3,18 +3,18 @@ use alloc::vec::Vec;
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    accounts::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
-    notes::utils,
+    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    note::utils,
     transaction::TransactionKernel,
 };
 use miden_objects::{
-    accounts::{
+    account::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
         AccountType, AuthSecretKey,
     },
-    assets::{FungibleAsset, TokenSymbol},
+    asset::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
         NoteType,
     },
@@ -33,7 +33,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::{
+    transaction::{
         TransactionRequestBuilder, TransactionRequestError, TransactionScriptBuilderError,
     },
     Client, ClientError,
@@ -143,7 +143,7 @@ async fn test_get_input_note() {
         .import_note(NoteFile::NoteDetails {
             details: note.into(),
             tag: None,
-            after_block_num: 0,
+            after_block_num: 0.into(),
         })
         .await
         .unwrap();
@@ -385,11 +385,11 @@ async fn test_sync_state_mmr() {
 
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
-    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1), false).await.unwrap();
+    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1.into()), false).await.unwrap();
     partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
-    let (block_4, _) = rpc_api.get_block_header_by_number(Some(4), false).await.unwrap();
+    let (block_4, _) = rpc_api.get_block_header_by_number(Some(4.into()), false).await.unwrap();
     partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
 }
 
@@ -446,7 +446,7 @@ async fn test_mint_transaction() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -472,7 +472,7 @@ async fn test_get_output_notes() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -501,7 +501,7 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: committed_note.clone().into(),
-            after_block_num: 0,
+            after_block_num: 0.into(),
             tag: None,
         })
         .await
@@ -510,7 +510,7 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: expected_note.clone().into(),
-            after_block_num: 0,
+            after_block_num: 0.into(),
             tag: None,
         })
         .await
@@ -533,7 +533,7 @@ async fn test_transaction_request_expiration() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()
@@ -566,7 +566,7 @@ async fn test_import_processing_note_returns_error() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
-        miden_objects::notes::NoteType::Private,
+        miden_objects::note::NoteType::Private,
         client.rng(),
     )
     .unwrap()

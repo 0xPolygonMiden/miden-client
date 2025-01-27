@@ -1,22 +1,77 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
-//! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
+//! network. It ensures that the client maintains a valid, up-to-date view of the chain.
+//!
+//! ## Overview
+//!
+//! This module handles the synchronization process between the local client and the Miden network.
+//! The sync operation involves:
+//!
+//! - Querying the Miden node for state updates using tracked account IDs, note tags, and nullifier
+//!   prefixes.
+//! - Processing the received data to update note inclusion proofs, reconcile note state (new,
+//!   committed, or consumed), and update account states.
+//! - Incorporating new block headers and updating the local Merkle Mountain Range (MMR) with new
+//!   peaks and authentication nodes.
+//! - Aggregating transaction updates to determine which transactions have been committed or
+//!   discarded.
+//!
+//! The result of the synchronization process is captured in a [`SyncSummary`], which provides
+//! a summary of the new block number along with lists of received, committed, and consumed note
+//! IDs, updated account IDs, locked accounts, and committed transaction IDs.
+//!
+//! Once the data is requested and retrieved, updates are persisted in the client's store.
+//!
+//! ## Examples
+//!
+//! The following example shows how to initiate a state sync and handle the resulting summary:
+//!
+//! ```rust
+//! # use miden_client::sync::SyncSummary;
+//! # use miden_client::{Client, ClientError};
+//! # use miden_objects::{block::BlockHeader, Felt, Word, StarkField};
+//! # use miden_objects::crypto::rand::FeltRng;
+//! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
+//! // Attempt to synchronize the client's state with the Miden network.
+//! // The requested data is based on the client's state: it gets updates for accounts, relevant
+//! // notes, etc. For more information on the data that gets requested, see the doc comments for
+//! // `sync_state()`.
+//! let sync_summary: SyncSummary = client.sync_state().await?;
+//!
+//! println!("Synced up to block number: {}", sync_summary.block_num);
+//! println!("Received notes: {}", sync_summary.received_notes.len());
+//! println!("Committed notes: {}", sync_summary.committed_notes.len());
+//! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
+//! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
+//! println!("Locked accounts: {}", sync_summary.locked_accounts.len());
+//! println!("Committed transactions: {}", sync_summary.committed_transactions.len());
+//!
+//! Ok(())
+//! # }
+//! ```
+//!
+//! The `sync_state` method loops internally until the client is fully synced to the network tip.
+//!
+//! For more advanced usage, refer to the individual functions (such as
+//! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
+//! processed and applied to the local store.
 
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::max;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
+    block::BlockNumber,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteTag, Nullifier},
+    note::{NoteId, NoteTag, Nullifier},
     transaction::TransactionId,
 };
 
-use crate::{notes::NoteUpdates, Client, ClientError};
+use crate::{note::NoteUpdates, Client, ClientError};
 
-mod block_headers;
+mod block_header;
 
-mod tags;
-pub use tags::{NoteTagRecord, NoteTagSource};
+mod tag;
+pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
 pub use state_sync::{
@@ -27,7 +82,7 @@ pub use state_sync::{
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
-    pub block_num: u32,
+    pub block_num: BlockNumber,
     /// IDs of new notes received.
     pub received_notes: Vec<NoteId>,
     /// IDs of tracked notes that received inclusion proofs.
@@ -44,7 +99,7 @@ pub struct SyncSummary {
 
 impl SyncSummary {
     pub fn new(
-        block_num: u32,
+        block_num: BlockNumber,
         received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
@@ -63,7 +118,7 @@ impl SyncSummary {
         }
     }
 
-    pub fn new_empty(block_num: u32) -> Self {
+    pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
             received_notes: vec![],
@@ -105,7 +160,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
-    pub async fn get_sync_height(&self) -> Result<u32, ClientError> {
+    pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
         self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
@@ -122,7 +177,7 @@ impl<R: FeltRng> Client<R> {
     /// 3. Tracked notes are updated with their new states.
     /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
     ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::notes::NoteScreener])
+    ///    [crate::note::NoteScreener])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and private accounts are validated against the node
     ///    state.

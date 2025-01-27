@@ -4,17 +4,18 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, NoteTag},
+    account::AccountId,
+    block::BlockNumber,
+    note::{NoteId, NoteTag},
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    accounts::{lock_account, utils::update_account},
+    account::{lock_account, utils::update_account},
     chain_data::utils::serialize_chain_mmr_node,
-    notes::utils::apply_note_updates_tx,
+    note::utils::apply_note_updates_tx,
     WebStore,
 };
 use crate::{
@@ -58,13 +59,13 @@ impl WebStore {
         Ok(tags)
     }
 
-    pub(super) async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    pub(super) async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         let promise = idxdb_get_sync_height();
         let js_value = JsFuture::from(promise).await.unwrap();
         let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value).unwrap();
 
         let block_num_as_u32: u32 = block_num_idxdb.block_num.parse::<u32>().unwrap();
-        Ok(block_num_as_u32)
+        Ok(block_num_as_u32.into())
     }
 
     pub(super) async fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {

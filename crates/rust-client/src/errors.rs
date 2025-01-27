@@ -4,7 +4,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::MerkleError, notes::NoteId, AccountError, AssetError,
+    account::AccountId, crypto::merkle::MerkleError, note::NoteId, AccountError, AssetError,
     Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
@@ -14,10 +14,10 @@ use miden_tx::{
 use thiserror::Error;
 
 use crate::{
-    notes::NoteScreenerError,
+    note::NoteScreenerError,
     rpc::RpcError,
     store::{NoteRecordError, StoreError},
-    transactions::{TransactionRequestError, TransactionScriptBuilderError},
+    transaction::{TransactionRequestError, TransactionScriptBuilderError},
 };
 
 // CLIENT ERROR

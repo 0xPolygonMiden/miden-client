@@ -8,7 +8,7 @@ use miden_client::{
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_remote_provers::RemoteTransactionProver;
+use miden_proving_service_client::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -56,8 +56,20 @@ impl WebClient {
         &mut self,
         node_url: Option<String>,
         prover_url: Option<String>,
+        seed: Option<Vec<u8>>,
     ) -> Result<JsValue, JsValue> {
-        let mut rng = StdRng::from_entropy();
+        let mut rng = match seed {
+            Some(seed_bytes) => {
+                if seed_bytes.len() == 32 {
+                    let mut seed_array = [0u8; 32];
+                    seed_array.copy_from_slice(&seed_bytes);
+                    StdRng::from_seed(seed_array)
+                } else {
+                    return Err(JsValue::from_str("Seed must be exactly 32 bytes"));
+                }
+            },
+            None => StdRng::from_entropy(),
+        };
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));

@@ -1,9 +1,9 @@
-use miden_client::transactions::{
+use miden_client::transaction::{
     NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
     TransactionRequestBuilder as NativeTransactionRequestBuilder,
 };
 use miden_objects::{
-    notes::{
+    note::{
         Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId,
         NoteTag as NativeNoteTag,
     },

@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    block::{BlockHeader, BlockNumber},
+    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader,
 };
 
 use super::{
@@ -12,6 +12,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Unverified] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnverifiedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -74,7 +75,7 @@ impl NoteStateHandler for UnverifiedNoteState {
 
     fn consumed_locally(
         &self,
-        consumer_account: miden_objects::accounts::AccountId,
+        consumer_account: miden_objects::account::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
         _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
@@ -84,10 +85,12 @@ impl NoteStateHandler for UnverifiedNoteState {
             consumer_transaction,
         };
 
+        let after_block_num =
+            self.inclusion_proof.location().block_num().as_u32().saturating_sub(1);
         Ok(Some(
             ProcessingUnauthenticatedNoteState {
                 metadata: self.metadata,
-                after_block_num: self.inclusion_proof.location().block_num() - 1,
+                after_block_num: BlockNumber::from(after_block_num),
                 submission_data,
             }
             .into(),

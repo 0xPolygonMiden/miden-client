@@ -1,5 +1,25 @@
-//! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
-//! and retrieving data, such as account states, transaction history, and block headers.
+//! Defines the storage interfaces used by the Miden client.
+//!
+//! It provides mechanisms for persisting and retrieving data, such as account states, transaction
+//! history, block headers, notes, and MMR nodes.
+//!
+//! ## Overview
+//!
+//! The storage module is central to the Miden client’s persistence layer. It defines the
+//! [`Store`] trait which abstracts over any concrete storage implementation. The trait exposes
+//! methods to (among others):
+//!
+//! - Retrieve and update transactions, notes, and accounts.
+//! - Store and query block headers along with MMR peaks and authentication nodes.
+//! - Manage note tags for synchronizing with the node.
+//!
+//! These are all used by the Miden client to provide transaction execution in the correct contexts.
+//!
+//! In addition to the main [`Store`] trait, the module provides types for filtering queries, such
+//! as [`TransactionFilter`] and [`NoteFilter`], to narrow down the set of returned transactions or
+//! notes. For more advanced usage, see the documentation of individual methods in the [`Store`]
+//! trait.
+
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -9,15 +29,16 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
+    note::{NoteId, NoteTag, Nullifier},
+    Digest, Word,
 };
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
@@ -42,8 +63,8 @@ pub mod sqlite_store;
 #[cfg(feature = "idxdb")]
 pub mod web_store;
 
-mod account_record;
-pub use account_record::{AccountRecord, AccountStatus};
+mod account;
+pub use account::{AccountRecord, AccountStatus, AccountUpdates};
 mod note_record;
 pub use note_record::{
     input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
@@ -138,7 +159,7 @@ pub trait Store: Send + Sync {
     /// contains notes relevant to the client.
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
     /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
@@ -148,7 +169,7 @@ pub trait Store: Send + Sync {
     /// The default implementation of this method uses [Store::get_block_headers].
     async fn get_block_header_by_num(
         &self,
-        block_number: u32,
+        block_number: BlockNumber,
     ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(&[block_number])
             .await
@@ -177,7 +198,7 @@ pub trait Store: Send + Sync {
     /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks].
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
@@ -294,7 +315,7 @@ pub trait Store: Send + Sync {
     async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError>;
 
     /// Returns the block number of the last state sync block.
-    async fn get_sync_height(&self) -> Result<u32, StoreError>;
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError>;
 
     /// Applies the state sync update to the store. An update involves:
     ///

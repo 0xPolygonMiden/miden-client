@@ -1,9 +1,10 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    block::BlockHeader,
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::{
@@ -12,6 +13,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Committed] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CommittedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -59,7 +61,7 @@ impl NoteStateHandler for CommittedNoteState {
 
     fn consumed_locally(
         &self,
-        consumer_account: miden_objects::accounts::AccountId,
+        consumer_account: miden_objects::account::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
         current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {

@@ -6,18 +6,23 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
+# Enable file generation in the `src` directory.
+# This is used in the build script of the client to generate the node RPC-related code, from the
+# protobuf files.
+CODEGEN=CODEGEN=1
+
 FEATURES_WEB_CLIENT=--features "testing"
 FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
-FEATURES_CLI=--features "testing, concurrent"
+FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="next"
+NODE_BRANCH="main"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
@@ -76,29 +81,33 @@ doc: ## Generate & check rust documentation. You'll need `jq` in order for this 
 
 .PHONY: test
 test: ## Run tests
-	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
 
 .PHONY: test-deps
 test-deps: ## Install dependencies for tests
-	CODEGEN=1 cargo install cargo-nextest
+	$(CODEGEN) cargo install cargo-nextest
+
+.PHONY: test-docs
+test-docs: ## Run documentation tests
+	$(CODEGEN) cargo test --doc $(FEATURES_CLIENT)
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
-	CODEGEN=1 cd ./crates/web-client && npm run test:clean
+	$(CODEGEN) cd ./crates/web-client && npm run test:clean
 
 .PHONY: integration-test-remote-prover-web-client
 integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
-	CODEGEN=1 cd ./crates/web-client && npm run test:remote_prover
+	$(CODEGEN) cd ./crates/web-client && npm run test:remote_prover
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	CODEGEN=1 cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
@@ -158,7 +167,7 @@ kill-prover: ## Kill prover process
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Install the CLI binary
-	cargo install $(FEATURES_CLI) --path bin/miden-cli
+	cargo install $(FEATURES_CLI) --path bin/miden-cli --locked
 
 # --- Building ------------------------------------------------------------------------------------
 

@@ -1,11 +1,12 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    accounts::AccountId,
-    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    account::AccountId,
+    block::{BlockHeader, BlockNumber},
+    note::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::NoteRecordError;
@@ -29,6 +30,9 @@ pub use states::{
 /// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible).
+///
+/// Notes can also be consumed as unauthenticated notes, where their existence is verified by
+/// the network.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     /// Details of a note consisting of assets, script, inputs, and a serial number.
@@ -258,7 +262,7 @@ impl From<Note> for InputNoteRecord {
             created_at: None,
             state: ExpectedNoteState {
                 metadata: Some(metadata),
-                after_block_num: 0,
+                after_block_num: BlockNumber::from(0),
                 tag: Some(metadata.tag()),
             }
             .into(),

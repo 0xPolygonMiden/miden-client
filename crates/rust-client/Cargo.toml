@@ -57,9 +57,9 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
 
 [build-dependencies]
-miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
+miden-rpc-proto = { version = "0.7" }
 miden-lib = { workspace = true }
-miette = { version = "7.2", features = ["fancy"] }
+miette = { workspace = true }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
 prost-build = { version = "0.13", default-features = false }
 protox = { version = "0.7" }

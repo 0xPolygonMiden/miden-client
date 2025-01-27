@@ -7,20 +7,21 @@ use alloc::{
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId},
+    account::{Account, AccountCode, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
-        accounts::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        notes::{NetworkNote, NoteSyncInfo},
+        account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
+        note::{NetworkNote, NoteSyncInfo},
         sync::StateSyncInfo,
     },
     generated::{
@@ -33,7 +34,7 @@ use super::{
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
 };
-use crate::transactions::ForeignAccount;
+use crate::transaction::ForeignAccount;
 
 pub struct WebTonicRpcClient {
     endpoint: String,
@@ -74,13 +75,13 @@ impl NodeRpcClient for WebTonicRpcClient {
 
     async fn get_block_header_by_number(
         &self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetBlockHeaderByNumberRequest {
-            block_num,
+            block_num: block_num.as_ref().map(BlockNumber::as_u32),
             include_mmr_proof: Some(include_mmr_proof),
         };
 
@@ -112,7 +113,7 @@ impl NodeRpcClient for WebTonicRpcClient {
 
             Some(MmrProof {
                 forest: forest as usize,
-                position: block_header.block_num() as usize,
+                position: block_header.block_num().as_usize(),
                 merkle_path,
             })
         } else {
@@ -145,17 +146,17 @@ impl NodeRpcClient for WebTonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionProof::new(note.block_num, note.note_index as u16, merkle_path)?
+                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {
-                // On-chain notes include details
+                // Public notes include details
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
                     NetworkNote::Public(note, inclusion_details)
                 },
-                // Off-chain notes do not have details
+                // Private notes do not have details
                 None => {
                     let note_metadata = note
                         .metadata
@@ -178,7 +179,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// into a [StateSyncInfo] struct.
     async fn sync_state(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
@@ -190,7 +191,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
-            block_num,
+            block_num: block_num.as_u32(),
             account_ids,
             note_tags,
             nullifiers,
@@ -204,14 +205,14 @@ impl NodeRpcClient for WebTonicRpcClient {
 
     async fn sync_notes(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let mut query_client = self.build_api_client();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
-        let request = SyncNoteRequest { block_num, note_tags };
+        let request = SyncNoteRequest { block_num: block_num.as_u32(), note_tags };
 
         let response = query_client.sync_notes(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
@@ -268,7 +269,7 @@ impl NodeRpcClient for WebTonicRpcClient {
             .into_inner();
 
         let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
-        let block_num = response.block_num;
+        let block_num = response.block_num.into();
 
         // sanity check response
         if requested_accounts != response.account_proofs.len() {
@@ -320,8 +321,8 @@ impl NodeRpcClient for WebTonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - The provided account isn't on-chain: this is due to the fact that for offchain accounts
-    ///   the client is responsible.
+    /// - The provided account isn't on-chain: this is due to the fact that for private accounts the
+    ///   client is responsible.
     /// - There was an error sending the request to the node.
     /// - The answer had a `None` for its account, or the account had a `None` at the `details`
     ///   field.

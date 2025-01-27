@@ -11,17 +11,17 @@ Before you can use the Miden client, you'll need to make sure you have both [Rus
 You can either build from source with:
 
 ```bash
-cargo build --release --features "testing, concurrent"
+cargo build --release --features "concurrent"
 ```
 
-The `testing` and `concurrent` features are enabled to speed up account creation (for testing purposes) and  optimize transaction execution and proving times respectively.
+The `concurrent` feature is enabled to improve execution and proving times.
 
 Once the binary is built, you can find it on `./target/release/miden`.
 
 Or you can install the CLI from crates.io with:
 
 ```bash
-cargo install --features "testing, concurrent" miden-cli
+cargo install --features "concurrent" miden-cli
 ```
 
 These actions can also be executed when inside the repository via the Makefile with `make build` or `make install`.

@@ -1,6 +1,6 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::notes::NoteTag;
+use miden_objects::{block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Connection, Transaction};
 
@@ -8,8 +8,8 @@ use super::SqliteStore;
 use crate::{
     store::{
         sqlite_store::{
-            accounts::{lock_account, update_account},
-            notes::apply_note_updates_tx,
+            account::{lock_account, update_account},
+            note::apply_note_updates_tx,
         },
         StoreError,
     },
@@ -80,13 +80,13 @@ impl SqliteStore {
         Ok(removed_tags)
     }
 
-    pub(super) fn get_sync_height(conn: &mut Connection) -> Result<u32, StoreError> {
+    pub(super) fn get_sync_height(conn: &mut Connection) -> Result<BlockNumber, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).map(|v: i64| v as u32))
+            .map(|result| Ok(result?).map(|v: i64| BlockNumber::from(v as u32)))
             .next()
             .expect("state sync block number exists")
     }
@@ -125,7 +125,7 @@ impl SqliteStore {
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num().as_u32() as i64])?;
 
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 

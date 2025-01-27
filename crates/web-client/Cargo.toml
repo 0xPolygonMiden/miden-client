@@ -22,7 +22,8 @@ testing = ["miden-client/testing"]
 miden-client = { version = "0.6", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-remote-provers = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["tx-prover"] }
+miden-proving-service-client = { workspace = true }
+miden-tx = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { version = "0.6" }
@@ -34,4 +35,5 @@ console_error_panic_hook = "0.1"
 miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+miden-tx = { workspace = true, features = ["testing"] }
 web-sys = { version = "0.3", features = ["console"]}

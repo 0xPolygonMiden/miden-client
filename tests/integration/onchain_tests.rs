@@ -1,11 +1,11 @@
 use miden_client::{
     store::{InputNoteState, NoteFilter},
-    transactions::{PaymentTransactionData, TransactionRequestBuilder},
+    transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteTag, NoteType},
+    account::{AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset},
+    note::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
 
@@ -13,9 +13,9 @@ use super::common::*;
 
 #[tokio::test]
 async fn test_onchain_notes_flow() {
-    // Client 1 is an offchain faucet which will mint an onchain note for client 2
+    // Client 1 is an private faucet which will mint an onchain note for client 2
     let mut client_1 = create_test_client().await;
-    // Client 2 is an offchain account which will consume the note that it will sync from the node
+    // Client 2 is an private account which will consume the note that it will sync from the node
     let mut client_2 = create_test_client().await;
     // Client 3 will be transferred part of the assets by client 2's account
     let mut client_3 = create_test_client().await;
@@ -278,7 +278,7 @@ async fn test_onchain_accounts() {
 
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
-    // Client 1 has an offchain faucet which will mint an onchain note for client 2
+    // Client 1 has an private faucet which will mint an onchain note for client 2
     let mut client_1 = create_test_client().await;
     // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
     // whose tag doesn't necessarily match any of its accounts
@@ -316,7 +316,7 @@ async fn test_onchain_notes_sync_with_tag() {
         .add_note_tag(
             NoteTag::from_account_id(
                 target_account_id,
-                miden_objects::notes::NoteExecutionMode::Local,
+                miden_objects::note::NoteExecutionMode::Local,
             )
             .unwrap(),
         )

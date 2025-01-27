@@ -5,12 +5,11 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::{Account, AccountId},
-    block::block_num_from_epoch,
+    account::{Account, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    notes::NoteId,
+    note::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
-    BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -36,7 +35,7 @@ impl DataStore for ClientDataStore {
     async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        block_num: u32,
+        block_num: BlockNumber,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let input_note_records: BTreeMap<NoteId, InputNoteRecord> = self
@@ -75,11 +74,11 @@ impl DataStore for ClientDataStore {
             .ok_or(DataStoreError::BlockNotFound(block_num))?;
 
         let mut list_of_notes = vec![];
-        let mut block_nums: Vec<u32> = vec![];
+        let mut block_nums: Vec<BlockNumber> = vec![];
 
         // If the account is new, add its anchor block to partial MMR
         if seed.is_some() {
-            let anchor_block = block_num_from_epoch(account_id.anchor_epoch());
+            let anchor_block = BlockNumber::from_epoch(account_id.anchor_epoch());
             if anchor_block != block_num {
                 block_nums.push(anchor_block);
             }
@@ -115,7 +114,7 @@ impl DataStore for ClientDataStore {
             .collect();
 
         let partial_mmr =
-            build_partial_mmr_with_paths(&self.store, block_num, &block_headers).await?;
+            build_partial_mmr_with_paths(&self.store, block_num.as_u32(), &block_headers).await?;
         let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
             DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
         })?;
@@ -139,19 +138,20 @@ async fn build_partial_mmr_with_paths(
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
     let mut partial_mmr: PartialMmr = {
-        let current_peaks = store.get_chain_mmr_peaks_by_block_num(forest).await?;
+        let current_peaks =
+            store.get_chain_mmr_peaks_by_block_num(BlockNumber::from(forest)).await?;
 
         PartialMmr::from_peaks(current_peaks)
     };
 
-    let block_nums: Vec<u32> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
+    let block_nums: Vec<BlockNumber> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
 
     let authentication_paths =
         get_authentication_path_for_blocks(store, &block_nums, partial_mmr.forest()).await?;
 
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
-            .track(header.block_num() as usize, header.hash(), path)
+            .track(header.block_num().as_usize(), header.hash(), path)
             .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))?;
     }
 
@@ -165,16 +165,16 @@ async fn build_partial_mmr_with_paths(
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 async fn get_authentication_path_for_blocks(
     store: &alloc::sync::Arc<dyn Store>,
-    block_nums: &[u32],
+    block_nums: &[BlockNumber],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {
     let mut node_indices = BTreeSet::new();
 
     // Calculate all needed nodes indices for generating the paths
     for block_num in block_nums {
-        let path_depth = mmr_merkle_path_len(*block_num as usize, forest);
+        let path_depth = mmr_merkle_path_len(block_num.as_usize(), forest);
 
-        let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num.as_usize());
 
         for _ in 0..path_depth {
             node_indices.insert(idx.sibling());
@@ -192,7 +192,7 @@ async fn get_authentication_path_for_blocks(
     let mut authentication_paths = vec![];
     for block_num in block_nums {
         let mut merkle_nodes = vec![];
-        let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num.as_usize());
 
         while let Some(node) = mmr_nodes.get(&idx.sibling()) {
             merkle_nodes.push(*node);

@@ -90,6 +90,7 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// Returns a nullifier proof for each of the requested nullifiers.
         pub async fn check_nullifiers(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -113,6 +114,9 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of nullifiers that match the specified prefixes and are recorded in the node.
+        ///
+        /// Note that only 16-bit prefixes are supported at this time.
         pub async fn check_nullifiers_by_prefix(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -139,6 +143,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state of an account with the specified ID.
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -164,6 +169,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns the latest state proofs of the specified accounts.
         pub async fn get_account_proofs(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -187,6 +193,8 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountProofs"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns delta of the account states in the range from `from_block_num` (exclusive) to
+        /// `to_block_num` (inclusive).
         pub async fn get_account_state_delta(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -213,6 +221,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns raw block data for the specified block number.
         pub async fn get_block_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -236,6 +245,8 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetBlockByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Retrieves block header by given block number. Optionally, it also returns the MMR path
+        /// and current chain length to authenticate the block's inclusion.
         pub async fn get_block_header_by_number(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -262,6 +273,7 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns a list of notes matching the provided note IDs.
         pub async fn get_notes_by_id(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
@@ -283,6 +295,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetNotesById"));
             self.inner.unary(req, path, codec).await
         }
+        /// Submits proven transaction to the Miden network.
         pub async fn submit_proven_transaction(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -309,6 +322,15 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns info which can be used by the client to sync up to the tip of chain for the notes they are interested in.
+        ///
+        /// Client specifies the `note_tags` they are interested in, and the block height from which to search for new for
+        /// matching notes for. The request will then return the next block containing any note matching the provided tags.
+        ///
+        /// The response includes each note's metadata and inclusion proof.
+        ///
+        /// A basic note sync can be implemented by repeatedly requesting the previous response's block until reaching the
+        /// tip of the chain.
         pub async fn sync_notes(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
@@ -330,6 +352,21 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncNotes"));
             self.inner.unary(req, path, codec).await
         }
+        /// Returns info which can be used by the client to sync up to the latest state of the chain
+        /// for the objects (accounts, notes, nullifiers) the client is interested in.
+        ///
+        /// This request returns the next block containing requested data. It also returns `chain_tip`
+        /// which is the latest block number in the chain. Client is expected to repeat these requests
+        /// in a loop until `response.block_header.block_num == response.chain_tip`, at which point
+        /// the client is fully synchronized with the chain.
+        ///
+        /// Each request also returns info about new notes, nullifiers etc. created. It also returns
+        /// Chain MMR delta that can be used to update the state of Chain MMR. This includes both chain
+        /// MMR peaks and chain MMR nodes.
+        ///
+        /// For preserving some degree of privacy, note tags and nullifiers filters contain only high
+        /// part of hashes. Thus, returned data contains excessive notes and nullifiers, client can make
+        /// additional filtering of that data on its side.
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,

@@ -2,25 +2,24 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{future::Future, pin::Pin};
 
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    account::{Account, AccountHeader, AccountId},
+    block::BlockHeader,
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
-    notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
-    BlockHeader, Digest,
+    note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    Digest,
 };
 use tracing::info;
 
 use super::{get_nullifier_prefix, NoteTagRecord, SyncSummary};
 use crate::{
-    accounts::AccountUpdates,
-    notes::NoteUpdates,
+    account::AccountUpdates,
+    note::NoteUpdates,
     rpc::{
-        domain::{
-            notes::CommittedNote, nullifiers::NullifierUpdate, transactions::TransactionUpdate,
-        },
+        domain::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate},
         NodeRpcClient,
     },
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transactions::TransactionUpdates,
+    transaction::TransactionUpdates,
     ClientError,
 };
 
@@ -275,7 +274,7 @@ impl StateSync {
         accounts: &[AccountHeader],
         account_hash_updates: &[(AccountId, Digest)],
     ) -> Result<AccountUpdates, ClientError> {
-        let (public_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.iter().partition(|account_header| account_header.id().is_public());
 
         let updated_public_accounts =
@@ -284,7 +283,7 @@ impl StateSync {
         let mismatched_private_accounts = account_hash_updates
             .iter()
             .filter(|(account_id, digest)| {
-                offchain_accounts
+                private_accounts
                     .iter()
                     .any(|account| account.id() == *account_id && &account.hash() != digest)
             })

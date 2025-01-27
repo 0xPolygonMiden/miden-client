@@ -1,4 +1,4 @@
-use miden_client::transactions::TransactionStatus as NativeTransactionStatus;
+use miden_client::transaction::TransactionStatus as NativeTransactionStatus;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ impl TransactionStatus {
     }
 
     pub fn committed(block_num: u32) -> TransactionStatus {
-        TransactionStatus(NativeTransactionStatus::Committed(block_num))
+        TransactionStatus(NativeTransactionStatus::Committed(block_num.into()))
     }
 
     pub fn is_pending(&self) -> bool {
@@ -25,7 +25,7 @@ impl TransactionStatus {
 
     pub fn get_block_num(&self) -> Option<u32> {
         match self.0 {
-            NativeTransactionStatus::Committed(block_num) => Some(block_num),
+            NativeTransactionStatus::Committed(block_num) => Some(block_num.as_u32()),
             _ => None,
         }
     }

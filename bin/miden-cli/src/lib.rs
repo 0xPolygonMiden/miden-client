@@ -2,8 +2,9 @@ use std::{env, sync::Arc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use errors::CliError;
 use miden_client::{
-    accounts::AccountHeader,
+    account::AccountHeader,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
@@ -30,6 +31,7 @@ use commands::{
 use self::utils::load_config_file;
 
 mod config;
+mod errors;
 mod faucet_details_map;
 mod info;
 mod utils;
@@ -77,8 +79,8 @@ pub enum Command {
 
 /// CLI entry point.
 impl Cli {
-    pub async fn execute(&self) -> Result<(), String> {
-        let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    pub async fn execute(&self) -> Result<(), CliError> {
+        let mut current_dir = std::env::current_dir()?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         // Check if it's an init command before anything else. When we run the init command for
@@ -91,7 +93,6 @@ impl Cli {
 
         // Define whether we want to use the executor's debug mode based on the env var and
         // the flag override
-
         let in_debug_mode = match env::var("MIDEN_DEBUG") {
             Ok(value) if value.to_lowercase() == "true" => true,
             _ => self.debug,
