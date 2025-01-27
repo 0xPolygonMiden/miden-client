@@ -7,7 +7,7 @@ To use the Miden client library in a Rust project, include it as a dependency.
 In your project's `Cargo.toml`, add:
 
 ```toml
-miden-client = { version = "0.6" }
+miden-client = { version = "0.7" }
 ```
 
 ### Features
