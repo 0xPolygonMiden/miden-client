@@ -21,6 +21,7 @@
 * Added fixed seed option for web client generation (#688)
 * [BREAKING] Updated `init` command in the CLI to receive a `--network` flag (#690).
 * Improved CLI error messages (#682).
+* Enabled TLS on tonic client (#697).
 
 ### Fixes
 
