@@ -38,9 +38,9 @@ impl Network {
     pub fn to_rpc_endpoint(&self) -> String {
         match self {
             Network::Custom(custom) => custom.clone(),
-            Network::Devnet => "https://rpc.devnet.miden.io".to_string(),
+            Network::Devnet => Endpoint::devnet().to_string(),
             Network::Localhost => Endpoint::default().to_string(),
-            Network::Testnet => "https://rpc.testnet.miden.io".to_string(),
+            Network::Testnet => Endpoint::testnet().to_string(),
         }
     }
 }

@@ -22,27 +22,27 @@ idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-b
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
-tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
-web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client"]
+tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots"]
+web-tonic = ["dep:tonic-web-wasm-client"]
 
 [dependencies]
 async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.9", features = ["rt_tokio_1"], optional = true }
-hex = { version = "0.4", optional = true }
+hex = { version = "0.4" }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }
 pollster = { version = "0.4" }
-prost = { version = "0.13", optional = true, default-features = false, features = ["derive"] }
+prost = { version = "0.13", default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
 serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
-tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
+tonic = { version = "0.12", default-features = false, features = ["prost", "codegen"] }
 tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
