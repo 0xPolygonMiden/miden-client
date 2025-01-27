@@ -17,16 +17,15 @@ The Miden client facilitates interaction with the Miden rollup and provides a wa
 2. Install the Miden client.
 
       ```shell
-      cargo install miden-cli --features testing,concurrent
+      cargo install miden-cli --features concurrent
       ```
       You can now use the `miden --version` command, and you should see `Miden 0.7.0`.
 
 3. Initialize the client. This creates the `miden-client.toml` file.
 
 ```shell
-miden init --rpc 18.203.155.106
+miden init --network testnet # Creates a miden-client.toml configured with the testnet node's IP
 ```
-For the --rpc flag, enter the IP that the Miden team supplied.
 
 ## Create a new Miden account
 
