@@ -81,7 +81,10 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, Word, ZERO,
 };
-use miden_tx::TransactionExecutor;
+use miden_tx::{
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+    TransactionExecutor,
+};
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
 };
@@ -124,7 +127,7 @@ pub use script_builder::TransactionScriptBuilderError;
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener
 /// output from filtering the transaction's output notes or some partial note we expect to receive
 /// in the future (you can check at swap notes for an example of this).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
@@ -218,6 +221,22 @@ impl TransactionResult {
 impl From<TransactionResult> for ExecutedTransaction {
     fn from(tx_result: TransactionResult) -> ExecutedTransaction {
         tx_result.transaction
+    }
+}
+
+impl Serializable for TransactionResult {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        self.transaction.write_into(target);
+        self.relevant_notes.write_into(target);
+    }
+}
+
+impl Deserializable for TransactionResult {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let transaction = ExecutedTransaction::read_from(source)?;
+        let relevant_notes = Vec::<InputNoteRecord>::read_from(source)?;
+
+        Ok(Self { transaction, relevant_notes })
     }
 }
 
@@ -1014,9 +1033,13 @@ mod test {
         },
         Word,
     };
+    use miden_tx::utils::{Deserializable, Serializable};
 
     use super::PaymentTransactionData;
-    use crate::{mock::create_test_client, transaction::TransactionRequestBuilder};
+    use crate::{
+        mock::create_test_client,
+        transaction::{TransactionRequestBuilder, TransactionResult},
+    };
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
@@ -1081,5 +1104,11 @@ mod test {
             .is_some_and(|assets| assets.num_assets() == 2));
         // Prove and apply transaction
         client.testing_apply_transaction(tx_result.clone()).await.unwrap();
+
+        // Test serialization
+        let bytes: std::vec::Vec<u8> = tx_result.to_bytes();
+        let decoded = TransactionResult::read_from_bytes(&bytes).unwrap();
+
+        assert_eq!(tx_result, decoded);
     }
 }
