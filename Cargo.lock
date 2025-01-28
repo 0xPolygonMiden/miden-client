@@ -1466,8 +1466,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee8babd17ea380c6c5b948761ca63208b633b7130379ee2a57c6d3732d2f8bc"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-serialize-executed-tx#bf847a5a8cc0391077eb4d1b6339538b188a53fa"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1522,8 +1521,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4622f71888d4641577d145dd561165824b9b9293fd0be2306326f11bcf39e67d"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-serialize-executed-tx#bf847a5a8cc0391077eb4d1b6339538b188a53fa"
 dependencies = [
  "getrandom",
  "miden-assembly",
@@ -1569,8 +1567,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f8bb57ec4864fe7b128a24fcf8872ba18c3229e6cea5aea6194c6b2e2d814a8"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-serialize-executed-tx#bf847a5a8cc0391077eb4d1b6339538b188a53fa"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1603,8 +1600,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4371509f1e4c25dfe26b7ffcffbb34aaa152c6eaad400f2624240a941baed2d0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-serialize-executed-tx#bf847a5a8cc0391077eb4d1b6339538b188a53fa"
 dependencies = [
  "async-trait",
  "miden-lib",
