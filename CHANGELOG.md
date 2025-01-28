@@ -24,6 +24,7 @@
 * [BREAKING] Renamed APIs for retrieving account information to use the `try_get_*` naming convention, and added/improved module documentation (#683).
 * Enabled TLS on tonic client (#697).
 * Added account creation from component templates (#680).
+* Added serialization for `TransactionResult` (#704).
 
 ### Fixes
 
