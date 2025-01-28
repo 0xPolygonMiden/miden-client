@@ -22,8 +22,8 @@ idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-b
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
-tonic = ["std", "dep:tonic", "tonic/transport", "tonic/tls", "tonic/tls-native-roots"]
-web-tonic = ["dep:tonic", "dep:tonic-web-wasm-client"]
+tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots"]
+web-tonic = ["dep:tonic-web-wasm-client"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -42,7 +42,7 @@ serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
-tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
+tonic = { version = "0.12", default-features = false, features = ["prost", "codegen"] }
 tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
