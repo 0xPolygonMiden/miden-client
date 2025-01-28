@@ -1,60 +1,115 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
-//! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
+//! network. It ensures that the client maintains a valid, up-to-date view of the chain.
+//!
+//! ## Overview
+//!
+//! This module handles the synchronization process between the local client and the Miden network.
+//! The sync operation involves:
+//!
+//! - Querying the Miden node for state updates using tracked account IDs, note tags, and nullifier
+//!   prefixes.
+//! - Processing the received data to update note inclusion proofs, reconcile note state (new,
+//!   committed, or consumed), and update account states.
+//! - Incorporating new block headers and updating the local Merkle Mountain Range (MMR) with new
+//!   peaks and authentication nodes.
+//! - Aggregating transaction updates to determine which transactions have been committed or
+//!   discarded.
+//!
+//! The result of the synchronization process is captured in a [`SyncSummary`], which provides
+//! a summary of the new block number along with lists of received, committed, and consumed note
+//! IDs, updated account IDs, locked accounts, and committed transaction IDs.
+//!
+//! Once the data is requested and retrieved, updates are persisted in the client's store.
+//!
+//! ## Examples
+//!
+//! The following example shows how to initiate a state sync and handle the resulting summary:
+//!
+//! ```rust
+//! # use miden_client::sync::SyncSummary;
+//! # use miden_client::{Client, ClientError};
+//! # use miden_objects::{block::BlockHeader, Felt, Word, StarkField};
+//! # use miden_objects::crypto::rand::FeltRng;
+//! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
+//! // Attempt to synchronize the client's state with the Miden network.
+//! // The requested data is based on the client's state: it gets updates for accounts, relevant
+//! // notes, etc. For more information on the data that gets requested, see the doc comments for
+//! // `sync_state()`.
+//! let sync_summary: SyncSummary = client.sync_state().await?;
+//!
+//! println!("Synced up to block number: {}", sync_summary.block_num);
+//! println!("Received notes: {}", sync_summary.received_notes.len());
+//! println!("Committed notes: {}", sync_summary.committed_notes.len());
+//! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
+//! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
+//! println!("Locked accounts: {}", sync_summary.locked_accounts.len());
+//! println!("Committed transactions: {}", sync_summary.committed_transactions.len());
+//!
+//! Ok(())
+//! # }
+//! ```
+//!
+//! The `sync_state` method loops internally until the client is fully synced to the network tip.
+//!
+//! For more advanced usage, refer to the individual functions (such as
+//! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
+//! processed and applied to the local store.
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId},
+    account::{Account, AccountHeader, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
-    notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 use tracing::info;
 
 use crate::{
-    notes::NoteUpdates,
-    rpc::{
-        AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
+    note::NoteUpdates,
+    rpc::domain::{
+        note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
-    store::{
-        input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
-        StoreError, TransactionFilter,
-    },
+    store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
 };
 
-mod block_headers;
-use block_headers::apply_mmr_changes;
+mod block_header;
+use block_header::apply_mmr_changes;
 
-mod tags;
-pub use tags::{NoteTagRecord, NoteTagSource};
+mod tag;
+pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
-    pub block_num: u32,
-    /// IDs of new notes received
+    pub block_num: BlockNumber,
+    /// IDs of new notes received.
     pub received_notes: Vec<NoteId>,
-    /// IDs of tracked notes that received inclusion proofs
+    /// IDs of tracked notes that received inclusion proofs.
     pub committed_notes: Vec<NoteId>,
-    /// IDs of notes that have been consumed
+    /// IDs of notes that have been consumed.
     pub consumed_notes: Vec<NoteId>,
-    /// IDs of on-chain accounts that have been updated
+    /// IDs of on-chain accounts that have been updated.
     pub updated_accounts: Vec<AccountId>,
-    /// IDs of committed transactions
+    /// IDs of private accounts that have been locked.
+    pub locked_accounts: Vec<AccountId>,
+    /// IDs of committed transactions.
     pub committed_transactions: Vec<TransactionId>,
 }
 
 impl SyncSummary {
     pub fn new(
-        block_num: u32,
+        block_num: BlockNumber,
         received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
+        locked_accounts: Vec<AccountId>,
         committed_transactions: Vec<TransactionId>,
     ) -> Self {
         Self {
@@ -63,17 +118,19 @@ impl SyncSummary {
             committed_notes,
             consumed_notes,
             updated_accounts,
+            locked_accounts,
             committed_transactions,
         }
     }
 
-    pub fn new_empty(block_num: u32) -> Self {
+    pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
             received_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
+            locked_accounts: vec![],
             committed_transactions: vec![],
         }
     }
@@ -83,6 +140,7 @@ impl SyncSummary {
             && self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
+            && self.locked_accounts.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
@@ -91,6 +149,7 @@ impl SyncSummary {
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
+        self.locked_accounts.append(&mut other.locked_accounts);
     }
 }
 
@@ -110,25 +169,26 @@ impl SyncStatus {
 
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
+    /// The new block header, returned as part of the
+    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
     pub block_header: BlockHeader,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
     /// Transaction updates for any transaction that was committed between the sync request's
     /// block number and the response's block number.
     pub transactions_to_commit: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync
+    /// Transaction IDs for any transactions that were discarded in the sync.
     pub transactions_to_discard: Vec<TransactionId>,
     /// New MMR peaks for the locally tracked MMR of the blockchain.
     pub new_mmr_peaks: MmrPeaks,
     /// New authentications nodes that are meant to be stored in order to authenticate block
     /// headers.
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Updated public accounts.
-    pub updated_onchain_accounts: Vec<Account>,
+    /// Information abount account changes after the sync.
+    pub updated_accounts: AccountUpdates,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
-    /// Tag records that are no longer relevant
+    /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
@@ -138,22 +198,38 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
+/// Client syncronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
-    pub async fn get_sync_height(&self) -> Result<u32, ClientError> {
+    pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
         self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
-    /// Syncs the client's state with the current state of the Miden network.
-    /// Before doing so, it ensures the genesis block exists in the local store.
+    /// Syncs the client's state with the current state of the Miden network. Returns the block
+    /// number the client has been synced to.
     ///
-    /// Returns the block number the client has been synced to.
+    /// The sync process is done in multiple steps:
+    /// 1. A request is sent to the node to get the state updates. This request includes tracked
+    ///    account IDs and the tags of notes that might have changed or that might be of interest to
+    ///    the client.
+    /// 2. A response is received with the current state of the network. The response includes
+    ///    information about new/committed/consumed notes, updated accounts, and committed
+    ///    transactions.
+    /// 3. Tracked notes are updated with their new states.
+    /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
+    ///    can be consumed by accounts the client is tracking (this is checked by the
+    ///    [crate::note::NoteScreener])
+    /// 5. Transactions are updated with their new states.
+    /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
+    ///    state.
+    /// 7. The MMR is updated with the new peaks and authentication nodes.
+    /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
-        self.ensure_genesis_in_place().await?;
-        let mut total_sync_summary = SyncSummary::new_empty(0);
+        _ = self.ensure_genesis_in_place().await?;
+        let mut total_sync_summary = SyncSummary::new_empty(0.into());
         loop {
             let response = self.sync_state_once().await?;
             let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
@@ -179,7 +255,8 @@ impl<R: FeltRng> Client<R> {
             .map(|(acc_header, _)| acc_header)
             .collect();
 
-        let note_tags: Vec<NoteTag> = self.get_unique_note_tags().await?.into_iter().collect();
+        let note_tags: Vec<NoteTag> =
+            self.store.get_unique_note_tags().await?.into_iter().collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
@@ -219,22 +296,26 @@ impl<R: FeltRng> Client<R> {
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
-        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+        let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
-        let updated_onchain_accounts = self
-            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
+        let updated_public_accounts = self
+            .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        let mismatched_private_accounts = self
+            .validate_local_account_hashes(&response.account_hash_updates, &private_accounts)
             .await?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
             let current_partial_mmr = self.build_current_partial_mmr(false).await?;
 
-            let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num).await?;
+            let (current_block, has_relevant_notes) = self
+                .store
+                .get_block_header_by_num(current_block_num)
+                .await?
+                .expect("Current block should be in the store");
 
             apply_mmr_changes(
                 current_partial_mmr,
@@ -250,7 +331,8 @@ impl<R: FeltRng> Client<R> {
             note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
-            updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            updated_public_accounts.iter().map(|acc| acc.id()).collect(),
+            mismatched_private_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
 
@@ -260,7 +342,10 @@ impl<R: FeltRng> Client<R> {
             transactions_to_commit,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts: updated_onchain_accounts.clone(),
+            updated_accounts: AccountUpdates::new(
+                updated_public_accounts,
+                mismatched_private_accounts,
+            ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             transactions_to_discard,
             tags_to_remove,
@@ -471,7 +556,7 @@ impl<R: FeltRng> Client<R> {
         ))
     }
 
-    /// Queries the node for all received notes that are not being locally tracked in the client
+    /// Queries the node for all received notes that aren't being locally tracked in the client.
     ///
     /// The client can receive metadata for private notes that it's not tracking. In this case,
     /// notes are ignored for now as they become useless until details are imported.
@@ -485,43 +570,20 @@ impl<R: FeltRng> Client<R> {
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let notes_data = self.rpc_api.get_notes_by_id(query_notes).await?;
-        let mut return_notes = Vec::with_capacity(query_notes.len());
-        for note_data in notes_data {
-            match note_data {
-                NoteDetails::Private(id, ..) => {
-                    // TODO: Is there any benefit to not ignoring these? In any case we do not have
-                    // the recipient which is mandatory right now.
-                    info!("Note {} is private but the client is not tracking it, ignoring.", id);
-                },
-                NoteDetails::Public(note, inclusion_proof) => {
-                    info!("Retrieved details for Note ID {}.", note.id());
-                    let inclusion_proof = NoteInclusionProof::new(
-                        block_header.block_num(),
-                        inclusion_proof.note_index,
-                        inclusion_proof.merkle_path,
-                    )
-                    .map_err(ClientError::NoteError)?;
-                    let metadata = *note.metadata();
+        let mut return_notes = self
+            .rpc_api
+            .get_public_note_records(query_notes, self.store.get_current_timestamp())
+            .await?;
 
-                    return_notes.push(InputNoteRecord::new(
-                        note.into(),
-                        None,
-                        CommittedNoteState {
-                            metadata,
-                            inclusion_proof,
-                            block_note_root: block_header.note_root(),
-                        }
-                        .into(),
-                    ))
-                },
-            }
+        for note in return_notes.iter_mut() {
+            note.block_header_received(*block_header)?;
         }
+
         Ok(return_notes)
     }
 
     /// Extracts information about transactions for uncommitted transactions that the client is
-    /// tracking from the received [SyncStateResponse]
+    /// tracking from the received [SyncStateResponse].
     async fn get_transactions_to_commit(
         &self,
         mut transactions: Vec<TransactionUpdate>,
@@ -542,61 +604,63 @@ impl<R: FeltRng> Client<R> {
         Ok(transactions)
     }
 
-    async fn get_updated_onchain_accounts(
+    async fn get_updated_public_accounts(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_onchain_accounts: &[AccountHeader],
+        current_public_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
-        let mut accounts_to_update: Vec<Account> = Vec::new();
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // check if this updated account is tracked by the client
-            let current_account = current_onchain_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        let mut mismatched_public_accounts = vec![];
 
-            if let Some(tracked_account) = current_account {
-                info!("Public account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                if let AccountDetails::Public(account, _) = account_details {
-                    // We should only do the update if it's newer, otherwise we ignore it
-                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
-                        accounts_to_update.push(account);
-                    }
-                } else {
-                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
-                        account_details.account_id(),
-                    )
-                    .into());
-                }
+        for (id, hash) in account_updates {
+            // check if this updated account is tracked by the client
+            if let Some(account) = current_public_accounts
+                .iter()
+                .find(|acc| *id == acc.id() && *hash != acc.hash())
+            {
+                mismatched_public_accounts.push(account);
             }
         }
-        Ok(accounts_to_update)
+
+        self.rpc_api
+            .get_updated_public_accounts(&mismatched_public_accounts)
+            .await
+            .map_err(ClientError::RpcError)
     }
 
-    /// Validates account hash updates and returns an error if there is a mismatch.
+    /// Validates account hash updates and returns a vector with all the private account
+    /// mismatches.
+    ///
+    /// Private account mismatches happen when the hash account of the local tracked account
+    /// doesn't match the hash account of the account in the node. This would be an anomaly and may
+    /// happen for two main reasons:
+    /// - A different client made a transaction with the account, changing its state.
+    /// - The local transaction that modified the local state didn't go through, rendering the local
+    ///   account state outdated.
     async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_offchain_accounts: &[AccountHeader],
-    ) -> Result<(), ClientError> {
+        current_private_accounts: &[AccountHeader],
+    ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
+        let mut mismatched_accounts = vec![];
+
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let mismatched_accounts = current_offchain_accounts
+            let mismatched_account = current_private_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state. If we receive a stale
+            // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
-            if mismatched_accounts.is_some() {
+            if mismatched_account.is_some() {
                 let account_by_hash =
                     self.store.get_account_header_by_hash(*remote_account_hash).await?;
 
                 if account_by_hash.is_none() {
-                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                    mismatched_accounts.push((*remote_account_id, *remote_account_hash));
                 }
             }
         }
-        Ok(())
+        Ok(mismatched_accounts)
     }
 }
 

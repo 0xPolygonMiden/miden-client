@@ -1,16 +1,15 @@
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
-    string::ToString,
     vec::Vec,
 };
 
 use miden_objects::{
-    accounts::AccountId,
+    account::{Account, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    notes::NoteId,
+    note::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
-    BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -36,7 +35,7 @@ impl DataStore for ClientDataStore {
     async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        block_num: u32,
+        block_num: BlockNumber,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let input_note_records: BTreeMap<NoteId, InputNoteRecord> = self
@@ -59,18 +58,40 @@ impl DataStore for ClientDataStore {
         }
 
         // Construct Account
-        let (account, seed) = self.store.get_account(account_id).await?;
+        let account_record = self
+            .store
+            .get_account(account_id)
+            .await?
+            .ok_or(DataStoreError::AccountNotFound(account_id))?;
+        let seed = account_record.seed().cloned();
+        let account: Account = account_record.into();
 
         // Get header data
-        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;
+        let (block_header, _had_notes) = self
+            .store
+            .get_block_header_by_num(block_num)
+            .await?
+            .ok_or(DataStoreError::BlockNotFound(block_num))?;
 
         let mut list_of_notes = vec![];
-        let mut notes_blocks: Vec<u32> = vec![];
+        let mut block_nums: Vec<BlockNumber> = vec![];
+
+        // If the account is new, add its anchor block to partial MMR
+        if seed.is_some() {
+            let anchor_block = BlockNumber::from_epoch(account_id.anchor_epoch());
+            if anchor_block != block_num {
+                block_nums.push(anchor_block);
+            }
+        }
 
         for (_note_id, note_record) in input_note_records {
-            let input_note: InputNote = note_record
-                .try_into()
-                .map_err(|err: NoteRecordError| DataStoreError::InternalError(err.to_string()))?;
+            let input_note: InputNote =
+                note_record.try_into().map_err(|err: NoteRecordError| {
+                    DataStoreError::other_with_source(
+                        "error converting note record into InputNote",
+                        err,
+                    )
+                })?;
 
             list_of_notes.push(input_note.clone());
 
@@ -79,22 +100,24 @@ impl DataStore for ClientDataStore {
                 let note_block_num = inclusion_proof.location().block_num();
 
                 if note_block_num != block_num {
-                    notes_blocks.push(note_block_num);
+                    block_nums.push(note_block_num);
                 }
             }
         }
 
-        let notes_blocks: Vec<BlockHeader> = self
+        let block_headers: Vec<BlockHeader> = self
             .store
-            .get_block_headers(&notes_blocks)
+            .get_block_headers(&block_nums)
             .await?
             .iter()
             .map(|(header, _has_notes)| *header)
             .collect();
 
-        let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks).await;
-        let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+        let partial_mmr =
+            build_partial_mmr_with_paths(&self.store, block_num.as_u32(), &block_headers).await?;
+        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
+            DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
+        })?;
 
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
@@ -115,20 +138,21 @@ async fn build_partial_mmr_with_paths(
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
     let mut partial_mmr: PartialMmr = {
-        let current_peaks = store.get_chain_mmr_peaks_by_block_num(forest).await?;
+        let current_peaks =
+            store.get_chain_mmr_peaks_by_block_num(BlockNumber::from(forest)).await?;
 
         PartialMmr::from_peaks(current_peaks)
     };
 
-    let block_nums: Vec<u32> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
+    let block_nums: Vec<BlockNumber> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
 
     let authentication_paths =
         get_authentication_path_for_blocks(store, &block_nums, partial_mmr.forest()).await?;
 
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
-            .track(header.block_num() as usize, header.hash(), path)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+            .track(header.block_num().as_usize(), header.hash(), path)
+            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))?;
     }
 
     Ok(partial_mmr)
@@ -137,20 +161,20 @@ async fn build_partial_mmr_with_paths(
 /// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then
 /// constructs the path for each of them.
 ///
-/// This function assumes `block_nums` does not contain values above or equal to `forest`.
+/// This function assumes `block_nums` doesn't contain values above or equal to `forest`.
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 async fn get_authentication_path_for_blocks(
     store: &alloc::sync::Arc<dyn Store>,
-    block_nums: &[u32],
+    block_nums: &[BlockNumber],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {
     let mut node_indices = BTreeSet::new();
 
     // Calculate all needed nodes indices for generating the paths
     for block_num in block_nums {
-        let path_depth = mmr_merkle_path_len(*block_num as usize, forest);
+        let path_depth = mmr_merkle_path_len(block_num.as_usize(), forest);
 
-        let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num.as_usize());
 
         for _ in 0..path_depth {
             node_indices.insert(idx.sibling());
@@ -168,7 +192,7 @@ async fn get_authentication_path_for_blocks(
     let mut authentication_paths = vec![];
     for block_num in block_nums {
         let mut merkle_nodes = vec![];
-        let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num.as_usize());
 
         while let Some(node) = mmr_nodes.get(&idx.sibling()) {
             merkle_nodes.push(*node);

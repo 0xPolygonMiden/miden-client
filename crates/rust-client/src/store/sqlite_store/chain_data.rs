@@ -2,8 +2,9 @@ use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
 use std::num::NonZeroUsize;
 
 use miden_objects::{
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{
@@ -13,7 +14,7 @@ use rusqlite::{
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
 
-type SerializedBlockHeaderData = (i64, Vec<u8>, Vec<u8>, bool);
+type SerializedBlockHeaderData = (u32, Vec<u8>, Vec<u8>, bool);
 type SerializedBlockHeaderParts = (u64, Vec<u8>, Vec<u8>, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
@@ -51,11 +52,11 @@ impl SqliteStore {
 
     pub(crate) fn get_block_headers(
         conn: &mut Connection,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_number_list = block_numbers
             .iter()
-            .map(|block_number| Value::Integer(*block_number as i64))
+            .map(|block_number| Value::Integer(block_number.as_u32() as i64))
             .collect::<Vec<Value>>();
 
         const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
@@ -98,20 +99,20 @@ impl SqliteStore {
 
     pub(crate) fn get_chain_mmr_peaks_by_block_num(
         conn: &mut Connection,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
         let mmr_peaks = conn
             .prepare(QUERY)?
-            .query_row(params![block_num], |row| {
+            .query_row(params![block_num.as_u32()], |row| {
                 let peaks: Vec<u8> = row.get(0)?;
                 Ok(peaks)
             })
             .optional()?;
 
         if let Some(mmr_peaks) = mmr_peaks {
-            return parse_mmr_peaks(block_num, mmr_peaks);
+            return parse_mmr_peaks(block_num.as_u32(), mmr_peaks);
         }
 
         Ok(MmrPeaks::new(0, vec![])?)
@@ -139,10 +140,10 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Inserts a block header using a [rusqlite::Transaction]
+    /// Inserts a block header using a [rusqlite::Transaction].
     ///
     /// If the block header exists and `has_client_notes` is `true` then the `has_client_notes`
-    /// column is updated to `true` to signify that the block now contains a relevant note
+    /// column is updated to `true` to signify that the block now contains a relevant note.
     pub(crate) fn insert_block_header_tx(
         tx: &Transaction<'_>,
         block_header: BlockHeader,
@@ -193,13 +194,13 @@ fn serialize_block_header(
     let header = block_header.to_bytes();
     let chain_mmr_peaks = chain_mmr_peaks.to_bytes();
 
-    Ok((block_num as i64, header, chain_mmr_peaks, has_client_notes))
+    Ok((block_num.as_u32(), header, chain_mmr_peaks, has_client_notes))
 }
 
 fn parse_block_headers_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
-    let block_num: i64 = row.get(0)?;
+    let block_num: u32 = row.get(0)?;
     let header: Vec<u8> = row.get(1)?;
     let chain_mmr: Vec<u8> = row.get(2)?;
     let has_client_notes: bool = row.get(3)?;
@@ -261,7 +262,7 @@ mod test {
     use alloc::vec::Vec;
 
     use miden_lib::transaction::TransactionKernel;
-    use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
+    use miden_objects::{block::BlockHeader, crypto::merkle::MmrPeaks};
 
     use crate::store::{
         sqlite_store::{tests::create_test_store, SqliteStore},
@@ -303,7 +304,7 @@ mod test {
         let mut store = create_test_store().await;
         let block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_header = Store::get_block_header_by_num(&store, 3).await.unwrap();
+        let block_header = Store::get_block_header_by_num(&store, 3.into()).await.unwrap().unwrap();
         assert_eq!(block_headers[3], block_header.0);
     }
 
@@ -312,12 +313,13 @@ mod test {
         let mut store = create_test_store().await;
         let mock_block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_headers: Vec<BlockHeader> = Store::get_block_headers(&store, &[1, 3])
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|(block_header, _has_notes)| block_header)
-            .collect();
+        let block_headers: Vec<BlockHeader> =
+            Store::get_block_headers(&store, &[1.into(), 3.into()])
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|(block_header, _has_notes)| block_header)
+                .collect();
         assert_eq!(&[mock_block_headers[1], mock_block_headers[3]], &block_headers[..]);
     }
 }

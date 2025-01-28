@@ -1,11 +1,12 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    accounts::AccountId,
-    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    account::AccountId,
+    block::{BlockHeader, BlockNumber},
+    note::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::NoteRecordError;
@@ -28,7 +29,10 @@ pub use states::{
 /// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
 /// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
-/// `metadata` and `inclusion_proof` fields if possible)
+/// `metadata` and `inclusion_proof` fields if possible).
+///
+/// Notes can also be consumed as unauthenticated notes, where their existence is verified by
+/// the network.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     /// Details of a note consisting of assets, script, inputs, and a serial number.
@@ -62,6 +66,10 @@ impl InputNoteRecord {
 
     pub fn assets(&self) -> &NoteAssets {
         self.details.assets()
+    }
+
+    pub fn created_at(&self) -> Option<u64> {
+        self.created_at
     }
 
     pub fn state(&self) -> &InputNoteState {
@@ -118,8 +126,8 @@ impl InputNoteRecord {
         )
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but is
-    /// not consumed or being processed).
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but
+    /// isn't consumed or being processed).
     pub fn is_committed(&self) -> bool {
         matches!(self.state, InputNoteState::Committed { .. })
     }
@@ -164,7 +172,7 @@ impl InputNoteRecord {
     /// external transaction. Returns `true` if the state was changed.
     ///
     /// Errors:
-    /// - If the nullifier does not match the expected value.
+    /// - If the nullifier doesn't match the expected value.
     pub(crate) fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
@@ -191,8 +199,13 @@ impl InputNoteRecord {
         &mut self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+        current_timestamp: Option<u64>,
     ) -> Result<bool, NoteRecordError> {
-        let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
+        let new_state = self.state.consumed_locally(
+            consumer_account,
+            consumer_transaction,
+            current_timestamp,
+        )?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)
@@ -202,7 +215,7 @@ impl InputNoteRecord {
     }
 
     /// Modifies the state of the note record to reflect that the transaction currently consuming
-    /// the note was committed. Returns `true` if the state was changed.3
+    /// the note was committed. Returns `true` if the state was changed.
     pub(crate) fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,
@@ -249,7 +262,7 @@ impl From<Note> for InputNoteRecord {
             created_at: None,
             state: ExpectedNoteState {
                 metadata: Some(metadata),
-                after_block_num: 0,
+                after_block_num: BlockNumber::from(0),
                 tag: Some(metadata.tag()),
             }
             .into(),

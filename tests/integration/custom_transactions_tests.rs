@@ -1,19 +1,18 @@
 use miden_client::{
-    accounts::AccountTemplate,
-    notes::NoteExecutionHint,
-    transactions::TransactionRequest,
+    note::NoteExecutionHint,
+    transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode},
-    assets::{FungibleAsset, TokenSymbol},
+    account::{AccountId, AccountStorageMode},
+    asset::FungibleAsset,
     crypto::{
         hash::rpo::Rpo256,
         merkle::{MerkleStore, MerkleTree, NodeIndex},
         rand::{FeltRng, RpoRandomCoin},
     },
-    notes::{
+    note::{
         Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
@@ -56,22 +55,15 @@ async fn test_transaction_request() {
     let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let account_template = AccountTemplate::BasicWallet {
-        mutable_code: false,
-        storage_mode: AccountStorageMode::Private,
-    };
-
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+    let (regular_account, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
 
-    let account_template = AccountTemplate::FungibleFaucet {
-        token_symbol: TokenSymbol::new("TEST").unwrap(),
-        decimals: 5u8,
-        max_supply: 10_000u64,
-        storage_mode: AccountStorageMode::Private,
-    };
-    let (fungible_faucet, _seed) = client.new_account(account_template).await.unwrap();
+    let (fungible_faucet, _seed) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
@@ -104,11 +96,12 @@ async fn test_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], &failure_code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map.clone())
         .with_custom_script(tx_script)
         .unwrap()
-        .extend_advice_map(advice_map.clone());
+        .extend_advice_map(advice_map.clone())
+        .build();
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(regular_account.id(), transaction_request).await.is_err());
@@ -119,11 +112,12 @@ async fn test_transaction_request() {
 
     let tx_script = client.compile_tx_script(vec![], &success_code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
-        .extend_advice_map(advice_map);
+        .extend_advice_map(advice_map)
+        .build();
 
     // TEST CUSTOM SCRIPT SERIALIZATION
     let mut buffer = Vec::new();
@@ -142,22 +136,15 @@ async fn test_merkle_store() {
     let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let account_template = AccountTemplate::BasicWallet {
-        mutable_code: false,
-        storage_mode: AccountStorageMode::Private,
-    };
-
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
+    let (regular_account, _seed) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
 
-    let account_template = AccountTemplate::FungibleFaucet {
-        token_symbol: TokenSymbol::new("TEST").unwrap(),
-        decimals: 5u8,
-        max_supply: 10_000u64,
-        storage_mode: AccountStorageMode::Private,
-    };
-    let (fungible_faucet, _seed) = client.new_account(account_template).await.unwrap();
+    let (fungible_faucet, _seed) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+            .await
+            .unwrap();
 
     // Execute mint transaction in order to increase nonce
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
@@ -189,11 +176,11 @@ async fn test_merkle_store() {
                             use.miden::kernels::tx::memory
 
                             begin
-                                # leaf count -> mem[1000][0]
-                                push.{num_leaves} push.1000 mem_store
+                                # leaf count -> mem[4000][0]
+                                push.{num_leaves} push.4000 mem_store
 
-                                # merkle root -> mem[1001]
-                                push.{} push.1001 mem_storew dropw
+                                # merkle root -> mem[4004]
+                                push.{} push.4004 mem_storew dropw
                         ",
         merkle_root.to_hex()
     );
@@ -206,10 +193,10 @@ async fn test_merkle_store() {
         code += format!(
             "
             # get element at index `pos` from the merkle store in mem[1000] and push it to stack
-            push.1000 push.{pos} exec.mmr::get
+            push.4000 push.{pos} exec.mmr::get
 
             # check the element matches what was inserted at `pos`
-            push.{expected_element} assert_eqw
+            push.{expected_element} assert_eqw.err=999
         "
         )
         .as_str();
@@ -220,12 +207,13 @@ async fn test_merkle_store() {
     // Build the transaction
     let tx_script = client.compile_tx_script(vec![], &code).unwrap();
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map)
-        .extend_merkle_store(merkle_store.inner_nodes());
+        .extend_merkle_store(merkle_store.inner_nodes())
+        .build();
 
     execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
@@ -241,9 +229,10 @@ async fn mint_custom_note(
     let mut random_coin = RpoRandomCoin::new(Default::default());
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
-    let transaction_request = TransactionRequest::new()
+    let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
-        .unwrap();
+        .unwrap()
+        .build();
 
     execute_tx_and_sync(client, faucet_account_id, transaction_request).await;
     note
@@ -263,10 +252,12 @@ fn create_custom_note(
         .replace("{expected_note_arg_1}", &expected_note_args[0..=3].join("."))
         .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
-        .replace("{mem_address_2}", &(mem_addr + 1).to_string());
+        .replace("{mem_address_2}", &(mem_addr + 4).to_string());
     let note_script = client.compile_note_script(&note_script).unwrap();
 
-    let inputs = NoteInputs::new(vec![target_account_id.into()]).unwrap();
+    let inputs =
+        NoteInputs::new(vec![target_account_id.prefix().as_felt(), target_account_id.suffix()])
+            .unwrap();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
         faucet_account_id,

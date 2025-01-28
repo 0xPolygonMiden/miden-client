@@ -25,15 +25,30 @@ interface NewAccountTestResult {
 
 export const createNewWallet = async (
   storageMode: StorageMode,
-  mutable: boolean
+  mutable: boolean,
+  clientSeed?: Uint8Array,
+  isolatedClient?: boolean
 ): Promise<NewAccountTestResult> => {
+  // Serialize initSeed for Puppeteer
+  const serializedClientSeed = clientSeed ? Array.from(clientSeed) : null;
+
   return await testingPage.evaluate(
-    async (_storageMode, _mutable) => {
-      const client = window.client;
+    async (_storageMode, _mutable, _serializedClientSeed, _isolatedClient) => {
+      if (_isolatedClient) {
+        // Reconstruct Uint8Array inside the browser context
+        const _clientSeed = _serializedClientSeed
+          ? new Uint8Array(_serializedClientSeed)
+          : undefined;
+
+        await window.helpers.refreshClient(_clientSeed);
+      }
+
+      let client = window.client;
       const accountStorageMode =
         _storageMode === "private"
           ? window.AccountStorageMode.private()
           : window.AccountStorageMode.public();
+
       const newWallet = await client.new_wallet(accountStorageMode, _mutable);
 
       return {
@@ -50,7 +65,9 @@ export const createNewWallet = async (
       };
     },
     storageMode,
-    mutable
+    mutable,
+    serializedClientSeed,
+    isolatedClient
   );
 };
 
@@ -109,6 +126,19 @@ describe("new_wallet tests", () => {
       expect(result.is_public).to.equal(expected.is_public);
       expect(result.is_new).to.equal(true);
     });
+  });
+
+  it("Constructs the same account when given the same init seed", async () => {
+    const clientSeed = new Uint8Array(32);
+    crypto.getRandomValues(clientSeed);
+
+    // Isolate the client instance both times to ensure the outcome is deterministic
+    await createNewWallet(StorageMode.PUBLIC, false, clientSeed, true);
+
+    // This should fail, as the wallet is already tracked within the same browser context
+    await expect(
+      createNewWallet(StorageMode.PUBLIC, false, clientSeed, true)
+    ).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/);
   });
 });
 
@@ -238,7 +268,7 @@ describe("new_faucet tests", () => {
         BigInt(10000000)
       )
     ).to.be.rejectedWith(
-      `TokenSymbolError("Token symbol must be between 1 and 6 characters long.")`
+      `token symbol of length 13 is not between 1 and 6 characters long`
     );
   });
 });

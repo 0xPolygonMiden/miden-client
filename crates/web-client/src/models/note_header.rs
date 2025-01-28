@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteHeader as NativeNoteHeader;
+use miden_objects::note::NoteHeader as NativeNoteHeader;
 use wasm_bindgen::prelude::*;
 
 use super::{note_id::NoteId, note_metadata::NoteMetadata, rpo_digest::RpoDigest};

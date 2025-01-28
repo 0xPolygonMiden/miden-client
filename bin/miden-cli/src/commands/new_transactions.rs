@@ -1,23 +1,27 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::AccountId,
-    assets::{FungibleAsset, NonFungibleDeltaAction},
+    account::AccountId,
+    asset::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
-    transactions::{
-        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionResult,
+    note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
+    store::NoteRecordError,
+    transaction::{
+        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
+        TransactionResult,
     },
     Client,
 };
+use miden_proving_service_client::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{
     create_dynamic_table,
+    errors::CliError,
     utils::{
-        get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id,
-        SHARED_TOKEN_DOCUMENTATION,
+        get_input_acc_id_by_prefix_or_default, load_config_file, load_faucet_details_map,
+        parse_account_id, SHARED_TOKEN_DOCUMENTATION,
     },
 };
 
@@ -39,7 +43,7 @@ impl From<&NoteType> for MidenNoteType {
 #[derive(Debug, Parser, Clone)]
 /// Mint tokens from a fungible faucet to a wallet.
 pub struct MintCmd {
-    /// Target account ID or its hex prefix
+    /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
@@ -49,13 +53,17 @@ pub struct MintCmd {
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file.
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl MintCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
@@ -63,16 +71,25 @@ impl MintCmd {
 
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
-        let transaction_request = TransactionRequest::mint_fungible_asset(
+        let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
             fungible_asset,
             target_account_id,
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| {
+            CliError::Transaction(err.into(), "Failed to build mint transaction".to_string())
+        })?
+        .build();
 
-        execute_transaction(&mut client, fungible_asset.faucet_id(), transaction_request, force)
-            .await
+        execute_transaction(
+            &mut client,
+            fungible_asset.faucet_id(),
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -80,10 +97,10 @@ impl MintCmd {
 /// Create a pay-to-id transaction.
 pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
-    /// instead
+    /// instead.
     #[clap(short = 's', long = "sender")]
     sender_account_id: Option<String>,
-    /// Target account ID or its hex prefix
+    /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
@@ -96,16 +113,20 @@ pub struct SendCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
-    /// Set the recall height for the transaction. If the note was not consumed by this height, the
+    /// Set the recall height for the transaction. If the note wasn't consumed by this height, the
     /// sender may consume it back.
     ///
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
     #[clap(short, long)]
     recall_height: Option<u32>,
+
+    /// Flag to delegate proving to the remote prover specified in the config file
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SendCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -123,15 +144,25 @@ impl SendCmd {
             target_account_id,
         );
 
-        let transaction_request = TransactionRequest::pay_to_id(
+        let transaction_request = TransactionRequestBuilder::pay_to_id(
             payment_transaction,
-            self.recall_height,
+            self.recall_height.map(BlockNumber::from),
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| {
+            CliError::Transaction(err.into(), "Failed to build payment transaction".to_string())
+        })?
+        .build();
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -139,27 +170,31 @@ impl SendCmd {
 /// Create a swap transaction.
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
-    /// instead
+    /// instead.
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// Asset offered
+    /// Asset offered.
     #[clap(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     offered_asset: String,
 
-    /// Asset requested
+    /// Asset requested.
     #[clap(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     requested_asset: String,
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file.
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl SwapCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -179,21 +214,31 @@ impl SwapCmd {
             requested_fungible_asset.into(),
         );
 
-        let transaction_request = TransactionRequest::swap(
+        let transaction_request = TransactionRequestBuilder::swap(
             swap_transaction.clone(),
             (&self.note_type).into(),
             client.rng(),
         )
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| {
+            CliError::Transaction(err.into(), "Failed to build swap transaction".to_string())
+        })?
+        .build();
 
-        execute_transaction(&mut client, sender_account_id, transaction_request, force).await?;
+        execute_transaction(
+            &mut client,
+            sender_account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await?;
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
             &swap_transaction.offered_asset(),
             &swap_transaction.requested_asset(),
         )
-        .map_err(|err| err.to_string())?
+        .map_err(|err| CliError::Transaction(err.into(), "Failed to build swap tag".to_string()))?
         .into();
         println!(
             "To receive updates about the payback Swap Note run `miden tags add {}`",
@@ -210,45 +255,76 @@ impl SwapCmd {
 /// that are identified to be owned by the account ID are consumed.
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
-    /// default account's ID is used instead
+    /// default account's ID is used instead.
     #[clap(short = 'a', long = "account")]
     account_id: Option<String>,
-    /// A list of note IDs or the hex prefixes of their corresponding IDs
+    /// A list of note IDs or the hex prefixes of their corresponding IDs.
     list_of_notes: Vec<String>,
-    /// Flag to submit the executed transaction without asking for confirmation
+    /// Flag to submit the executed transaction without asking for confirmation.
     #[clap(short, long, default_value_t = false)]
     force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file.
+    #[clap(long, default_value_t = false)]
+    delegate_proving: bool,
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let force = self.force;
 
-        let mut list_of_notes = Vec::new();
+        let mut authenticated_notes = Vec::new();
+        let mut unauthenticated_notes = Vec::new();
+
         for note_id in &self.list_of_notes {
             let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
-                .map_err(|err| err.to_string())?;
-            list_of_notes.push(note_record.id());
+                .map_err(|_| CliError::Input(format!("Input note ID {note_id} is neither a valid Note ID nor a prefix of a known Note ID")))?;
+
+            if note_record.is_authenticated() {
+                authenticated_notes.push(note_record.id());
+            } else {
+                unauthenticated_notes.push((
+                    note_record.try_into().map_err(|err: NoteRecordError| {
+                        CliError::Transaction(
+                            err.into(),
+                            "Failed to convert note record".to_string(),
+                        )
+                    })?,
+                    None,
+                ));
+            }
         }
 
         let account_id =
             get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()).await?;
 
-        if list_of_notes.is_empty() {
+        if authenticated_notes.is_empty() {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
             let consumable_notes = client.get_consumable_notes(Some(account_id)).await?;
 
-            list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
+            authenticated_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
 
-        if list_of_notes.is_empty() {
-            return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
+        if authenticated_notes.is_empty() && unauthenticated_notes.is_empty() {
+            return Err(CliError::Transaction(
+                "No input notes were provided and the store does not contain any notes consumable by {account_id}".into(),
+                "Input notes check failed".to_string(),
+            ));
         }
 
-        let transaction_request = TransactionRequest::consume_notes(list_of_notes);
+        let transaction_request = TransactionRequestBuilder::consume_notes(authenticated_notes)
+            .with_unauthenticated_input_notes(unauthenticated_notes)
+            .build();
 
-        execute_transaction(&mut client, account_id, transaction_request, force).await
+        execute_transaction(
+            &mut client,
+            account_id,
+            transaction_request,
+            force,
+            self.delegate_proving,
+        )
+        .await
     }
 }
 
@@ -260,7 +336,8 @@ async fn execute_transaction(
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,
-) -> Result<(), String> {
+    delegated_proving: bool,
+) -> Result<(), CliError> {
     println!("Executing transaction...");
     let transaction_execution_result =
         client.new_transaction(account_id, transaction_request).await?;
@@ -287,9 +364,24 @@ async fn execute_transaction(
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    client.submit_transaction(transaction_execution_result).await?;
+    if delegated_proving {
+        let (cli_config, _) = load_config_file()?;
+        let remote_prover_endpoint =
+            cli_config.remote_prover_endpoint.as_ref().ok_or(CliError::Config(
+                "Remote prover endpoint".to_string().into(),
+                "remote prover endpoint is not set in the configuration file".to_string(),
+            ))?;
 
-    println!("Succesfully created transaction.");
+        let remote_prover =
+            Arc::new(RemoteTransactionProver::new(&remote_prover_endpoint.to_string()));
+        client
+            .submit_transaction_with_prover(transaction_execution_result, remote_prover)
+            .await?;
+    } else {
+        client.submit_transaction(transaction_execution_result).await?;
+    }
+
+    println!("Successfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
 
     if output_notes.is_empty() {
@@ -302,7 +394,7 @@ async fn execute_transaction(
     Ok(())
 }
 
-fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), String> {
+fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), CliError> {
     println!("The transaction will have the following effects:\n");
 
     // INPUT NOTES
@@ -362,8 +454,8 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for (faucet_id, amount) in account_delta.vault().fungible().iter() {
-            let asset = FungibleAsset::new(*faucet_id, amount.unsigned_abs())
-                .map_err(|err| err.to_string())?;
+            let asset =
+                FungibleAsset::new(*faucet_id, amount.unsigned_abs()).map_err(CliError::Asset)?;
             let (faucet_fmt, amount_fmt) = faucet_details_map.format_fungible_asset(&asset)?;
 
             if amount.is_positive() {
@@ -376,10 +468,18 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         for (asset, action) in account_delta.vault().non_fungible().iter() {
             match action {
                 NonFungibleDeltaAction::Add => {
-                    table.add_row(vec!["Non Fungible Asset", &asset.faucet_id().to_hex(), "1"]);
+                    table.add_row(vec![
+                        "Non Fungible Asset",
+                        &asset.faucet_id_prefix().to_hex(),
+                        "1",
+                    ]);
                 },
                 NonFungibleDeltaAction::Remove => {
-                    table.add_row(vec!["Non Fungible Asset", &asset.faucet_id().to_hex(), "-1"]);
+                    table.add_row(vec![
+                        "Non Fungible Asset",
+                        &asset.faucet_id_prefix().to_hex(),
+                        "-1",
+                    ]);
                 },
             }
         }

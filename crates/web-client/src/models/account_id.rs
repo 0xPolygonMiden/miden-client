@@ -1,4 +1,4 @@
-use miden_objects::{accounts::AccountId as NativeAccountId, Felt as NativeFelt};
+use miden_objects::{account::AccountId as NativeAccountId, Felt as NativeFelt};
 use wasm_bindgen::prelude::*;
 
 use super::felt::Felt;
@@ -27,8 +27,13 @@ impl AccountId {
         self.0.to_string()
     }
 
-    pub fn to_felt(&self) -> Felt {
-        let native_felt: NativeFelt = self.0.into();
+    pub fn prefix(&self) -> Felt {
+        let native_felt: NativeFelt = self.0.prefix().as_felt();
+        native_felt.into()
+    }
+
+    pub fn suffix(&self) -> Felt {
+        let native_felt: NativeFelt = self.0.suffix();
         native_felt.into()
     }
 }
@@ -57,12 +62,5 @@ impl From<AccountId> for NativeAccountId {
 impl From<&AccountId> for NativeAccountId {
     fn from(account_id: &AccountId) -> Self {
         account_id.0
-    }
-}
-
-impl From<AccountId> for Felt {
-    fn from(account_id: AccountId) -> Self {
-        let native_felt: NativeFelt = account_id.0.into();
-        native_felt.into()
     }
 }

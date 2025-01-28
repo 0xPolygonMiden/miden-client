@@ -41,6 +41,7 @@
         OutputNotesArray,
         Rpo256,
         TransactionRequest,
+        TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
         WebClient,
@@ -122,13 +123,12 @@
         });
       }
 
-      async function createMidenWebClient(dbName = "MidenClientDB") {
+      async function createMidenWebClient(dbName = "MidenClientDB", initSeed) {
         try {
-          // let rpc_url = "http://18.203.155.106:57291"
           let rpc_url = "http://localhost:57291";
           let envoy_proxy_url = "http://localhost:8080";
           const webClient = new WebClient();
-          await webClient.create_client(rpc_url);
+          await webClient.create_client(rpc_url, null, initSeed);
           return webClient;
         } catch (error) {
           console.error("Failed to create client with web store:", error);
@@ -420,10 +420,20 @@
 
       // Done
       async function testCreateNewWallet() {
-        console.log("testCreateNewWallet started");
-        let webClient = await createMidenWebClient();
+        const initSeed = new Uint8Array([
+          223, 198, 73, 130, 93, 79, 220, 107, 25, 181, 91, 235, 101, 105, 136,
+          172, 151, 161, 174, 73, 142, 81, 238, 192, 227, 93, 54, 113, 136, 223,
+          75, 174,
+        ]);
 
-        // await createNewWallet(webClient, "Private", true);
+        console.log("testCreateNewWallet started");
+        const webClient = await createMidenWebClient("MidenClientDB", initSeed);
+        const wallet = await webClient.new_wallet(
+          AccountStorageMode.public(),
+          true
+        );
+        console.log("Wallet id: ");
+        console.log(wallet.id().to_string());
 
         console.log("testCreateNewWallet finished");
       }
@@ -1288,7 +1298,7 @@
 
         let expectedNoteArgs = noteArgs.map((felt) => felt.as_int());
         let memAddress = "1000";
-        let memAddress2 = "1001";
+        let memAddress2 = "1004";
         let expectedNoteArg1 = expectedNoteArgs.slice(0, 4).join(".");
         let expectedNoteArg2 = expectedNoteArgs.slice(4, 8).join(".");
         let note_script = `
@@ -1312,7 +1322,7 @@
                     # => [num_of_assets, 0 = ptr, ...]
 
                     # compute the pointer at which we should stop iterating
-                    dup.1 add
+                    mul.4 dup.1 add
                     # => [end_ptr, ptr, ...]
 
                     # pad the stack and move the pointer to the top
@@ -1330,13 +1340,25 @@
                         dup movdn.5
                         # => [ptr, 0, 0, 0, 0, ptr, end_ptr, ...]
 
-                        # load the asset and add it to the account
-                        mem_loadw call.wallet::receive_asset
+                        # load the asset
+                        mem_loadw
                         # => [ASSET, ptr, end_ptr, ...]
 
+                        # pad the stack before call
+                        padw swapw padw padw swapdw
+                        # => [ASSET, pad(12), ptr, end_ptr, ...]
+
+                        # add asset to the account
+                        call.wallet::receive_asset
+                        # => [pad(16), ptr, end_ptr, ...]
+
+                        # clean the stack after call
+                        dropw dropw dropw
+                        # => [0, 0, 0, 0, ptr, end_ptr, ...]
+
                         # increment the pointer and compare it to the end_ptr
-                        movup.4 add.1 dup dup.6 neq
-                        # => [latch, ptr+1, ASSET, end_ptr, ...]
+                        movup.4 add.4 dup dup.6 neq
+                        # => [latch, ptr+4, ASSET, end_ptr, ...]
                     end
 
                     # clear the stack
@@ -1365,7 +1387,7 @@
                     mem_loadw
                     # => [NOTE_ARG_1]
                     
-                    push.${expectedNoteArg1} assert_eqw
+                    push.${expectedNoteArg1} assert_eqw.err=101
                     # => []
 
                     # read second word
@@ -1374,7 +1396,7 @@
                     mem_loadw
                     # => [NOTE_ARG_2]
 
-                    push.${expectedNoteArg2} assert_eqw
+                    push.${expectedNoteArg2} assert_eqw.err=102
                     # => []
 
                     # store the note inputs to memory starting at address 0
@@ -1382,18 +1404,18 @@
                     # => [num_inputs, inputs_ptr]
 
                     # make sure the number of inputs is 1
-                    eq.1 assert
+                    eq.2 assert.err=103
                     # => [inputs_ptr]
 
                     # read the target account id from the note inputs
                     mem_load
-                    # => [target_account_id]
+                    # => [target_account_id_prefix]
 
-                    exec.account::get_id
-                    # => [account_id, target_account_id, ...]
+                    exec.account::get_id swap drop
+                    # => [account_id_prefix, target_account_id_prefix, ...]
 
                     # ensure account_id = target_account_id, fails otherwise
-                    assert_eq
+                    assert_eq.err=104
                     # => [...]
 
                     exec.add_note_assets_to_account
@@ -1410,10 +1432,9 @@
         let note = new Note(noteAssets, noteMetadata, noteRecipient);
 
         // Creating First Custom Transaction Request to Mint the Custom Note
-        let transaction_request =
-          new TransactionRequest().with_own_output_notes(
-            new OutputNotesArray([OutputNote.full(note)])
-          );
+        let transaction_request = new TransactionRequestBuilder()
+          .with_own_output_notes(new OutputNotesArray([OutputNote.full(note)]))
+          .build();
 
         // Execute and Submit Transaction
         await webClient.fetch_and_cache_account_auth_by_pub_key(

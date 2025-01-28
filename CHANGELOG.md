@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.7.0 (TBD)
+
+### Features
+
+* [BREAKING] Implemented support for overwriting of accounts when importing (#612).
+* [BREAKING] Added `AccountRecord` with information about the account's status (#600).
+* [BREAKING] Added `TransactionRequestBuilder` for building `TransactionRequest` (#605).
+* Added caching for foreign account code (#597).
+* Added support for unauthenticated notes consumption in the CLI (#609).
+* [BREAKING] Added foreign procedure invocation support for private accounts (#619).
+* [BREAKING] Added support for specifying map storage slots for FPI (#645)
+* Limited the number of decimals that an asset can have (#666).
+* [BREAKING] Removed the `testing` feature from the CLI (#670).
+* Added per transaction prover support to the web client (#674).
+* [BREAKING] Added `BlockNumber` structure (#677).
+* Created functions for creating standard notes and note scripts easily on the web client (#686).
+* [BREAKING] Renamed plural modules to singular (#687).
+* [BREAKING] Made `idxdb` only usable on WASM targets (#685).
+* Added fixed seed option for web client generation (#688).
+* [BREAKING] Updated `init` command in the CLI to receive a `--network` flag (#690).
+* Improved CLI error messages (#682).
+* [BREAKING] Renamed APIs for retrieving account information to use the `try_get_*` naming convention, and added/improved module documentation (#683).
+* Enabled TLS on tonic client (#697).
+* Added account creation from component templates (#680).
+
+### Fixes
+
+* Print MASM debug logs when executing transactions (#661).
+* Web Store Minor Logging and Error Handling Improvements (#656).
+* Web Store InsertChainMmrNodes Duplicate Ids Causes Error (#627).
+* Fixed client bugs where some note metadata was not being updated (#625).
+* Added Sync Loop to Integration Tests for Small Speedup (#590).
+* Added Serial Num Parameter to Note Recipient Constructor in the Web Client (#671).
+
+### Changes
+
+* [BREAKING] Return `None` instead of `Err` when an entity is not found (#632).
+* Add support for notes without assets in transaction requests (#654).
+* Refactored RPC functions and structs to improve code quality (#616).
+* [BREAKING] Added support for new two `Felt` account ID (#639).
+* [BREAKING] Removed unnecessary methods from `Client` (#631).
+* [BREAKING] Use `thiserror` 2.0 to derive errors (#623).
+* [BREAKING] Moved structs from `miden-client::rpc` to `miden-client::rpc::domain::*` and changed prost-generated code location (#608, #610, #615).
+* Refactored `Client::import_note` to return an error when the note is already being processed (#602).
+* [BREAKING] Added per transaction prover support to the client (#599).
+* [BREAKING] Removed unused dependencies (#584).
+
 ## 0.6.0 (2024-11-08)
 
 ### Features

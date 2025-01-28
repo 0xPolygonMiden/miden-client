@@ -1,42 +1,48 @@
+//! This module provides an SQLite-backed implementation of the [Store] trait.
+//!
+//! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
+//! nodes using an SQLite database.
+//! It is compiled only when the `sqlite` feature flag is enabled.
+
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
-use std::{path::Path, string::ToString};
+use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
+    note::{NoteTag, Nullifier},
+    Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
 use tonic::async_trait;
 
-use self::config::SqliteStoreConfig;
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-mod accounts;
+mod account;
 mod chain_data;
-pub mod config;
 mod errors;
-mod notes;
+mod note;
 mod sync;
-mod transactions;
+mod transaction;
 
 // SQLITE STORE
 // ================================================================================================
 
-/// Represents a pool of connections with an sqlite database. The pool is used to interact
+/// Represents a pool of connections with an SQLite database. The pool is used to interact
 /// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.
@@ -49,10 +55,10 @@ impl SqliteStore {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
-    pub async fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
-        let database_exists = Path::new(&config.database_filepath).exists();
+    pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
+        let database_exists = database_filepath.exists();
 
-        let connection_cfg = Config::new(config.database_filepath.clone());
+        let connection_cfg = Config::new(database_filepath);
         let pool = connection_cfg
             .builder(Runtime::Tokio1)
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
@@ -111,6 +117,11 @@ impl SqliteStore {
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 #[async_trait(?Send)]
 impl Store for SqliteStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.interact_with_connection(SqliteStore::get_note_tags).await
     }
@@ -129,7 +140,7 @@ impl Store for SqliteStore {
             .await
     }
 
-    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         self.interact_with_connection(SqliteStore::get_sync_height).await
     }
 
@@ -191,7 +202,7 @@ impl Store for SqliteStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_numbers = block_numbers.to_vec();
         self.interact_with_connection(move |conn| {
@@ -223,7 +234,7 @@ impl Store for SqliteStore {
 
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.interact_with_connection(move |conn| {
             SqliteStore::get_chain_mmr_peaks_by_block_num(conn, block_num)
@@ -246,18 +257,25 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn update_account(&self, account: &Account) -> Result<(), StoreError> {
+        let account = account.clone();
+
+        self.interact_with_connection(move |conn| SqliteStore::update_account(conn, &account))
+            .await
+    }
+
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_ids).await
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_headers).await
     }
 
     async fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.interact_with_connection(move |conn| {
             SqliteStore::get_account_auth_by_pub_key(conn, pub_key)
         })
@@ -267,7 +285,7 @@ impl Store for SqliteStore {
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_header(conn, account_id))
             .await
     }
@@ -285,14 +303,38 @@ impl Store for SqliteStore {
     async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    ) -> Result<Option<AccountRecord>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
             .await
     }
 
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account_auth(conn, account_id))
             .await
+    }
+
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::upsert_foreign_account_code(conn, account_id, code)
+        })
+        .await
+    }
+
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_foreign_account_code(conn, account_ids)
+        })
+        .await
     }
 
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
@@ -306,18 +348,10 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::string::ToString;
-
-    use super::{config::SqliteStoreConfig, SqliteStore};
+    use super::SqliteStore;
     use crate::mock::create_test_store_path;
 
     pub(crate) async fn create_test_store() -> SqliteStore {
-        let temp_file = create_test_store_path();
-
-        SqliteStore::new(&SqliteStoreConfig {
-            database_filepath: temp_file.to_string_lossy().to_string(),
-        })
-        .await
-        .unwrap()
+        SqliteStore::new(create_test_store_path()).await.unwrap()
     }
 }

@@ -1,4 +1,4 @@
-use miden_client::transactions::TransactionResult as NativeTransactionResult;
+use miden_client::transaction::TransactionResult as NativeTransactionResult;
 use wasm_bindgen::prelude::*;
 
 use super::{
@@ -22,7 +22,7 @@ impl TransactionResult {
     // TODO: relevant_notes
 
     pub fn block_num(&self) -> u32 {
-        self.0.block_num()
+        self.0.block_num().as_u32()
     }
 
     pub fn transaction_arguments(&self) -> TransactionArgs {

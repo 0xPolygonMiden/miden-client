@@ -3,27 +3,35 @@ on:
   push:
     branches: [main, next]
   pull_request:
-    types: [opened, repoened, synchronize]
+    types: [opened, reopened, synchronize]
 
 jobs:
   test:
-    name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
-    runs-on: ${{matrix.os}}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable, nightly]
-        os: [ubuntu]
+    name: Test Rust 
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install Rust with ${{matrix.toolchain}} toolchain
-        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - name: Install Rust
+        run: rustup update --no-self-update
       - uses: taiki-e/install-action@nextest
       - name: make - test
         run: make test
 
-  integration_tests:
-    name: integration_tests
+  doc-tests:
+    name: doc-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
+      - name: Install rust
+        run: rustup update --no-self-update
+      - name: Run doc-tests
+        run: make test-docs  
+
+  integration-tests:
+    name: Run integration tests on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
@@ -38,9 +46,9 @@ jobs:
         if: always()
         run: make kill-node
 
-  integration_tests_web_client:
-    name: integration_tests_web_client
-    runs-on: ubuntu-latest
+  integration-tests-web-client:
+    name: Run integration tests for web client on ubuntu-22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -59,9 +67,9 @@ jobs:
         if: always()
         run: make kill-node
 
-  integration_tests_remote_prover_web_client:
-    name: integration_tests_remote_prover_web_client
-    runs-on: ubuntu-latest
+  integration-tests-remote-prover-web-client:
+    name: Run integration tests for remote prover on ubuntu-22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@main
       - name: Install Rust

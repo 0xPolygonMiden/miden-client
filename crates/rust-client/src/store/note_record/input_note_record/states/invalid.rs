@@ -1,9 +1,10 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    block::BlockHeader,
+    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::{
@@ -12,12 +13,13 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::Invalid] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
     /// information.
     pub metadata: NoteMetadata,
-    /// Inclusion proof for the note inside the chain block.
+    /// Inclusion proof for the note inside the chain block, verified to be invalid.
     pub invalid_inclusion_proof: NoteInclusionProof,
     /// Root of the note tree inside the block that invalidates the note inclusion proof.
     pub block_note_root: Digest,
@@ -69,8 +71,9 @@ impl NoteStateHandler for InvalidNoteState {
 
     fn consumed_locally(
         &self,
-        _consumer_account: miden_objects::accounts::AccountId,
+        _consumer_account: miden_objects::account::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Can't consume invalid note".to_string()))
     }

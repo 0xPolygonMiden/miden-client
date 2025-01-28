@@ -4,45 +4,46 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 
 use async_trait::async_trait;
-use generated::{
-    requests::{
-        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
-        GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
-        SyncNoteRequest, SyncStateRequest,
-    },
-    responses::{SyncNoteResponse, SyncStateResponse},
-    rpc::api_client::ApiClient,
-};
 use miden_objects::{
-    accounts::{Account, AccountId},
+    account::{Account, AccountCode, AccountId},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
-    transaction::{ProvenTransaction, TransactionId},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
-    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
-    NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    domain::{
+        account::{AccountProof, AccountProofs, AccountUpdateSummary},
+        note::NetworkNote,
+    },
+    generated::{
+        requests::{
+            get_account_proofs_request::{self},
+            CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+            GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        },
+        rpc::api_client::ApiClient,
+    },
+    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
+    StateSyncInfo,
 };
-use crate::{config::RpcConfig, rpc::RpcError};
-#[rustfmt::skip]
-pub mod generated;
+use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction::ForeignAccount};
 
 // TONIC RPC CLIENT
 // ================================================================================================
 
-/// Client for the Node RPC API using tonic
+/// Client for the Node RPC API using tonic.
 ///
-/// Wraps the ApiClient which defers establishing a connection with a node until necessary
+/// Wraps the ApiClient which defers establishing a connection with a node until necessary.
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
@@ -50,17 +51,18 @@ pub struct TonicRpcClient {
 }
 
 impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config: &RpcConfig) -> TonicRpcClient {
+    /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
+    /// the given timeout in milliseconds.
+    pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
-            endpoint: config.endpoint.to_string(),
-            timeout_ms: config.timeout_ms,
+            endpoint: endpoint.to_string(),
+            timeout_ms,
         }
     }
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
-    /// to the inner ApiClient
+    /// to the inner ApiClient.
     async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcError> {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
@@ -98,11 +100,11 @@ impl NodeRpcClient for TonicRpcClient {
 
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         let request = GetBlockHeaderByNumberRequest {
-            block_num,
+            block_num: block_num.as_ref().map(BlockNumber::as_u32),
             include_mmr_proof: Some(include_mmr_proof),
         };
 
@@ -134,7 +136,7 @@ impl NodeRpcClient for TonicRpcClient {
 
             Some(MmrProof {
                 forest: forest as usize,
-                position: block_header.block_num() as usize,
+                position: block_header.block_num().as_usize(),
                 merkle_path,
             })
         } else {
@@ -144,7 +146,7 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
@@ -165,17 +167,17 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
+                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
             };
 
             let note = match note.details {
-                // On-chain notes include details
+                // Public notes include details
                 Some(details) => {
                     let note = Note::read_from_bytes(&details)?;
 
-                    NoteDetails::Public(note, inclusion_details)
+                    NetworkNote::Public(note, inclusion_details)
                 },
-                // Off-chain notes do not have details
+                // Private notes do not have details
                 None => {
                     let note_metadata = note
                         .metadata
@@ -187,7 +189,7 @@ impl NodeRpcClient for TonicRpcClient {
                         .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)
@@ -199,7 +201,7 @@ impl NodeRpcClient for TonicRpcClient {
     /// into a [StateSyncInfo] struct.
     async fn sync_state(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
@@ -211,7 +213,7 @@ impl NodeRpcClient for TonicRpcClient {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
-            block_num,
+            block_num: block_num.as_u32(),
             account_ids,
             note_tags,
             nullifiers,
@@ -231,10 +233,10 @@ impl NodeRpcClient for TonicRpcClient {
     ///
     /// This function will return an error if:
     ///
-    /// - There was an error sending the request to the node
+    /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
     ///   details).
-    /// - There is an error during [Account] deserialization
+    /// - There is an error during [Account] deserialization.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
@@ -279,38 +281,39 @@ impl NodeRpcClient for TonicRpcClient {
     }
 
     /// Sends a `GetAccountProofs` request to the Miden node, and extracts a list of [AccountProof]
-    /// from the response.
+    /// from the response, as well as the block number that they were retrieved for.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
     ///
-    /// - One of the requested Accounts is not public, or is not returned by the node.
+    /// - One of the requested Accounts isn't returned by the node.
     /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.
     async fn get_account_proofs(
         &mut self,
-        account_ids: &BTreeSet<AccountId>,
-        code_commitments: &[Digest],
-        include_headers: bool,
+        account_requests: &BTreeSet<ForeignAccount>,
+        known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
-        let account_ids: Vec<AccountId> = account_ids.iter().copied().collect();
+        let requested_accounts = account_requests.len();
+        let mut rpc_account_requests: Vec<get_account_proofs_request::AccountRequest> =
+            Vec::with_capacity(account_requests.len());
 
-        // Ensure all account IDs are public
-        for account_id in &account_ids {
-            if !account_id.is_public() {
-                return Err(RpcError::RequestError(
-                    NodeRpcClientEndpoint::GetAccountProofs.to_string(),
-                    format!("Account ID {account_id} is not public"),
-                ));
-            }
+        for foreign_account in account_requests.iter() {
+            rpc_account_requests.push(get_account_proofs_request::AccountRequest {
+                account_id: Some(foreign_account.account_id().into()),
+                storage_requests: foreign_account.storage_slot_requirements().into(),
+            });
         }
 
+        let known_account_codes: BTreeMap<Digest, AccountCode> =
+            known_account_codes.into_iter().map(|c| (c.commitment(), c)).collect();
+
         let request = GetAccountProofsRequest {
-            account_ids: account_ids.iter().map(|&id| id.into()).collect(),
-            include_headers: Some(include_headers),
-            code_commitments: code_commitments.iter().map(|c| c.into()).collect(),
+            account_requests: rpc_account_requests,
+            include_headers: Some(true),
+            code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
         };
 
         let rpc_api = self.rpc_api().await?;
@@ -326,13 +329,21 @@ impl NodeRpcClient for TonicRpcClient {
             .into_inner();
 
         let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
-        let block_num = response.block_num;
+        let block_num = response.block_num.into();
+
+        // sanity check response
+        if requested_accounts != response.account_proofs.len() {
+            return Err(RpcError::ExpectedDataMissing(
+                "AccountProof did not contain all account IDs".to_string(),
+            ));
+        }
 
         for account in response.account_proofs {
             let merkle_proof = account
                 .account_proof
                 .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
                 .try_into()?;
+
             let account_hash = account
                 .account_hash
                 .ok_or(RpcError::ExpectedDataMissing("AccountHash".to_string()))?
@@ -343,18 +354,14 @@ impl NodeRpcClient for TonicRpcClient {
                 .ok_or(RpcError::ExpectedDataMissing("AccountId".to_string()))?
                 .try_into()?;
 
-            if !account_ids.contains(&account_id) {
-                return Err(RpcError::ExpectedDataMissing(format!(
-                    "Response did not contain data for account ID {account_id}"
-                )));
-            }
-
-            let headers = if include_headers {
+            // Because we set `include_headers` to true, for any public account we requeted we
+            // should have the corresponding `state_header` field
+            let headers = if account_id.is_public() {
                 Some(
                     account
                         .state_header
                         .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
-                        .into_domain(account_id)?,
+                        .into_domain(account_id, &known_account_codes)?,
                 )
             } else {
                 None
@@ -370,12 +377,12 @@ impl NodeRpcClient for TonicRpcClient {
 
     async fn sync_notes(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         note_tags: &[NoteTag],
-    ) -> Result<super::NoteSyncInfo, RpcError> {
+    ) -> Result<NoteSyncInfo, RpcError> {
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
-        let request = SyncNoteRequest { block_num, note_tags };
+        let request = SyncNoteRequest { block_num: block_num.as_u32(), note_tags };
 
         let rpc_api = self.rpc_api().await?;
 
@@ -413,174 +420,5 @@ impl NodeRpcClient for TonicRpcClient {
             })
             .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
         Ok(nullifiers)
-    }
-}
-
-// NOTE SYNC INFO CONVERSION
-// ================================================================================================
-
-impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
-    type Error = RpcError;
-
-    fn try_from(value: SyncNoteResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
-        // Validate and convert block header
-        let block_header = value
-            .block_header
-            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
-            .try_into()?;
-
-        let mmr_path = value
-            .mmr_path
-            .ok_or(RpcError::ExpectedDataMissing("MmrPath".into()))?
-            .try_into()?;
-
-        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
-        let mut notes = vec![];
-        for note in value.notes {
-            let note_id: Digest = note
-                .note_id
-                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
-                .try_into()?;
-
-            let note_id: NoteId = note_id.into();
-
-            let merkle_path = note
-                .merkle_path
-                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
-                .try_into()?;
-
-            let metadata = note
-                .metadata
-                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                .try_into()?;
-
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
-
-            notes.push(committed_note);
-        }
-
-        Ok(NoteSyncInfo { chain_tip, block_header, mmr_path, notes })
-    }
-}
-
-// STATE SYNC INFO CONVERSION
-// ================================================================================================
-
-impl TryFrom<SyncStateResponse> for StateSyncInfo {
-    type Error = RpcError;
-
-    fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
-        // Validate and convert block header
-        let block_header: BlockHeader = value
-            .block_header
-            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
-            .try_into()?;
-
-        // Validate and convert MMR Delta
-        let mmr_delta = value
-            .mmr_delta
-            .ok_or(RpcError::ExpectedDataMissing("MmrDelta".into()))?
-            .try_into()?;
-
-        // Validate and convert account hash updates into an (AccountId, Digest) tuple
-        let mut account_hash_updates = vec![];
-        for update in value.accounts {
-            let account_id = update
-                .account_id
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountId".into()))?
-                .try_into()?;
-            let account_hash = update
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountHash".into()))?
-                .try_into()?;
-            account_hash_updates.push((account_id, account_hash));
-        }
-
-        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
-        let mut note_inclusions = vec![];
-        for note in value.notes {
-            let note_id: Digest = note
-                .note_id
-                .ok_or(RpcError::ExpectedDataMissing("Notes.Id".into()))?
-                .try_into()?;
-
-            let note_id: NoteId = note_id.into();
-
-            let merkle_path = note
-                .merkle_path
-                .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
-                .try_into()?;
-
-            let metadata = note
-                .metadata
-                .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                .try_into()?;
-
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
-
-            note_inclusions.push(committed_note);
-        }
-
-        let nullifiers = value
-            .nullifiers
-            .iter()
-            .map(|nul_update| {
-                let nullifier_digest = nul_update
-                    .nullifier
-                    .ok_or(RpcError::ExpectedDataMissing("Nullifier".into()))?;
-
-                let nullifier_digest = Digest::try_from(nullifier_digest)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                let nullifier_block_num = nul_update.block_num;
-
-                Ok(NullifierUpdate {
-                    nullifier: nullifier_digest.into(),
-                    block_num: nullifier_block_num,
-                })
-            })
-            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
-
-        let transactions = value
-            .transactions
-            .iter()
-            .map(|transaction_summary| {
-                let transaction_id = transaction_summary.transaction_id.ok_or(
-                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
-                )?;
-                let transaction_id = TransactionId::try_from(transaction_id)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                let transaction_block_num = transaction_summary.block_num;
-
-                let transaction_account_id = transaction_summary.account_id.ok_or(
-                    RpcError::ExpectedDataMissing("TransactionSummary.TransactionId".into()),
-                )?;
-                let transaction_account_id = AccountId::try_from(transaction_account_id)
-                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
-
-                Ok(TransactionUpdate {
-                    transaction_id,
-                    block_num: transaction_block_num,
-                    account_id: transaction_account_id,
-                })
-            })
-            .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
-
-        Ok(Self {
-            chain_tip,
-            block_header,
-            mmr_delta,
-            account_hash_updates,
-            note_inclusions,
-            nullifiers,
-            transactions,
-        })
     }
 }

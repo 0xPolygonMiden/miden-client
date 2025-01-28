@@ -1,4 +1,4 @@
-use miden_client::transactions::TransactionRecord as NativeTransactionRecord;
+use miden_client::transaction::TransactionRecord as NativeTransactionRecord;
 use wasm_bindgen::prelude::*;
 
 use super::{
@@ -45,7 +45,7 @@ impl TransactionRecord {
     // }
 
     pub fn block_num(&self) -> u32 {
-        self.0.block_num
+        self.0.block_num.as_u32()
     }
 
     pub fn transaction_status(&self) -> TransactionStatus {

@@ -1,6 +1,6 @@
 use miden_client::utils::Serializable;
 use miden_objects::{
-    accounts::AuthSecretKey as NativeAuthSecretKey, Felt as NativeFelt, Word as NativeWord,
+    account::AuthSecretKey as NativeAuthSecretKey, Felt as NativeFelt, Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;
 

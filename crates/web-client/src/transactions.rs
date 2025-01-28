@@ -1,4 +1,4 @@
-use miden_client::transactions::{
+use miden_client::transaction::{
     TransactionRecord as NativeTransactionRecord, TransactionScript as NativeTransactionScript,
 };
 use miden_objects::{Felt as NativeFelt, Word as NativeWord};

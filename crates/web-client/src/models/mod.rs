@@ -66,6 +66,7 @@ pub mod note_type;
 pub mod output_note;
 pub mod output_notes;
 pub mod partial_note;
+pub mod provers;
 pub mod rpo256;
 pub mod rpo_digest;
 pub mod sync_summary;

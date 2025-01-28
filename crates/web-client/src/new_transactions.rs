@@ -1,19 +1,20 @@
 use miden_client::{
-    notes::get_input_note_with_id_prefix,
-    transactions::{
+    note::{get_input_note_with_id_prefix, BlockNumber},
+    transaction::{
         PaymentTransactionData, SwapTransactionData,
-        TransactionRequest as NativeTransactionRequest,
+        TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
 };
-use miden_lib::notes::utils::build_swap_tag;
-use miden_objects::{accounts::AccountId as NativeAccountId, assets::FungibleAsset};
+use miden_lib::note::utils::build_swap_tag;
+use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset};
 use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId, note_type::NoteType, transaction_request::TransactionRequest,
-        transaction_result::TransactionResult, transactions::NewSwapTransactionResult,
+        account_id::AccountId, note_type::NoteType, provers::TransactionProver,
+        transaction_request::TransactionRequest, transaction_result::TransactionResult,
+        transactions::NewSwapTransactionResult,
     },
     WebClient,
 };
@@ -43,11 +44,48 @@ impl WebClient {
         &mut self,
         transaction_result: &TransactionResult,
     ) -> Result<(), JsValue> {
+        let remote_prover = self.remote_prover.clone();
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            client.submit_transaction(native_transaction_result).await.map_err(|err| {
-                JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
-            })?;
+            match remote_prover {
+                Some(ref remote_prover) => {
+                    client
+                        .submit_transaction_with_prover(
+                            native_transaction_result,
+                            remote_prover.clone(),
+                        )
+                        .await
+                        .map_err(|err| {
+                            JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                        })?;
+                },
+                None => {
+                    client.submit_transaction(native_transaction_result).await.map_err(|err| {
+                        JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                    })?;
+                },
+            }
+
+            Ok(())
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    pub async fn submit_transaction_with_prover(
+        &mut self,
+        transaction_result: &TransactionResult,
+        prover: TransactionProver,
+    ) -> Result<(), JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let native_transaction_result: NativeTransactionResult = transaction_result.into();
+            client
+                .submit_transaction_with_prover(native_transaction_result, prover.get_prover())
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                })?;
+
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -66,7 +104,7 @@ impl WebClient {
                 JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
             })?;
 
-            let mint_transaction_request = NativeTransactionRequest::mint_fungible_asset(
+            let mint_transaction_request = NativeTransactionRequestBuilder::mint_fungible_asset(
                 fungible_asset,
                 target_account_id.into(),
                 note_type.into(),
@@ -74,7 +112,8 @@ impl WebClient {
             )
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {}", err))
-            })?;
+            })?
+            .build();
 
             let mint_transaction_execution_result = client
                 .new_transaction(faucet_id.into(), mint_transaction_request)
@@ -119,9 +158,9 @@ impl WebClient {
             );
 
             let send_transaction_request = if let Some(recall_height) = recall_height {
-                NativeTransactionRequest::pay_to_id(
+                NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
-                    Some(recall_height),
+                    Some(BlockNumber::from(recall_height)),
                     note_type.into(),
                     client.rng(),
                 )
@@ -131,8 +170,9 @@ impl WebClient {
                         err
                     ))
                 })?
+                .build()
             } else {
-                NativeTransactionRequest::pay_to_id(
+                NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
                     None,
                     note_type.into(),
@@ -144,6 +184,7 @@ impl WebClient {
                         err
                     ))
                 })?
+                .build()
             };
 
             let send_transaction_execution_result = client
@@ -183,7 +224,8 @@ impl WebClient {
                 result.push(note_record.id());
             }
 
-            let consume_transaction_request = NativeTransactionRequest::consume_notes(result);
+            let consume_transaction_request =
+                NativeTransactionRequestBuilder::consume_notes(result).build();
 
             let consume_transaction_execution_result = client
                 .new_transaction(account_id.into(), consume_transaction_request)
@@ -240,12 +282,13 @@ impl WebClient {
                 requested_fungible_asset,
             );
 
-            let swap_transaction_request = NativeTransactionRequest::swap(
+            let swap_transaction_request = NativeTransactionRequestBuilder::swap(
                 swap_transaction.clone(),
                 note_type.into(),
                 client.rng(),
             )
-            .unwrap();
+            .unwrap()
+            .build();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())
                 .await

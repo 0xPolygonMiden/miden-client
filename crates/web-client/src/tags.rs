@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteTag;
+use miden_objects::note::NoteTag;
 use wasm_bindgen::prelude::*;
 
 use crate::WebClient;

@@ -5,8 +5,9 @@ use alloc::{
 };
 
 use miden_objects::{
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    BlockHeader, Digest,
+    Digest,
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
@@ -48,11 +49,11 @@ impl WebStore {
 
     pub(crate) async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let formatted_block_numbers_list: Vec<String> = block_numbers
             .iter()
-            .map(|block_number| (*block_number as i64).to_string())
+            .map(|block_number| (block_number.as_u32() as i64).to_string())
             .collect();
 
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
@@ -116,7 +117,7 @@ impl WebStore {
 
     pub(crate) async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         let block_num_as_str = block_num.to_string();
 
@@ -127,7 +128,7 @@ impl WebStore {
         if let Some(peaks) = mmr_peaks_idxdb.peaks {
             let mmr_peaks_nodes: Vec<Digest> = Vec::<Digest>::read_from_bytes(&peaks)?;
 
-            return MmrPeaks::new(block_num as usize, mmr_peaks_nodes)
+            return MmrPeaks::new(block_num.as_usize(), mmr_peaks_nodes)
                 .map_err(StoreError::MmrError);
         }
 
@@ -152,7 +153,7 @@ impl WebStore {
         Ok(())
     }
 
-    /// This function is not used in this crate, rather it is used in the 'miden-client' crate.
+    /// This function isn't used in this crate, rather it is used in the 'miden-client' crate.
     /// https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105
     /// It is duplicated here due to its reliance on the store.
     #[allow(dead_code)]

@@ -1,14 +1,16 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    block::BlockHeader,
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ConsumedAuthenticatedLocal] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedAuthenticatedLocalNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -50,8 +52,9 @@ impl NoteStateHandler for ConsumedAuthenticatedLocalNoteState {
 
     fn consumed_locally(
         &self,
-        _consumer_account: miden_objects::accounts::AccountId,
+        _consumer_account: miden_objects::account::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }

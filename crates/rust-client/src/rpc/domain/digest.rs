@@ -2,13 +2,9 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::{self, Debug, Display, Formatter};
 
 use hex::ToHex;
-use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
+use miden_objects::{note::NoteId, Digest, Felt, StarkField};
 
-#[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::digest;
-#[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::digest;
-use crate::rpc::RpcConversionError;
+use crate::rpc::{errors::RpcConversionError, generated::digest};
 
 // CONSTANTS
 // ================================================================================================

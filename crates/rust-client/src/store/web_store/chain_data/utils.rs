@@ -5,7 +5,7 @@ use alloc::{
 };
 use core::num::NonZeroUsize;
 
-use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
+use miden_objects::{block::BlockHeader, crypto::merkle::InOrderIndex, Digest};
 use miden_tx::utils::Serializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;

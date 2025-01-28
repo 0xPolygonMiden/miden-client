@@ -18,7 +18,7 @@ proc.add_note_assets_to_account
     # => [num_of_assets, 0 = ptr, ...]
 
     # compute the pointer at which we should stop iterating
-    dup.1 add
+    mul.4 dup.1 add
     # => [end_ptr, ptr, ...]
 
     # pad the stack and move the pointer to the top
@@ -36,13 +36,25 @@ proc.add_note_assets_to_account
         dup movdn.5
         # => [ptr, 0, 0, 0, 0, ptr, end_ptr, ...]
 
-        # load the asset and add it to the account
-        mem_loadw call.wallet::receive_asset
+        # load the asset
+        mem_loadw
         # => [ASSET, ptr, end_ptr, ...]
 
+        # pad the stack before call
+        padw swapw padw padw swapdw
+        # => [ASSET, pad(12), ptr, end_ptr, ...]
+
+        # add asset to the account
+        call.wallet::receive_asset
+        # => [pad(16), ptr, end_ptr, ...]
+
+        # clean the stack after call
+        dropw dropw dropw
+        # => [0, 0, 0, 0, ptr, end_ptr, ...]
+
         # increment the pointer and compare it to the end_ptr
-        movup.4 add.1 dup dup.6 neq
-        # => [latch, ptr+1, ASSET, end_ptr, ...]
+        movup.4 add.4 dup dup.6 neq
+        # => [latch, ptr+4, ASSET, end_ptr, ...]
     end
 
     # clear the stack
@@ -71,7 +83,7 @@ begin
     mem_loadw
     # => [NOTE_ARG_1]
     
-    push.{expected_note_arg_1} assert_eqw
+    push.{expected_note_arg_1} assert_eqw.err=101
     # => []
 
     # read second word
@@ -80,7 +92,7 @@ begin
     mem_loadw
     # => [NOTE_ARG_2]
 
-    push.{expected_note_arg_2} assert_eqw
+    push.{expected_note_arg_2} assert_eqw.err=102
     # => []
 
     # store the note inputs to memory starting at address 0
@@ -88,18 +100,18 @@ begin
     # => [num_inputs, inputs_ptr]
 
     # make sure the number of inputs is 1
-    eq.1 assert
+    eq.2 assert.err=103
     # => [inputs_ptr]
 
     # read the target account id from the note inputs
     mem_load
-    # => [target_account_id]
+    # => [target_account_id_prefix]
 
-    exec.account::get_id
-    # => [account_id, target_account_id, ...]
+    exec.account::get_id swap drop
+    # => [account_id_prefix, target_account_id_prefix, ...]
 
     # ensure account_id = target_account_id, fails otherwise
-    assert_eq
+    assert_eq.err=104
     # => [...]
 
     exec.add_note_assets_to_account

@@ -1,13 +1,16 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::notes::NoteTag;
+use miden_objects::{block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::{
     store::{
-        sqlite_store::{accounts::update_account, notes::apply_note_updates_tx},
+        sqlite_store::{
+            account::{lock_account, update_account},
+            note::apply_note_updates_tx,
+        },
         StoreError,
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
@@ -77,13 +80,13 @@ impl SqliteStore {
         Ok(removed_tags)
     }
 
-    pub(super) fn get_sync_height(conn: &mut Connection) -> Result<u32, StoreError> {
+    pub(super) fn get_sync_height(conn: &mut Connection) -> Result<BlockNumber, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).map(|v: i64| v as u32))
+            .map(|result| Ok(result?).map(|v: i64| BlockNumber::from(v as u32)))
             .next()
             .expect("state sync block number exists")
     }
@@ -98,7 +101,7 @@ impl SqliteStore {
             transactions_to_commit: committed_transactions,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts,
+            updated_accounts,
             block_has_relevant_notes,
             transactions_to_discard: discarded_transactions,
             tags_to_remove,
@@ -108,7 +111,7 @@ impl SqliteStore {
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num().as_u32() as i64])?;
 
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
@@ -129,9 +132,13 @@ impl SqliteStore {
         // Marc transactions as discarded
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
-        // Update onchain accounts on the db that have been updated onchain
-        for account in updated_onchain_accounts {
-            update_account(&tx, &account)?;
+        // Update public accounts on the db that have been updated onchain
+        for account in updated_accounts.updated_public_accounts() {
+            update_account(&tx, account)?;
+        }
+
+        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
+            lock_account(&tx, *account_id)?;
         }
 
         // Commit the updates

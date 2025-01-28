@@ -2,18 +2,17 @@ use std::{env, sync::Arc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use errors::CliError;
 use miden_client::{
-    accounts::AccountHeader,
+    account::AccountHeader,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
         sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
         StoreAuthenticator,
     },
-    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
-use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
 mod commands;
 use commands::{
@@ -32,17 +31,18 @@ use commands::{
 use self::utils::load_config_file;
 
 mod config;
+mod errors;
 mod faucet_details_map;
 mod info;
 mod utils;
 
-/// Config file name
+/// Config file name.
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
-/// Client binary name
+/// Client binary name.
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
-/// Root CLI struct
+/// Root CLI struct.
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
@@ -55,7 +55,7 @@ pub struct Cli {
     debug: bool,
 }
 
-/// CLI actions
+/// CLI actions.
 #[derive(Debug, Parser)]
 pub enum Command {
     Account(AccountCmd),
@@ -66,7 +66,7 @@ pub enum Command {
     Init(InitCmd),
     Notes(NotesCmd),
     Sync(SyncCmd),
-    /// View a summary of the current client state
+    /// View a summary of the current client state.
     Info,
     Tags(TagsCmd),
     #[clap(name = "tx")]
@@ -77,10 +77,10 @@ pub enum Command {
     ConsumeNotes(ConsumeNotesCmd),
 }
 
-/// CLI entry point
+/// CLI entry point.
 impl Cli {
-    pub async fn execute(&self) -> Result<(), String> {
-        let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    pub async fn execute(&self) -> Result<(), CliError> {
+        let mut current_dir = std::env::current_dir()?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         // Check if it's an init command before anything else. When we run the init command for
@@ -93,7 +93,6 @@ impl Cli {
 
         // Define whether we want to use the executor's debug mode based on the env var and
         // the flag override
-
         let in_debug_mode = match env::var("MIDEN_DEBUG") {
             Ok(value) if value.to_lowercase() == "true" => true,
             _ => self.debug,
@@ -101,7 +100,9 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store).await.map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(cli_config.store_filepath.clone())
+            .await
+            .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
@@ -110,17 +111,14 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
-        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.remote_prover_endpoint {
-            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
-            None => Arc::new(LocalTransactionProver::new(Default::default())),
-        };
-
         let client = Client::new(
-            Box::new(TonicRpcClient::new(&cli_config.rpc)),
+            Box::new(TonicRpcClient::new(
+                cli_config.rpc.endpoint.clone().into(),
+                cli_config.rpc.timeout_ms,
+            )),
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),
-            tx_prover as Arc<dyn TransactionProver>,
             in_debug_mode,
         );
 
@@ -160,14 +158,14 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns the client output note whose ID starts with `note_id_prefix`
+/// Returns the client output note whose ID starts with `note_id_prefix`.
 ///
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
-///   `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its ID.
 pub(crate) async fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
     note_id_prefix: &str,
@@ -208,14 +206,14 @@ pub(crate) async fn get_output_note_with_id_prefix(
         .expect("input_note_records should always have one element"))
 }
 
-/// Returns the client account whose ID starts with `account_id_prefix`
+/// Returns the client account whose ID starts with `account_id_prefix`.
 ///
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
-///   `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its ID.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
-///   `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its ID.
 async fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,

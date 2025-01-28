@@ -1,14 +1,13 @@
-use alloc::string::{String, ToString};
-use core::fmt;
+use alloc::string::String;
 
 use miden_objects::{
-    accounts::AccountId,
+    account::AccountId,
     crypto::merkle::MmrError,
-    notes::NoteId,
     utils::{DeserializationError, HexParseError},
-    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
+    AccountError, AccountIdError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::DataStoreError;
+use thiserror::Error;
 
 use super::note_record::NoteRecordError;
 
@@ -16,48 +15,53 @@ use super::note_record::NoteRecordError;
 // ================================================================================================
 
 /// Errors generated from the store.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 #[allow(clippy::large_enum_variant)]
 pub enum StoreError {
-    AssetVaultError(AssetVaultError),
+    #[error("asset vault error")]
+    AssetVaultError(#[from] AssetVaultError),
+    #[error("account code data with root {0} not found")]
     AccountCodeDataNotFound(Digest),
+    #[error("account data wasn't found for account id {0}")]
     AccountDataNotFound(AccountId),
-    AccountError(AccountError),
+    #[error("account error")]
+    AccountError(#[from] AccountError),
+    #[error("account id error")]
+    AccountIdError(#[from] AccountIdError),
+    #[error("account hash {0} already exists")]
+    AccountHashAlreadyExists(Digest),
+    #[error("account hash mismatch for account {0}")]
     AccountHashMismatch(AccountId),
-    AccountKeyNotFound(Word),
+    #[error("public key {0} not found")]
+    AccountKeyNotFound(String),
+    #[error("account storage data with root {0} not found")]
     AccountStorageNotFound(Digest),
-    BlockHeaderNotFound(u32),
+    #[error("chain mmr node at index {0} not found")]
     ChainMmrNodeNotFound(u64),
-    DataDeserializationError(DeserializationError),
+    #[error("error deserializing data from the store")]
+    DataDeserializationError(#[from] DeserializationError),
+    #[error("database-related non-query error: {0}")]
     DatabaseError(String),
+    #[error("error parsing hex: {0}")]
+    //TODO: use source in this error when possible
     HexParseError(HexParseError),
-    NoteNotFound(NoteId),
-    NoteRecordError(NoteRecordError),
+    #[error("note record error")]
+    NoteRecordError(#[from] NoteRecordError),
+    #[error("error constructing mmr: {0}")]
+    //TODO: use source in this error when possible
     MmrError(MmrError),
-    NoteInclusionProofError(NoteError),
+    #[error("inclusion proof creation error")]
+    NoteInclusionProofError(#[from] NoteError),
+    #[error("note tag {0} is already being tracked")]
     NoteTagAlreadyTracked(u64),
+    #[error("failed to parse data retrieved from the database: {0}")]
     ParsingError(String),
+    #[error("failed to retrieve data from the database: {0}")]
     QueryError(String),
-    TransactionScriptError(TransactionScriptError),
+    #[error("error instantiating transaction script")]
+    TransactionScriptError(#[from] TransactionScriptError),
+    #[error("account vault data for root {0} not found")]
     VaultDataNotFound(Digest),
-}
-
-impl From<AssetVaultError> for StoreError {
-    fn from(value: AssetVaultError) -> Self {
-        StoreError::AssetVaultError(value)
-    }
-}
-
-impl From<AccountError> for StoreError {
-    fn from(value: AccountError) -> Self {
-        StoreError::AccountError(value)
-    }
-}
-
-impl From<DeserializationError> for StoreError {
-    fn from(value: DeserializationError) -> Self {
-        StoreError::DataDeserializationError(value)
-    }
 }
 
 impl From<HexParseError> for StoreError {
@@ -72,93 +76,13 @@ impl From<MmrError> for StoreError {
     }
 }
 
-impl From<NoteError> for StoreError {
-    fn from(value: NoteError) -> Self {
-        StoreError::NoteInclusionProofError(value)
-    }
-}
-
-impl From<TransactionScriptError> for StoreError {
-    fn from(value: TransactionScriptError) -> Self {
-        StoreError::TransactionScriptError(value)
-    }
-}
-
-impl From<NoteRecordError> for StoreError {
-    fn from(value: NoteRecordError) -> Self {
-        StoreError::NoteRecordError(value)
-    }
-}
-
-impl fmt::Display for StoreError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use StoreError::*;
-        match self {
-            AssetVaultError(err) => {
-                write!(f, "asset vault with root {} not found", err)
-            },
-            AccountCodeDataNotFound(root) => {
-                write!(f, "account code data with root {} not found", root)
-            },
-            AccountDataNotFound(account_id) => {
-                write!(f, "Account data was not found for Account Id {account_id}")
-            },
-            AccountError(err) => write!(f, "error instantiating Account: {err}"),
-            AccountHashMismatch(account_id) => {
-                write!(f, "account hash mismatch for account {account_id}")
-            },
-            AccountKeyNotFound(pub_key) => {
-                write!(f, "error: Public Key {} not found", Digest::from(pub_key))
-            },
-            AccountStorageNotFound(root) => {
-                write!(f, "account storage data with root {} not found", root)
-            },
-            BlockHeaderNotFound(block_number) => {
-                write!(f, "block header for block {} not found", block_number)
-            },
-            ChainMmrNodeNotFound(node_index) => {
-                write!(f, "chain mmr node at index {} not found", node_index)
-            },
-            DataDeserializationError(err) => {
-                write!(f, "error deserializing data from the store: {err}")
-            },
-            DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
-            HexParseError(err) => {
-                write!(f, "error parsing hex: {err}")
-            },
-            NoteRecordError(err) => write!(f, "note record error: {err}"),
-            NoteNotFound(note_id) => {
-                write!(f, "note with note id {} not found", note_id.inner())
-            },
-            MmrError(err) => write!(f, "error constructing mmr: {err}"),
-            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
-            NoteInclusionProofError(error) => {
-                write!(f, "inclusion proof creation error: {}", error)
-            },
-            ParsingError(err) => {
-                write!(f, "failed to parse data retrieved from the database: {err}")
-            },
-            QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            TransactionScriptError(err) => {
-                write!(f, "error instantiating transaction script: {err}")
-            },
-            VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-        }
-    }
-}
-
 impl From<StoreError> for DataStoreError {
     fn from(value: StoreError) -> Self {
         match value {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
             },
-            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
-            err => DataStoreError::InternalError(err.to_string()),
+            err => DataStoreError::other_with_source("store error", err),
         }
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for StoreError {}

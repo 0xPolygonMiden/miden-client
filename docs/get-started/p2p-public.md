@@ -25,9 +25,8 @@ To do this, we use two terminals with their own state (using their own `miden-cl
 2. Initialize the client. This creates the `miden-client.toml` file line-by-line.
 
     ```sh
-    miden init --rpc 18.203.155.106
+    miden init --network testnet # Creates a miden-client.toml file configured with the testnet node's IP
     ```
-    For the `--rpc` flag, enter the IP that the Miden team supplied.
 
 3. On the new client, create a new [basic account](https://0xpolygonmiden.github.io/miden-docs/miden-base/architecture/accounts.html):
 

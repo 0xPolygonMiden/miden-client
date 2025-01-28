@@ -5,11 +5,10 @@ use console_error_panic_hook::set_once;
 use miden_client::{
     rpc::WebTonicRpcClient,
     store::{web_store::WebStore, StoreAuthenticator},
-    transactions::{LocalTransactionProver, TransactionProver},
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_tx_prover::RemoteTransactionProver;
+use miden_proving_service_client::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -27,6 +26,7 @@ pub mod transactions;
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
+    remote_prover: Option<Arc<RemoteTransactionProver>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -41,7 +41,11 @@ impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         set_once();
-        WebClient { inner: None, store: None }
+        WebClient {
+            inner: None,
+            remote_prover: None,
+            store: None,
+        }
     }
 
     pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
@@ -51,9 +55,21 @@ impl WebClient {
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
-        proving_url: Option<String>,
+        prover_url: Option<String>,
+        seed: Option<Vec<u8>>,
     ) -> Result<JsValue, JsValue> {
-        let mut rng = StdRng::from_entropy();
+        let mut rng = match seed {
+            Some(seed_bytes) => {
+                if seed_bytes.len() == 32 {
+                    let mut seed_array = [0u8; 32];
+                    seed_array.copy_from_slice(&seed_bytes);
+                    StdRng::from_seed(seed_array)
+                } else {
+                    return Err(JsValue::from_str("Seed must be exactly 32 bytes"));
+                }
+            },
+            None => StdRng::from_entropy(),
+        };
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -63,22 +79,13 @@ impl WebClient {
         let web_store = Arc::new(web_store);
         let authenticator = Arc::new(StoreAuthenticator::new_with_rng(web_store.clone(), rng));
         let web_rpc_client = Box::new(WebTonicRpcClient::new(
-            &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
+            &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 
-        let tx_prover: Arc<dyn TransactionProver> = match proving_url {
-            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
-            None => Arc::new(LocalTransactionProver::new(Default::default())),
-        };
-
-        self.inner = Some(Client::new(
-            web_rpc_client,
-            rng,
-            web_store.clone(),
-            authenticator,
-            tx_prover,
-            false,
-        ));
+        self.remote_prover = prover_url
+            .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
+        self.inner =
+            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
 
         Ok(JsValue::from_str("Client created successfully"))

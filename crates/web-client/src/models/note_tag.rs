@@ -1,6 +1,6 @@
 use miden_objects::{
-    accounts::AccountId as NativeAccountId,
-    notes::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag},
+    account::AccountId as NativeAccountId,
+    note::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag},
 };
 use wasm_bindgen::prelude::*;
 
@@ -40,8 +40,8 @@ impl NoteTag {
         self.0.is_single_target()
     }
 
-    pub fn execution_hint(&self) -> NoteExecutionMode {
-        self.0.execution_hint().into()
+    pub fn execution_mode(&self) -> NoteExecutionMode {
+        self.0.execution_mode().into()
     }
 }
 

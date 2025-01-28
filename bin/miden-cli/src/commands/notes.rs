@@ -1,10 +1,10 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    accounts::AccountId,
-    assets::Asset,
+    account::AccountId,
+    asset::Asset,
     crypto::{Digest, FeltRng},
-    notes::{
+    note::{
         get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
         NoteConsumability, NoteInputs, NoteMetadata,
@@ -14,7 +14,8 @@ use miden_client::{
 };
 
 use crate::{
-    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
+    create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
+    utils::load_faucet_details_map, Parser,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -58,7 +59,7 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
                 list_consumable_notes(client, &None).await?;
@@ -96,19 +97,22 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-async fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
+async fn list_notes(
+    client: Client<impl FeltRng>,
+    filter: ClientNoteFilter,
+) -> Result<(), CliError> {
     let input_notes = client
         .get_input_notes(filter.clone())
         .await?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
-        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
+        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
     let output_notes = client
         .get_output_notes(filter.clone())
         .await?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
-        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
+        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
 
     print_notes_summary(input_notes, "Input Notes")?;
     print_notes_summary(output_notes, "Output Notes")
@@ -116,7 +120,7 @@ async fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> R
 
 // SHOW NOTE
 // ================================================================================================
-async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
+async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), CliError> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
@@ -124,14 +128,18 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     if matches!(input_note_record, Err(IdPrefixFetchError::NoMatch(_)))
         && matches!(output_note_record, Err(IdPrefixFetchError::NoMatch(_)))
     {
-        return Err("Couldn't find notes matching the specified note ID".to_string());
+        return Err(CliError::Import(
+            "The specified note ID hex prefix did not match any note".to_string(),
+        ));
     }
 
     // If either one of the two match with multiple notes return an error
     if matches!(input_note_record, Err(IdPrefixFetchError::MultipleMatches(_)))
         || matches!(output_note_record, Err(IdPrefixFetchError::MultipleMatches(_)))
     {
-        return Err("The specified note ID hex prefix matched with more than one note.".to_string());
+        return Err(CliError::Import(
+            "The specified note ID hex prefix matched with more than one note.".to_string(),
+        ));
     }
 
     let input_note_record = input_note_record.ok();
@@ -140,9 +148,9 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     // If we match one note as the input note and another one as the output note return an error
     match (&input_note_record, &output_note_record) {
         (Some(input_record), Some(output_record)) if input_record.id() != output_record.id() => {
-            return Err(
-                "The specified note ID hex prefix matched with more than one note.".to_string()
-            );
+            return Err(CliError::Import(
+                "The specified note ID hex prefix matched with more than one note.".to_string(),
+            ));
         },
         _ => {},
     }
@@ -220,12 +228,13 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
                 let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset)?;
-
                 ("Fungible Asset", faucet, amount)
             },
-            Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
-            },
+            Asset::NonFungible(non_fungible_asset) => (
+                "Non Fungible Asset",
+                non_fungible_asset.faucet_id_prefix().to_hex(),
+                1.0.to_string(),
+            ),
         };
         table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
     }
@@ -257,9 +266,12 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 async fn list_consumable_notes(
     client: Client<impl FeltRng>,
     account_id: &Option<String>,
-) -> Result<(), String> {
+) -> Result<(), CliError> {
     let account_id = match account_id {
-        Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
+        Some(id) => Some(
+            AccountId::from_hex(id.as_str())
+                .map_err(|err| CliError::AccountId(err, "Invalid account ID".to_string()))?,
+        ),
         None => None,
     };
     let notes = client.get_consumable_notes(account_id).await?;
@@ -269,7 +281,7 @@ async fn list_consumable_notes(
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), String>
+fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), CliError>
 where
     I: IntoIterator<Item = CliNoteSummary>,
 {
@@ -287,7 +299,7 @@ where
     Ok(())
 }
 
-fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
+fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), CliError>
 where
     I: IntoIterator<Item = &'a (InputNoteRecord, Vec<NoteConsumability>)>,
 {
@@ -311,9 +323,9 @@ where
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
     match note_record_metadata {
         Some(metadata) => match metadata.note_type() {
-            miden_client::notes::NoteType::Private => "Private",
-            miden_client::notes::NoteType::Encrypted => "Encrypted",
-            miden_client::notes::NoteType::Public => "Public",
+            miden_client::note::NoteType::Private => "Private",
+            miden_client::note::NoteType::Encrypted => "Encrypted",
+            miden_client::note::NoteType::Public => "Public",
         },
         None => "-",
     }
@@ -324,7 +336,7 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
 fn note_summary(
     input_note_record: Option<&InputNoteRecord>,
     output_note_record: Option<&OutputNoteRecord>,
-) -> Result<CliNoteSummary, String> {
+) -> Result<CliNoteSummary, CliError> {
     let note_id = input_note_record
         .map(|record| record.id())
         .or(output_note_record.map(|record| record.id()))

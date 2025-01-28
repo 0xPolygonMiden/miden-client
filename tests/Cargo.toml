@@ -1,6 +1,6 @@
 [package]
 name = "miden-client-tests"
-version = "0.6.0"
+version = "0.7.0"
 description = "Integration Tests for the miden client library and CLI"
 readme = "README.md"
 publish = false
@@ -10,8 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 
-[dev-dependencies]
-figment = { version = "0.10", features = ["toml", "env"] }
+[dependencies]
 miden-client = { path = "../crates/rust-client", features = [
     "concurrent",
     "testing",
@@ -20,12 +19,19 @@ miden-client = { path = "../crates/rust-client", features = [
     "tonic",
 ] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
-miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
-rand_chacha = { version = "0.3", default-features = false}
-tokio = { workspace = true }
+toml = { version = "0.8" }
 uuid = { version = "1.10", features = ["serde", "v4"] }
+
+[dev-dependencies]
+async-trait = { version = "0.1" }
+miden-lib = { workspace = true, default-features = false, features = ["testing"] }
+tokio = { workspace = true }
+winter-maybe-async = { version = "0.11" }
 
 [[test]]
 name = "integration"
 path = "integration/main.rs"
+
+[lib]
+path = "integration/lib.rs"

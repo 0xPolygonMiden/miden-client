@@ -1,4 +1,4 @@
-use miden_objects::accounts::AccountHeader as NativeAccountHeader;
+use miden_objects::account::AccountHeader as NativeAccountHeader;
 use wasm_bindgen::prelude::*;
 
 use super::{account_id::AccountId, felt::Felt, rpo_digest::RpoDigest};

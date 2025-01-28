@@ -1,13 +1,13 @@
 use miden_objects::{
-    crypto::rand::{FeltRng, RpoRandomCoin},
-    notes::{
+    note::{
         NoteInputs as NativeNoteInputs, NoteRecipient as NativeNoteRecipient,
         NoteScript as NativeNoteScript,
     },
+    Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;
 
-use super::{note_inputs::NoteInputs, note_script::NoteScript, rpo_digest::RpoDigest};
+use super::{note_inputs::NoteInputs, note_script::NoteScript, rpo_digest::RpoDigest, word::Word};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -16,13 +16,12 @@ pub struct NoteRecipient(NativeNoteRecipient);
 #[wasm_bindgen]
 impl NoteRecipient {
     #[wasm_bindgen(constructor)]
-    pub fn new(note_script: &NoteScript, inputs: &NoteInputs) -> NoteRecipient {
-        let mut random_coin = RpoRandomCoin::new(Default::default());
-        let serial_num = random_coin.draw_word();
+    pub fn new(serial_num: &Word, note_script: &NoteScript, inputs: &NoteInputs) -> NoteRecipient {
+        let native_serial_num: NativeWord = serial_num.into();
         let native_note_script: NativeNoteScript = note_script.into();
         let native_note_inputs: NativeNoteInputs = inputs.into();
         let native_note_recipient =
-            NativeNoteRecipient::new(serial_num, native_note_script, native_note_inputs);
+            NativeNoteRecipient::new(native_serial_num, native_note_script, native_note_inputs);
 
         NoteRecipient(native_note_recipient)
     }

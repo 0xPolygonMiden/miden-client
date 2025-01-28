@@ -8,41 +8,41 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::{
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER,
-        },
-        AccountId,
-    },
-    assets::{FungibleAsset, NonFungibleAsset},
-    block::Block,
+    account::{AccountCode, AccountId},
+    asset::{FungibleAsset, NonFungibleAsset},
+    block::{Block, BlockHeader, BlockNumber},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteId, NoteTag},
-    testing::notes::NoteBuilder,
+    note::{Note, NoteId, NoteTag},
+    testing::{
+        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        note::NoteBuilder,
+    },
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Digest, Felt, Word,
+    Felt, Word,
 };
-use miden_tx::{testing::mock_chain::MockChain, LocalTransactionProver};
+use miden_tx::testing::MockChain;
 use rand::Rng;
 use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
     rpc::{
+        domain::{
+            account::{AccountDetails, AccountProofs},
+            note::{NetworkNote, NoteSyncInfo},
+            sync::StateSyncInfo,
+        },
         generated::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
-        StateSyncInfo,
+        NodeRpcClient, RpcError,
     },
-    store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, StoreAuthenticator},
+    transaction::ForeignAccount,
     Client,
 };
 
@@ -66,7 +66,7 @@ impl Default for MockRpcApi {
 impl MockRpcApi {
     /// Creates a new `MockRpcApi` instance with pre-populated blocks and notes.
     pub fn new() -> Self {
-        let mock_chain = MockChain::new();
+        let mock_chain = MockChain::empty();
         let mut api = Self {
             notes: BTreeMap::new(),
             blocks: vec![],
@@ -85,7 +85,7 @@ impl MockRpcApi {
             ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
-        .add_assets([NonFungibleAsset::mock(ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, &[1, 2, 3])])
+        .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
         .build(&TransactionKernel::testing_assembler())
         .unwrap();
 
@@ -103,9 +103,9 @@ impl MockRpcApi {
     }
 
     /// Seals a block with the given notes and nullifiers.
-    fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::notes::Nullifier>) {
+    fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::note::Nullifier>) {
         for note in notes {
-            self.mock_chain.add_note(note);
+            self.mock_chain.add_pending_note(note);
         }
 
         for nullifier in nullifiers {
@@ -127,17 +127,17 @@ impl MockRpcApi {
     }
 
     /// Returns the chain tip block number.
-    fn get_chain_tip_block_num(&self) -> u32 {
+    fn get_chain_tip_block_num(&self) -> BlockNumber {
         self.blocks.last().map(|b| b.header().block_num()).unwrap()
     }
 
     /// Retrieves a block by its block number.
-    fn get_block_by_num(&self, block_num: u32) -> Option<&Block> {
-        self.blocks.get(block_num as usize)
+    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&Block> {
+        self.blocks.get(block_num.as_usize())
     }
 
     /// Generates a sync state response based on the request block number.
-    pub fn get_sync_state_request(&self, request_block_num: u32) -> SyncStateResponse {
+    pub fn get_sync_state_request(&self, request_block_num: BlockNumber) -> SyncStateResponse {
         // Determine the next block number to sync
         let next_block_num = self
             .notes
@@ -156,7 +156,7 @@ impl MockRpcApi {
         // Prepare the MMR delta
         let mmr_delta = self
             .get_mmr()
-            .get_delta((request_block_num + 1) as usize, next_block_num as usize)
+            .get_delta((request_block_num.as_u32() + 1) as usize, next_block_num.as_usize())
             .ok()
             .map(Into::into);
 
@@ -169,12 +169,12 @@ impl MockRpcApi {
             .iter()
             .map(|n| NullifierUpdate {
                 nullifier: Some(n.inner().into()),
-                block_num: next_block_num,
+                block_num: next_block_num.as_u32(),
             })
             .collect();
 
         SyncStateResponse {
-            chain_tip: self.get_chain_tip_block_num(),
+            chain_tip: self.get_chain_tip_block_num().as_u32(),
             block_header: Some(next_block.header().into()),
             mmr_delta,
             accounts: vec![],
@@ -185,7 +185,10 @@ impl MockRpcApi {
     }
 
     /// Retrieves notes that are included in the specified block number.
-    fn get_notes_in_block(&self, block_num: u32) -> impl Iterator<Item = NoteSyncRecord> + '_ {
+    fn get_notes_in_block(
+        &self,
+        block_num: BlockNumber,
+    ) -> impl Iterator<Item = NoteSyncRecord> + '_ {
         self.notes.values().filter_map(move |note| {
             if note.location().map_or(false, |loc| loc.block_num() == block_num) {
                 let proof = note.proof()?;
@@ -206,9 +209,9 @@ use alloc::boxed::Box;
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
-        _block_num: u32,
+        _block_num: BlockNumber,
         _note_tags: &[NoteTag],
-    ) -> Result<crate::rpc::NoteSyncInfo, RpcError> {
+    ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
             chain_tip: self.blocks.len() as u32,
             notes: vec![],
@@ -222,7 +225,7 @@ impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,
-        block_num: u32,
+        block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
@@ -237,10 +240,10 @@ impl NodeRpcClient for MockRpcApi {
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<u32>,
+        block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
-        if block_num == Some(0) {
+        if block_num == Some(0.into()) {
             return Ok((self.blocks.first().unwrap().header(), None));
         }
         let block = self
@@ -250,7 +253,7 @@ impl NodeRpcClient for MockRpcApi {
             .unwrap();
 
         let mmr_proof = if include_mmr_proof {
-            Some(self.get_mmr().open(block_num.unwrap() as usize).unwrap())
+            Some(self.get_mmr().open(block_num.unwrap().as_usize()).unwrap())
         } else {
             None
         };
@@ -258,26 +261,15 @@ impl NodeRpcClient for MockRpcApi {
         Ok((block.header(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
-        // assume all off-chain notes for now
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
+        // assume all private notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
-            let inclusion_details = NoteInclusionDetails::new(
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .block_num(),
-                note.proof()
-                    .expect("Note should have an inclusion proof")
-                    .location()
-                    .node_index_in_block(),
-                note.proof().expect("Note should have an inclusion proof").note_path().clone(),
-            );
-            return_notes.push(NoteDetails::Private(
+            return_notes.push(NetworkNote::Private(
                 note.id(),
                 *note.note().metadata(),
-                inclusion_details,
+                note.proof().expect("Note should have an inclusion proof").clone(),
             ));
         }
         Ok(return_notes)
@@ -300,9 +292,8 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn get_account_proofs(
         &mut self,
-        _account_ids: &BTreeSet<AccountId>,
-        _code_commitments: &[Digest],
-        _include_headers: bool,
+        _account_ids: &BTreeSet<ForeignAccount>,
+        _code_commitments: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully
         Ok((self.blocks.last().unwrap().header().block_num(), vec![]))
@@ -311,7 +302,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn check_nullifiers_by_prefix(
         &mut self,
         _prefix: &[u16],
-    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
     }
@@ -321,14 +312,7 @@ impl NodeRpcClient for MockRpcApi {
 // ================================================================================================
 
 pub async fn create_test_client() -> (MockClient, MockRpcApi) {
-    let store: SqliteStoreConfig = create_test_store_path()
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .try_into()
-        .unwrap();
-
-    let store = SqliteStore::new(&store).await.unwrap();
+    let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();
@@ -340,9 +324,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi) {
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let prover = Arc::new(LocalTransactionProver::default());
-
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), prover, true);
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
     (client, rpc_api)
 }
 

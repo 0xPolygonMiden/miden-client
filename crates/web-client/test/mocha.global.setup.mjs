@@ -30,13 +30,22 @@ before(async () => {
     shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true, protocolTimeout: 360000 });
-  testingPage = await browser.newPage();
-  await testingPage.goto(TEST_SERVER);
-
-  if (env.DEBUG_MODE) {
-    testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      protocolTimeout: 360000,
+    });
+    testingPage = await browser.newPage();
+    await testingPage.goto(TEST_SERVER);
+  } catch (error) {
+    console.error("Failed to launch Puppeteer:", error);
+    if (serverProcess && !serverProcess.killed) {
+      serverProcess.kill("SIGTERM");
+    }
+    throw error;
   }
+
+  testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
 
   // Creates the client in the test context and attach to window object
   await testingPage.evaluate(
@@ -64,6 +73,7 @@ before(async () => {
         NoteInputs,
         NoteMetadata,
         NoteRecipient,
+        NoteScript,
         NoteTag,
         NoteType,
         OutputNote,
@@ -71,9 +81,12 @@ before(async () => {
         Rpo256,
         TestUtils,
         TransactionFilter,
+        TransactionProver,
         TransactionRequest,
+        TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
+        Word,
         WebClient,
       } = await import("./index.js");
       let rpc_url = `http://localhost:${rpc_port}`;
@@ -107,6 +120,7 @@ before(async () => {
       window.NoteInputs = NoteInputs;
       window.NoteMetadata = NoteMetadata;
       window.NoteRecipient = NoteRecipient;
+      window.NoteScript = NoteScript;
       window.NoteTag = NoteTag;
       window.NoteType = NoteType;
       window.OutputNote = OutputNote;
@@ -114,9 +128,51 @@ before(async () => {
       window.Rpo256 = Rpo256;
       window.TestUtils = TestUtils;
       window.TransactionFilter = TransactionFilter;
+      window.TransactionProver = TransactionProver;
       window.TransactionRequest = TransactionRequest;
+      window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+      window.WebClient = WebClient;
+      window.Word = Word;
+
+      // Create a namespace for helper functions
+      window.helpers = window.helpers || {};
+
+      // Add the remote prover url to window
+      window.remote_prover_url = prover_url;
+
+      window.helpers.waitForTransaction = async (
+        transactionId,
+        maxWaitTime = 20000,
+        delayInterval = 1000
+      ) => {
+        const client = window.client;
+        let timeWaited = 0;
+        while (true) {
+          if (timeWaited >= maxWaitTime) {
+            throw new Error("Timeout waiting for transaction");
+          }
+          await client.sync_state();
+          const uncomittedTransactions = await client.get_transactions(
+            window.TransactionFilter.uncomitted()
+          );
+          let uncomittedTransactionIds = uncomittedTransactions.map(
+            (transaction) => transaction.id().to_hex()
+          );
+          if (!uncomittedTransactionIds.includes(transactionId)) {
+            break;
+          }
+          await new Promise((r) => setTimeout(r, delayInterval));
+          timeWaited += delayInterval;
+        }
+      };
+
+      window.helpers.refreshClient = async (initSeed) => {
+        const client = new WebClient();
+        await client.create_client(rpc_url, prover_url, initSeed);
+        window.client = client;
+      };
     },
     LOCAL_MIDEN_NODE_PORT,
     env.REMOTE_PROVER ? REMOTE_TX_PROVER_PORT : null

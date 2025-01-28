@@ -1,8 +1,9 @@
-use miden_client::transactions::{
+use miden_client::transaction::{
     NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
+    TransactionRequestBuilder as NativeTransactionRequestBuilder,
 };
 use miden_objects::{
-    notes::{
+    note::{
         Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId,
         NoteTag as NativeNoteTag,
     },
@@ -161,8 +162,8 @@ impl From<&NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     }
 }
 
-/// HELPER STRUCTS
-/// ================================================================================================
+// HELPER STRUCTS
+// ================================================================================================
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -235,17 +236,22 @@ impl From<&NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
     }
 }
 
+// Transaction Request Builder
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct TransactionRequestBuilder(NativeTransactionRequestBuilder);
+
 // Transaction Request
 #[derive(Clone)]
 #[wasm_bindgen]
 pub struct TransactionRequest(NativeTransactionRequest);
 
 #[wasm_bindgen]
-impl TransactionRequest {
+impl TransactionRequestBuilder {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> TransactionRequest {
-        let native_transaction_request = NativeTransactionRequest::new();
-        TransactionRequest(native_transaction_request)
+    pub fn new() -> TransactionRequestBuilder {
+        let native_transaction_request = NativeTransactionRequestBuilder::new();
+        TransactionRequestBuilder(native_transaction_request)
     }
 
     pub fn with_unauthenticated_input_notes(mut self, notes: &NoteAndArgsArray) -> Self {
@@ -294,10 +300,32 @@ impl TransactionRequest {
         self.0 = self.0.clone().extend_advice_map(native_advice_map);
         self
     }
+
+    pub fn build(self) -> TransactionRequest {
+        TransactionRequest(self.0.build())
+    }
 }
 
 // CONVERSIONS
 // ================================================================================================
+
+impl From<TransactionRequestBuilder> for NativeTransactionRequestBuilder {
+    fn from(transaction_request: TransactionRequestBuilder) -> Self {
+        transaction_request.0
+    }
+}
+
+impl From<&TransactionRequestBuilder> for NativeTransactionRequestBuilder {
+    fn from(transaction_request: &TransactionRequestBuilder) -> Self {
+        transaction_request.0.clone()
+    }
+}
+
+impl Default for TransactionRequestBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl From<TransactionRequest> for NativeTransactionRequest {
     fn from(transaction_request: TransactionRequest) -> Self {
@@ -308,11 +336,5 @@ impl From<TransactionRequest> for NativeTransactionRequest {
 impl From<&TransactionRequest> for NativeTransactionRequest {
     fn from(transaction_request: &TransactionRequest) -> Self {
         transaction_request.0.clone()
-    }
-}
-
-impl Default for TransactionRequest {
-    fn default() -> Self {
-        Self::new()
     }
 }

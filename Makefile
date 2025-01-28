@@ -6,12 +6,22 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
+# Enable file generation in the `src` directory.
+# This is used in the build script of the client to generate the node RPC-related code, from the
+# protobuf files.
+CODEGEN=CODEGEN=1
+
 FEATURES_WEB_CLIENT=--features "testing"
-FEATURES_CLIENT=--features "testing, concurrent"
-FEATURES_CLI=--features "testing, concurrent"
-NODE_FEATURES_TESTING=--features "testing"
+FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
+FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
+
+NODE_DIR="miden-node"
+NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
 NODE_BRANCH="main"
+
+PROVER_DIR="miden-base"
+PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
 PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
@@ -71,29 +81,33 @@ doc: ## Generate & check rust documentation. You'll need `jq` in order for this 
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
 
 .PHONY: test-deps
 test-deps: ## Install dependencies for tests
-	cargo install cargo-nextest
+	$(CODEGEN) cargo install cargo-nextest
+
+.PHONY: test-docs
+test-docs: ## Run documentation tests
+	$(CODEGEN) cargo test --doc $(FEATURES_CLIENT)
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
-	cd ./crates/web-client && npm run test:clean
+	$(CODEGEN) cd ./crates/web-client && npm run test:clean
 
 .PHONY: integration-test-remote-prover-web-client
 integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
-	cd ./crates/web-client && npm run test:remote_prover
+	$(CODEGEN) cd ./crates/web-client && npm run test:remote_prover
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
@@ -105,27 +119,46 @@ clean-node: ## Clean node directory
 	rm -rf miden-node
 
 .PHONY: node
-node: ## Setup node directory
-	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
-	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
-	cd miden-node && rm -rf miden-store.sqlite3*
-	cd miden-node && cargo update && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+node: setup-miden-node update-node-branch build-node ## Setup node directory
+
+.PHONY: setup-miden-node
+setup-miden-node: ## Clone the miden-node repository if it doesn't exist
+	if [ ! -d $(NODE_DIR) ]; then git clone $(NODE_REPO) $(NODE_DIR); fi
+
+.PHONY: update-node-branch
+update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
+	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
+
+.PHONY: build-node
+build-node: update-node-branch ## Update dependencies and build the node binary with specified features
+	cd $(NODE_DIR) && rm -rf miden-store.sqlite3* && cargo run --locked --bin miden-node -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
+	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- start --config ../tests/config/miden-node.toml node
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover
-	cargo uninstall miden-tx-prover || echo 'prover not installed'
+	cargo uninstall miden-proving-service || echo 'prover not installed'
 
 .PHONY: prover
-prover: ## Download and install the prover binary
-	cargo install --git https://github.com/0xPolygonMiden/miden-base $(PROVER_FEATURES_TESTING) miden-tx-prover --branch $(PROVER_BRANCH) --locked
+prover: setup-miden-base update-prover-branch build-prover ## Setup prover directory
+
+.PHONY: setup-miden-base
+setup-miden-base: ## Clone the miden-base repository if it doesn't exist
+	if [ ! -d $(PROVER_DIR) ]; then git clone $(PROVER_REPO) $(PROVER_DIR); fi
+
+.PHONY: update-prover-branch
+update-prover-branch: setup-miden-base ## Checkout and update the specified branch in miden-base
+	cd $(PROVER_DIR) && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
+
+.PHONY: build-prover
+build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
+	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	RUST_LOG=info miden-tx-prover start-worker -p $(PROVER_PORT)
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
@@ -134,15 +167,15 @@ kill-prover: ## Kill prover process
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Install the CLI binary
-	cargo install $(FEATURES_CLI) --path bin/miden-cli
+	cargo install $(FEATURES_CLI) --path bin/miden-cli --locked
 
 # --- Building ------------------------------------------------------------------------------------
 
 build: ## Build the CLI binary and client library in release mode
-	cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
+	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 

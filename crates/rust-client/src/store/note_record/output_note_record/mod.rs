@@ -2,7 +2,8 @@ use alloc::string::ToString;
 use core::fmt::{self, Display};
 
 use miden_objects::{
-    notes::{
+    block::BlockNumber,
+    note::{
         Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
         NoteRecipient, Nullifier, PartialNote,
     },
@@ -36,7 +37,7 @@ pub struct OutputNoteRecord {
     /// The state of the note, with specific fields for each one.
     state: OutputNoteState,
     /// The expected block height at which the note should be included in the chain.
-    expected_height: u32,
+    expected_height: BlockNumber,
 }
 
 impl OutputNoteRecord {
@@ -45,7 +46,7 @@ impl OutputNoteRecord {
         assets: NoteAssets,
         metadata: NoteMetadata,
         state: OutputNoteState,
-        expected_height: u32,
+        expected_height: BlockNumber,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             recipient_digest,
@@ -94,7 +95,7 @@ impl OutputNoteRecord {
         ))
     }
 
-    pub fn expected_height(&self) -> u32 {
+    pub fn expected_height(&self) -> BlockNumber {
         self.expected_height
     }
 
@@ -103,7 +104,7 @@ impl OutputNoteRecord {
         matches!(self.state, OutputNoteState::Consumed { .. })
     }
 
-    /// Returns true if the note is in a committed state (i.e. it has a inclusion proof but is not
+    /// Returns true if the note is in a committed state (i.e. it has a inclusion proof but isn't
     /// consumed) regardless of whether it is full or partial.
     pub fn is_committed(&self) -> bool {
         matches!(
@@ -156,7 +157,7 @@ impl OutputNoteRecord {
 
 // TODO: Improve conversions by implementing into_parts()
 impl OutputNoteRecord {
-    pub fn from_full_note(note: Note, expected_height: u32) -> Self {
+    pub fn from_full_note(note: Note, expected_height: BlockNumber) -> Self {
         let header = *note.header();
         let (assets, recipient) = NoteDetails::from(note).into_parts();
         OutputNoteRecord {
@@ -168,7 +169,7 @@ impl OutputNoteRecord {
         }
     }
 
-    pub fn from_partial_note(partial_note: PartialNote, expected_height: u32) -> Self {
+    pub fn from_partial_note(partial_note: PartialNote, expected_height: BlockNumber) -> Self {
         OutputNoteRecord {
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
@@ -181,10 +182,10 @@ impl OutputNoteRecord {
     /// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
     /// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
     /// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way
-    /// to filter the full and partial output notes
+    /// to filter the full and partial output notes.
     pub fn try_from_output_note(
         output_note: OutputNote,
-        expected_height: u32,
+        expected_height: BlockNumber,
     ) -> Result<Self, NoteRecordError> {
         match output_note {
             OutputNote::Full(note) => Ok(Self::from_full_note(note, expected_height)),
@@ -224,13 +225,13 @@ impl TryFrom<OutputNoteRecord> for Note {
     }
 }
 
-/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord]
+/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord].
 pub enum NoteExportType {
-    /// Export only the note id
+    /// Export only the note ID.
     NoteId,
-    /// Export the partial note with minimal details
+    /// Export the partial note with minimal details.
     NoteDetails,
-    /// Export the full note with inclusion proof
+    /// Export the full note with inclusion proof.
     NoteWithProof,
 }
 
@@ -240,7 +241,7 @@ impl OutputNoteRecord {
     ///
     /// # Errors
     ///
-    /// Will return an error if there is not enough information to create the requested [NoteFile]
+    /// Will return an error if there isn't enough information to create the requested [NoteFile]
     /// variant.
     pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
         match export_type {

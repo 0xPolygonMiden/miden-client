@@ -22,8 +22,8 @@ const webClient = new WebClient();
 await webClient.create_client();
 
 // Use WebClient to create accounts, notes, transactions, etc.
-// This will create a mutable, off-chain account and store it in IndexedDB
-const accountId = await webClient.new_wallet("OffChain", true);
+// This will create a mutable, private account and store it in IndexedDB
+const accountId = await webClient.new_wallet("Private", true);
 ```
 
 ## Examples
@@ -35,8 +35,7 @@ Example:
 const webClient = new WebClient();
 
 // Creates the internal client of a previously instantiated WebClient.
-// Can provide `node_url` as an optional parameter. Defaults to "http://18.203.155.106:57291" which is the URL
-// of the remote miden node.
+// Can provide `node_url` as an optional parameter. Defaults to the tesnet RPC URL.
 await webClient.create_client();
 ```
 Example specifying a specific node URL:
@@ -56,23 +55,23 @@ await webClient.create_client();
 /**
  * Creates a new wallet account.
  * 
- * @param storage_mode String. Either "OffChain" or "OnChain".
+ * @param storage_mode String. Either "Private" or "Public".
  * @param mutable Boolean. Whether the wallet code is mutable or not
  * 
  * Returns: Wallet Id
  */
-const walletId = await webClient.new_wallet("OffChain", true);
+const walletId = await webClient.new_wallet("Private", true);
 
 /**
  * Creates a new faucet account.
  * 
- * @param storage_mode String. Either "OffChain" or "OnChain".
+ * @param storage_mode String. Either "Private" or "Public".
  * @param non_fungible Boolean. Whether the faucet is non_fungible or not. NOTE: Non-fungible faucets are not supported yet
  * @param token_symbol String. Token symbol of the token the faucet creates
  * @param decimals String. Decimal precision of token.
  * @param max_supply String. Maximum token supply
  */ 
-const faucetId = await webClient.new_faucet("OffChain", true, "TOK", 6, 1_000_000)
+const faucetId = await webClient.new_faucet("Private", true, "TOK", 6, 1_000_000)
 
 /**
  * Returns all accounts. Both wallets and faucets. Returns the following object per account
@@ -119,8 +118,8 @@ Let's mint some tokens for our wallet from our faucet:
 ```typescript
 const webClient = new WebClient();
 await webClient.create_client();
-const walletId = await webClient.new_wallet("OffChain", true);
-const faucetId = await webClient.new_faucet("OffChain", true, "TOK", 6, 1_000_000);
+const walletId = await webClient.new_wallet("Private", true);
+const faucetId = await webClient.new_faucet("Private", true, "TOK", 6, 1_000_000);
 
 // Syncs web client with node state.
 await webClient.sync_state();
@@ -153,8 +152,8 @@ You can use the WebClient to query for existing notes, export notes, and import 
 Here is an example of how to import a note from a file (generated, say, from the faucet at https://testnet.miden.io/ for a given account). This code exposes a simple button on an HTML page for a user to select a file. A listener is setup to capture this event, serialize the note file, and import it.
 ```typescript
 let webClient = await createMidenWebClient();
-let walletAccount = await webClient.new_wallet("OffChain", true);
-console.log(walletAccount); // Prints the id that can be used to plug in to the deployed Miden faucet
+let walletAccount = await webClient.new_wallet("Private", true); // The second argument defines that the wallet has mutable code.
+console.log(walletAccount); // Prints the id that can be used to plug in to the deployed Miden faucet.
 
 <label for="noteFileInput" class="custom-file-upload">
     Choose Note File
@@ -186,7 +185,7 @@ console.log("testExportNote started");
 let webClient = await createMidenWebClient();
 
 // Create a faucet and mint a mint transaction
-let faucetId = await createNewFaucet(webClient, "OffChain", false, "DEN", "10", "1000000");
+let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
 await syncState(webClient);
 await new Promise(r => setTimeout(r, 20000)); // Artificial delays to ensure sync is processed on remote node before continuing 
 
@@ -234,11 +233,15 @@ let webClient = await createMidenWebClient();
 
 /**
  * get_input_notes takes a filter to retrieve notes based on a specific status. The options are the following:
- * "All"
- * "Consumed"
- * "Committed"
- * "Expected"
- * "Processing"
+ *  "All",
+ *  "Consumed",
+ *  "Committed",
+ *  "Expected",
+ *  "Processing",
+ *  "List",
+ *  "Unique",
+ *  "Nullifiers",
+ *  "Unverified",
  */
 const notes = await webClient.get_input_notes("All")
 ```
@@ -391,11 +394,15 @@ new_swap_transaction(sender_account_id: string, offered_asset_faucet_id: string,
  * @returns {Promise<any>}
  * 
  * Examples of valid filters:
- * "All"
- * "Consumed"
- * "Committed"
- * "Expected"
- * "Processing"
+ *  "All",
+ *  "Consumed",
+ *  "Committed",
+ *  "Expected",
+ *  "Processing",
+ *  "List",
+ *  "Unique",
+ *  "Nullifiers",
+ *  "Unverified",
  */
 get_input_notes(filter: any): Promise<any>;
 
@@ -408,19 +415,23 @@ get_input_note(note_id: string): Promise<any>;
 /**
  * @param {any} filter
  * @returns {Promise<any>}
+ * 
+ * Examples of valid filters:
+ *  "All",
+ *  "Consumed",
+ *  "Committed",
+ *  "Expected",
+ *  "Processing",
+ *  "List",
+ *  "Unique",
+ *  "Nullifiers",
+ *  "Unverified",
  */
 get_output_notes(filter: any): Promise<any>;
 
 /**
  * @param {string} note_id
  * @returns {Promise<any>}
- * 
- * Examples of valid filters:
- * "All"
- * "Consumed"
- * "Committed"
- * "Expected"
- * "Processing"
  */
 get_output_note(note_id: string): Promise<any>;
 

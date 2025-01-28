@@ -1,29 +1,42 @@
+//! Provides an IndexedDB-backed implementation of the [Store] trait for web environments.
+//!
+//! This module enables persistence of client data (accounts, transactions, notes, block headers,
+//! etc.) when running in a browser. It uses wasm-bindgen to interface with JavaScript and
+//! IndexedDB, allowing the Miden client to store and retrieve data asynchronously.
+//!
+//! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
+//! feature enabled.
+
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::Nullifier,
-    BlockHeader, Digest, Word,
+    note::Nullifier,
+    Digest, Word,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
-    TransactionFilter,
+    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
+    OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionStoreUpdate},
+    transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-pub mod accounts;
+#[cfg(not(target_arch = "wasm32"))]
+compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
+
+pub mod account;
 pub mod chain_data;
-pub mod notes;
+pub mod note;
 pub mod sync;
-pub mod transactions;
+pub mod transaction;
 
 // Initialize IndexedDB
 #[wasm_bindgen(module = "/src/store/web_store/js/schema.js")]
@@ -40,8 +53,14 @@ impl WebStore {
         Ok(WebStore {})
     }
 }
+
 #[async_trait(?Send)]
 impl Store for WebStore {
+    fn get_current_timestamp(&self) -> Option<u64> {
+        let now = chrono::Utc::now();
+        Some(now.timestamp() as u64)
+    }
+
     // SYNC
     // --------------------------------------------------------------------------------------------
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -56,7 +75,7 @@ impl Store for WebStore {
         self.remove_note_tag(tag).await
     }
 
-    async fn get_sync_height(&self) -> Result<u32, StoreError> {
+    async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         self.get_sync_height().await
     }
 
@@ -112,7 +131,7 @@ impl Store for WebStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[u32],
+        block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(block_numbers).await
     }
@@ -137,7 +156,7 @@ impl Store for WebStore {
 
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
-        block_num: u32,
+        block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num).await
     }
@@ -154,6 +173,10 @@ impl Store for WebStore {
         self.insert_account(account, account_seed, auth_info).await
     }
 
+    async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
+        self.update_account(new_account_state).await
+    }
+
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids().await
     }
@@ -161,18 +184,18 @@ impl Store for WebStore {
     async fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.get_account_auth_by_pub_key(pub_key)
     }
 
-    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+    async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.get_account_headers().await
     }
 
     async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
         self.get_account_header(account_id).await
     }
 
@@ -186,12 +209,30 @@ impl Store for WebStore {
     async fn get_account(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    ) -> Result<Option<AccountRecord>, StoreError> {
         self.get_account(account_id).await
     }
 
-    async fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
+    async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Option<AuthSecretKey>, StoreError> {
         self.get_account_auth(account_id).await
+    }
+
+    async fn upsert_foreign_account_code(
+        &self,
+        account_id: AccountId,
+        code: AccountCode,
+    ) -> Result<(), StoreError> {
+        self.upsert_foreign_account_code(account_id, code).await
+    }
+
+    async fn get_foreign_account_code(
+        &self,
+        account_ids: Vec<AccountId>,
+    ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
+        self.get_foreign_account_code(account_ids).await
     }
 
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {

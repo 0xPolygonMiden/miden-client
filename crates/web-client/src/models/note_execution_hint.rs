@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteExecutionHint as NativeNoteExecutionHint;
+use miden_objects::note::NoteExecutionHint as NativeNoteExecutionHint;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -16,7 +16,7 @@ impl NoteExecutionHint {
     }
 
     pub fn after_block(block_num: u32) -> NoteExecutionHint {
-        NoteExecutionHint(NativeNoteExecutionHint::after_block(block_num))
+        NoteExecutionHint(NativeNoteExecutionHint::after_block(block_num.into()).unwrap())
     }
 
     pub fn on_block_slot(epoch_len: u8, slot_len: u8, slot_offset: u8) -> NoteExecutionHint {
@@ -28,7 +28,7 @@ impl NoteExecutionHint {
     }
 
     pub fn can_be_consumed(&self, block_num: u32) -> bool {
-        self.0.can_be_consumed(block_num).unwrap()
+        self.0.can_be_consumed(block_num.into()).unwrap()
     }
 }
 

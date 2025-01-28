@@ -3,11 +3,9 @@ import { testingPage } from "./mocha.global.setup.mjs";
 import {
   badHexId,
   consumeTransaction,
-  fetchAndCacheAccountAuth,
   mintTransaction,
   sendTransaction,
   setupWalletAndFaucet,
-  syncState,
 } from "./webClientTestUtils";
 
 const getInputNote = async (noteId: string) => {
@@ -15,7 +13,7 @@ const getInputNote = async (noteId: string) => {
     const client = window.client;
     const note = await client.get_input_note(_noteId);
     return {
-      noteId: note.id().to_string(),
+      noteId: note ? note.id().to_string() : undefined,
     };
   }, noteId);
 };
@@ -39,11 +37,15 @@ const setupMintedNote = async () => {
   return { createdNoteId, accountId, faucetId };
 };
 
-const setupConsumedNote = async () => {
+export const setupConsumedNote = async () => {
   const { createdNoteId, accountId, faucetId } = await setupMintedNote();
   await consumeTransaction(accountId, faucetId, createdNoteId);
 
-  return { consumedNoteId: createdNoteId };
+  return {
+    consumedNoteId: createdNoteId,
+    accountId: accountId,
+    faucetId: faucetId,
+  };
 };
 
 const getConsumableNotes = async (accountId?: string) => {
@@ -71,9 +73,8 @@ const getConsumableNotes = async (accountId?: string) => {
 describe("get_input_note", () => {
   it("retrieve input note that does not exist", async () => {
     await setupWalletAndFaucet();
-    await expect(getInputNote(badHexId)).to.be.rejectedWith(
-      /Failed to get input note/
-    );
+    const { noteId } = await getInputNote(badHexId);
+    await expect(noteId).to.be.undefined;
   });
 
   it("retrieve an input note that does exist", async () => {
@@ -108,6 +109,7 @@ describe("get_consumable_notes", () => {
       expect(record.consumability[0].consumableAfterBlock).to.be.undefined;
     });
   });
+
   it("no filter by account", async () => {
     const { createdNoteId: noteId1, accountId: accountId1 } =
       await setupMintedNote();
@@ -132,6 +134,7 @@ describe("get_consumable_notes", () => {
       expect(c.accountId).to.equal(accountId2);
     });
   });
+
   it("p2idr consume after block", async () => {
     const { accountId: senderAccountId, faucetId } =
       await setupWalletAndFaucet();

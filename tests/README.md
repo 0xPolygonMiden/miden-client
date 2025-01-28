@@ -34,7 +34,7 @@ Before running the tests though, there is a setup we need to perform to have a n
 
 - Clone the node repo if it doesn't exist.
 - Delete previously existing data.
-- Generate genesis and account data with `cargo run --release --bin miden-node --features testing -- make-genesis --inputs-path node/genesis.toml`.
+- Generate genesis and account data with `cargo run --release --bin miden-node -- make-genesis --inputs-path node/genesis.toml`.
 
 Also, you need to install the tests dependencies with `make test-deps`.
 

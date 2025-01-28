@@ -1,19 +1,19 @@
 use miden_client::{
-    crypto::FeltRng, store::TransactionFilter, transactions::TransactionRecord, Client,
+    crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord, Client,
 };
 
-use crate::{create_dynamic_table, Parser};
+use crate::{create_dynamic_table, errors::CliError, Parser};
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "Manage and view transactions. Defaults to `list` command.")]
 pub struct TransactionCmd {
-    /// List currently tracked transactions
+    /// List currently tracked transactions.
     #[clap(short, long, group = "action")]
     list: bool,
 }
 
 impl TransactionCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
         list_transactions(client).await?;
         Ok(())
     }
@@ -21,7 +21,7 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-async fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
+async fn list_transactions(client: Client<impl FeltRng>) -> Result<(), CliError> {
     let transactions = client.get_transactions(TransactionFilter::All).await?;
     print_transactions_summary(&transactions);
     Ok(())

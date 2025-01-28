@@ -1,10 +1,11 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    accounts::AccountId,
-    notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    account::AccountId,
+    block::BlockHeader,
+    note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    BlockHeader, Digest,
+    Digest,
 };
 
 use super::{
@@ -13,6 +14,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
+/// Information related to notes in the [InputNoteState::ProcessingAuthenticated] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcessingAuthenticatedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -59,6 +61,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         _consumer_account: AccountId,
         _consumer_transaction: TransactionId,
+        _current_timestamp: Option<u64>,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
