@@ -190,86 +190,84 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                move |committed_notes, block_header| {
-                    Box::pin(on_note_received(store_clone.clone(), committed_notes, block_header))
+                move |note_updates, committed_note, block_header| {
+                    Box::pin(on_note_received(
+                        store_clone.clone(),
+                        note_updates,
+                        committed_note,
+                        block_header,
+                    ))
                 }
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                move |transaction_update| {
-                    Box::pin(on_transaction_committed(store_clone.clone(), transaction_update))
+                move |note_updates, transaction_update| {
+                    Box::pin(on_transaction_committed(
+                        store_clone.clone(),
+                        note_updates,
+                        transaction_update,
+                    ))
                 }
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                move |nullifier_update| {
-                    Box::pin(on_nullifier_received(store_clone.clone(), nullifier_update))
+                move |note_updates, nullifier_update| {
+                    Box::pin(on_nullifier_received(
+                        store_clone.clone(),
+                        note_updates,
+                        nullifier_update,
+                    ))
                 }
             }),
         );
 
+        // Get current state of the client
         let current_block_num = self.store.get_sync_height().await?;
-        let mut total_sync_summary = SyncSummary::new_empty(current_block_num);
+        let (current_block, has_relevant_notes) = self
+            .store
+            .get_block_header_by_num(current_block_num)
+            .await?
+            .expect("Current block should be in the store");
 
-        loop {
-            // Get current state of the client
-            let current_block_num = self.store.get_sync_height().await?;
-            let (current_block, has_relevant_notes) = self
-                .store
-                .get_block_header_by_num(current_block_num)
-                .await?
-                .expect("Current block should be in the store");
+        let accounts = self
+            .store
+            .get_account_headers()
+            .await?
+            .into_iter()
+            .map(|(acc_header, _)| acc_header)
+            .collect();
 
-            let accounts = self
-                .store
-                .get_account_headers()
-                .await?
-                .into_iter()
-                .map(|(acc_header, _)| acc_header)
-                .collect();
+        let note_tags: Vec<NoteTag> =
+            self.store.get_unique_note_tags().await?.into_iter().collect();
 
-            let note_tags: Vec<NoteTag> =
-                self.store.get_unique_note_tags().await?.into_iter().collect();
+        let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers().await?;
 
-            let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers().await?;
+        // Get the sync update from the network
+        let state_sync_update = state_sync
+            .sync_state(
+                current_block,
+                has_relevant_notes,
+                self.build_current_partial_mmr(false).await?,
+                accounts,
+                note_tags,
+                unspent_nullifiers,
+            )
+            .await?;
 
-            // Get the sync update from the network
-            let status = state_sync
-                .sync_state_step(
-                    current_block,
-                    has_relevant_notes,
-                    self.build_current_partial_mmr(false).await?,
-                    accounts,
-                    note_tags,
-                    unspent_nullifiers,
-                )
-                .await?;
+        let sync_summary: SyncSummary = (&state_sync_update).into();
 
-            let (is_last_block, state_sync_update): (bool, StateSyncUpdate) = match status {
-                Some(s) => (s.is_last_block(), s.into()),
-                None => break,
-            };
+        let has_relevant_notes =
+            self.check_block_relevance(&state_sync_update.note_updates).await?;
 
-            let sync_summary: SyncSummary = (&state_sync_update).into();
+        // Apply received and computed updates to the store
+        self.store
+            .apply_state_sync_step(state_sync_update, has_relevant_notes)
+            .await
+            .map_err(ClientError::StoreError)?;
 
-            let has_relevant_notes =
-                self.check_block_relevance(&state_sync_update.note_updates).await?;
-
-            // Apply received and computed updates to the store
-            self.store
-                .apply_state_sync_step(state_sync_update, has_relevant_notes)
-                .await
-                .map_err(ClientError::StoreError)?;
-
-            total_sync_summary.combine_with(sync_summary);
-
-            if is_last_block {
-                break;
-            }
-        }
         self.update_mmr_data().await?;
 
-        Ok(total_sync_summary)
+        Ok(sync_summary)
     }
 }
 

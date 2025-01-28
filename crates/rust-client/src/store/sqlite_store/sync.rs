@@ -94,14 +94,12 @@ impl SqliteStore {
     pub(super) fn apply_state_sync_step(
         conn: &mut Connection,
         state_sync_update: StateSyncUpdate,
-        block_has_relevant_notes: bool,
+        _block_has_relevant_notes: bool,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
-            block_header,
+            block_headers,
             note_updates,
             transaction_updates,
-            new_mmr_peaks,
-            new_authentication_nodes,
             account_updates,
             tags_to_remove,
         } = state_sync_update;
@@ -125,10 +123,25 @@ impl SqliteStore {
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num().as_u32() as i64])?;
+        if let Some(max_block_num) =
+            block_headers.iter().map(|(header, ..)| header.block_num().as_u32()).max()
+        {
+            tx.execute(BLOCK_NUMBER_QUERY, params![max_block_num as i64])?;
+        }
 
-        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+        for (block_header, block_has_relevant_notes, new_mmr_peaks, new_authentication_nodes) in
+            block_headers
+        {
+            Self::insert_block_header_tx(
+                &tx,
+                block_header,
+                new_mmr_peaks,
+                block_has_relevant_notes,
+            )?;
 
+            // Insert new authentication nodes (inner nodes of the PartialMmr)
+            Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
+        }
         // Update notes
         apply_note_updates_tx(&tx, &note_updates)?;
 
@@ -136,9 +149,6 @@ impl SqliteStore {
         for tag in tags_to_remove {
             remove_note_tag_tx(&tx, tag)?;
         }
-
-        // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
