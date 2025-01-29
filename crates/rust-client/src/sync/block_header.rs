@@ -8,12 +8,23 @@ use miden_objects::{
 };
 use tracing::warn;
 
-use super::NoteUpdates;
 use crate::{
-    note::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
 };
+
+#[derive(Debug, Clone, Default)]
+pub struct BlockUpdates {
+    pub block_headers: Vec<(BlockHeader, bool, MmrPeaks)>,
+    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+}
+
+impl BlockUpdates {
+    pub fn extend(&mut self, other: BlockUpdates) {
+        self.block_headers.extend(other.block_headers);
+        self.new_authentication_nodes.extend(other.new_authentication_nodes);
+    }
+}
 
 /// Network information management methods.
 impl<R: FeltRng> Client<R> {
@@ -72,33 +83,6 @@ impl<R: FeltRng> Client<R> {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
-
-    /// Checks the relevance of the block by verifying if any of the input notes in the block are
-    /// relevant to the client. If any of the notes are relevant, the function returns `true`.
-    pub(crate) async fn check_block_relevance(
-        &self,
-        note_updates: &NoteUpdates,
-    ) -> Result<bool, ClientError> {
-        // We'll only do the check for either incoming public notes or expected input notes as
-        // output notes are not really candidates to be consumed here.
-
-        let note_screener = NoteScreener::new(self.store.clone());
-
-        // Find all relevant Input Notes using the note checker
-        for input_note in note_updates.committed_input_notes() {
-            // TODO: Map the below error into a better representation (ie, we expected to be able
-            // to convert here)
-            if !note_screener
-                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
-                .await?
-                .is_empty()
-            {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
-    }
 
     /// Builds the current store view of the chain's [PartialMmr]. Because we want to add all new
     /// authentication nodes that could come from applying the MMR updates, we need to track all

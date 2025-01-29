@@ -3,17 +3,17 @@ use core::{future::Future, pin::Pin};
 
 use miden_objects::{
     account::{Account, AccountHeader, AccountId},
-    block::BlockHeader,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     Digest,
 };
 use tracing::info;
 
-use super::{get_nullifier_prefix, NoteTagRecord, SyncSummary};
+use super::{block_header::BlockUpdates, get_nullifier_prefix, NoteTagRecord, SyncSummary};
 use crate::{
     account::AccountUpdates,
-    note::NoteUpdates,
+    note::{NoteScreener, NoteUpdates},
     rpc::{
         domain::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate},
         NodeRpcClient,
@@ -29,9 +29,10 @@ use crate::{
 #[derive(Default)]
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
+    pub block_num: BlockNumber,
     /// The new block header, returned as part of the
     /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_headers: Vec<(BlockHeader, bool, MmrPeaks, Vec<(InOrderIndex, Digest)>)>, //TODO: move this to a new block update struct
+    pub block_updates: BlockUpdates,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
     /// Information about transaction changes after the sync.
@@ -45,13 +46,7 @@ pub struct StateSyncUpdate {
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
         SyncSummary::new(
-            value
-                .block_headers
-                .iter()
-                .map(|(h, ..)| h.block_num())
-                .max()
-                .unwrap_or(0.into()),
-            vec![], //TODO: get new received notes
+            value.block_num,
             value.note_updates.committed_note_ids().into_iter().collect(),
             value.note_updates.consumed_note_ids().into_iter().collect(),
             value
@@ -73,27 +68,6 @@ impl From<&StateSyncUpdate> for SyncSummary {
                 .map(|t| t.transaction_id)
                 .collect(),
         )
-    }
-}
-
-/// Gives information about the status of the sync process after a step.
-pub enum SyncStatus {
-    SyncedToLastBlock(StateSyncUpdate),
-    SyncedToBlock(StateSyncUpdate),
-}
-
-impl SyncStatus {
-    pub fn is_last_block(&self) -> bool {
-        matches!(self, SyncStatus::SyncedToLastBlock(_))
-    }
-}
-
-impl From<SyncStatus> for StateSyncUpdate {
-    fn from(value: SyncStatus) -> StateSyncUpdate {
-        match value {
-            SyncStatus::SyncedToLastBlock(update) => update,
-            SyncStatus::SyncedToBlock(update) => update,
-        }
     }
 }
 
@@ -136,6 +110,17 @@ pub type OnNullifierReceived = Box<
         -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, TransactionUpdates), ClientError>>>>,
 >;
 
+pub type OnBlockHeaderReceived = Box<
+    dyn Fn(
+        BlockHeader,
+        NoteUpdates,
+        BlockHeader,
+        bool,
+        PartialMmr,
+        MmrDelta,
+    ) -> Pin<Box<dyn Future<Output = Result<(BlockUpdates, PartialMmr), ClientError>>>>,
+>;
+
 // STATE SYNC
 // ================================================================================================
 
@@ -153,6 +138,7 @@ pub struct StateSync {
     on_transaction_committed: OnTransactionCommitted,
     /// Callback to be executed when a nullifier is received.
     on_nullifier_received: OnNullifierReceived,
+    on_block_received: OnBlockHeaderReceived,
     state_sync_update: StateSyncUpdate,
 }
 
@@ -170,12 +156,14 @@ impl StateSync {
         on_note_received: OnNoteReceived,
         on_transaction_committed: OnTransactionCommitted,
         on_nullifier_received: OnNullifierReceived,
+        on_block_received: OnBlockHeaderReceived,
     ) -> Self {
         Self {
             rpc_api,
             on_note_received,
             on_transaction_committed,
             on_nullifier_received,
+            on_block_received,
             state_sync_update: StateSyncUpdate::default(),
         }
     }
@@ -223,6 +211,8 @@ impl StateSync {
             .sync_state(current_block_num, &account_ids, note_tags, &nullifiers_tags)
             .await?;
 
+        self.state_sync_update.block_num = response.block_header.block_num();
+
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
             return Ok(false);
@@ -238,25 +228,23 @@ impl StateSync {
         )
         .await?;
 
-        let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
+        let (new_block_updates, new_partial_mmr) = (self.on_block_received)(
+            response.block_header,
+            self.state_sync_update.note_updates.clone(),
             current_block,
             current_block_has_relevant_notes,
-            current_partial_mmr,
+            current_partial_mmr.clone(),
             response.mmr_delta,
         )
         .await?;
 
-        self.state_sync_update.block_headers.push((
-            response.block_header,
-            true, //TODO: check if relevant
-            new_mmr_peaks,
-            new_authentication_nodes,
-        ));
+        self.state_sync_update.block_updates.extend(new_block_updates);
+        *current_partial_mmr = new_partial_mmr;
 
         if response.chain_tip == response.block_header.block_num() {
-            return Ok(false);
+            Ok(false)
         } else {
-            return Ok(true);
+            Ok(true)
         }
     }
 
@@ -286,6 +274,7 @@ impl StateSync {
 
             (current_block, current_block_has_relevant_notes, ..) = self
                 .state_sync_update
+                .block_updates
                 .block_headers
                 .last()
                 .cloned()
@@ -466,7 +455,7 @@ impl StateSync {
 
 /// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
 /// authentication nodes for leaves we track.
-pub(crate) async fn apply_mmr_changes(
+async fn apply_mmr_changes(
     current_block: BlockHeader,
     current_block_has_relevant_notes: bool,
     current_partial_mmr: &mut PartialMmr,
@@ -630,4 +619,69 @@ pub async fn on_nullifier_received(
     }
 
     Ok((note_updates, TransactionUpdates::new(vec![], discarded_transactions)))
+}
+
+pub async fn on_block_received(
+    store: Arc<dyn Store>,
+    new_block_header: BlockHeader,
+    note_updates: NoteUpdates,
+    current_block_header: BlockHeader,
+    current_block_has_relevant_notes: bool,
+    mut current_partial_mmr: PartialMmr,
+    mmr_delta: MmrDelta,
+) -> Result<(BlockUpdates, PartialMmr), ClientError> {
+    let (mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
+        current_block_header,
+        current_block_has_relevant_notes,
+        &mut current_partial_mmr,
+        mmr_delta,
+    )
+    .await?;
+
+    let block_relevance =
+        check_block_relevance(store.clone(), new_block_header.block_num(), note_updates).await?;
+
+    Ok((
+        BlockUpdates {
+            block_headers: vec![(new_block_header, block_relevance, mmr_peaks)],
+            new_authentication_nodes,
+        },
+        current_partial_mmr,
+    ))
+}
+
+/// Checks the relevance of the block by verifying if any of the input notes in the block are
+/// relevant to the client. If any of the notes are relevant, the function returns `true`.
+pub(crate) async fn check_block_relevance(
+    store: Arc<dyn Store>,
+    new_block_number: BlockNumber,
+    note_updates: NoteUpdates,
+) -> Result<bool, ClientError> {
+    // We'll only do the check for either incoming public notes or expected input notes as
+    // output notes are not really candidates to be consumed here.
+
+    let note_screener = NoteScreener::new(store);
+
+    // Find all relevant Input Notes using the note checker
+    for input_note in note_updates.committed_input_notes() {
+        if input_note
+            .inclusion_proof()
+            .is_some_and(|proof| proof.location().block_num() != new_block_number)
+        {
+            // This note wasn't received in the current block, so it's not relevant
+            continue;
+        }
+
+        // TODO: Map the below error into a better representation (ie, we expected to be able
+        // to convert here)
+        if !note_screener
+            .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
+            .await?
+            .is_empty()
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
