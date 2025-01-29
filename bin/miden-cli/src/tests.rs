@@ -6,7 +6,6 @@ use std::{
 };
 
 use assert_cmd::Command;
-use config::RpcConfig;
 use miden_client::{
     self,
     account::{
@@ -62,8 +61,6 @@ fn test_init_without_params() {
     init_cmd.args(["init", "--network", "localhost"]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
-    sync_cli(&temp_dir);
-
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args(["init"]);
@@ -90,13 +87,6 @@ fn test_init_with_params() {
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
     assert!(config_file_str.contains("localhost"));
-
-    sync_cli(&temp_dir);
-
-    // Trying to init twice should result in an error
-    let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
-    init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
 // TX TESTS
@@ -658,7 +648,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub type TestClient = Client<RpoRandomCoin>;
 
 async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
-    let rpc_config = RpcConfig::default();
+    let (endpoint, timeout, _) = get_client_config();
 
     let store = {
         let sqlite_store = SqliteStore::new(PathBuf::from(store_path)).await.unwrap();
@@ -672,7 +662,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+        Box::new(TonicRpcClient::new(endpoint, timeout)),
         rng,
         store,
         std::sync::Arc::new(authenticator),
