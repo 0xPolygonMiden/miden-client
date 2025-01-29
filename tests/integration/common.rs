@@ -73,12 +73,15 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
         .unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
-        + "://"
-        + rpc_endpoint_toml["host"].as_str().unwrap()
-        + ":"
-        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
-    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+    let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+    let port = if rpc_endpoint_toml.contains_key("port") {
+        rpc_endpoint_toml["port"].as_integer().map(|port| port as u16)
+    } else {
+        None
+    };
+
+    let endpoint = Endpoint::new(protocol, host, port);
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
