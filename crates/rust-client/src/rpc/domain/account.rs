@@ -51,6 +51,13 @@ impl AccountDetails {
             Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
         }
     }
+
+    pub fn account(&self) -> Option<&Account> {
+        match self {
+            Self::Private(_, _) => None,
+            Self::Public(account, _) => Some(account),
+        }
+    }
 }
 
 // ACCOUNT UPDATE SUMMARY

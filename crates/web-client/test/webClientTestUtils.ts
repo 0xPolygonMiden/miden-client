@@ -8,6 +8,11 @@ interface MintTransactionResult {
   createdNoteId: string;
 }
 
+export enum StorageMode {
+  PRIVATE = "private",
+  PUBLIC = "public",
+}
+
 // SDK functions
 
 export const mintTransaction = async (
@@ -131,6 +136,167 @@ export const sendTransaction = async (
   );
 };
 
+export interface NewAccountTestResult {
+  id: string;
+  nonce: string;
+  vault_commitment: string;
+  storage_commitment: string;
+  code_commitment: string;
+  is_faucet: boolean;
+  is_regular_account: boolean;
+  is_updatable: boolean;
+  is_public: boolean;
+  is_new: boolean;
+}
+export const createNewWallet = async ({
+  storageMode,
+  mutable,
+  clientSeed,
+  isolatedClient,
+  walletSeed,
+}: {
+  storageMode: StorageMode;
+  mutable: boolean;
+  clientSeed?: Uint8Array;
+  isolatedClient?: boolean;
+  walletSeed?: Uint8Array;
+}): Promise<NewAccountTestResult> => {
+  // Serialize initSeed for Puppeteer
+  const serializedClientSeed = clientSeed ? Array.from(clientSeed) : null;
+  const serializedWalletSeed = walletSeed ? Array.from(walletSeed) : null;
+
+  return await testingPage.evaluate(
+    async (
+      _storageMode,
+      _mutable,
+      _serializedClientSeed,
+      _isolatedClient,
+      _serializedWalletSeed
+    ) => {
+      if (_isolatedClient) {
+        // Reconstruct Uint8Array inside the browser context
+        const _clientSeed = _serializedClientSeed
+          ? new Uint8Array(_serializedClientSeed)
+          : undefined;
+
+        await window.helpers.refreshClient(_clientSeed);
+      }
+
+      let _walletSeed;
+      if (_serializedWalletSeed) {
+        _walletSeed = new Uint8Array(_serializedWalletSeed);
+      }
+
+      let client = window.client;
+      const accountStorageMode =
+        _storageMode === "private"
+          ? window.AccountStorageMode.private()
+          : window.AccountStorageMode.public();
+
+      const newWallet = await client.new_wallet(
+        accountStorageMode,
+        _mutable,
+        _walletSeed
+      );
+
+      return {
+        id: newWallet.id().to_string(),
+        nonce: newWallet.nonce().to_string(),
+        vault_commitment: newWallet.vault().commitment().to_hex(),
+        storage_commitment: newWallet.storage().commitment().to_hex(),
+        code_commitment: newWallet.code().commitment().to_hex(),
+        is_faucet: newWallet.is_faucet(),
+        is_regular_account: newWallet.is_regular_account(),
+        is_updatable: newWallet.is_updatable(),
+        is_public: newWallet.is_public(),
+        is_new: newWallet.is_new(),
+      };
+    },
+    storageMode,
+    mutable,
+    serializedClientSeed,
+    isolatedClient,
+    serializedWalletSeed
+  );
+};
+
+export const createNewFaucet = async (
+  storageMode: StorageMode = StorageMode.PUBLIC,
+  nonFungible: boolean = false,
+  tokenSymbol: string = "DAG",
+  decimals: number = 8,
+  maxSupply: bigint = BigInt(10000000)
+): Promise<NewAccountTestResult> => {
+  return await testingPage.evaluate(
+    async (_storageMode, _nonFungible, _tokenSymbol, _decimals, _maxSupply) => {
+      const client = window.client;
+      const accountStorageMode =
+        _storageMode === "private"
+          ? window.AccountStorageMode.private()
+          : window.AccountStorageMode.public();
+      const newFaucet = await client.new_faucet(
+        accountStorageMode,
+        _nonFungible,
+        _tokenSymbol,
+        _decimals,
+        _maxSupply
+      );
+      return {
+        id: newFaucet.id().to_string(),
+        nonce: newFaucet.nonce().to_string(),
+        vault_commitment: newFaucet.vault().commitment().to_hex(),
+        storage_commitment: newFaucet.storage().commitment().to_hex(),
+        code_commitment: newFaucet.code().commitment().to_hex(),
+        is_faucet: newFaucet.is_faucet(),
+        is_regular_account: newFaucet.is_regular_account(),
+        is_updatable: newFaucet.is_updatable(),
+        is_public: newFaucet.is_public(),
+        is_new: newFaucet.is_new(),
+      };
+    },
+    storageMode,
+    nonFungible,
+    tokenSymbol,
+    decimals,
+    maxSupply
+  );
+};
+
+export const fundAccountFromFaucet = async (
+  accountId: string,
+  faucetId: string
+) => {
+  const mintResult = await mintTransaction(accountId, faucetId);
+  return await consumeTransaction(
+    accountId,
+    faucetId,
+    mintResult.createdNoteId
+  );
+};
+
+export const getAccountBalance = async (
+  accountId: string,
+  faucetId: string
+) => {
+  return await testingPage.evaluate(
+    async (_accountId, _faucetId) => {
+      const client = window.client;
+      const account = await client.get_account(
+        window.AccountId.from_hex(_accountId)
+      );
+      let balance = BigInt(0);
+      if (account) {
+        balance = account
+          .vault()
+          .get_balance(window.AccountId.from_hex(_faucetId));
+      }
+      return balance;
+    },
+    accountId,
+    faucetId
+  );
+};
+
 interface ConsumeTransactionResult {
   transactionId: string;
   nonce: string | undefined;
@@ -224,6 +390,18 @@ export const syncState = async () => {
     return {
       blockNum: summary.block_num(),
     };
+  });
+};
+export const clearStore = async () => {
+  await testingPage.evaluate(async () => {
+    // Open a connection to the list of databases
+    const databases = await indexedDB.databases();
+    for (const db of databases) {
+      // Delete each database by name
+      if (db.name) {
+        indexedDB.deleteDatabase(db.name);
+      }
+    }
   });
 };
 

@@ -1,75 +1,15 @@
 import { expect } from "chai";
 import { testingPage } from "./mocha.global.setup.mjs";
-import { isValidAddress } from "./webClientTestUtils";
-
-enum StorageMode {
-  PRIVATE = "private",
-  PUBLIC = "public",
-}
-
-interface NewAccountTestResult {
-  id: string;
-  nonce: string;
-  vault_commitment: string;
-  storage_commitment: string;
-  code_commitment: string;
-  is_faucet: boolean;
-  is_regular_account: boolean;
-  is_updatable: boolean;
-  is_public: boolean;
-  is_new: boolean;
-}
+import {
+  createNewFaucet,
+  createNewWallet,
+  isValidAddress,
+  NewAccountTestResult,
+  StorageMode,
+} from "./webClientTestUtils";
 
 // new_wallet tests
 // =======================================================================================================
-
-export const createNewWallet = async (
-  storageMode: StorageMode,
-  mutable: boolean,
-  clientSeed?: Uint8Array,
-  isolatedClient?: boolean
-): Promise<NewAccountTestResult> => {
-  // Serialize initSeed for Puppeteer
-  const serializedClientSeed = clientSeed ? Array.from(clientSeed) : null;
-
-  return await testingPage.evaluate(
-    async (_storageMode, _mutable, _serializedClientSeed, _isolatedClient) => {
-      if (_isolatedClient) {
-        // Reconstruct Uint8Array inside the browser context
-        const _clientSeed = _serializedClientSeed
-          ? new Uint8Array(_serializedClientSeed)
-          : undefined;
-
-        await window.helpers.refreshClient(_clientSeed);
-      }
-
-      let client = window.client;
-      const accountStorageMode =
-        _storageMode === "private"
-          ? window.AccountStorageMode.private()
-          : window.AccountStorageMode.public();
-
-      const newWallet = await client.new_wallet(accountStorageMode, _mutable);
-
-      return {
-        id: newWallet.id().to_string(),
-        nonce: newWallet.nonce().to_string(),
-        vault_commitment: newWallet.vault().commitment().to_hex(),
-        storage_commitment: newWallet.storage().commitment().to_hex(),
-        code_commitment: newWallet.code().commitment().to_hex(),
-        is_faucet: newWallet.is_faucet(),
-        is_regular_account: newWallet.is_regular_account(),
-        is_updatable: newWallet.is_updatable(),
-        is_public: newWallet.is_public(),
-        is_new: newWallet.is_new(),
-      };
-    },
-    storageMode,
-    mutable,
-    serializedClientSeed,
-    isolatedClient
-  );
-};
 
 describe("new_wallet tests", () => {
   const testCases = [
@@ -113,7 +53,7 @@ describe("new_wallet tests", () => {
 
   testCases.forEach(({ description, storageMode, mutable, expected }) => {
     it(description, async () => {
-      const result = await createNewWallet(storageMode, mutable);
+      const result = await createNewWallet({ storageMode, mutable });
 
       isValidAddress(result.id);
       expect(result.nonce).to.equal("0");
@@ -133,11 +73,21 @@ describe("new_wallet tests", () => {
     crypto.getRandomValues(clientSeed);
 
     // Isolate the client instance both times to ensure the outcome is deterministic
-    await createNewWallet(StorageMode.PUBLIC, false, clientSeed, true);
+    await createNewWallet({
+      storageMode: StorageMode.PUBLIC,
+      mutable: false,
+      clientSeed,
+      isolatedClient: true,
+    });
 
     // This should fail, as the wallet is already tracked within the same browser context
     await expect(
-      createNewWallet(StorageMode.PUBLIC, false, clientSeed, true)
+      createNewWallet({
+        storageMode: StorageMode.PUBLIC,
+        mutable: false,
+        clientSeed,
+        isolatedClient: true,
+      })
     ).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/);
   });
 });
@@ -145,47 +95,6 @@ describe("new_wallet tests", () => {
 // new_faucet tests
 // =======================================================================================================
 
-export const createNewFaucet = async (
-  storageMode: StorageMode,
-  nonFungible: boolean,
-  tokenSymbol: string,
-  decimals: number,
-  maxSupply: bigint
-): Promise<NewAccountTestResult> => {
-  return await testingPage.evaluate(
-    async (_storageMode, _nonFungible, _tokenSymbol, _decimals, _maxSupply) => {
-      const client = window.client;
-      const accountStorageMode =
-        _storageMode === "private"
-          ? window.AccountStorageMode.private()
-          : window.AccountStorageMode.public();
-      const newFaucet = await client.new_faucet(
-        accountStorageMode,
-        _nonFungible,
-        _tokenSymbol,
-        _decimals,
-        _maxSupply
-      );
-      return {
-        id: newFaucet.id().to_string(),
-        nonce: newFaucet.nonce().to_string(),
-        vault_commitment: newFaucet.vault().commitment().to_hex(),
-        storage_commitment: newFaucet.storage().commitment().to_hex(),
-        code_commitment: newFaucet.code().commitment().to_hex(),
-        is_faucet: newFaucet.is_faucet(),
-        is_regular_account: newFaucet.is_regular_account(),
-        is_updatable: newFaucet.is_updatable(),
-        is_public: newFaucet.is_public(),
-        is_new: newFaucet.is_new(),
-      };
-    },
-    storageMode,
-    nonFungible,
-    tokenSymbol,
-    decimals,
-    maxSupply
-  );
-};
 
 describe("new_faucet tests", () => {
   const testCases = [

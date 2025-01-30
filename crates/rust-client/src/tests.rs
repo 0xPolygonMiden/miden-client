@@ -303,6 +303,28 @@ async fn test_get_account_by_id() {
 }
 
 #[tokio::test]
+async fn test_get_account_details() {
+    let (mut client, _rpc_api) = create_test_client().await;
+
+    let account = Account::mock(
+        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        Felt::new(10),
+        TransactionKernel::assembler(),
+    );
+
+    let key_pair = SecretKey::new();
+
+    client
+        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
+        .await
+        .unwrap();
+
+    let account_details = client.get_account_details(account.id()).await.unwrap();
+
+    assert_eq!(*account_details.account().unwrap(), account)
+}
+
+#[tokio::test]
 async fn test_sync_state() {
     // generate test client with a random store name
     let (mut client, rpc_api) = create_test_client().await;
