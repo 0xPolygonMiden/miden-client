@@ -54,7 +54,7 @@ impl AccountDetails {
 
     pub fn account(&self) -> Option<&Account> {
         match self {
-            Self::Private(_, _) => None,
+            Self::Private(..) => None,
             Self::Public(account, _) => Some(account),
         }
     }
