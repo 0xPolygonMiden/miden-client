@@ -1,3 +1,5 @@
+// import { WebClient as WasmWebClient } from "./crates/miden_client_web";
+
 export {
   Account,
   AccountHeader,
@@ -40,5 +42,18 @@ export {
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
   Word,
-  WebClient,
+  WebClient
 } from "./crates/miden_client_web";
+
+// // Define WebClient args
+// export type SerializedAccountStorageMode = "private" | "public";
+// export type SerializedNoteType = "private" | "public" | "encrypted";
+
+// // Extend WASM WebClient but override methods that use workers
+// export class WebClient extends WasmWebClient {
+//   constructor(...args: any[]);
+//   // new_wallet(storageMode: SerializedAccountStorageMode, mutable: boolean): Promise<Account>;
+//   new_faucet(storageMode: SerializedAccountStorageMode, nonFungible: boolean, tokenSymbol: string, decimals: number, maxSupply: string): Promise<Account>;
+//   // new_mint_transaction(target_account_id: string, faucet_id: string, note_type: SerializedNoteType, amount: string): Promise<string>;
+//   terminate(): void;
+// }

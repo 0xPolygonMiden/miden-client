@@ -1,6 +1,9 @@
-use miden_client::transaction::{
-    NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
-    TransactionRequestBuilder as NativeTransactionRequestBuilder,
+use miden_client::{
+    transaction::{
+        NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
+        TransactionRequestBuilder as NativeTransactionRequestBuilder
+    },
+    utils::{Deserializable, Serializable},
 };
 use miden_objects::{
     note::{
@@ -8,9 +11,11 @@ use miden_objects::{
         NoteTag as NativeNoteTag,
     },
     transaction::{OutputNote as NativeOutputNote, TransactionScript as NativeTransactionScript},
+    utils::SliceReader,
     vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
 use super::{
     advice_map::AdviceMap,
@@ -245,6 +250,24 @@ pub struct TransactionRequestBuilder(NativeTransactionRequestBuilder);
 #[derive(Clone)]
 #[wasm_bindgen]
 pub struct TransactionRequest(NativeTransactionRequest);
+
+#[wasm_bindgen]
+impl TransactionRequest {
+    pub fn serialize(&self) -> Uint8Array {
+        let native_transaction_request = &self.0;
+        let mut buffer = Vec::new();
+        native_transaction_request.write_into(&mut buffer);
+        Uint8Array::from(&buffer[..])
+    }
+
+    pub fn deserialize(bytes: Uint8Array) -> Result<TransactionRequest, JsValue> {
+        let vec: Vec<u8> = bytes.to_vec();
+        let mut reader = SliceReader::new(&vec);
+        let native_transaction = NativeTransactionRequest::read_from(&mut reader)
+            .map_err(|e| JsValue::from_str(&format!("Deserialization error: {:?}", e)))?;
+        Ok(TransactionRequest(native_transaction))
+    }
+}
 
 #[wasm_bindgen]
 impl TransactionRequestBuilder {

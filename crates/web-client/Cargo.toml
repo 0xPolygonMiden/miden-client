@@ -20,6 +20,7 @@ testing = ["miden-client/testing"]
 
 [dependencies]
 miden-client = { version = "0.8", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
+miden-crypto = { version = "0.13", default-features = false }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-proving-service-client = { workspace = true }
@@ -29,6 +30,7 @@ serde-wasm-bindgen = { version = "0.6" }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4" }
 console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = ["console"] }
 
 [dev-dependencies]
 miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic", "testing"] }

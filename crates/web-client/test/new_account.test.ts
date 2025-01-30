@@ -44,10 +44,7 @@ export const createNewWallet = async (
       }
 
       let client = window.client;
-      const accountStorageMode =
-        _storageMode === "private"
-          ? window.AccountStorageMode.private()
-          : window.AccountStorageMode.public();
+      const accountStorageMode = window.AccountStorageMode.from_str(_storageMode);
 
       const newWallet = await client.new_wallet(accountStorageMode, _mutable);
 
@@ -155,10 +152,7 @@ export const createNewFaucet = async (
   return await testingPage.evaluate(
     async (_storageMode, _nonFungible, _tokenSymbol, _decimals, _maxSupply) => {
       const client = window.client;
-      const accountStorageMode =
-        _storageMode === "private"
-          ? window.AccountStorageMode.private()
-          : window.AccountStorageMode.public();
+      const accountStorageMode = window.AccountStorageMode.from_str(_storageMode);
       const newFaucet = await client.new_faucet(
         accountStorageMode,
         _nonFungible,

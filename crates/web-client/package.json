@@ -31,7 +31,8 @@
     "@types/chai-as-promised": "^8.0.0",
     "@types/mocha": "^10.0.7",
     "@types/node": "^22.4.1",
-    "@wasm-tool/rollup-plugin-rust": "wasm-tool/rollup-plugin-rust",
+    "@wasm-tool/rollup-plugin-rust": "^3.0.3",
+    "binaryen": "^121.0.0",
     "chai": "^5.1.1",
     "cpr": "^3.0.1",
     "cross-env": "^7.0.3",
@@ -41,12 +42,16 @@
     "puppeteer": "^23.1.0",
     "rimraf": "^6.0.1",
     "rollup": "^3.27.2",
+    "rollup-plugin-copy": "^3.5.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   },
   "dependencies": {
     "chai-as-promised": "^8.0.0",
     "dexie": "^4.0.1",
-    "glob": "^11.0.0"
+    "events": "^3.3.0",
+    "glob": "^11.0.0",
+    "rollup-plugin-web-worker-loader": "^1.6.1",
+    "threads": "^1.7.0"
   }
 }

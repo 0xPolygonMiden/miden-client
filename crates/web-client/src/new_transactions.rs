@@ -1,13 +1,16 @@
 use miden_client::{
+    ClientError,
     note::{get_input_note_with_id_prefix, BlockNumber},
     transaction::{
+        DataStoreError,
         PaymentTransactionData, SwapTransactionData,
+        TransactionExecutorError,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
 };
 use miden_lib::note::utils::build_swap_tag;
-use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset};
+use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset, TransactionInputError};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -119,7 +122,44 @@ impl WebClient {
                 .new_transaction(faucet_id.into(), mint_transaction_request)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Mint Transaction: {}", err))
+                    let detailed_message = match &err {
+                        ClientError::TransactionExecutorError(tx_err) => match tx_err {
+                            TransactionExecutorError::TransactionProgramExecutionFailed(execution_err) => 
+                    format!("Transaction execution failed: {}", execution_err),
+                
+                    TransactionExecutorError::FetchTransactionInputsFailed(data_store_err) => match data_store_err {
+                        DataStoreError::InvalidTransactionInput(input_err) => match input_err {
+                            TransactionInputError::InputNoteNotInBlock(note_id, block_number) => 
+                                format!("Transaction input error: Input note {} was not created in block {}", note_id, block_number),
+    
+                            TransactionInputError::DuplicateInputNote(nullifier) => 
+                                format!("Transaction input error: Duplicate input note with nullifier {}", nullifier),
+    
+                            TransactionInputError::TooManyInputNotes(count) => 
+                                format!("Transaction input error: Too many input notes ({}) exceeds the maximum allowed", count),
+    
+                            _ => format!("Transaction input error: {}", input_err),
+                        },
+    
+                        _ => format!("Fetching transaction inputs failed: {}", data_store_err), // Default case for other DataStoreErrors
+                    },
+                
+                TransactionExecutorError::InconsistentAccountId { input_id, output_id } => 
+                    format!("Account ID mismatch: input = {}, output = {}", input_id, output_id),
+                
+                TransactionExecutorError::InconsistentAccountNonceDelta { expected, actual } => 
+                    format!("Nonce mismatch: expected {:?}, found {:?}", expected, actual),
+                
+                TransactionExecutorError::TransactionOutputConstructionFailed(output_err) => 
+                    format!("Transaction output construction failed: {}", output_err),
+                
+                TransactionExecutorError::TransactionHostCreationFailed(host_err) => 
+                    format!("Transaction host creation failed: {}", host_err),
+                        }
+                        _ => format!("Failed to execute Mint Transaction: {}", err),
+                    };
+            
+                    JsValue::from_str(&detailed_message)
                 })?;
 
             let result = mint_transaction_execution_result.clone().into();
@@ -215,6 +255,7 @@ impl WebClient {
         list_of_note_ids: Vec<String>,
     ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction"));
             let mut result = Vec::new();
             for note_id in list_of_note_ids {
                 let note_record =
@@ -223,9 +264,11 @@ impl WebClient {
                     })?;
                 result.push(note_record.id());
             }
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction 2"));
 
             let consume_transaction_request =
                 NativeTransactionRequestBuilder::consume_notes(result).build();
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction 3"));
 
             let consume_transaction_execution_result = client
                 .new_transaction(account_id.into(), consume_transaction_request)
@@ -233,12 +276,15 @@ impl WebClient {
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to execute Consume Transaction: {}", err))
                 })?;
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction 4"));
 
             let result = consume_transaction_execution_result.clone().into();
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction 5"));
 
             client.submit_transaction(consume_transaction_execution_result).await.map_err(
                 |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {}", err)),
             )?;
+            web_sys::console::log_1(&JsValue::from_str("Consume Transaction 6"));
 
             Ok(result)
         } else {
