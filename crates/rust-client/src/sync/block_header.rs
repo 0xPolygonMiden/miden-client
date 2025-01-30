@@ -13,9 +13,15 @@ use crate::{
     Client, ClientError,
 };
 
+/// Contains all the block information that needs to be added in the client's store after a sync.
+
 #[derive(Debug, Clone, Default)]
 pub struct BlockUpdates {
+    /// New block headers to be stored, along with a flag indicating whether the block contains
+    /// notes that are relevant to the client and the MMR peaks for the block.
     pub block_headers: Vec<(BlockHeader, bool, MmrPeaks)>,
+    /// New authentication nodes that are meant to be stored in order to authenticate block
+    /// headers.
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
 }
 

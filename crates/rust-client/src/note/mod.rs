@@ -248,9 +248,9 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 /// Contains note changes to apply to the store.
 #[derive(Clone, Debug, Default)]
 pub struct NoteUpdates {
-    /// A map of updated input note records corresponding to locally-tracked input notes.
+    /// A map of new and updated input note records to be upserted in the store.
     updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
-    /// A map of updated output note records corresponding to locally-tracked output notes.
+    /// A map of updated output note records to be upserted in the store.
     updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
 }
 
@@ -272,14 +272,12 @@ impl NoteUpdates {
         }
     }
 
-    /// Returns all updated input note records. That is, any input notes that are locally tracked
-    /// and have been updated.
+    /// Returns all input note records that have been updated.
     pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
         self.updated_input_notes.values()
     }
 
-    /// Returns all updated output note records. That is, any output notes that are locally tracked
-    /// and have been updated.
+    /// Returns all updated output note records that have been updated.
     pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
         self.updated_output_notes.values()
     }
@@ -339,14 +337,18 @@ impl NoteUpdates {
         }
     }
 
+    /// Returns a mutable reference to the input note record with the provided ID if it exists.
     pub fn get_input_note_by_id(&mut self, note_id: &NoteId) -> Option<&mut InputNoteRecord> {
         self.updated_input_notes.get_mut(note_id)
     }
 
+    /// Returns a mutable reference to the output note record with the provided ID if it exists.
     pub fn get_output_note_by_id(&mut self, note_id: &NoteId) -> Option<&mut OutputNoteRecord> {
         self.updated_output_notes.get_mut(note_id)
     }
 
+    /// Returns a mutable reference to the input note record with the provided nullifier if it
+    /// exists.
     pub fn get_input_note_by_nullifier(
         &mut self,
         nullifier: Nullifier,
@@ -354,6 +356,8 @@ impl NoteUpdates {
         self.updated_input_notes.values_mut().find(|note| note.nullifier() == nullifier)
     }
 
+    /// Returns a mutable reference to the output note record with the provided nullifier if it
+    /// exists.
     pub fn get_output_note_by_nullifier(
         &mut self,
         nullifier: Nullifier,

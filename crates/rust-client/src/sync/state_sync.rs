@@ -29,15 +29,15 @@ use crate::{
 #[derive(Default)]
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
+    /// The block number of the last block that was synced.
     pub block_num: BlockNumber,
-    /// The new block header, returned as part of the
-    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
+    /// New blocks and authentication nodes.
     pub block_updates: BlockUpdates,
-    /// Information about note changes after the sync.
+    /// New and updated notes to be upserted in the store.
     pub note_updates: NoteUpdates,
-    /// Information about transaction changes after the sync.
+    /// Committed and discarded transactions after the sync.
     pub transaction_updates: TransactionUpdates,
-    /// Information abount account changes after the sync.
+    /// Public account updates and mismatched private accounts after the sync.
     pub account_updates: AccountUpdates,
     /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
@@ -138,7 +138,10 @@ pub struct StateSync {
     on_transaction_committed: OnTransactionCommitted,
     /// Callback to be executed when a nullifier is received.
     on_nullifier_received: OnNullifierReceived,
+    /// Callback to be executed when a block header is received.
     on_block_received: OnBlockHeaderReceived,
+    /// The state sync update that will be returned after the sync process is completed. It
+    /// agregates all the updates that come from each sync step.
     state_sync_update: StateSyncUpdate,
 }
 
@@ -151,6 +154,7 @@ impl StateSync {
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
     /// * `on_committed_transaction` - A callback to be executed when a transaction is committed.
     /// * `on_nullifier_received` - A callback to be executed when a nullifier is received.
+    /// * `on_block_received` - A callback to be executed when a block header is received.
     pub fn new(
         rpc_api: Arc<dyn NodeRpcClient + Send>,
         on_note_received: OnNoteReceived,
@@ -168,25 +172,15 @@ impl StateSync {
         }
     }
 
-    /// Executes a single step of the state sync process, returning the changes that should be
-    /// applied to the store.
+    /// Executes a single step of the state sync process, returning `true` if the client should
+    /// continue syncing and `false` if the client has reached the chain tip.
     ///
     /// A step in this context means a single request to the node to get the next relevant block and
     /// the changes that happened in it. This block may not be the last one in the chain and
     /// the client may need to call this method multiple times until it reaches the chain tip.
-    /// Wheter or not the client has reached the chain tip is indicated by the returned
-    /// [SyncStatus] variant. `None` is returned if the client is already synced with the chain tip
-    /// and there are no new changes.
     ///
-    /// # Arguments
-    /// * `current_block` - The latest tracked block header.
-    /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
-    ///   are relevant to the client. This is used to determine whether new MMR authentication nodes
-    ///   are stored for this block.
-    /// * `current_partial_mmr` - The current partial MMR.
-    /// * `accounts` - The headers of tracked accounts.
-    /// * `note_tags` - The note tags to be used in the sync state request.
-    /// * `unspent_nullifiers` - The nullifiers of tracked notes that haven't been consumed.
+    /// The `sync_state_update` field of the struct will be updated with the new changes from this
+    /// step.
     async fn sync_state_step(
         &mut self,
         current_block: BlockHeader,
@@ -248,6 +242,18 @@ impl StateSync {
         }
     }
 
+    /// Syncs the state of the client with the chain tip of the node, returning the updates that
+    /// should be applied to the store.
+    ///
+    /// # Arguments
+    /// * `current_block` - The latest tracked block header.
+    /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
+    ///   are relevant to the client. This is used to determine whether new MMR authentication nodes
+    ///   are stored for this block.
+    /// * `current_partial_mmr` - The current partial MMR.
+    /// * `accounts` - The headers of tracked accounts.
+    /// * `note_tags` - The note tags to be used in the sync state request.
+    /// * `unspent_nullifiers` - The nullifiers of tracked notes that haven't been consumed.
     pub async fn sync_state(
         mut self,
         mut current_block: BlockHeader,
@@ -285,7 +291,8 @@ impl StateSync {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Compares the state of tracked accounts with the updates received from the node and returns
+    /// Compares the state of tracked accounts with the updates received from the node and updates the
+    /// `state_sync_update` with the details of
     /// the accounts that need to be updated.
     ///
     /// When a mismatch is detected, two scenarios are possible:
@@ -347,7 +354,8 @@ impl StateSync {
     }
 
     /// Applies the changes received from the sync response to the notes and transactions tracked
-    /// by the client. It returns the updates that should be applied to the store.
+    /// by the client and updates the
+    /// `state_sync_update` accordingly.
     ///
     /// This method uses the callbacks provided to the [StateSync] component to apply the changes.
     ///
@@ -536,8 +544,6 @@ pub async fn on_transaction_committed(
     mut note_updates: NoteUpdates,
     transaction_update: TransactionUpdate,
 ) -> Result<(NoteUpdates, TransactionUpdates), ClientError> {
-    // TODO: This could be improved if we add a filter to get only notes that are being processed by
-    // a specific transaction
     let processing_notes = store.get_input_notes(NoteFilter::Processing).await?;
     let consumed_input_notes: Vec<InputNoteRecord> = processing_notes
         .into_iter()
@@ -668,14 +674,12 @@ pub(crate) async fn check_block_relevance(
             .inclusion_proof()
             .is_some_and(|proof| proof.location().block_num() != new_block_number)
         {
-            // This note wasn't received in the current block, so it's not relevant
+            // This note wasn't received in the current block, so it shouldn't be considered
             continue;
         }
 
-        // TODO: Map the below error into a better representation (ie, we expected to be able
-        // to convert here)
         if !note_screener
-            .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
+            .check_relevance(&input_note.try_into().expect("Committed notes should have metadata"))
             .await?
             .is_empty()
         {
