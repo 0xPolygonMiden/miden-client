@@ -56,8 +56,11 @@
 //! For more details on the API and error handling, see the documentation for the specific functions
 //! and types in this module.
 
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
-use std::collections::BTreeMap;
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::ToString,
+    vec::Vec,
+};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{account::AccountId, crypto::rand::FeltRng};
