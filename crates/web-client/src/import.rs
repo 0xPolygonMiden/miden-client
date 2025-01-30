@@ -70,10 +70,7 @@ impl WebClient {
                             .await
                         {
                             Ok(_) => {
-                                let message = format!(
-                                    "Imported account with ID: {}",
-                                    account.id().to_string()
-                                );
+                                let message = format!("Imported account with ID: {}", account.id());
                                 Ok(JsValue::from_str(&message))
                             },
                             Err(err) => {
@@ -82,9 +79,7 @@ impl WebClient {
                             },
                         }
                     },
-                    None => {
-                        return Err(JsValue::from_str("Account not found on chain"));
-                    },
+                    None => Err(JsValue::from_str("Account not found on chain")),
                 }
             } else {
                 // Simply re-generate the account and insert it, without fetching any data
@@ -98,10 +93,7 @@ impl WebClient {
                     .await
                 {
                     Ok(_) => {
-                        let message = format!(
-                            "Imported account with ID: {}",
-                            generated_acct.id().to_string()
-                        );
+                        let message = format!("Imported account with ID: {}", generated_acct.id());
                         Ok(JsValue::from_str(&message))
                     },
                     Err(err) => {

@@ -25,7 +25,7 @@ pub async fn generate_account(
                 let coin_seed: [u64; 4] = std_rng.gen();
                 RpoRandomCoin::new(coin_seed.map(Felt::new))
             } else {
-                return Err(JsValue::from_str("Seed must be exactly 32 bytes".into()));
+                Err(JsValue::from_str("Seed must be exactly 32 bytes"))?
             }
         },
         None => *client.rng(),
@@ -58,5 +58,5 @@ pub async fn generate_account(
         },
     };
 
-    return Ok((new_account, seed, key_pair));
+    Ok((new_account, seed, key_pair))
 }
