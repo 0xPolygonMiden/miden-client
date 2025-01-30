@@ -87,7 +87,8 @@ async fn test_onchain_notes_flow() {
     client_3.add_note_tag(note.metadata().tag()).await.unwrap();
     client_3.sync_state().await.unwrap();
 
-    // client 3 should have two notes, the one directed to them and the one consumed by client 2 (which should come from the tag added)
+    // client 3 should have two notes, the one directed to them and the one consumed by client 2
+    // (which should come from the tag added)
     assert_eq!(client_3.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
     assert_eq!(client_3.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
 
