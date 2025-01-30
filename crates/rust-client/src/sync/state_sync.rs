@@ -261,23 +261,37 @@ impl StateSync {
         mut current_partial_mmr: PartialMmr,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
-        unspent_nullifiers: Vec<Nullifier>,
+        mut unspent_nullifiers: Vec<Nullifier>,
     ) -> Result<StateSyncUpdate, ClientError> {
         loop {
+            // New nullfiers should be added for new untracked notes that were added in previous steps
+            unspent_nullifiers.append(
+                &mut self
+                    .state_sync_update
+                    .note_updates
+                    .updated_input_notes()
+                    .filter(|note| {
+                        note.is_committed() && !unspent_nullifiers.contains(&note.nullifier())
+                    })
+                    .map(|note| note.nullifier())
+                    .collect::<Vec<_>>(),
+            );
+
             if !self
                 .sync_state_step(
                     current_block,
                     current_block_has_relevant_notes,
                     &mut current_partial_mmr,
                     &accounts,
-                    &note_tags,          //TODO: get note tags from notes in the updates
-                    &unspent_nullifiers, //TODO: get nullifiers from notes in the updates
+                    &note_tags,
+                    &unspent_nullifiers,
                 )
                 .await?
             {
                 return Ok(self.state_sync_update);
             }
 
+            // Update the current block for the next step
             (current_block, current_block_has_relevant_notes, ..) = self
                 .state_sync_update
                 .block_updates
@@ -291,8 +305,8 @@ impl StateSync {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Compares the state of tracked accounts with the updates received from the node and updates the
-    /// `state_sync_update` with the details of
+    /// Compares the state of tracked accounts with the updates received from the node and updates
+    /// the `state_sync_update` with the details of
     /// the accounts that need to be updated.
     ///
     /// When a mismatch is detected, two scenarios are possible:
