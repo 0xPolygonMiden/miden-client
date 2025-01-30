@@ -23,12 +23,12 @@ pub async fn generate_account(
                 seed_array.copy_from_slice(&seed_bytes);
                 let mut std_rng = StdRng::from_seed(seed_array);
                 let coin_seed: [u64; 4] = std_rng.gen();
-                RpoRandomCoin::new(coin_seed.map(Felt::new))
+                &mut RpoRandomCoin::new(coin_seed.map(Felt::new))
             } else {
                 Err(JsValue::from_str("Seed must be exactly 32 bytes"))?
             }
         },
-        None => *client.rng(),
+        None => client.rng(),
     };
     let key_pair = SecretKey::with_rng(&mut rng);
 
@@ -43,7 +43,7 @@ pub async fn generate_account(
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
-    let (new_account, seed) = match AccountBuilder::new(init_seed)
+    let (new_account, account_seed) = match AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(account_type)
         .storage_mode(storage_mode.into())
@@ -58,5 +58,5 @@ pub async fn generate_account(
         },
     };
 
-    Ok((new_account, seed, key_pair))
+    Ok((new_account, account_seed, key_pair))
 }

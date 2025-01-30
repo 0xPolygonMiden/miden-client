@@ -17,15 +17,15 @@ impl WebClient {
         &mut self,
         storage_mode: &AccountStorageMode,
         mutable: bool,
-        seed: Option<Vec<u8>>,
+        init_seed: Option<Vec<u8>>,
     ) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let (new_account, seed, key_pair) =
-                generate_account(client, storage_mode, mutable, seed).await?;
+            let (new_account, account_seed, key_pair) =
+                generate_account(client, storage_mode, mutable, init_seed).await?;
             match client
                 .add_account(
                     &new_account,
-                    Some(seed),
+                    Some(account_seed),
                     &AuthSecretKey::RpoFalcon512(key_pair),
                     false,
                 )

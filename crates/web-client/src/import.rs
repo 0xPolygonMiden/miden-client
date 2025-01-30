@@ -41,13 +41,13 @@ impl WebClient {
 
     pub async fn import_account_from_seed(
         &mut self,
-        seed: Vec<u8>,
+        init_seed: Vec<u8>,
         storage_mode: &AccountStorageMode,
         mutable: bool,
     ) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let (generated_acct, seed, key_pair) =
-                generate_account(client, storage_mode, mutable, Some(seed)).await?;
+            let (generated_acct, account_seed, key_pair) =
+                generate_account(client, storage_mode, mutable, Some(init_seed)).await?;
 
             if storage_mode.is_public() {
                 // If public, fetch the data from chain
@@ -63,7 +63,7 @@ impl WebClient {
                         match client
                             .add_account(
                                 account,
-                                Some(seed),
+                                Some(account_seed),
                                 &AuthSecretKey::RpoFalcon512(key_pair),
                                 false,
                             )
@@ -86,7 +86,7 @@ impl WebClient {
                 match client
                     .add_account(
                         &generated_acct,
-                        Some(seed),
+                        Some(account_seed),
                         &AuthSecretKey::RpoFalcon512(key_pair),
                         false,
                     )
