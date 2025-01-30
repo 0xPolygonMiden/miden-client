@@ -325,8 +325,8 @@ impl NoteUpdates {
 
     pub fn insert_or_ignore_notes(
         &mut self,
-        input_notes: &Vec<InputNoteRecord>,
-        output_notes: &Vec<OutputNoteRecord>,
+        input_notes: &[InputNoteRecord],
+        output_notes: &[OutputNoteRecord],
     ) {
         for note in input_notes {
             self.updated_input_notes.entry(note.id()).or_insert(note.clone());

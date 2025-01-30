@@ -74,8 +74,8 @@ pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
 pub use state_sync::{
-    on_block_received, on_note_received, on_nullifier_received, on_transaction_committed,
-    OnNoteReceived, OnNullifierReceived, OnTransactionCommitted, StateSync, StateSyncUpdate,
+    on_note_received, on_nullifier_received, OnNoteReceived, OnNullifierReceived, StateSync,
+    StateSyncUpdate,
 };
 
 /// Contains stats about the sync operation.
@@ -182,51 +182,24 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                move |note_updates, committed_note, block_header| {
+                move |note_updates, committed_note, block_header, new_public_notes| {
                     Box::pin(on_note_received(
                         store_clone.clone(),
                         note_updates,
                         committed_note,
                         block_header,
+                        new_public_notes,
                     ))
                 }
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                move |note_updates, transaction_update| {
-                    Box::pin(on_transaction_committed(
-                        store_clone.clone(),
-                        note_updates,
-                        transaction_update,
-                    ))
-                }
-            }),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |note_updates, nullifier_update| {
+                move |note_updates, nullifier_update, committed_transactions| {
                     Box::pin(on_nullifier_received(
                         store_clone.clone(),
                         note_updates,
                         nullifier_update,
-                    ))
-                }
-            }),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |new_block_header,
-                      note_updates,
-                      current_block_header,
-                      current_block_has_relevant_notes,
-                      current_partial_mmr,
-                      mmr_delta| {
-                    Box::pin(on_block_received(
-                        store_clone.clone(),
-                        new_block_header,
-                        note_updates,
-                        current_block_header,
-                        current_block_has_relevant_notes,
-                        current_partial_mmr,
-                        mmr_delta,
+                        committed_transactions,
                     ))
                 }
             }),
