@@ -84,8 +84,13 @@ async fn test_onchain_notes_flow() {
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
     // sync client 3 (basic account 2)
+    client_3.add_note_tag(note.metadata().tag()).await.unwrap();
     client_3.sync_state().await.unwrap();
-    // client 3 should only have one note
+
+    // client 3 should have two notes, the one directed to them and the one consumed by client 2 (which should come from the tag added)
+    assert_eq!(client_3.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
+    assert_eq!(client_3.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
+
     let note = client_3
         .get_input_notes(NoteFilter::Committed)
         .await
