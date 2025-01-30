@@ -8,7 +8,6 @@ use miden_client::{
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_proving_service_client::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -22,11 +21,11 @@ pub mod notes;
 pub mod sync;
 pub mod tags;
 pub mod transactions;
+pub mod utils;
 
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
-    remote_prover: Option<Arc<RemoteTransactionProver>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -41,11 +40,7 @@ impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         set_once();
-        WebClient {
-            inner: None,
-            remote_prover: None,
-            store: None,
-        }
+        WebClient { inner: None, store: None }
     }
 
     pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
@@ -55,7 +50,6 @@ impl WebClient {
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
-        prover_url: Option<String>,
         seed: Option<Vec<u8>>,
     ) -> Result<JsValue, JsValue> {
         let mut rng = match seed {
@@ -81,9 +75,6 @@ impl WebClient {
         let web_rpc_client = Box::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
-
-        self.remote_prover = prover_url
-            .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
         self.inner =
             Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);

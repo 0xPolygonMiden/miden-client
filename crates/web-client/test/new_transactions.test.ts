@@ -358,7 +358,7 @@ export const customTransaction = async (
       );
 
       if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
+        await client.submit_transaction(
           transaction_result,
           await selectProver()
         );
@@ -426,7 +426,7 @@ export const customTransaction = async (
       );
 
       if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
+        await client.submit_transaction(
           transaction_result_2,
           await selectProver()
         );

@@ -26,6 +26,7 @@
 * Added account creation from component templates (#680).
 * Added serialization for `TransactionResult` (#704).
 * Implemented serialization and deserialization for `SyncSummary` (#725).
+* [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
 
 ### Fixes
 
