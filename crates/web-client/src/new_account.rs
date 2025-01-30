@@ -1,9 +1,10 @@
 use miden_client::{
-    account::{AccountBuilder, AccountType, BasicFungibleFaucetComponent, RpoFalcon512Component},
+    account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
     crypto::SecretKey,
     Felt,
 };
+use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 

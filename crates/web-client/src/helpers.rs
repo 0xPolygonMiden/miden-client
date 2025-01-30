@@ -1,8 +1,9 @@
 use miden_client::{
-    account::{Account, AccountBuilder, AccountType, BasicWalletComponent, RpoFalcon512Component},
+    account::{Account, AccountBuilder, AccountType},
     crypto::{RpoRandomCoin, SecretKey},
     Client,
 };
+use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::Felt;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::JsValue;
@@ -46,8 +47,8 @@ pub async fn generate_account(
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(account_type)
         .storage_mode(storage_mode.into())
-        .with_component(RpoFalcon512Component::new(key_pair.public_key()))
-        .with_component(BasicWalletComponent)
+        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(BasicWallet)
         .build()
     {
         Ok(result) => result,

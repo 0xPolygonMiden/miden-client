@@ -1,10 +1,8 @@
 import { expect } from "chai";
-import { testingPage } from "./mocha.global.setup.mjs";
 import {
   createNewFaucet,
   createNewWallet,
   isValidAddress,
-  NewAccountTestResult,
   StorageMode,
 } from "./webClientTestUtils";
 
@@ -94,7 +92,6 @@ describe("new_wallet tests", () => {
 
 // new_faucet tests
 // =======================================================================================================
-
 
 describe("new_faucet tests", () => {
   const testCases = [
