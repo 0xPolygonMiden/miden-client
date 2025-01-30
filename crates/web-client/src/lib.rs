@@ -22,6 +22,7 @@ pub mod notes;
 pub mod sync;
 pub mod tags;
 pub mod transactions;
+pub mod utils;
 
 #[wasm_bindgen]
 pub struct WebClient {
