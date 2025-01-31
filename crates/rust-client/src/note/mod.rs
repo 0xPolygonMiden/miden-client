@@ -323,28 +323,9 @@ impl NoteUpdates {
         BTreeSet::from_iter(consumed_input_note_ids.chain(consumed_output_note_ids))
     }
 
-    pub fn insert_or_ignore_notes(
-        &mut self,
-        input_notes: &[InputNoteRecord],
-        output_notes: &[OutputNoteRecord],
-    ) {
-        for note in input_notes {
-            self.updated_input_notes.entry(note.id()).or_insert(note.clone());
-        }
-
-        for note in output_notes {
-            self.updated_output_notes.entry(note.id()).or_insert(note.clone());
-        }
-    }
-
-    /// Returns a mutable reference to the input note record with the provided ID if it exists.
-    pub fn get_input_note_by_id(&mut self, note_id: &NoteId) -> Option<&mut InputNoteRecord> {
-        self.updated_input_notes.get_mut(note_id)
-    }
-
-    /// Returns a mutable reference to the output note record with the provided ID if it exists.
-    pub fn get_output_note_by_id(&mut self, note_id: &NoteId) -> Option<&mut OutputNoteRecord> {
-        self.updated_output_notes.get_mut(note_id)
+    pub fn extend(&mut self, other: NoteUpdates) {
+        self.updated_input_notes.extend(other.updated_input_notes);
+        self.updated_output_notes.extend(other.updated_output_notes);
     }
 
     /// Returns a mutable reference to the input note record with the provided nullifier if it
@@ -354,16 +335,5 @@ impl NoteUpdates {
         nullifier: Nullifier,
     ) -> Option<&mut InputNoteRecord> {
         self.updated_input_notes.values_mut().find(|note| note.nullifier() == nullifier)
-    }
-
-    /// Returns a mutable reference to the output note record with the provided nullifier if it
-    /// exists.
-    pub fn get_output_note_by_nullifier(
-        &mut self,
-        nullifier: Nullifier,
-    ) -> Option<&mut OutputNoteRecord> {
-        self.updated_output_notes
-            .values_mut()
-            .find(|note| note.nullifier() == Some(nullifier))
     }
 }

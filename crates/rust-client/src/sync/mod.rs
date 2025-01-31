@@ -182,10 +182,9 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                move |note_updates, committed_note, block_header, new_public_notes| {
+                move |committed_note, block_header, new_public_notes| {
                     Box::pin(on_note_received(
                         store_clone.clone(),
-                        note_updates,
                         committed_note,
                         block_header,
                         new_public_notes,
@@ -194,10 +193,9 @@ impl<R: FeltRng> Client<R> {
             }),
             Box::new({
                 let store_clone = self.store.clone();
-                move |note_updates, nullifier_update, committed_transactions| {
+                move |nullifier_update, committed_transactions| {
                     Box::pin(on_nullifier_received(
                         store_clone.clone(),
-                        note_updates,
                         nullifier_update,
                         committed_transactions,
                     ))

@@ -8,7 +8,6 @@ use miden_objects::{
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     Digest,
 };
-use miden_tx::utils::sync::RwLock;
 use tracing::info;
 
 use super::{block_header::BlockUpdates, get_nullifier_prefix, NoteTagRecord, SyncSummary};
@@ -78,20 +77,19 @@ impl From<&StateSyncUpdate> for SyncSummary {
 /// TODO: document
 pub type OnNoteReceived = Box<
     dyn Fn(
-        Arc<RwLock<NoteUpdates>>,
         CommittedNote,
         BlockHeader,
         Arc<Vec<InputNoteRecord>>,
-    ) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>,
+    ) -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, bool), ClientError>>>>,
 >;
 
 /// TODO: document
 pub type OnNullifierReceived = Box<
     dyn Fn(
-        Arc<RwLock<NoteUpdates>>,
         NullifierUpdate,
         Arc<Vec<TransactionUpdate>>,
-    ) -> Pin<Box<dyn Future<Output = Result<TransactionUpdates, ClientError>>>>,
+    )
+        -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, TransactionUpdates), ClientError>>>>,
 >;
 
 // STATE SYNC
@@ -376,40 +374,43 @@ impl StateSync {
             .collect();
 
         let mut found_relevant_note = false;
-        let note_updates = Arc::new(RwLock::new(self.state_sync_update.note_updates.clone())); // TODO: look to remove this clone
 
         // Process note inclusions
         let new_public_notes =
             Arc::new(self.fetch_public_note_details(&public_note_ids, &block_header).await?);
         for committed_note in note_inclusions {
-            let note_is_relevant = (self.on_note_received)(
-                note_updates.clone(),
-                committed_note,
-                block_header,
-                new_public_notes.clone(),
-            )
-            .await?;
+            let (new_note_updates, note_is_relevant) =
+                (self.on_note_received)(committed_note, block_header, new_public_notes.clone())
+                    .await?;
+
+            self.state_sync_update.note_updates.extend(new_note_updates);
             found_relevant_note |= note_is_relevant;
         }
 
         // Process nullifiers
         let committed_transactions = Arc::new(transactions.clone());
         for nullifier_update in nullifiers {
-            let new_transaction_update = (self.on_nullifier_received)(
-                note_updates.clone(),
-                nullifier_update,
-                committed_transactions.clone(),
-            )
-            .await?;
+            if let Some(input_note_record) = self
+                .state_sync_update
+                .note_updates
+                .get_input_note_by_nullifier(nullifier_update.nullifier)
+            {
+                // The note was modified in a previous step so we need to update it again
+                input_note_record
+                    .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?;
+            }
 
+            let (new_note_updates, new_transaction_update) =
+                (self.on_nullifier_received)(nullifier_update, committed_transactions.clone())
+                    .await?;
+
+            self.state_sync_update.note_updates.extend(new_note_updates);
             self.state_sync_update.transaction_updates.extend(new_transaction_update);
         }
 
         self.state_sync_update
             .transaction_updates
             .extend(TransactionUpdates::new(transactions, vec![]));
-
-        self.state_sync_update.note_updates = note_updates.read().clone(); // TODO: look to remove this clone
 
         Ok(found_relevant_note)
     }
@@ -472,15 +473,15 @@ async fn apply_mmr_changes(
 /// Default implementation of the [OnNoteReceived] callback. It queries the store for the committed
 /// note and updates the note records accordingly. If the note is not being tracked, it returns the
 /// note ID to be queried from the node so it can be queried from the node and tracked.
-#[allow(clippy::await_holding_lock)]
 pub async fn on_note_received(
     store: Arc<dyn Store>,
-    note_updates: Arc<RwLock<NoteUpdates>>,
     committed_note: CommittedNote,
     block_header: BlockHeader,
     new_public_notes: Arc<Vec<InputNoteRecord>>,
-) -> Result<bool, ClientError> {
-    let mut note_updates = note_updates.write();
+) -> Result<(NoteUpdates, bool), ClientError> {
+    let mut updated_input_notes = vec![];
+    let mut updated_output_notes = vec![];
+
     let inclusion_proof = NoteInclusionProof::new(
         block_header.block_num(),
         committed_note.note_index(),
@@ -490,35 +491,40 @@ pub async fn on_note_received(
     let mut is_tracked_note = false;
     let mut block_is_relevant = false;
 
-    note_updates.insert_or_ignore_notes(
-        &store.get_input_notes(NoteFilter::List(vec![*committed_note.note_id()])).await?,
-        &store
-            .get_output_notes(NoteFilter::List(vec![*committed_note.note_id()]))
-            .await?,
-    );
-
-    if let Some(input_note_record) = note_updates.get_input_note_by_id(committed_note.note_id()) {
+    if let Some(mut input_note_record) = store
+        .get_input_notes(NoteFilter::List(vec![*committed_note.note_id()]))
+        .await?
+        .pop()
+    {
         // The note belongs to our locally tracked set of input notes
         is_tracked_note = true;
         block_is_relevant = true; //TODO: Check if this is always true
         input_note_record
             .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
         input_note_record.block_header_received(block_header)?;
+
+        updated_input_notes.push(input_note_record); // TODO: Only do this if it actually changed
     }
 
-    if let Some(output_note_record) = note_updates.get_output_note_by_id(committed_note.note_id()) {
+    if let Some(mut output_note_record) = store
+        .get_output_notes(NoteFilter::List(vec![*committed_note.note_id()]))
+        .await?
+        .pop()
+    {
         // The note belongs to our locally tracked set of output notes
         is_tracked_note = true;
         output_note_record.inclusion_proof_received(inclusion_proof.clone())?;
+
+        updated_output_notes.push(output_note_record); // TODO: Only do this if it actually changed
     }
 
     if !is_tracked_note {
-        // The note wasn't being tracked but it came in the sync response, it means it matched a
-        // note tag we are tracking and it needs to be inserted in the store
         if let Some(public_note) =
             new_public_notes.iter().find(|note| &note.id() == committed_note.note_id())
         {
-            note_updates.insert_or_ignore_notes(&[public_note.clone()], &[]);
+            // The note wasn't being tracked but it came in the sync response, it means it matched a
+            // note tag we are tracking and it needs to be inserted in the store
+            updated_input_notes.push(public_note.clone());
 
             // If the note isn't consumable by the client then the block isn't relevant
             block_is_relevant = !NoteScreener::new(store)
@@ -530,33 +536,27 @@ pub async fn on_note_received(
         }
     }
 
-    Ok(block_is_relevant)
+    Ok((NoteUpdates::new(updated_input_notes, updated_output_notes), block_is_relevant))
+    //TODO: add insert note functions to note updates
 }
 
 /// Default implementation of the [OnNullifierReceived] callback. It queries the store for the notes
 /// that match the nullifier and updates the note records accordingly. It also returns the
 /// transactions that should be discarded as they weren't committed when the nullifier was received.
-#[allow(clippy::await_holding_lock)]
 pub async fn on_nullifier_received(
     store: Arc<dyn Store>,
-    note_updates: Arc<RwLock<NoteUpdates>>,
     nullifier_update: NullifierUpdate,
     transaction_updates: Arc<Vec<TransactionUpdate>>,
-) -> Result<TransactionUpdates, ClientError> {
-    let mut note_updates = note_updates.write();
+) -> Result<(NoteUpdates, TransactionUpdates), ClientError> {
+    let mut updated_input_notes = vec![];
+    let mut updated_output_notes = vec![];
+
     let mut discarded_transactions = vec![];
 
-    note_updates.insert_or_ignore_notes(
-        &store
-            .get_input_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
-            .await?,
-        &store
-            .get_output_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
-            .await?,
-    );
-
-    if let Some(input_note_record) =
-        note_updates.get_input_note_by_nullifier(nullifier_update.nullifier)
+    if let Some(mut input_note_record) = store
+        .get_input_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
+        .await?
+        .pop()
     {
         if let Some(consumer_transaction) = transaction_updates.iter().find(|t| {
             input_note_record
@@ -578,14 +578,23 @@ pub async fn on_nullifier_received(
             input_note_record
                 .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?;
         }
+
+        updated_input_notes.push(input_note_record); // TODO: Only do this if it actually changed
     }
 
-    if let Some(output_note_record) =
-        note_updates.get_output_note_by_nullifier(nullifier_update.nullifier)
+    if let Some(mut output_note_record) = store
+        .get_output_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
+        .await?
+        .pop()
     {
         output_note_record
             .nullifier_received(nullifier_update.nullifier, nullifier_update.block_num)?;
+
+        updated_output_notes.push(output_note_record); // TODO: Only do this if it actually changed
     }
 
-    Ok(TransactionUpdates::new(vec![], discarded_transactions))
+    Ok((
+        NoteUpdates::new(updated_input_notes, updated_output_notes),
+        TransactionUpdates::new(vec![], discarded_transactions),
+    ))
 }
