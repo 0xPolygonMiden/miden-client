@@ -75,7 +75,12 @@ impl From<&StateSyncUpdate> for SyncSummary {
 // SYNC CALLBACKS
 // ================================================================================================
 
-/// TODO: document
+/// Callback to be executed when a new note inclusion is received in the sync response. It receives
+/// the committed note received from the node, the block header in which the note was included and
+/// the list of public notes that were included in the block.
+///
+/// It returns two optional notes (one input and one output) that should be updated in the store and
+/// a flag indicating if the block is relevant to the client.
 pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
@@ -93,7 +98,12 @@ pub type OnNoteReceived = Box<
     >,
 >;
 
-/// TODO: document
+/// Callback to be executed when a nullifier is received in the sync response. It receives the
+/// nullifier update received from the node and the list of transaction updates that were committed
+/// in the block.
+///
+/// It returns two optional notes (one input and one output) that should be updated in the store and
+/// an optional transaction ID if a transaction should be discarded.
 pub type OnNullifierReceived = Box<
     dyn Fn(
         NullifierUpdate,
@@ -496,8 +506,9 @@ async fn apply_mmr_changes(
 // ================================================================================================
 
 /// Default implementation of the [OnNoteReceived] callback. It queries the store for the committed
-/// note and updates the note records accordingly. If the note is not being tracked, it returns the
-/// note ID to be queried from the node so it can be queried from the node and tracked.
+/// note and updates it accordingly. If the note wasn't being tracked but it came in the sync
+/// response, it is also returned so it can be inserted in the store. The method also returns a
+/// flag indicating if the block is relevant to the client.
 pub async fn on_note_received(
     store: Arc<dyn Store>,
     committed_note: CommittedNote,
@@ -567,8 +578,8 @@ pub async fn on_note_received(
 }
 
 /// Default implementation of the [OnNullifierReceived] callback. It queries the store for the notes
-/// that match the nullifier and updates the note records accordingly. It also returns the
-/// transactions that should be discarded as they weren't committed when the nullifier was received.
+/// that match the nullifier and updates the note records accordingly. It also returns an optional
+/// transaction ID that should be discarded.
 pub async fn on_nullifier_received(
     store: Arc<dyn Store>,
     nullifier_update: NullifierUpdate,
