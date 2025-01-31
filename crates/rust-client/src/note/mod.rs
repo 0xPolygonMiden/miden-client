@@ -328,6 +328,19 @@ impl NoteUpdates {
         self.updated_output_notes.extend(other.updated_output_notes);
     }
 
+    pub fn insert_updates(
+        &mut self,
+        input_note: Option<InputNoteRecord>,
+        output_note: Option<OutputNoteRecord>,
+    ) {
+        if let Some(input_note) = input_note {
+            self.updated_input_notes.insert(input_note.id(), input_note);
+        }
+        if let Some(output_note) = output_note {
+            self.updated_output_notes.insert(output_note.id(), output_note);
+        }
+    }
+
     /// Returns a mutable reference to the input note record with the provided nullifier if it
     /// exists.
     pub fn get_input_note_by_nullifier(
