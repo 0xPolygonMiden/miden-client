@@ -7,6 +7,8 @@ use crate::{
     helpers::generate_account, models::account_storage_mode::AccountStorageMode, WebClient,
 };
 
+use super::models::account::Account;
+
 #[wasm_bindgen]
 impl WebClient {
     pub async fn import_account(&mut self, account_bytes: JsValue) -> Result<JsValue, JsValue> {
@@ -44,7 +46,7 @@ impl WebClient {
         init_seed: Vec<u8>,
         storage_mode: &AccountStorageMode,
         mutable: bool,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let (generated_acct, account_seed, key_pair) =
                 generate_account(client, storage_mode, mutable, Some(init_seed)).await?;
@@ -69,10 +71,7 @@ impl WebClient {
                             )
                             .await
                         {
-                            Ok(_) => {
-                                let message = format!("Imported account with ID: {}", account.id());
-                                Ok(JsValue::from_str(&message))
-                            },
+                            Ok(_) => Ok(account.into()),
                             Err(err) => {
                                 let error_message = format!("Failed to import account: {:?}", err);
                                 Err(JsValue::from_str(&error_message))
@@ -92,10 +91,7 @@ impl WebClient {
                     )
                     .await
                 {
-                    Ok(_) => {
-                        let message = format!("Imported account with ID: {}", generated_acct.id());
-                        Ok(JsValue::from_str(&message))
-                    },
+                    Ok(_) => Ok(generated_acct.into()),
                     Err(err) => {
                         let error_message = format!("Failed to import account: {:?}", err);
                         Err(JsValue::from_str(&error_message))
