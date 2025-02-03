@@ -20,6 +20,7 @@ use super::{
     ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
+use crate::transaction::TransactionScriptBuilderError;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -290,6 +291,19 @@ impl TransactionRequestBuilder {
             sender_account_id,
             target_account_id,
         } = payment_data;
+
+        if assets.iter().all(|asset| {
+            if let Asset::Fungible(asset) = asset {
+                asset.amount() == 0
+            } else {
+                false
+            }
+        }) {
+            return Err(TransactionRequestError::TransactionScriptBuilderError(
+                TransactionScriptBuilderError::P2IDNoteWithoutAsset,
+            ));
+        }
+
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
                 sender_account_id,
