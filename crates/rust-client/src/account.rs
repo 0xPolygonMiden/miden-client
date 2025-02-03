@@ -253,14 +253,18 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
+    /// Attempts to retrieve an [AccountDetails] by the [AccountId] associated with the account from
+    /// the rpc.
+    ///
+    /// # Errors
+    ///
+    /// - If the key is not found on the rpc from passed `account_id`.
+    /// - If the underlying rpc operation fails
     pub async fn get_account_details(
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, ClientError> {
-        match self.rpc_api.get_account_update(account_id).await {
-            Ok(details) => Ok(details),
-            Err(e) => Err(ClientError::RpcError(e)),
-        }
+        self.rpc_api.get_account_update(account_id).await.map_err(ClientError::RpcError)
     }
 }
 

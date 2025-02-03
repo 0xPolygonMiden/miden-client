@@ -3,11 +3,10 @@ use miden_objects::{account::AccountData, note::NoteFile, utils::Deserializable}
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
+use super::models::account::Account;
 use crate::{
     helpers::generate_account, models::account_storage_mode::AccountStorageMode, WebClient,
 };
-
-use super::models::account::Account;
 
 #[wasm_bindgen]
 impl WebClient {
@@ -47,59 +46,39 @@ impl WebClient {
         storage_mode: &AccountStorageMode,
         mutable: bool,
     ) -> Result<Account, JsValue> {
-        if let Some(client) = self.get_mut_inner() {
-            let (generated_acct, account_seed, key_pair) =
-                generate_account(client, storage_mode, mutable, Some(init_seed)).await?;
+        let client = self.get_mut_inner().ok_or(JsValue::from_str("Client not initialized"))?;
 
-            if storage_mode.is_public() {
-                // If public, fetch the data from chain
-                let account_details =
-                    client.get_account_details(generated_acct.id()).await.map_err(|err| {
-                        JsValue::from_str(&format!("Failed to get account details: {}", err))
-                    })?;
+        let (generated_acct, account_seed, key_pair) =
+            generate_account(client, storage_mode, mutable, Some(init_seed)).await?;
 
-                let on_chain_account = account_details.account();
+        if storage_mode.is_public() {
+            // If public, fetch the data from chain
+            let account_details =
+                client.get_account_details(generated_acct.id()).await.map_err(|err| {
+                    JsValue::from_str(&format!("Failed to get account details: {}", err))
+                })?;
 
-                match on_chain_account {
-                    Some(account) => {
-                        match client
-                            .add_account(
-                                account,
-                                Some(account_seed),
-                                &AuthSecretKey::RpoFalcon512(key_pair),
-                                false,
-                            )
-                            .await
-                        {
-                            Ok(_) => Ok(account.into()),
-                            Err(err) => {
-                                let error_message = format!("Failed to import account: {:?}", err);
-                                Err(JsValue::from_str(&error_message))
-                            },
-                        }
-                    },
-                    None => Err(JsValue::from_str("Account not found on chain")),
-                }
-            } else {
-                // Simply re-generate the account and insert it, without fetching any data
-                match client
-                    .add_account(
-                        &generated_acct,
-                        Some(account_seed),
-                        &AuthSecretKey::RpoFalcon512(key_pair),
-                        false,
-                    )
-                    .await
-                {
-                    Ok(_) => Ok(generated_acct.into()),
-                    Err(err) => {
-                        let error_message = format!("Failed to import account: {:?}", err);
-                        Err(JsValue::from_str(&error_message))
-                    },
-                }
-            }
+            let on_chain_account = account_details
+                .account()
+                .ok_or(JsValue::from_str("Account not found on chain"))?;
+
+            client
+                .add_account(on_chain_account, None, &AuthSecretKey::RpoFalcon512(key_pair), false)
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to import account: {:?}", err)))
+                .map(|_| on_chain_account.into())
         } else {
-            Err(JsValue::from_str("Client not initialized"))
+            // Simply re-generate the account and insert it, without fetching any data
+            client
+                .add_account(
+                    &generated_acct,
+                    Some(account_seed),
+                    &AuthSecretKey::RpoFalcon512(key_pair),
+                    false,
+                )
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to import account: {:?}", err)))
+                .map(|_| generated_acct.into())
         }
     }
     pub async fn import_note(&mut self, note_bytes: JsValue) -> Result<JsValue, JsValue> {
