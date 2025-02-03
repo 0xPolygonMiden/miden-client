@@ -124,19 +124,18 @@ async fn test_swap_fully_onchain() {
 
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
-    let payback_note_tag = build_swap_tag(
+    let swap_note_tag = build_swap_tag(
         NoteType::Public,
         &Asset::Fungible(offered_asset),
         &Asset::Fungible(requested_asset),
     )
     .unwrap();
 
-    // add swap note's tag to both client 1 and client 2 (TODO: check if it's needed for both)
+    // add swap note's tag to client2
     // we could technically avoid this step, but for the first iteration of swap notes we'll
     // require to manually add tags
-    println!("Adding swap tags");
-    client1.add_note_tag(payback_note_tag).await.unwrap();
-    client2.add_note_tag(payback_note_tag).await.unwrap();
+    println!("Adding swap tag");
+    client2.add_note_tag(swap_note_tag).await.unwrap();
 
     // sync on client 2, we should get the swap note
     // consume swap note with accountB, and check that the vault changed appropiately
