@@ -30,3 +30,9 @@ impl From<&AccountStorageMode> for NativeAccountStorageMode {
         storage_mode.0
     }
 }
+
+impl AccountStorageMode {
+    pub fn is_public(&self) -> bool {
+        self.0 == NativeAccountStorageMode::Public
+    }
+}

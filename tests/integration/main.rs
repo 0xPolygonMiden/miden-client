@@ -1459,3 +1459,27 @@ async fn test_expired_transaction_fails() {
 
     assert!(submited_tx_result.is_err());
 }
+
+#[tokio::test]
+async fn test_get_account_details() {
+    let mut client = create_test_client().await;
+
+    wait_for_node(&mut client).await;
+
+    let (faucet_account, _) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Public)
+        .await
+        .unwrap();
+
+    let (public_account, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
+
+    let account_id = public_account.id();
+    let faucet_id = faucet_account.id();
+
+    let note = mint_note(&mut client, account_id, faucet_id, NoteType::Public).await;
+    consume_notes(&mut client, account_id, &[note]).await;
+
+    let details = client.get_account_details(account_id).await.unwrap();
+    let balance = details.account().unwrap().vault().get_balance(faucet_id).unwrap();
+    assert_eq!(balance, MINT_AMOUNT);
+}

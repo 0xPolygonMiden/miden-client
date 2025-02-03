@@ -1,17 +1,15 @@
 use miden_client::{
-    account::{
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
-        AccountBuilder, AccountType,
-    },
+    account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
     crypto::SecretKey,
     Felt,
 };
+use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::WebClient;
+use crate::{helpers::generate_account, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -19,40 +17,15 @@ impl WebClient {
         &mut self,
         storage_mode: &AccountStorageMode,
         mutable: bool,
+        init_seed: Option<Vec<u8>>,
     ) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let key_pair = SecretKey::with_rng(client.rng());
-
-            let mut init_seed = [0u8; 32];
-            client.rng().fill_bytes(&mut init_seed);
-
-            let account_type = if mutable {
-                AccountType::RegularAccountUpdatableCode
-            } else {
-                AccountType::RegularAccountImmutableCode
-            };
-
-            let anchor_block = client.get_latest_epoch_block().await.unwrap();
-
-            let (new_account, seed) = match AccountBuilder::new(init_seed)
-                .anchor((&anchor_block).try_into().unwrap())
-                .account_type(account_type)
-                .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
-                .with_component(BasicWallet)
-                .build()
-            {
-                Ok(result) => result,
-                Err(err) => {
-                    let error_message = format!("Failed to create new wallet: {:?}", err);
-                    return Err(JsValue::from_str(&error_message));
-                },
-            };
-
+            let (new_account, account_seed, key_pair) =
+                generate_account(client, storage_mode, mutable, init_seed).await?;
             match client
                 .add_account(
                     &new_account,
-                    Some(seed),
+                    Some(account_seed),
                     &AuthSecretKey::RpoFalcon512(key_pair),
                     false,
                 )

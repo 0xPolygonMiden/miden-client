@@ -49,6 +49,7 @@ use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
+    rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
     ClientError,
 };
@@ -250,6 +251,20 @@ impl<R: FeltRng> Client<R> {
         self.get_account_auth(account_id)
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
+    }
+
+    /// Attempts to retrieve an [AccountDetails] by the [AccountId] associated with the account from
+    /// the rpc.
+    ///
+    /// # Errors
+    ///
+    /// - If the key is not found on the rpc from passed `account_id`.
+    /// - If the underlying rpc operation fails
+    pub async fn get_account_details(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<AccountDetails, ClientError> {
+        self.rpc_api.get_account_update(account_id).await.map_err(ClientError::RpcError)
     }
 }
 

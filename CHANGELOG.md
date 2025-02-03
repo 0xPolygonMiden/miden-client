@@ -2,6 +2,10 @@
 
 ## 0.8.0 (TBD)
 
+### Features 
+
+* Added wallet generation from seed & import from seed on web sdk (#710)
+
 ## 0.7.0 (2025-01-28)
 
 ### Features
