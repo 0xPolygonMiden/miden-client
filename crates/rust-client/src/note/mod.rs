@@ -341,6 +341,16 @@ impl NoteUpdates {
         }
     }
 
+    /// Returns a mutable reference to the input note record with the provided ID if it exists.
+    pub fn get_input_note_by_id(&mut self, note_id: NoteId) -> Option<&mut InputNoteRecord> {
+        self.updated_input_notes.get_mut(&note_id)
+    }
+
+    /// Returns a mutable reference to the output note record with the provided ID if it exists.
+    pub fn get_output_note_by_id(&mut self, note_id: NoteId) -> Option<&mut OutputNoteRecord> {
+        self.updated_output_notes.get_mut(&note_id)
+    }
+
     /// Returns a mutable reference to the input note record with the provided nullifier if it
     /// exists.
     pub fn get_input_note_by_nullifier(
@@ -348,5 +358,16 @@ impl NoteUpdates {
         nullifier: Nullifier,
     ) -> Option<&mut InputNoteRecord> {
         self.updated_input_notes.values_mut().find(|note| note.nullifier() == nullifier)
+    }
+
+    /// Returns a mutable reference to the output note record with the provided nullifier if it
+    /// exists.
+    pub fn get_output_note_by_nullifier(
+        &mut self,
+        nullifier: Nullifier,
+    ) -> Option<&mut OutputNoteRecord> {
+        self.updated_output_notes
+            .values_mut()
+            .find(|note| note.nullifier() == Some(nullifier))
     }
 }

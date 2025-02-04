@@ -64,8 +64,9 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::TransactionId,
 };
+use state_sync::on_note_received;
 
-use crate::{Client, ClientError};
+use crate::{store::NoteFilter, Client, ClientError};
 
 mod block_header;
 
@@ -73,10 +74,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{
-    on_note_received, on_nullifier_received, OnNoteReceived, OnNullifierReceived, StateSync,
-    StateSyncUpdate,
-};
+pub use state_sync::{OnNoteReceived, OnNullifierReceived, StateSync, StateSyncUpdate};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
@@ -182,25 +180,11 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                move |committed_note, block_header, new_public_notes| {
-                    Box::pin(on_note_received(
-                        store_clone.clone(),
-                        committed_note,
-                        block_header,
-                        new_public_notes,
-                    ))
+                move |committed_note, public_note| {
+                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
                 }
             }),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |nullifier_update, committed_transactions| {
-                    Box::pin(on_nullifier_received(
-                        store_clone.clone(),
-                        nullifier_update,
-                        committed_transactions,
-                    ))
-                }
-            }),
+            Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
         );
 
         // Get current state of the client
@@ -222,7 +206,8 @@ impl<R: FeltRng> Client<R> {
         let note_tags: Vec<NoteTag> =
             self.store.get_unique_note_tags().await?.into_iter().collect();
 
-        let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers().await?;
+        let unspent_input_notes = self.store.get_input_notes(NoteFilter::Unspent).await?;
+        let unspent_output_notes = self.store.get_output_notes(NoteFilter::Unspent).await?;
 
         // Get the sync update from the network
         let state_sync_update = state_sync
@@ -232,7 +217,8 @@ impl<R: FeltRng> Client<R> {
                 self.build_current_partial_mmr(false).await?,
                 accounts,
                 note_tags,
-                unspent_nullifiers,
+                unspent_input_notes,
+                unspent_output_notes,
             )
             .await?;
 

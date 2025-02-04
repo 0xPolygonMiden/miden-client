@@ -101,7 +101,6 @@ impl SqliteStore {
             note_updates,
             transaction_updates,
             account_updates,
-            tags_to_remove,
         } = state_sync_update;
 
         let mut locked_accounts = vec![];
@@ -141,6 +140,12 @@ impl SqliteStore {
         apply_note_updates_tx(&tx, &note_updates)?;
 
         // Remove tags
+        let tags_to_remove = note_updates.committed_input_notes().map(|note| {
+            NoteTagRecord::with_note_source(
+                note.metadata().expect("Committed notes should have metadata").tag(),
+                note.id(),
+            )
+        });
         for tag in tags_to_remove {
             remove_note_tag_tx(&tx, tag)?;
         }

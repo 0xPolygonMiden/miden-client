@@ -83,8 +83,26 @@ async fn test_onchain_notes_flow() {
     .build();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
+    // Create a note for client 3 that is already consumed before syncing
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(
+            vec![p2id_asset.into()],
+            basic_wallet_1.id(),
+            basic_wallet_2.id(),
+        ),
+        Some(1.into()),
+        NoteType::Public,
+        client_2.rng(),
+    )
+    .unwrap()
+    .build();
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
+
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build();
+    execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
+
     // sync client 3 (basic account 2)
-    client_3.add_note_tag(note.metadata().tag()).await.unwrap();
     client_3.sync_state().await.unwrap();
 
     // client 3 should have two notes, the one directed to them and the one consumed by client 2
