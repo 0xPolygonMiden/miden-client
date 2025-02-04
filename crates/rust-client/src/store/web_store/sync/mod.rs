@@ -111,7 +111,6 @@ impl WebStore {
             note_updates,
             transaction_updates, //TODO: Add support for discarded transactions in web store
             account_updates,
-            tags_to_remove,
         } = state_sync_update;
 
         // Serialize data for updating state sync and block header
@@ -144,16 +143,8 @@ impl WebStore {
         apply_note_updates_tx(&note_updates).await?;
 
         // Tags to remove
-        let note_tags_to_remove_as_str: Vec<String> = tags_to_remove
-            .iter()
-            .filter_map(|tag_record| {
-                if let NoteTagSource::Note(note_id) = tag_record.source {
-                    Some(note_id.to_hex())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let note_tags_to_remove_as_str: Vec<String> =
+            note_updates.committed_input_notes().map(|note| note.id().to_hex()).collect();
 
         // Serialize data for updating committed transactions
         let transactions_to_commit_block_nums_as_str = transaction_updates
