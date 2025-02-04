@@ -558,6 +558,23 @@ async fn test_consume_unauthenticated_note() {
     consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
 }
 
+// DEVNET TESTS
+// ================================================================================================
+
+#[tokio::test]
+async fn test_init_and_sync_with_testnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "testnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    sync_cli(&temp_dir);
+}
+
 // HELPERS
 // ================================================================================================
 
