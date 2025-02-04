@@ -188,13 +188,6 @@ impl<R: FeltRng> Client<R> {
         );
 
         // Get current state of the client
-        let current_block_num = self.store.get_sync_height().await?;
-        let (current_block, has_relevant_notes) = self
-            .store
-            .get_block_header_by_num(current_block_num)
-            .await?
-            .expect("Current block should be in the store");
-
         let accounts = self
             .store
             .get_account_headers()
@@ -212,9 +205,7 @@ impl<R: FeltRng> Client<R> {
         // Get the sync update from the network
         let state_sync_update = state_sync
             .sync_state(
-                current_block,
-                has_relevant_notes,
-                self.build_current_partial_mmr(false).await?,
+                self.build_current_partial_mmr().await?,
                 accounts,
                 note_tags,
                 unspent_input_notes,

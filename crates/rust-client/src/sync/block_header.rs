@@ -37,7 +37,7 @@ impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr().await?;
 
         let mut changed_notes = vec![];
         for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
@@ -96,10 +96,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    pub(crate) async fn build_current_partial_mmr(
-        &self,
-        include_current_block: bool,
-    ) -> Result<PartialMmr, ClientError> {
+    pub(crate) async fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
@@ -121,15 +118,13 @@ impl<R: FeltRng> Client<R> {
         let mut current_partial_mmr =
             PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
 
-        if include_current_block {
-            let (current_block, has_client_notes) = self
-                .store
-                .get_block_header_by_num(current_block_num)
-                .await?
-                .expect("Current block should be in the store");
+        let (current_block, has_client_notes) = self
+            .store
+            .get_block_header_by_num(current_block_num)
+            .await?
+            .expect("Current block should be in the store");
 
-            current_partial_mmr.add(current_block.hash(), has_client_notes);
-        }
+        current_partial_mmr.add(current_block.hash(), has_client_notes);
 
         Ok(current_partial_mmr)
     }
@@ -197,7 +192,7 @@ impl<R: FeltRng> Client<R> {
             return self.ensure_genesis_in_place().await;
         }
 
-        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr().await?;
         let anchor_block = self
             .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
             .await?;

@@ -147,14 +147,12 @@ impl StateSync {
     /// step.
     async fn sync_state_step(
         &mut self,
-        current_block: BlockHeader,
-        current_block_has_relevant_notes: bool,
         current_partial_mmr: &mut PartialMmr,
         accounts: &[AccountHeader],
         note_tags: &[NoteTag],
         unspent_nullifiers: &[Nullifier],
     ) -> Result<bool, ClientError> {
-        let current_block_num = current_block.block_num();
+        let current_block_num = (current_partial_mmr.num_leaves() as u32 - 1).into();
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
@@ -188,8 +186,8 @@ impl StateSync {
             .await?;
 
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
-            current_block,
-            current_block_has_relevant_notes,
+            response.block_header,
+            found_relevant_note,
             current_partial_mmr,
             response.mmr_delta,
         )
@@ -221,8 +219,6 @@ impl StateSync {
     /// * `unspent_nullifiers` - The nullifiers of tracked notes that haven't been consumed.
     pub async fn sync_state(
         mut self,
-        mut current_block: BlockHeader,
-        mut current_block_has_relevant_notes: bool,
         mut current_partial_mmr: PartialMmr,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
@@ -239,14 +235,7 @@ impl StateSync {
             NoteUpdates::new(unspent_input_notes, unspent_output_notes);
 
         while self
-            .sync_state_step(
-                current_block,
-                current_block_has_relevant_notes,
-                &mut current_partial_mmr,
-                &accounts,
-                &note_tags,
-                &unspent_nullifiers,
-            )
+            .sync_state_step(&mut current_partial_mmr, &accounts, &note_tags, &unspent_nullifiers)
             .await?
         {
             // New nullfiers should be added for new untracked notes that were added in previous
@@ -262,15 +251,6 @@ impl StateSync {
                     .map(|note| note.nullifier())
                     .collect::<Vec<_>>(),
             );
-
-            // Update the current block for the next step
-            (current_block, current_block_has_relevant_notes, ..) = self
-                .state_sync_update
-                .block_updates
-                .block_headers
-                .last()
-                .cloned()
-                .expect("At least one block header should be present");
         }
 
         Ok(self.state_sync_update)
@@ -451,26 +431,27 @@ impl StateSync {
 /// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
 /// authentication nodes for leaves we track.
 async fn apply_mmr_changes(
-    current_block: BlockHeader,
-    current_block_has_relevant_notes: bool,
+    new_block: BlockHeader,
+    new_block_has_relevant_notes: bool,
     current_partial_mmr: &mut PartialMmr,
     mmr_delta: MmrDelta,
 ) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
     // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
     // node doesn't contain the request block itself.
-    let new_authentication_nodes = current_partial_mmr
-        .add(current_block.hash(), current_block_has_relevant_notes)
-        .into_iter();
+    // let new_authentication_nodes = current_partial_mmr
+    //     .add(current_block.hash(), current_block_has_relevant_notes)
+    //     .into_iter();
 
     // Apply the MMR delta to bring MMR to forest equal to chain tip
-    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
-        .apply(mmr_delta)
-        .map_err(StoreError::MmrError)?
-        .into_iter()
-        .chain(new_authentication_nodes)
-        .collect();
+    let mut new_authentication_nodes: Vec<(InOrderIndex, Digest)> =
+        current_partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
 
-    Ok((current_partial_mmr.peaks(), new_authentication_nodes))
+    let new_peaks = current_partial_mmr.peaks();
+
+    new_authentication_nodes
+        .append(&mut current_partial_mmr.add(new_block.hash(), new_block_has_relevant_notes));
+
+    Ok((new_peaks, new_authentication_nodes))
 }
 
 // DEFAULT CALLBACK IMPLEMENTATIONS
