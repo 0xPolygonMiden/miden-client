@@ -1019,7 +1019,7 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{account::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        account::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
+        account::{AccountBuilder, AccountComponent, AuthSecretKey, StorageMap, StorageSlot},
         asset::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
         note::NoteType,
@@ -1042,7 +1042,7 @@ mod test {
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let (mut client, _) = create_test_client().await;
+        let (mut client, _, authenticator) = create_test_client().await;
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()
@@ -1053,6 +1053,8 @@ mod test {
                 .into();
 
         let secret_key = SecretKey::new();
+        let pub_key = secret_key.public_key();
+        authenticator.add_key(AuthSecretKey::RpoFalcon512(secret_key));
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,
@@ -1067,7 +1069,7 @@ mod test {
         let account = AccountBuilder::new(Default::default())
             .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
-            .with_component(RpoFalcon512::new(secret_key.public_key()))
+            .with_component(RpoFalcon512::new(pub_key))
             .with_assets([asset_1, asset_2])
             .build_existing()
             .unwrap();

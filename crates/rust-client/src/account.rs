@@ -272,7 +272,7 @@ pub mod tests {
     #[tokio::test]
     pub async fn try_add_account() {
         // generate test client
-        let (mut client, _rpc_api) = create_test_client().await;
+        let (mut client, _rpc_api, _) = create_test_client().await;
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -287,7 +287,7 @@ pub mod tests {
     #[tokio::test]
     async fn load_accounts_test() {
         // generate test client
-        let (mut client, _) = create_test_client().await;
+        let (mut client, _, _) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 

@@ -21,6 +21,7 @@ use miden_tx::{
 };
 use rand::Rng;
 
+#[derive(Debug, Clone)] //TODO: check if clone is ok
 pub struct ClientAuthenticator<R> {
     filepath: PathBuf,
     rng: Arc<RwLock<R>>,

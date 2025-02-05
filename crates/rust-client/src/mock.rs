@@ -312,7 +312,7 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-pub async fn create_test_client() -> (MockClient, MockRpcApi) {
+pub async fn create_test_client() -> (MockClient, MockRpcApi, ClientAuthenticator<RpoRandomCoin>) {
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
@@ -325,8 +325,8 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi) {
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
-    (client, rpc_api)
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    (client, rpc_api, authenticator)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
