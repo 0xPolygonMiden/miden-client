@@ -287,7 +287,7 @@ pub mod tests {
     #[tokio::test]
     async fn load_accounts_test() {
         // generate test client
-        let (mut client, _, _) = create_test_client().await;
+        let (mut client, ..) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 

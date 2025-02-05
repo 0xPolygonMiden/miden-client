@@ -3,11 +3,7 @@ use alloc::vec::Vec;
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    account::{
-        auth::{self, RpoFalcon512},
-        faucets::BasicFungibleFaucet,
-        wallets::BasicWallet,
-    },
+    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     note::utils,
     transaction::TransactionKernel,
 };
@@ -34,7 +30,7 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
-    authenticator::{self, ClientAuthenticator},
+    authenticator::ClientAuthenticator,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},

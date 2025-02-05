@@ -1,5 +1,6 @@
 use miden_client::{
     account::{Account, StorageSlot},
+    auth::AuthSecretKey,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
@@ -41,13 +42,15 @@ async fn test_standard_fpi_private() {
 /// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
 /// foreign account's code is correctly cached after the transaction.
 async fn test_standard_fpi(storage_mode: AccountStorageMode) {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
-    let (foreign_account, foreign_seed, proc_root) = foreign_account(storage_mode, &anchor_block);
+    let (foreign_account, foreign_seed, proc_root, secret_key) =
+        foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
+    authenticator.add_key(AuthSecretKey::RpoFalcon512(secret_key));
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
@@ -77,8 +80,10 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     println!("Calling FPI functions with new account");
 
-    let (native_account, _native_seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
+    let (native_account, _native_seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public, &authenticator)
+            .await
+            .unwrap();
 
     let tx_script = format!(
         "
@@ -163,7 +168,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 pub fn foreign_account(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
-) -> (Account, Word, Digest) {
+) -> (Account, Word, Digest, SecretKey) {
     // store our expected value on map from slot 0 (map key 15)
     let mut storage_map = StorageMap::new();
     storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
@@ -200,5 +205,5 @@ pub fn foreign_account(
         .unwrap();
 
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
-    (account, seed, proc_root)
+    (account, seed, proc_root, secret_key)
 }

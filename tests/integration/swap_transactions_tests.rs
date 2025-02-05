@@ -20,34 +20,44 @@ async fn test_swap_fully_onchain() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client().await;
-    let mut client_with_faucets = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client().await;
+    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) =
-        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
+    let (account_a, ..) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private, &authenticator_1)
+            .await
+            .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) =
-        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
+    let (account_b, ..) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (btc_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (eth_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
@@ -221,33 +231,43 @@ async fn test_swap_private() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client().await;
-    let mut client_with_faucets = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client().await;
+    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) =
-        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
+    let (account_a, ..) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private, &authenticator_1)
+            .await
+            .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) =
-        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
+    let (account_b, ..) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (btc_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (eth_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");

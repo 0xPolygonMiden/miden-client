@@ -5,6 +5,7 @@ use miden_client::{
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
         AccountBuilder, AccountType,
     },
+    auth::AuthSecretKey,
     authenticator::ClientAuthenticator,
     crypto::FeltRng,
     note::create_p2id_note,
@@ -43,7 +44,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> TestClient {
+pub async fn create_test_client() -> (TestClient, ClientAuthenticator<RpoRandomCoin>) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -57,12 +58,15 @@ pub async fn create_test_client() -> TestClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = ClientAuthenticator::new_with_rng(auth_path, rng);
-    TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
-        rng,
-        store,
-        Arc::new(authenticator),
-        true,
+    (
+        TestClient::new(
+            Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
+            rng,
+            store,
+            Arc::new(authenticator.clone()),
+            true,
+        ),
+        authenticator,
     )
 }
 
@@ -100,8 +104,12 @@ pub fn create_test_auth_path() -> std::path::PathBuf {
 pub async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-) -> Result<(Account, Word), ClientError> {
+    authenticator: &ClientAuthenticator<R>,
+) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
+    let pub_key = key_pair.public_key();
+
+    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone()));
 
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -112,21 +120,25 @@ pub async fn insert_new_wallet<R: FeltRng>(
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::RegularAccountImmutableCode)
         .storage_mode(storage_mode)
-        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(RpoFalcon512::new(pub_key))
         .with_component(BasicWallet)
         .build()
         .unwrap();
 
     client.add_account(&account, Some(seed), false).await?;
 
-    Ok((account, seed))
+    Ok((account, seed, key_pair))
 }
 
 pub async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-) -> Result<(Account, Word), ClientError> {
+    authenticator: &ClientAuthenticator<R>,
+) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
+    let pub_key = key_pair.public_key();
+
+    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone()));
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -142,13 +154,13 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
         .anchor((&anchor_block).try_into().unwrap())
         .account_type(AccountType::FungibleFaucet)
         .storage_mode(storage_mode)
-        .with_component(RpoFalcon512::new(key_pair.public_key()))
+        .with_component(RpoFalcon512::new(pub_key))
         .with_component(BasicFungibleFaucet::new(symbol, 10, max_supply).unwrap())
         .build()
         .unwrap();
 
     client.add_account(&account, Some(seed), false).await?;
-    Ok((account, seed))
+    Ok((account, seed, key_pair))
 }
 
 pub async fn execute_failing_tx(
@@ -264,6 +276,7 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 pub async fn setup(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
+    authenticator: &ClientAuthenticator<RpoRandomCoin>,
 ) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_account_headers().await.unwrap().is_empty());
@@ -271,13 +284,17 @@ pub async fn setup(
     assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Create faucet account
-    let (faucet_account, _) =
-        insert_new_fungible_faucet(client, accounts_storage_mode).await.unwrap();
+    let (faucet_account, ..) =
+        insert_new_fungible_faucet(client, accounts_storage_mode, authenticator)
+            .await
+            .unwrap();
 
     // Create regular accounts
-    let (first_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
+    let (first_basic_account, ..) =
+        insert_new_wallet(client, accounts_storage_mode, authenticator).await.unwrap();
 
-    let (second_basic_account, _) = insert_new_wallet(client, accounts_storage_mode).await.unwrap();
+    let (second_basic_account, ..) =
+        insert_new_wallet(client, accounts_storage_mode, authenticator).await.unwrap();
 
     println!("Syncing State...");
     client.sync_state().await.unwrap();
