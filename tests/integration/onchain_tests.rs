@@ -127,11 +127,7 @@ async fn test_onchain_accounts() {
 
     let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
-    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap().unwrap();
-    client_2
-        .add_account(&faucet_account_header, faucet_seed, &auth_info, false)
-        .await
-        .unwrap();
+    client_2.add_account(&faucet_account_header, faucet_seed, false).await.unwrap();
 
     // First Mint necesary token
     println!("First client consuming note");

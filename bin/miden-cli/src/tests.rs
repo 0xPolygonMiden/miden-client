@@ -13,7 +13,6 @@ use miden_client::{
         component::{BasicWallet, RpoFalcon512},
         AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
-    auth::AuthSecretKey,
     authenticator::ClientAuthenticator,
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
     note::{
@@ -130,10 +129,7 @@ async fn test_mint_with_untracked_account() {
             .build()
             .unwrap();
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await
-            .unwrap();
+        client.add_account(&new_account, Some(seed), false).await.unwrap();
 
         new_account.id().to_hex()
     };

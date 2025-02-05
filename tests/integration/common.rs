@@ -5,7 +5,6 @@ use miden_client::{
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
         AccountBuilder, AccountType,
     },
-    auth::AuthSecretKey,
     authenticator::ClientAuthenticator,
     crypto::FeltRng,
     note::create_p2id_note,
@@ -118,9 +117,7 @@ pub async fn insert_new_wallet<R: FeltRng>(
         .build()
         .unwrap();
 
-    client
-        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
-        .await?;
+    client.add_account(&account, Some(seed), false).await?;
 
     Ok((account, seed))
 }
@@ -150,9 +147,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
         .build()
         .unwrap();
 
-    client
-        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-        .await?;
+    client.add_account(&account, Some(seed), false).await?;
     Ok((account, seed))
 }
 

@@ -10,7 +10,6 @@ use miden_client::{
         AccountBuilder, AccountStorageMode, AccountType,
     },
     asset::TokenSymbol,
-    auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
     Client, Felt, Word,
@@ -194,9 +193,7 @@ impl NewFaucetCmd {
             .build()
             .map_err(|err| CliError::Account(err, "error building account".into()))?;
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await?;
+        client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new faucet.");
         println!(
@@ -268,9 +265,7 @@ impl NewWalletCmd {
             .build()
             .map_err(|err| CliError::Account(err, "failed to create a wallet".to_string()))?;
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await?;
+        client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new wallet.");
         println!(

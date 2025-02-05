@@ -1,7 +1,12 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    account::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
+    account::AccountData,
+    auth::AuthSecretKey,
+    crypto::{FeltRng, SecretKey},
+    store::NoteExportType,
+    utils::Serializable,
+    Client,
 };
 use tracing::info;
 
@@ -80,12 +85,11 @@ async fn export_account<R: FeltRng>(
         .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
     let account_seed = account.seed().cloned();
 
-    let auth = client
-        .get_account_auth(account_id)
-        .await?
-        .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
-
-    let account_data = AccountData::new(account.into(), account_seed, auth);
+    let account_data = AccountData::new(
+        account.into(),
+        account_seed,
+        AuthSecretKey::RpoFalcon512(SecretKey::new()), //TODO: Remove auth from account data?
+    );
 
     let file_path = if let Some(filename) = filename {
         filename

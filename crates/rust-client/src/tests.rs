@@ -10,7 +10,7 @@ use miden_lib::{
 use miden_objects::{
     account::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
-        AccountType, AuthSecretKey,
+        AccountType,
     },
     asset::{FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
@@ -59,9 +59,7 @@ async fn insert_new_wallet<R: FeltRng>(
         .build()
         .unwrap();
 
-    client
-        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
-        .await?;
+    client.add_account(&account, Some(seed), false).await?;
 
     Ok((account, seed))
 }
@@ -91,9 +89,7 @@ async fn insert_new_fungible_faucet<R: FeltRng>(
         .build()
         .unwrap();
 
-    client
-        .add_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-        .await?;
+    client.add_account(&account, Some(seed), false).await?;
     Ok((account, seed))
 }
 
@@ -226,29 +222,14 @@ async fn insert_same_account_twice_fails() {
         TransactionKernel::testing_assembler(),
     );
 
-    let key_pair = SecretKey::new();
-
-    assert!(client
-        .add_account(
-            &account,
-            Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair.clone()),
-            false
-        )
-        .await
-        .is_ok());
-    assert!(client
-        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
-        .await
-        .is_err());
+    assert!(client.add_account(&account, Some(Word::default()), false).await.is_ok());
+    assert!(client.add_account(&account, Some(Word::default()), false).await.is_err());
 }
 
 #[tokio::test]
 async fn test_account_code() {
     // generate test client with a random store name
     let (mut client, _rpc_api) = create_test_client().await;
-
-    let key_pair = SecretKey::new();
 
     let account = Account::mock(
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
@@ -263,10 +244,7 @@ async fn test_account_code() {
     let reconstructed_code = AccountCode::read_from_bytes(&account_code_bytes).unwrap();
     assert_eq!(*account_code, reconstructed_code);
 
-    client
-        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
-        .await
-        .unwrap();
+    client.add_account(&account, Some(Word::default()), false).await.unwrap();
     let retrieved_acc = client.get_account(account.id()).await.unwrap().unwrap();
     assert_eq!(*account.code(), *retrieved_acc.account().code());
 }
@@ -282,12 +260,7 @@ async fn test_get_account_by_id() {
         TransactionKernel::assembler(),
     );
 
-    let key_pair = SecretKey::new();
-
-    client
-        .add_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair), false)
-        .await
-        .unwrap();
+    client.add_account(&account, Some(Word::default()), false).await.unwrap();
 
     // Retrieving an existing account should succeed
     let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {

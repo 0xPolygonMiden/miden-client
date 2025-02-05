@@ -73,10 +73,10 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{Account, AccountCode, AccountDelta, AccountId, AccountType},
+    account::{Account, AccountCode, AccountDelta, AccountId, AccountType, AuthSecretKey},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
-    crypto::merkle::MerklePath,
+    crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, Word, ZERO,
@@ -794,7 +794,6 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
         let account: Account = self.try_get_account(account_id).await?.into();
-        let account_auth = self.try_get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
         let account_capabilities = match account.account_type() {
@@ -807,7 +806,7 @@ impl<R: FeltRng> Client<R> {
 
         Ok(AccountCapabilities {
             account_id,
-            auth: account_auth,
+            auth: AuthSecretKey::RpoFalcon512(SecretKey::new()), /* TODO: we don't know if this is the secret key component */
             interfaces: account_capabilities,
         })
     }
@@ -1073,15 +1072,7 @@ mod test {
             .build_existing()
             .unwrap();
 
-        client
-            .add_account(
-                &account,
-                None,
-                &miden_objects::account::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-                false,
-            )
-            .await
-            .unwrap();
+        client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequestBuilder::pay_to_id(
             PaymentTransactionData::new(

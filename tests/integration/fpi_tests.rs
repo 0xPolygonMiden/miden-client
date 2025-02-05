@@ -10,7 +10,7 @@ use miden_client::{
 };
 use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
-    account::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
+    account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     Digest,
@@ -45,19 +45,10 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     wait_for_node(&mut client).await;
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
-    let (foreign_account, foreign_seed, secret_key, proc_root) =
-        foreign_account(storage_mode, &anchor_block);
+    let (foreign_account, foreign_seed, proc_root) = foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    client
-        .add_account(
-            &foreign_account,
-            Some(foreign_seed),
-            &AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            false,
-        )
-        .await
-        .unwrap();
+    client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
         "begin 
@@ -168,12 +159,11 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 /// A tuple containing:
 /// - `Account` - The constructed foreign account.
 /// - `Word` - The seed used to initialize the account.
-/// - `SecretKey` - The secret key associated with the account's authentication component.
 /// - `Digest` - The procedure root of the custom component's procedure.
 pub fn foreign_account(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
-) -> (Account, Word, SecretKey, Digest) {
+) -> (Account, Word, Digest) {
     // store our expected value on map from slot 0 (map key 15)
     let mut storage_map = StorageMap::new();
     storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
@@ -210,5 +200,5 @@ pub fn foreign_account(
         .unwrap();
 
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
-    (account, seed, secret_key, proc_root)
+    (account, seed, proc_root)
 }
