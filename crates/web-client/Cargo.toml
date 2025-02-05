@@ -15,6 +15,9 @@ edition.workspace = true
 [lib]
 crate-type = ["cdylib"]
 
+[lints]
+workspace = true
+
 [features]
 testing = ["miden-client/testing"]
 
