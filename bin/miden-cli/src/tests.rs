@@ -14,13 +14,14 @@ use miden_client::{
         AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
     auth::AuthSecretKey,
+    authenticator::ClientAuthenticator,
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
     rpc::TonicRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
+    store::{sqlite_store::SqliteStore, NoteFilter},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
@@ -664,7 +665,10 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}.txt", uuid::Uuid::new_v4()));
+
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir, rng);
     TestClient::new(
         Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
         rng,

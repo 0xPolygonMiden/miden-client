@@ -1,10 +1,13 @@
-use alloc::{sync::Arc, vec::Vec};
-use std::{
+use alloc::{
     collections::BTreeMap,
-    fs::OpenOptions,
-    io::{BufRead, BufWriter, Write},
-    path::PathBuf,
     string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use std::{
+    fs::OpenOptions,
+    io::{BufRead, BufReader, BufWriter, Write},
+    path::PathBuf,
 };
 
 use miden_objects::{
@@ -59,7 +62,7 @@ impl<R: Rng> ClientAuthenticator<R> {
 
         let file = OpenOptions::new().read(true).open(self.filepath.clone()).unwrap();
 
-        let reader = std::io::BufReader::new(file);
+        let reader = BufReader::new(file);
         let mut key_pairs = BTreeMap::new();
 
         for line in reader.lines() {

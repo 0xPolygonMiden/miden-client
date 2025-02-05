@@ -6,10 +6,11 @@ use miden_client::{
         AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
+    authenticator::ClientAuthenticator,
     crypto::FeltRng,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator, TransactionFilter},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transaction::{
@@ -44,7 +45,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
 pub async fn create_test_client() -> TestClient {
-    let (rpc_endpoint, rpc_timeout, store_config) = get_client_config();
+    let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
         let sqlite_store = SqliteStore::new(store_config).await.unwrap();
@@ -56,7 +57,7 @@ pub async fn create_test_client() -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    let authenticator = ClientAuthenticator::new_with_rng(auth_path, rng);
     TestClient::new(
         Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
         rng,
@@ -66,7 +67,7 @@ pub async fn create_test_client() -> TestClient {
     )
 }
 
-pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
+pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
     let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
         .unwrap()
         .parse::<Table>()
@@ -82,12 +83,18 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf) {
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
-    (endpoint, timeout_ms, create_test_store_path())
+    (endpoint, timeout_ms, create_test_store_path(), create_test_auth_path())
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+    temp_file
+}
+
+pub fn create_test_auth_path() -> std::path::PathBuf {
+    let mut temp_file = temp_dir();
+    temp_file.push(format!("{}.txt", Uuid::new_v4()));
     temp_file
 }
 

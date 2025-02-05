@@ -5,12 +5,10 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use errors::CliError;
 use miden_client::{
     account::AccountHeader,
+    authenticator::ClientAuthenticator,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
-    store::{
-        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
-        StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -109,7 +107,8 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
+        let authenticator =
+            ClientAuthenticator::new_with_rng(cli_config.authenticator_filepath.clone(), rng);
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
