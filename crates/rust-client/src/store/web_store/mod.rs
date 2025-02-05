@@ -2,7 +2,7 @@
 //!
 //! This module enables persistence of client data (accounts, transactions, notes, block headers,
 //! etc.) when running in a browser. It uses wasm-bindgen to interface with JavaScript and
-//! IndexedDB, allowing the Miden client to store and retrieve data asynchronously.
+//! `IndexedDB`, allowing the Miden client to store and retrieve data asynchronously.
 //!
 //! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
 //! feature enabled.
@@ -18,7 +18,7 @@ use miden_objects::{
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen, JsFuture};
 
 use super::{
     AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
@@ -56,6 +56,7 @@ impl WebStore {
 
 #[async_trait(?Send)]
 impl Store for WebStore {
+    #[allow(clippy::cast_sign_loss)]
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
         Some(now.timestamp() as u64)
@@ -126,7 +127,7 @@ impl Store for WebStore {
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes).await
+        self.insert_block_header(&block_header, chain_mmr_peaks, has_client_notes).await
     }
 
     async fn get_block_headers(

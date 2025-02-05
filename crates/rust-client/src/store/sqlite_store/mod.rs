@@ -1,7 +1,7 @@
 //! This module provides an SQLite-backed implementation of the [Store] trait.
 //!
-//! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
-//! nodes using an SQLite database.
+//! [`SqliteStore`] enables the persistence of accounts, transactions, notes, block headers, and MMR
+//! nodes using an `SQLite` database.
 //! It is compiled only when the `sqlite` feature flag is enabled.
 
 use alloc::{
@@ -42,7 +42,7 @@ mod transaction;
 // SQLITE STORE
 // ================================================================================================
 
-/// Represents a pool of connections with an SQLite database. The pool is used to interact
+/// Represents a pool of connections with an `SQLite` database. The pool is used to interact
 /// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.
@@ -117,6 +117,7 @@ impl SqliteStore {
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 #[async_trait(?Send)]
 impl Store for SqliteStore {
+    #[allow(clippy::cast_sign_loss)]
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
         Some(now.timestamp() as u64)
@@ -156,13 +157,13 @@ impl Store for SqliteStore {
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::get_transactions(conn, transaction_filter)
+            SqliteStore::get_transactions(conn, &transaction_filter)
         })
         .await
     }
 
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::apply_transaction(conn, tx_update))
+        self.interact_with_connection(move |conn| SqliteStore::apply_transaction(conn, &tx_update))
             .await
     }
 
@@ -170,7 +171,7 @@ impl Store for SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_input_notes(conn, filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_input_notes(conn, &filter))
             .await
     }
 
@@ -178,7 +179,7 @@ impl Store for SqliteStore {
         &self,
         note_filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_output_notes(conn, note_filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_output_notes(conn, &note_filter))
             .await
     }
 
@@ -195,7 +196,12 @@ impl Store for SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::insert_block_header(conn, block_header, chain_mmr_peaks, has_client_notes)
+            SqliteStore::insert_block_header(
+                conn,
+                &block_header,
+                &chain_mmr_peaks,
+                has_client_notes,
+            )
         })
         .await
     }
@@ -219,7 +225,7 @@ impl Store for SqliteStore {
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, &filter))
             .await
     }
 
@@ -322,7 +328,7 @@ impl Store for SqliteStore {
         code: AccountCode,
     ) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::upsert_foreign_account_code(conn, account_id, code)
+            SqliteStore::upsert_foreign_account_code(conn, account_id, &code)
         })
         .await
     }

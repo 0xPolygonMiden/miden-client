@@ -29,11 +29,8 @@ impl TransactionScriptInputPair {
 impl From<TransactionScriptInputPair> for (NativeWord, Vec<NativeFelt>) {
     fn from(transaction_script_input_pair: TransactionScriptInputPair) -> Self {
         let native_word: NativeWord = transaction_script_input_pair.word.into();
-        let native_felts: Vec<NativeFelt> = transaction_script_input_pair
-            .felts
-            .into_iter()
-            .map(|felt| felt.into())
-            .collect();
+        let native_felts: Vec<NativeFelt> =
+            transaction_script_input_pair.felts.into_iter().map(Into::into).collect();
         (native_word, native_felts)
     }
 }
@@ -68,20 +65,12 @@ impl TransactionScriptInputPairArray {
 
 impl From<TransactionScriptInputPairArray> for Vec<(NativeWord, Vec<NativeFelt>)> {
     fn from(transaction_script_input_pair_array: TransactionScriptInputPairArray) -> Self {
-        transaction_script_input_pair_array
-            .0
-            .into_iter()
-            .map(|transaction_script_input_pair| transaction_script_input_pair.into())
-            .collect()
+        transaction_script_input_pair_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&TransactionScriptInputPairArray> for Vec<(NativeWord, Vec<NativeFelt>)> {
     fn from(transaction_script_input_pair_array: &TransactionScriptInputPairArray) -> Self {
-        transaction_script_input_pair_array
-            .0
-            .iter()
-            .map(|transaction_script_input_pair| transaction_script_input_pair.into())
-            .collect()
+        transaction_script_input_pair_array.0.iter().map(Into::into).collect()
     }
 }

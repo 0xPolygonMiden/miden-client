@@ -62,7 +62,7 @@ impl NotesCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
-                list_consumable_notes(client, &None).await?;
+                list_consumable_notes(client, None).await?;
             },
             NotesCmd { list: Some(filter), .. } => {
                 list_notes(
@@ -106,20 +106,23 @@ async fn list_notes(
         .await?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
-        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
+        .collect::<Vec<CliNoteSummary>>();
     let output_notes = client
         .get_output_notes(filter.clone())
         .await?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
-        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
+        .collect::<Vec<CliNoteSummary>>();
 
-    print_notes_summary(input_notes, "Input Notes")?;
-    print_notes_summary(output_notes, "Output Notes")
+    print_notes_summary(input_notes, "Input Notes");
+    print_notes_summary(output_notes, "Output Notes");
+
+    Ok(())
 }
 
 // SHOW NOTE
 // ================================================================================================
+#[allow(clippy::too_many_lines)]
 async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), CliError> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
@@ -171,7 +174,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         tag,
         sender,
         exportable,
-    } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
+    } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
     match script_hash.clone().as_str() {
         P2ID => script_hash += " (P2ID)",
@@ -265,7 +268,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 // ================================================================================================
 async fn list_consumable_notes(
     client: Client<impl FeltRng>,
-    account_id: &Option<String>,
+    account_id: Option<&String>,
 ) -> Result<(), CliError> {
     let account_id = match account_id {
         Some(id) => Some(
@@ -275,13 +278,13 @@ async fn list_consumable_notes(
         None => None,
     };
     let notes = client.get_consumable_notes(account_id).await?;
-    print_consumable_notes_summary(&notes)?;
+    print_consumable_notes_summary(&notes);
     Ok(())
 }
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), CliError>
+fn print_notes_summary<I>(notes: I, header: &str)
 where
     I: IntoIterator<Item = CliNoteSummary>,
 {
@@ -291,15 +294,12 @@ where
         .set_content_arrangement(ContentArrangement::DynamicFullWidth);
     table.set_header(vec![Cell::new(header).add_attribute(Attribute::Bold)]);
     println!("\n{table}");
-
     for summary in notes {
         println!(" {} {}", summary.id, summary.state);
     }
-
-    Ok(())
 }
 
-fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), CliError>
+fn print_consumable_notes_summary<'a, I>(notes: I)
 where
     I: IntoIterator<Item = &'a (InputNoteRecord, Vec<NoteConsumability>)>,
 {
@@ -316,8 +316,6 @@ where
     }
 
     println!("{table}");
-
-    Ok(())
 }
 
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
@@ -336,10 +334,10 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
 fn note_summary(
     input_note_record: Option<&InputNoteRecord>,
     output_note_record: Option<&OutputNoteRecord>,
-) -> Result<CliNoteSummary, CliError> {
+) -> CliNoteSummary {
     let note_id = input_note_record
-        .map(|record| record.id())
-        .or(output_note_record.map(|record| record.id()))
+        .map(InputNoteRecord::id)
+        .or(output_note_record.map(OutputNoteRecord::id))
         .expect("One of the two records should be Some");
 
     let assets_hash_str = input_note_record
@@ -371,8 +369,8 @@ fn note_summary(
 
     let note_type = note_record_type(
         input_note_record
-            .and_then(|record| record.metadata())
-            .or(output_note_record.map(|record| record.metadata())),
+            .and_then(InputNoteRecord::metadata)
+            .or(output_note_record.map(OutputNoteRecord::metadata)),
     );
 
     let state = input_note_record
@@ -385,15 +383,12 @@ fn note_summary(
         .or(output_note_record.map(|record| Some(record.metadata())))
         .expect("One of the two records should be Some");
 
-    let note_tag_str = note_metadata
-        .map(|metadata| metadata.tag().to_string())
-        .unwrap_or("-".to_string());
+    let note_tag_str = note_metadata.map_or("-".to_string(), |metadata| metadata.tag().to_string());
 
-    let note_sender_str = note_metadata
-        .map(|metadata| metadata.sender().to_string())
-        .unwrap_or("-".to_string());
+    let note_sender_str =
+        note_metadata.map_or("-".to_string(), |metadata| metadata.tag().to_string());
 
-    Ok(CliNoteSummary {
+    CliNoteSummary {
         id: note_id.inner().to_string(),
         script_hash: script_hash_str,
         assets_hash: assets_hash_str,
@@ -404,5 +399,5 @@ fn note_summary(
         tag: note_tag_str,
         sender: note_sender_str,
         exportable: output_note_record.is_some(),
-    })
+    }
 }

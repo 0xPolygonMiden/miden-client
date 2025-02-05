@@ -15,7 +15,7 @@ use miden_objects::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
         note::NoteBuilder,
@@ -36,6 +36,7 @@ use crate::{
             sync::StateSyncInfo,
         },
         generated::{
+            merkle::MerklePath,
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
@@ -142,15 +143,14 @@ impl MockRpcApi {
         let next_block_num = self
             .notes
             .values()
-            .filter_map(|n| n.location().map(|loc| loc.block_num()))
+            .filter_map(|n| n.location().map(NoteLocation::block_num))
             .filter(|&n| n > request_block_num)
             .min()
             .unwrap_or_else(|| self.get_chain_tip_block_num());
 
         // Retrieve the next block
-        let next_block = match self.get_block_by_num(next_block_num) {
-            Some(block) => block,
-            None => return SyncStateResponse::default(), // Return default if block not found
+        let Some(next_block) = self.get_block_by_num(next_block_num) else {
+            return SyncStateResponse::default();
         };
 
         // Prepare the MMR delta
@@ -206,6 +206,7 @@ impl MockRpcApi {
 }
 use alloc::boxed::Box;
 #[async_trait(?Send)]
+#[allow(clippy::cast_possible_truncation)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
@@ -216,7 +217,7 @@ impl NodeRpcClient for MockRpcApi {
             chain_tip: self.blocks.len() as u32,
             notes: vec![],
             block_header: Some(self.blocks.last().unwrap().header().into()),
-            mmr_path: Some(Default::default()),
+            mmr_path: Some(MerklePath::default()),
         };
         let response = Response::new(response.clone());
         response.into_inner().try_into()

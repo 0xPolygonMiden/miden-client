@@ -65,7 +65,7 @@ pub struct AccountUpdateSummary {
 }
 
 impl AccountUpdateSummary {
-    /// Creates a new [AccountUpdateSummary].
+    /// Creates a new [`AccountUpdateSummary`].
     pub fn new(hash: Digest, last_block_num: u32) -> Self {
         Self { hash, last_block_num }
     }
@@ -150,6 +150,7 @@ impl ProtoAccountStateHeader {
     /// # Errors
     /// - If account code is missing both on `self` and `known_account_codes`
     /// - If data cannot be correctly deserialized
+    #[allow(clippy::cast_possible_truncation)]
     pub fn into_domain(
         self,
         account_id: AccountId,
@@ -281,7 +282,7 @@ impl AccountProof {
     }
 
     pub fn code_commitment(&self) -> Option<Digest> {
-        self.account_code().map(|c| c.commitment())
+        self.account_code().map(AccountCode::commitment)
     }
 
     pub fn account_hash(&self) -> Digest {
@@ -318,7 +319,7 @@ impl AccountStorageRequirements {
         let map = slots_and_keys
             .into_iter()
             .map(|(slot_index, keys_iter)| {
-                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().cloned().collect();
+                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().copied().collect();
                 (slot_index, keys_vec)
             })
             .collect();
@@ -334,9 +335,9 @@ impl AccountStorageRequirements {
 impl From<AccountStorageRequirements> for Vec<get_account_proofs_request::StorageRequest> {
     fn from(value: AccountStorageRequirements) -> Vec<get_account_proofs_request::StorageRequest> {
         let mut requests = Vec::with_capacity(value.0.len());
-        for (slot_index, map_keys) in value.0.into_iter() {
+        for (slot_index, map_keys) in value.0 {
             requests.push(get_account_proofs_request::StorageRequest {
-                storage_slot_index: slot_index as u32,
+                storage_slot_index: u32::from(slot_index),
                 map_keys: map_keys
                     .into_iter()
                     .map(crate::rpc::generated::digest::Digest::from)

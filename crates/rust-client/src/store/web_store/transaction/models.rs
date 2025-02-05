@@ -28,7 +28,7 @@ where
     let base64_str: String = Deserialize::deserialize(deserializer)?;
     general_purpose::STANDARD
         .decode(&base64_str)
-        .map_err(|e| Error::custom(format!("Base64 decode error: {}", e)))
+        .map_err(|e| Error::custom(format!("Base64 decode error: {e}")))
 }
 
 fn base64_to_vec_u8_optional<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
@@ -40,7 +40,7 @@ where
         Some(str) => general_purpose::STANDARD
             .decode(&str)
             .map(Some)
-            .map_err(|e| Error::custom(format!("Base64 decode error: {}", e))),
+            .map_err(|e| Error::custom(format!("Base64 decode error: {e}"))),
         None => Ok(None),
     }
 }

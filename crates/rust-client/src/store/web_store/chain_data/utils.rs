@@ -25,8 +25,8 @@ pub struct SerializedChainMmrNodeData {
 }
 
 pub fn serialize_block_header(
-    block_header: BlockHeader,
-    chain_mmr_peaks: Vec<Digest>,
+    block_header: &BlockHeader,
+    chain_mmr_peaks: &[Digest],
     has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num().to_string();
@@ -51,6 +51,7 @@ pub fn serialize_chain_mmr_node(
     Ok(SerializedChainMmrNodeData { id: id_as_str, node })
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub fn process_chain_mmr_nodes_from_js_value(
     js_value: JsValue,
 ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {

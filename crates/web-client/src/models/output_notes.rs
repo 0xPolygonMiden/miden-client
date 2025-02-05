@@ -13,6 +13,7 @@ impl OutputNotes {
         self.0.commitment().into()
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn num_notes(&self) -> u32 {
         self.0.num_notes() as u32
     }

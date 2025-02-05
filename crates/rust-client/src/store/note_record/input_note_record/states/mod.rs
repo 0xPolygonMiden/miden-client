@@ -142,7 +142,7 @@ impl InputNoteState {
     pub(crate) fn block_header_received(
         &self,
         note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().block_header_received(note_id, block_header)
     }
@@ -211,14 +211,14 @@ impl Deserializable for InputNoteState {
                 Ok(ConsumedExternalNoteState::read_from(source)?.into())
             },
             _ => Err(DeserializationError::InvalidValue(format!(
-                "Invalid NoteState discriminant: {}",
-                discriminant
+                "Invalid NoteState discriminant: {discriminant}"
             ))),
         }
     }
 }
 
 impl Display for InputNoteState {
+    #[allow(clippy::cast_possible_wrap)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InputNoteState::Expected(state) => {
@@ -256,16 +256,13 @@ impl Display for InputNoteState {
                 write!(
                     f,
                     "Processing (submitted at {} by account {})",
-                    submission_data
-                        .submitted_at
-                        .map(|submitted_at| {
-                            Local
-                                .timestamp_opt(submitted_at as i64, 0)
-                                .single()
-                                .expect("timestamp should be valid")
-                                .to_string()
-                        })
-                        .unwrap_or("?".to_string()),
+                    submission_data.submitted_at.map_or("?".to_string(), |submitted_at| {
+                        Local
+                            .timestamp_opt(submitted_at as i64, 0)
+                            .single()
+                            .expect("timestamp should be valid")
+                            .to_string()
+                    }),
                     submission_data.consumer_account
                 )
             },
@@ -315,7 +312,7 @@ pub trait NoteStateHandler {
     fn block_header_received(
         &self,
         note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn consumed_locally(

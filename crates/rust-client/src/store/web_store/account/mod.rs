@@ -11,19 +11,31 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use serde_wasm_bindgen::from_value;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
 use super::WebStore;
 use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_fetch_and_cache_account_auth_by_pub_key, idxdb_get_account_asset_vault,
+    idxdb_get_account_auth, idxdb_get_account_auth_by_pub_key, idxdb_get_account_code,
+    idxdb_get_account_header, idxdb_get_account_header_by_hash, idxdb_get_account_headers,
+    idxdb_get_account_ids, idxdb_get_account_storage, idxdb_get_foreign_account_code,
+    idxdb_lock_account, idxdb_upsert_foreign_account_code,
+};
 
 mod models;
-use models::*;
+use models::{
+    AccountAuthIdxdbObject, AccountCodeIdxdbObject, AccountRecordIdxdbObject,
+    AccountStorageIdxdbObject, AccountVaultIdxdbObject, ForeignAcountCodeIdxdbObject,
+};
 
 pub(crate) mod utils;
-use utils::*;
+use utils::{
+    insert_account_asset_vault, insert_account_auth, insert_account_code, insert_account_record,
+    insert_account_storage, parse_account_record_idxdb_object, update_account,
+};
 
 impl WebStore {
     pub(super) async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
@@ -44,14 +56,13 @@ impl WebStore {
     ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         let promise = idxdb_get_account_headers();
         let js_value = JsFuture::from(promise).await.map_err(|js_error| {
-            StoreError::DatabaseError(format!("Failed to fetch account headers: {:?}", js_error))
+            StoreError::DatabaseError(format!("Failed to fetch account headers: {js_error:?}"))
         })?;
 
         let account_headers_idxdb: Vec<AccountRecordIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to deserialize {:?}",
-                    err
+                    "Failed to deserialize {err:?}"
                 )))
             })?;
 
@@ -77,8 +88,7 @@ impl WebStore {
         let account_header_idxdb: Option<AccountRecordIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to deserialize {:?}",
-                    err
+                    "Failed to deserialize {err:?}"
                 )))
             })?;
 
@@ -193,8 +203,7 @@ impl WebStore {
         let account_auth_idxdb: Option<AccountAuthIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to deserialize {:?}",
-                    err
+                    "Failed to deserialize {err:?}"
                 )))
             })?;
 
@@ -204,7 +213,7 @@ impl WebStore {
                 let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)
                     .map_err(|err| {
                         StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to read auth info: {:?}", err),
+                            format!("Failed to read auth info: {err:?}"),
                         ))
                     })?;
                 Ok(Some(auth_info))
@@ -247,7 +256,7 @@ impl WebStore {
             .map_err(|_| StoreError::DatabaseError("Failed to update account".to_string()))
     }
 
-    /// Returns an [AuthSecretKey] by a public key represented by a [Word].
+    /// Returns an [`AuthSecretKey`] by a public key represented by a [Word].
     pub fn get_account_auth_by_pub_key(
         &self,
         pub_key: Word,
@@ -267,8 +276,8 @@ impl WebStore {
         }
     }
 
-    /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the
-    /// store. This is used in the web_client so adding this to ignore the dead code warning.
+    /// Fetches an [`AuthSecretKey`] by a public key represented by a [Word] and caches it in the
+    /// store. This is used in the `web_client` so adding this to ignore the dead code warning.
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         account_id: &str,
@@ -278,8 +287,7 @@ impl WebStore {
         // Separate the conversion of the account_id
         let account_id = AccountId::from_hex(account_id).map_err(|err| {
             StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                "Failed to parse account_id from hex: {:?}",
-                err
+                "Failed to parse account_id from hex: {err:?}"
             )))
         })?;
 
@@ -290,8 +298,7 @@ impl WebStore {
         let account_auth_idxdb: Option<AccountAuthIdxdbObject> =
             from_value(js_value).map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to deserialize {:?}",
-                    err
+                    "Failed to deserialize {err:?}"
                 )))
             })?;
 
@@ -302,7 +309,7 @@ impl WebStore {
                 let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)
                     .map_err(|err| {
                         StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to read auth info: {:?}", err),
+                            format!("Failed to read auth info: {err:?}"),
                         ))
                     })?;
                 Ok(Some(auth_info))
@@ -329,21 +336,16 @@ impl WebStore {
         &self,
         account_ids: Vec<AccountId>,
     ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError> {
-        let account_ids =
-            account_ids.iter().map(|account_id| account_id.to_string()).collect::<Vec<_>>();
+        let account_ids = account_ids.iter().map(ToString::to_string).collect::<Vec<_>>();
         let promise = idxdb_get_foreign_account_code(account_ids);
         let js_value = JsFuture::from(promise).await.map_err(|js_error| {
-            StoreError::DatabaseError(format!(
-                "Failed to fetch foreign account code: {:?}",
-                js_error
-            ))
+            StoreError::DatabaseError(format!("Failed to fetch foreign account code: {js_error:?}"))
         })?;
 
         let foreign_account_code_idxdb: Vec<ForeignAcountCodeIdxdbObject> = from_value(js_value)
             .map_err(|err| {
                 StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
-                    "Failed to deserialize {:?}",
-                    err
+                    "Failed to deserialize {err:?}",
                 )))
             })?;
 

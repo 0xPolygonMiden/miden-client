@@ -21,17 +21,17 @@ pub struct StateSyncInfo {
     pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
-    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1).
+    /// MMR delta that contains data for `(current_block.num, incoming_block_header.num-1)`.
     pub mmr_delta: MmrDelta,
-    /// Tuples of AccountId alongside their new account hashes.
+    /// Tuples of `AccountId` alongside their new account hashes.
     pub account_hash_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes.
     pub note_inclusions: Vec<CommittedNote>,
     /// List of nullifiers that identify spent notes along with the block number at which they were
     /// consumed.
     pub nullifiers: Vec<NullifierUpdate>,
-    /// List of transaction IDs of transaction that were included in (request.block_num,
-    /// response.block_num-1) along with the account the tx was executed against and the block
+    /// List of transaction IDs of transaction that were included in (`request.block_num`,
+    /// `response.block_num-1`) along with the account the tx was executed against and the block
     /// number the transaction was included in.
     pub transactions: Vec<TransactionUpdate>,
 }
@@ -42,6 +42,7 @@ pub struct StateSyncInfo {
 impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = RpcError;
 
+    #[allow(clippy::cast_possible_truncation)]
     fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
         let chain_tip = value.chain_tip;
 

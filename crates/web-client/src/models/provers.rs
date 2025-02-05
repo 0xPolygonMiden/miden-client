@@ -4,6 +4,7 @@ use miden_client::transaction::{
     LocalTransactionProver, TransactionProver as TransactionProverTrait,
 };
 use miden_proving_service_client::RemoteTransactionProver;
+use miden_tx::ProvingOptions;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -14,7 +15,7 @@ pub struct TransactionProver {
 #[wasm_bindgen]
 impl TransactionProver {
     pub fn new_local_prover() -> TransactionProver {
-        let local_prover = LocalTransactionProver::new(Default::default());
+        let local_prover = LocalTransactionProver::new(ProvingOptions::default());
         TransactionProver { prover: Arc::new(local_prover) }
     }
 

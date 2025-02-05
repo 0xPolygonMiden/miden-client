@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
 use std::num::NonZeroUsize;
 
@@ -38,8 +40,8 @@ impl ChainMmrNodeFilter {
 impl SqliteStore {
     pub(crate) fn insert_block_header(
         conn: &mut Connection,
-        block_header: BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
+        block_header: &BlockHeader,
+        chain_mmr_peaks: &MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
@@ -56,7 +58,7 @@ impl SqliteStore {
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_number_list = block_numbers
             .iter()
-            .map(|block_number| Value::Integer(block_number.as_u32() as i64))
+            .map(|block_number| Value::Integer(i64::from(block_number.as_u32())))
             .collect::<Vec<Value>>();
 
         const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
@@ -77,15 +79,17 @@ impl SqliteStore {
             .collect()
     }
 
+    #[allow(clippy::cast_possible_wrap)]
     pub(crate) fn get_chain_mmr_nodes(
         conn: &mut Connection,
-        filter: ChainMmrNodeFilter,
+        filter: &ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let mut params = Vec::new();
         if let ChainMmrNodeFilter::List(ids) = &filter {
             let id_values = ids
                 .iter()
-                .map(|id| Value::Integer(Into::<u64>::into(*id) as i64))
+                 // id.inner() is a usize casted to u64, should not fail.
+                .map(|id| Value::Integer(id.inner() as i64))
                 .collect::<Vec<_>>();
 
             params.push(Rc::new(id_values));
@@ -112,7 +116,7 @@ impl SqliteStore {
             .optional()?;
 
         if let Some(mmr_peaks) = mmr_peaks {
-            return parse_mmr_peaks(block_num.as_u32(), mmr_peaks);
+            return parse_mmr_peaks(block_num.as_u32(), &mmr_peaks);
         }
 
         Ok(MmrPeaks::new(0, vec![])?)
@@ -140,26 +144,26 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Inserts a block header using a [rusqlite::Transaction].
+    /// Inserts a block header using a [`rusqlite::Transaction`].
     ///
     /// If the block header exists and `has_client_notes` is `true` then the `has_client_notes`
     /// column is updated to `true` to signify that the block now contains a relevant note.
     pub(crate) fn insert_block_header_tx(
         tx: &Transaction<'_>,
-        block_header: BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
+        block_header: &BlockHeader,
+        chain_mmr_peaks: &MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
         let (block_num, header, chain_mmr, has_client_notes) =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
+            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
         const QUERY: &str = "\
         INSERT OR IGNORE INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
         tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
 
-        set_block_header_has_client_notes(tx, block_num as u64, has_client_notes)?;
+        set_block_header_has_client_notes(tx, u64::from(block_num), has_client_notes)?;
         Ok(())
     }
 }
@@ -173,28 +177,28 @@ fn insert_chain_mmr_node(
     id: InOrderIndex,
     node: Digest,
 ) -> Result<(), StoreError> {
-    let (id, node) = serialize_chain_mmr_node(id, node)?;
+    let (id, node) = serialize_chain_mmr_node(id, node);
     const QUERY: &str = "INSERT OR IGNORE INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
     tx.execute(QUERY, params![id, node])?;
     Ok(())
 }
 
-fn parse_mmr_peaks(forest: u32, peaks_nodes: Vec<u8>) -> Result<MmrPeaks, StoreError> {
-    let mmr_peaks_nodes = Vec::<Digest>::read_from_bytes(&peaks_nodes)?;
+fn parse_mmr_peaks(forest: u32, peaks_nodes: &[u8]) -> Result<MmrPeaks, StoreError> {
+    let mmr_peaks_nodes = Vec::<Digest>::read_from_bytes(peaks_nodes)?;
 
     MmrPeaks::new(forest as usize, mmr_peaks_nodes).map_err(StoreError::MmrError)
 }
 
 fn serialize_block_header(
-    block_header: BlockHeader,
-    chain_mmr_peaks: Vec<Digest>,
+    block_header: &BlockHeader,
+    chain_mmr_peaks: &[Digest],
     has_client_notes: bool,
-) -> Result<SerializedBlockHeaderData, StoreError> {
+) -> SerializedBlockHeaderData {
     let block_num = block_header.block_num();
     let header = block_header.to_bytes();
     let chain_mmr_peaks = chain_mmr_peaks.to_bytes();
 
-    Ok((block_num.as_u32(), header, chain_mmr_peaks, has_client_notes))
+    (block_num.as_u32(), header, chain_mmr_peaks, has_client_notes)
 }
 
 fn parse_block_headers_columns(
@@ -205,7 +209,7 @@ fn parse_block_headers_columns(
     let chain_mmr: Vec<u8> = row.get(2)?;
     let has_client_notes: bool = row.get(3)?;
 
-    Ok((block_num as u64, header, chain_mmr, has_client_notes))
+    Ok((u64::from(block_num), header, chain_mmr, has_client_notes))
 }
 
 fn parse_block_header(
@@ -216,15 +220,14 @@ fn parse_block_header(
     Ok((BlockHeader::read_from_bytes(&header)?, has_client_notes))
 }
 
-fn serialize_chain_mmr_node(
-    id: InOrderIndex,
-    node: Digest,
-) -> Result<SerializedChainMmrNodeData, StoreError> {
+#[allow(clippy::cast_possible_wrap)]
+fn serialize_chain_mmr_node(id: InOrderIndex, node: Digest) -> SerializedChainMmrNodeData {
     let id: u64 = id.into();
     let node = node.to_hex();
-    Ok((id as i64, node))
+    (id as i64, node)
 }
 
+#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 fn parse_chain_mmr_nodes_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
@@ -233,6 +236,7 @@ fn parse_chain_mmr_nodes_columns(
     Ok((id as u64, node))
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn parse_chain_mmr_nodes(
     serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
 ) -> Result<(InOrderIndex, Digest), StoreError> {
@@ -284,11 +288,11 @@ mod test {
                 (0..5).for_each(|block_num| {
                     SqliteStore::insert_block_header_tx(
                         &tx,
-                        block_headers_clone[block_num],
-                        dummy_peaks.clone(),
+                        &block_headers_clone[block_num],
+                        &dummy_peaks,
                         false,
                     )
-                    .unwrap()
+                    .unwrap();
                 });
                 tx.commit().unwrap();
                 Ok(())

@@ -71,7 +71,7 @@ impl From<(NativeInputNoteRecord, Vec<NativeNoteConsumability>)> for ConsumableN
     ) -> Self {
         ConsumableNoteRecord::new(
             input_note_record.into(),
-            note_consumability.into_iter().map(|c| c.into()).collect(),
+            note_consumability.into_iter().map(Into::into).collect(),
         )
     }
 }

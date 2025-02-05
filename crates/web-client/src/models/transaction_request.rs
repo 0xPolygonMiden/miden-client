@@ -44,7 +44,7 @@ impl NoteAndArgs {
 impl From<NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
     fn from(note_and_args: NoteAndArgs) -> Self {
         let native_note: NativeNote = note_and_args.note.into();
-        let native_args: Option<NativeNoteArgs> = note_and_args.args.map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_and_args.args.map(Into::into);
         (native_note, native_args)
     }
 }
@@ -52,8 +52,7 @@ impl From<NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
 impl From<&NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
     fn from(note_and_args: &NoteAndArgs) -> Self {
         let native_note: NativeNote = note_and_args.note.clone().into();
-        let native_args: Option<NativeNoteArgs> =
-            note_and_args.args.clone().map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_and_args.args.clone().map(Into::into);
         (native_note, native_args)
     }
 }
@@ -77,17 +76,13 @@ impl NoteAndArgsArray {
 
 impl From<NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
     fn from(note_and_args_array: NoteAndArgsArray) -> Self {
-        note_and_args_array
-            .0
-            .into_iter()
-            .map(|note_and_args| note_and_args.into())
-            .collect()
+        note_and_args_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
     fn from(note_and_args_array: &NoteAndArgsArray) -> Self {
-        note_and_args_array.0.iter().map(|note_and_args| note_and_args.into()).collect()
+        note_and_args_array.0.iter().map(Into::into).collect()
     }
 }
 
@@ -111,7 +106,7 @@ impl NoteIdAndArgs {
 impl From<NoteIdAndArgs> for (NativeNoteId, Option<NativeNoteArgs>) {
     fn from(note_id_and_args: NoteIdAndArgs) -> Self {
         let native_note_id: NativeNoteId = note_id_and_args.note_id.into();
-        let native_args: Option<NativeNoteArgs> = note_id_and_args.args.map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_id_and_args.args.map(Into::into);
         (native_note_id, native_args)
     }
 }
@@ -144,21 +139,13 @@ impl NoteIdAndArgsArray {
 
 impl From<NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     fn from(note_id_and_args_array: NoteIdAndArgsArray) -> Self {
-        note_id_and_args_array
-            .0
-            .into_iter()
-            .map(|note_id_and_args| note_id_and_args.into())
-            .collect()
+        note_id_and_args_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     fn from(note_id_and_args_array: &NoteIdAndArgsArray) -> Self {
-        note_id_and_args_array
-            .0
-            .iter()
-            .map(|note_id_and_args| note_id_and_args.into())
-            .collect()
+        note_id_and_args_array.0.iter().map(Into::into).collect()
     }
 }
 
@@ -218,21 +205,13 @@ impl NoteDetailsAndTagArray {
 
 impl From<NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
     fn from(note_details_and_tag_array: NoteDetailsAndTagArray) -> Self {
-        note_details_and_tag_array
-            .0
-            .into_iter()
-            .map(|note_details_and_tag| note_details_and_tag.into())
-            .collect()
+        note_details_and_tag_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
     fn from(note_details_and_tag_array: &NoteDetailsAndTagArray) -> Self {
-        note_details_and_tag_array
-            .0
-            .iter()
-            .map(|note_details_and_tag| note_details_and_tag.into())
-            .collect()
+        note_details_and_tag_array.0.iter().map(Into::into).collect()
     }
 }
 
@@ -254,12 +233,14 @@ impl TransactionRequestBuilder {
         TransactionRequestBuilder(native_transaction_request)
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_unauthenticated_input_notes(mut self, notes: &NoteAndArgsArray) -> Self {
         let native_note_and_note_args: Vec<(NativeNote, Option<NativeNoteArgs>)> = notes.into();
         self.0 = self.0.clone().with_unauthenticated_input_notes(native_note_and_note_args);
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_authenticated_input_notes(mut self, notes: &NoteIdAndArgsArray) -> Self {
         let native_note_id_and_note_args: Vec<(NativeNoteId, Option<NativeNoteArgs>)> =
             notes.into();
@@ -267,24 +248,28 @@ impl TransactionRequestBuilder {
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_own_output_notes(mut self, notes: &OutputNotesArray) -> Self {
         let native_output_notes: Vec<NativeOutputNote> = notes.into();
         self.0 = self.0.clone().with_own_output_notes(native_output_notes).unwrap();
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_custom_script(mut self, script: &TransactionScript) -> Self {
         let native_script: NativeTransactionScript = script.into();
         self.0 = self.0.clone().with_custom_script(native_script).unwrap();
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_expected_output_notes(mut self, notes: &NotesArray) -> Self {
         let native_notes: Vec<NativeNote> = notes.into();
         self.0 = self.0.clone().with_expected_output_notes(native_notes);
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn with_expected_future_notes(
         mut self,
         note_details_and_tag: &NoteDetailsAndTagArray,
@@ -295,6 +280,7 @@ impl TransactionRequestBuilder {
         self
     }
 
+    #[allow(clippy::return_self_not_must_use)]
     pub fn extend_advice_map(mut self, advice_map: &AdviceMap) -> Self {
         let native_advice_map: NativeAdviceMap = advice_map.into();
         self.0 = self.0.clone().extend_advice_map(native_advice_map);

@@ -23,5 +23,5 @@ where
     let base64_str: String = Deserialize::deserialize(deserializer)?;
     general_purpose::STANDARD
         .decode(&base64_str)
-        .map_err(|e| Error::custom(format!("Base64 decode error: {}", e)))
+        .map_err(|e| Error::custom(format!("Base64 decode error: {e}")))
 }

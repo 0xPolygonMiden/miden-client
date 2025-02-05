@@ -43,7 +43,7 @@ use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction
 
 /// Client for the Node RPC API using tonic.
 ///
-/// Wraps the ApiClient which defers establishing a connection with a node until necessary.
+/// Wraps the `ApiClient` which defers establishing a connection with a node until necessary.
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
@@ -51,9 +51,9 @@ pub struct TonicRpcClient {
 }
 
 impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
-    /// the given timeout in milliseconds.
-    pub fn new(endpoint: Endpoint, timeout_ms: u64) -> TonicRpcClient {
+    /// Returns a new instance of [`TonicRpcClient`] that'll do calls to the provided [`Endpoint`]
+    /// with the given timeout in milliseconds.
+    pub fn new(endpoint: &Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
             endpoint: endpoint.to_string(),
@@ -62,7 +62,7 @@ impl TonicRpcClient {
     }
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
-    /// to the inner ApiClient.
+    /// to the inner `ApiClient`.
     async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcError> {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
@@ -146,6 +146,7 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
@@ -170,29 +171,24 @@ impl NodeRpcClient for TonicRpcClient {
                 NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
             };
 
-            let note = match note.details {
-                // Public notes include details
-                Some(details) => {
-                    let note = Note::read_from_bytes(&details)?;
+            let note = if let Some(details) = note.details {
+                let note = Note::read_from_bytes(&details)?;
 
-                    NetworkNote::Public(note, inclusion_details)
-                },
-                // Private notes do not have details
-                None => {
-                    let note_metadata = note
-                        .metadata
-                        .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                        .try_into()?;
+                NetworkNote::Public(note, inclusion_details)
+            } else {
+                let note_metadata = note
+                    .metadata
+                    .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
+                    .try_into()?;
 
-                    let note_id: Digest = note
-                        .note_id
-                        .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
-                        .try_into()?;
+                let note_id: Digest = note
+                    .note_id
+                    .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
+                    .try_into()?;
 
-                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
-                },
+                NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
             };
-            response_notes.push(note)
+            response_notes.push(note);
         }
         Ok(response_notes)
     }
@@ -208,7 +204,7 @@ impl NodeRpcClient for TonicRpcClient {
     ) -> Result<StateSyncInfo, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
+        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
@@ -300,7 +296,7 @@ impl NodeRpcClient for TonicRpcClient {
         let mut rpc_account_requests: Vec<get_account_proofs_request::AccountRequest> =
             Vec::with_capacity(account_requests.len());
 
-        for foreign_account in account_requests.iter() {
+        for foreign_account in account_requests {
             rpc_account_requests.push(get_account_proofs_request::AccountRequest {
                 account_id: Some(foreign_account.account_id().into()),
                 storage_requests: foreign_account.storage_slot_requirements().into(),
@@ -313,7 +309,7 @@ impl NodeRpcClient for TonicRpcClient {
         let request = GetAccountProofsRequest {
             account_requests: rpc_account_requests,
             include_headers: Some(true),
-            code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
+            code_commitments: known_account_codes.keys().map(Into::into).collect(),
         };
 
         let rpc_api = self.rpc_api().await?;
@@ -398,7 +394,7 @@ impl NodeRpcClient for TonicRpcClient {
         prefixes: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
-            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
         };
         let rpc_api = self.rpc_api().await?;

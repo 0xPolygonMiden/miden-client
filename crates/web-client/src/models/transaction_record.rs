@@ -29,11 +29,7 @@ impl TransactionRecord {
     }
 
     pub fn input_note_nullifiers(&self) -> Vec<RpoDigest> {
-        self.0
-            .input_note_nullifiers
-            .iter()
-            .map(|rpo_digest| rpo_digest.into())
-            .collect()
+        self.0.input_note_nullifiers.iter().map(Into::into).collect()
     }
 
     pub fn output_notes(&self) -> OutputNotes {

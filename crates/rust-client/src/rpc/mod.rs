@@ -1,7 +1,8 @@
 //! Provides an interface for the client to communicate with a Miden node using
 //! Remote Procedure Calls (RPC).
 //!
-//! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
+//! This module defines the [`NodeRpcClient`] trait which abstracts calls to the RPC protocol used
+//! to:
 //!
 //! - Submit proven transactions.
 //! - Retrieve block headers (optionally with MMR proofs).
@@ -37,7 +38,7 @@
 //! The client also makes use of this component in order to communicate with the node.
 //!
 //! For further details and examples, see the documentation for the individual methods in the
-//! [NodeRpcClient] trait.
+//! [`NodeRpcClient`] trait.
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
