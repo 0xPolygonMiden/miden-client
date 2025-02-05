@@ -48,9 +48,6 @@ use crate::{
 /// at creation time.
 pub(crate) mod data_store;
 
-mod authenticator;
-pub use authenticator::StoreAuthenticator;
-
 mod errors;
 pub use errors::*;
 

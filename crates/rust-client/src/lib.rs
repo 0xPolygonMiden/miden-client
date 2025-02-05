@@ -105,6 +105,7 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
+pub mod authenticator;
 pub mod note;
 pub mod rpc;
 pub mod store;
