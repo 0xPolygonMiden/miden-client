@@ -118,8 +118,7 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    // TODO: Once we get more specific filters this query should only get unverified notes.
-    let retrieved_notes = client.get_input_notes(NoteFilter::All).await.unwrap();
+    let retrieved_notes = client.get_input_notes(NoteFilter::Unverified).await.unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
