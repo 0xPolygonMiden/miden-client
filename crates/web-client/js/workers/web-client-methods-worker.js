@@ -13,6 +13,8 @@ const MethodName = Object.freeze({
   NEW_MINT_TRANSACTION: "new_mint_transaction",
   NEW_CONSUME_TRANSACTION: "new_consume_transaction",
   NEW_SEND_TRANSACTION: "new_send_transaction",
+  SUBMIT_TRANSACTION: "submit_transaction",
+  SUBMIT_TRANSACTION_WITH_PROVER: "submit_transaction_with_prover",
   SYNC_STATE: "sync_state",
 });
 
@@ -25,7 +27,6 @@ let processing = false; // Flag to ensure one message is processed at a time.
 // Define a mapping from method names to handler functions.
 const methodHandlers = {
   [MethodName.NEW_WALLET]: async (args) => {
-    console.log("WORKER: NEW_WALLET called...");
     const [walletStorageModeStr, mutable] = args;
     const walletStorageMode = wasm.AccountStorageMode.from_str(walletStorageModeStr);
     const wallet = await wasmWebClient.new_wallet(walletStorageMode, mutable);
@@ -46,7 +47,8 @@ const methodHandlers = {
     const transactionRequest = wasm.TransactionRequest.deserialize(new Uint8Array(serializedTransactionRequest));
     await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(accountId);
     const transactionResult = await wasmWebClient.new_transaction(accountId, transactionRequest);
-    return { transactionId: transactionResult.executed_transaction().id().to_hex() };
+    const serializedTransactionResult = await transactionResult.serialize();
+    return serializedTransactionResult.buffer;
   },
   [MethodName.NEW_MINT_TRANSACTION]: async (args) => {
     const [targetAccountIdStr, faucetIdStr, noteTypeStr, amountStr] = args;
@@ -56,23 +58,16 @@ const methodHandlers = {
     const amount = BigInt(amountStr);
     await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(faucetId);
     const transactionResult = await wasmWebClient.new_mint_transaction(targetAccountId, faucetId, noteType, amount);
-    return {
-      transactionId: transactionResult.executed_transaction().id().to_hex(),
-      numOutputNotesCreated: transactionResult.created_notes().num_notes(),
-      nonce: transactionResult.account_delta().nonce()?.to_string(),
-      createdNoteId: transactionResult.created_notes().notes()[0].id().to_string(),
-    };
+    const serializedTransactionResult = await transactionResult.serialize();
+    return serializedTransactionResult.buffer;
   },
   [MethodName.NEW_CONSUME_TRANSACTION]: async (args) => {
     const [targetAccountIdStr, noteId] = args;
     const targetAccountId = wasm.AccountId.from_hex(targetAccountIdStr);
     await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(targetAccountId);
     const transactionResult = await wasmWebClient.new_consume_transaction(targetAccountId, noteId);
-    return {
-      transactionId: transactionResult.executed_transaction().id().to_hex(),
-      numConsumedNotes: transactionResult.consumed_notes().num_notes(),
-      nonce: transactionResult.account_delta().nonce()?.to_string(),
-    };
+    const serializedTransactionResult = await transactionResult.serialize();
+    return serializedTransactionResult.buffer;
   },
   [MethodName.NEW_SEND_TRANSACTION]: async (args) => {
     const [senderAccountIdStr, receiverAccountIdStr, faucetIdStr, noteTypeStr, amountStr, recallHeight] = args;
@@ -90,12 +85,30 @@ const methodHandlers = {
       amount,
       recallHeight
     );
-    const createdNotes = transactionResult.created_notes().notes();
-    const noteIds = createdNotes.map(note => note.id().to_string());
-    return {
-      transactionId: transactionResult.executed_transaction().id().to_hex(),
-      noteIds: noteIds,
-    };
+    const serializedTransactionResult = await transactionResult.serialize();
+    return serializedTransactionResult.buffer;
+  },
+  [MethodName.SUBMIT_TRANSACTION]: async (args) => {
+    const [serializedTransactionResult] = args;
+    const transactionResult = wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResult));
+    await wasmWebClient.submit_transaction(transactionResult);
+    return;
+  },
+  [MethodName.SUBMIT_TRANSACTION_WITH_PROVER]: async (args) => {
+    const [serializedTransactionResult, serializedProver] = args;
+    const transactionResult = wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResult));
+    let prover;
+    if (serializedProver.startsWith("remote:")) {
+        // For a remote prover, extract the endpoint.
+        // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
+        const endpoint = serializedProver.split("remote:")[1];
+        prover = wasm.TransactionProver.from_str("remote", endpoint);
+      } else if (serializedProver === "local") {
+        prover = TransactionProver.from_str("local", null);
+      } else {
+        throw new Error("Invalid prover tag received in worker");
+      }
+    await wasmWebClient.submit_transaction_with_prover(transactionResult, prover);
   },
   [MethodName.SYNC_STATE]: async (args) => {
     await wasmWebClient.sync_state();
@@ -110,9 +123,10 @@ async function processMessage(event) {
   const { action, args, methodName, requestId } = event.data;
   try {
     if (action === WorkerAction.INIT) {
+      const [rpcUrl, proverUrl, seed] = args;
       // Initialize the WASM WebClient.
-      wasmWebClient = new wasm.WebClient(...args);
-      await wasmWebClient.create_client();
+      wasmWebClient = new wasm.WebClient();
+      await wasmWebClient.create_client(rpcUrl, proverUrl, seed);
       ready = true;
       // Signal that the worker is fully initialized.
       self.postMessage({ ready: true });
@@ -136,8 +150,8 @@ async function processMessage(event) {
       throw new Error(`Unsupported action: ${action}`);
     }
   } catch (error) {
-    console.error(`WORKER: Error occurred - ${error.message}`);
-    self.postMessage({ requestId, error: error.message });
+    console.error(`WORKER: Error occurred - ${error}`);
+    self.postMessage({ requestId, error: error });
   }
 }
 
