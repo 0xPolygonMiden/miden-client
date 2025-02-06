@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0 (TBD)
+
+### Changes
+
+* Add check for empty pay to id notes (#714).
+
 ## 0.7.0 (2025-01-28)
 
 ### Features

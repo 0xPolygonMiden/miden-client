@@ -238,6 +238,8 @@ impl TransactionScriptBuilder {
 pub enum TransactionScriptBuilderError {
     #[error("invalid asset: {0}")]
     InvalidAsset(AccountIdPrefix),
+    #[error("pay to id note doesn't contain at least one asset")]
+    P2IDNoteWithoutAsset,
     #[error("note created by the faucet doesn't contain exactly one asset")]
     FaucetNoteWithoutAsset,
     #[error("invalid transaction script")]

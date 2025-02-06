@@ -190,7 +190,7 @@ impl MockRpcApi {
         block_num: BlockNumber,
     ) -> impl Iterator<Item = NoteSyncRecord> + '_ {
         self.notes.values().filter_map(move |note| {
-            if note.location().map_or(false, |loc| loc.block_num() == block_num) {
+            if note.location().is_some_and(|loc| loc.block_num() == block_num) {
                 let proof = note.proof()?;
                 Some(NoteSyncRecord {
                     note_index: 0,

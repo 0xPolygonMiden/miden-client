@@ -314,8 +314,7 @@ pub enum TransactionRequestError {
     #[error("invalid sender account id: {0}")]
     InvalidSenderAccount(AccountId),
     #[error("invalid transaction script")]
-    //TODO: use source in this error when possible
-    InvalidTransactionScript(AssemblyError),
+    InvalidTransactionScript(#[from] AssemblyError),
     #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
     #[error("note not found: {0}")]
