@@ -22,7 +22,7 @@
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000);
+//! let mut rpc_client = TonicRpcClient::new(&endpoint, 1000);
 //!
 //! // Fetch the latest block header (by passing None).
 //! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
