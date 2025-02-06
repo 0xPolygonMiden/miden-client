@@ -10,6 +10,8 @@ use miden_client::{
         AccountBuilder, AccountStorageMode, AccountType,
     },
     asset::TokenSymbol,
+    auth::AuthSecretKey,
+    authenticator::ClientAuthenticator,
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
     Client, Felt, Word,
@@ -135,7 +137,11 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        authenticator: ClientAuthenticator<impl FeltRng>,
+    ) -> Result<(), CliError> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
         }
@@ -193,6 +199,7 @@ impl NewFaucetCmd {
             .build()
             .map_err(|err| CliError::Account(err, "error building account".into()))?;
 
+        authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair));
         client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new faucet.");
@@ -223,7 +230,11 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        authenticator: ClientAuthenticator<impl FeltRng>,
+    ) -> Result<(), CliError> {
         let mut extra_components = Vec::new();
         for path in &self.extra_components {
             let bytes = fs::read(path)?;
@@ -265,6 +276,7 @@ impl NewWalletCmd {
             .build()
             .map_err(|err| CliError::Account(err, "failed to create a wallet".to_string()))?;
 
+        authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair));
         client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new wallet.");

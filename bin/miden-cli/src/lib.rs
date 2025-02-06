@@ -117,15 +117,15 @@ impl Cli {
             )),
             rng,
             store as Arc<dyn Store>,
-            Arc::new(authenticator),
+            Arc::new(authenticator.clone()),
             in_debug_mode,
         );
 
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client).await,
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client).await,
-            Command::NewWallet(new_wallet) => new_wallet.execute(client).await,
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client, authenticator).await,
+            Command::NewWallet(new_wallet) => new_wallet.execute(client, authenticator).await,
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &cli_config).await,

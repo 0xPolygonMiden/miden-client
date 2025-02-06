@@ -755,11 +755,23 @@ async fn debug_mode_outputs_logs() {
 
     sync_cli(&temp_dir);
 
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "public"]);
+    create_wallet_cmd.current_dir(&temp_dir).assert().success();
+
+    let wallet_account_id = {
+        let client = create_test_client_with_store_path(&store_path).await.0;
+        let accounts = client.get_account_headers().await.unwrap();
+
+        accounts[1].0.id().to_hex()
+    };
+
     // Consume the note and check the output
     let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
     let account_id = account.id().to_hex();
     let note_id = note.id().to_hex();
-    let mut cli_args = vec!["consume-notes", "--account", &account_id[0..8], "--force"];
+    let mut cli_args = vec!["consume-notes", "--account", &wallet_account_id[0..8], "--force"];
     cli_args.extend_from_slice(vec![note_id.as_str()].as_slice());
     consume_note_cmd.args(&cli_args);
     consume_note_cmd
