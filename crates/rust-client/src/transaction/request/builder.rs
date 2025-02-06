@@ -292,13 +292,10 @@ impl TransactionRequestBuilder {
             target_account_id,
         } = payment_data;
 
-        if assets.iter().all(|asset| {
-            if let Asset::Fungible(asset) = asset {
-                asset.amount() == 0
-            } else {
-                false
-            }
-        }) {
+        if assets
+            .iter()
+            .all(|asset| asset.is_fungible() && asset.unwrap_fungible().amount() == 0)
+        {
             return Err(TransactionRequestError::TransactionScriptBuilderError(
                 TransactionScriptBuilderError::P2IDNoteWithoutAsset,
             ));
