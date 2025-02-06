@@ -1,9 +1,4 @@
-use alloc::{
-    collections::BTreeMap,
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use std::{
     fs::OpenOptions,
     io::{BufRead, BufReader, BufWriter, Write},
@@ -14,88 +9,80 @@ use miden_objects::{
     account::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
+pub use miden_tx::AuthenticationError;
 use miden_tx::{
     auth::TransactionAuthenticator,
     utils::{sync::RwLock, Deserializable, Serializable},
-    AuthenticationError,
 };
 use rand::Rng;
 
 #[derive(Debug, Clone)] //TODO: check if clone is ok
 pub struct ClientAuthenticator<R> {
-    filepath: PathBuf,
+    keys_directory: PathBuf,
     rng: Arc<RwLock<R>>,
 }
 
 impl<R: Rng> ClientAuthenticator<R> {
-    pub fn new_with_rng(filepath: PathBuf, rng: R) -> Self {
+    pub fn new_with_rng(keys_directory: PathBuf, rng: R) -> Self {
         ClientAuthenticator {
-            filepath,
+            keys_directory,
             rng: Arc::new(RwLock::new(rng)),
         }
     }
 
-    pub fn write_key_pairs(
-        &self,
-        key_pairs: BTreeMap<String, AuthSecretKey>,
-    ) -> Result<(), AuthenticationError> {
+    pub fn add_key(&self, key: AuthSecretKey) -> Result<(), AuthenticationError> {
+        let pub_key = match &key {
+            AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
+        };
+
+        let file_path = self.keys_directory.join(pub_key);
         let file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(self.filepath.clone())
-            .unwrap();
+            .open(file_path)
+            .map_err(|err| {
+                AuthenticationError::other_with_source("error opening secret key file", err)
+            })?;
 
         let mut writer = BufWriter::new(file);
-
-        for (pub_key, secret_key) in key_pairs {
-            let key_pair_hex = format!("{},{}\n", pub_key, hex::encode(secret_key.to_bytes()));
-            writer.write_all(key_pair_hex.as_bytes()).unwrap();
-        }
+        let key_pair_hex = hex::encode(key.to_bytes());
+        writer.write_all(key_pair_hex.as_bytes()).map_err(|err| {
+            AuthenticationError::other_with_source("error writing secret key file", err)
+        })?;
 
         Ok(())
-    }
-
-    pub fn read_key_pairs(&self) -> Result<BTreeMap<String, AuthSecretKey>, AuthenticationError> {
-        if !self.filepath.exists() {
-            return Ok(BTreeMap::new());
-        }
-
-        let file = OpenOptions::new().read(true).open(self.filepath.clone()).unwrap();
-
-        let reader = BufReader::new(file);
-        let mut key_pairs = BTreeMap::new();
-
-        for line in reader.lines() {
-            let line = line.unwrap();
-            let mut parts = line.split(',');
-            let pub_key = parts.next().unwrap();
-            let secret_key_bytes = hex::decode(parts.next().unwrap()).unwrap();
-
-            let secret_key = AuthSecretKey::read_from_bytes(secret_key_bytes.as_slice()).unwrap();
-
-            key_pairs.insert(pub_key.to_string(), secret_key);
-        }
-
-        Ok(key_pairs)
-    }
-
-    pub fn add_key(&self, key: AuthSecretKey) {
-        let mut key_pairs = self.read_key_pairs().unwrap();
-        let pub_key = match &key {
-            AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
-        };
-        key_pairs.insert(pub_key, key);
-        self.write_key_pairs(key_pairs).unwrap();
     }
 
     pub fn get_auth_by_pub_key(
         &self,
         pub_key: Word,
     ) -> Result<Option<AuthSecretKey>, AuthenticationError> {
-        let key_pairs = self.read_key_pairs().unwrap();
         let pub_key_str = Digest::from(pub_key).to_hex();
-        Ok(key_pairs.get(&pub_key_str).cloned())
+
+        let file_path = self.keys_directory.join(pub_key_str);
+        if !file_path.exists() {
+            return Ok(None);
+        }
+
+        let file = OpenOptions::new().read(true).open(file_path).map_err(|err| {
+            AuthenticationError::other_with_source("error opening secret key file", err)
+        })?;
+        let mut reader = BufReader::new(file);
+        let mut key_pair_hex = String::new();
+        reader.read_line(&mut key_pair_hex).map_err(|err| {
+            AuthenticationError::other_with_source("error reading secret key file", err)
+        })?;
+
+        let secret_key_bytes = hex::decode(key_pair_hex.trim()).map_err(|err| {
+            AuthenticationError::other_with_source("error decoding secret key hex", err)
+        })?;
+        let secret_key =
+            AuthSecretKey::read_from_bytes(secret_key_bytes.as_slice()).map_err(|err| {
+                AuthenticationError::other_with_source("error reading secret key from bytes", err)
+            })?;
+
+        Ok(Some(secret_key))
     }
 }
 
@@ -115,16 +102,11 @@ impl<R: Rng> TransactionAuthenticator for ClientAuthenticator<R> {
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.write();
 
-        let secret_key = self
-            .get_auth_by_pub_key(pub_key)
-            .map_err(|err| {
-                AuthenticationError::other_with_source("error getting secret key from file", err)
-            })
-            .unwrap();
+        let secret_key = self.get_auth_by_pub_key(pub_key)?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key
-            .ok_or(AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))
-            .unwrap();
+            .ok_or(AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
+
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
 }

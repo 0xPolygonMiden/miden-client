@@ -321,7 +321,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, ClientAuthenticato
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = ClientAuthenticator::new_with_rng(create_test_auth_path(), rng);
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng);
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
@@ -332,11 +332,5 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, ClientAuthenticato
 pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
-    temp_file
-}
-
-pub fn create_test_auth_path() -> std::path::PathBuf {
-    let mut temp_file = temp_dir();
-    temp_file.push(format!("{}.txt", Uuid::new_v4()));
     temp_file
 }

@@ -22,8 +22,8 @@ pub struct CliConfig {
     pub rpc: RpcConfig,
     /// Path to the sqlite store file.
     pub store_filepath: PathBuf,
-    /// Path to authenticator file.
-    pub authenticator_filepath: PathBuf,
+    /// Path to secret keys file.
+    pub secret_keys_directory: PathBuf,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
@@ -51,7 +51,6 @@ impl Provider for CliConfig {
 impl Default for CliConfig {
     fn default() -> Self {
         const STORE_FILENAME: &str = "store.sqlite3";
-        const AUTHENTICATOR_FILENAME: &str = "keypairs.txt"; //TODO: revisit default name
 
         // Get current directory
         let exec_dir = PathBuf::new();
@@ -59,7 +58,7 @@ impl Default for CliConfig {
         Self {
             rpc: RpcConfig::default(),
             store_filepath: exec_dir.join(STORE_FILENAME),
-            authenticator_filepath: exec_dir.join(AUTHENTICATOR_FILENAME),
+            secret_keys_directory: exec_dir, // TODO: Check if we want a separate keys directory
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,

@@ -86,18 +86,12 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
-    (endpoint, timeout_ms, create_test_store_path(), create_test_auth_path())
+    (endpoint, timeout_ms, create_test_store_path(), temp_dir())
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
-    temp_file
-}
-
-pub fn create_test_auth_path() -> std::path::PathBuf {
-    let mut temp_file = temp_dir();
-    temp_file.push(format!("{}.txt", Uuid::new_v4()));
     temp_file
 }
 
@@ -109,7 +103,7 @@ pub async fn insert_new_wallet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone()));
+    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -138,7 +132,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone()));
+    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];

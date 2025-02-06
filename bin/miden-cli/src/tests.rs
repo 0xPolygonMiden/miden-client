@@ -663,10 +663,7 @@ async fn create_test_client_with_store_path(
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let mut temp_dir = temp_dir();
-    temp_dir.push(format!("{}.txt", uuid::Uuid::new_v4()));
-
-    let authenticator = ClientAuthenticator::new_with_rng(temp_dir, rng);
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng);
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
@@ -769,7 +766,6 @@ async fn debug_mode_outputs_logs() {
 
     // Consume the note and check the output
     let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    let account_id = account.id().to_hex();
     let note_id = note.id().to_hex();
     let mut cli_args = vec!["consume-notes", "--account", &wallet_account_id[0..8], "--force"];
     cli_args.extend_from_slice(vec![note_id.as_str()].as_slice());

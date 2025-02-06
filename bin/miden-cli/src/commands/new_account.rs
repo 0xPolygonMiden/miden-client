@@ -199,7 +199,9 @@ impl NewFaucetCmd {
             .build()
             .map_err(|err| CliError::Account(err, "error building account".into()))?;
 
-        authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair));
+        authenticator
+            .add_key(AuthSecretKey::RpoFalcon512(key_pair))
+            .map_err(CliError::Authentication)?;
         client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new faucet.");
@@ -276,7 +278,9 @@ impl NewWalletCmd {
             .build()
             .map_err(|err| CliError::Account(err, "failed to create a wallet".to_string()))?;
 
-        authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair));
+        authenticator
+            .add_key(AuthSecretKey::RpoFalcon512(key_pair))
+            .map_err(CliError::Authentication)?;
         client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new wallet.");

@@ -139,7 +139,7 @@ async fn test_onchain_accounts() {
     let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
 
-    authenticator_2.add_key(AuthSecretKey::RpoFalcon512(secret_key));
+    authenticator_2.add_key(AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client_2.add_account(&faucet_account_header, faucet_seed, false).await.unwrap();
 
     // First Mint necesary token
