@@ -6,7 +6,7 @@ use std::{
 };
 
 use assert_cmd::Command;
-use config::RpcConfig;
+use config::{CliConfig, RpcConfig};
 use miden_client::{
     self,
     account::{
@@ -19,7 +19,7 @@ use miden_client::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
-    rpc::TonicRpcClient,
+    rpc::{Endpoint, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
@@ -558,11 +558,32 @@ async fn test_consume_unauthenticated_note() {
     consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
 }
 
-// DEVNET TESTS
+// DEVNET & TESTNET TESTS
 // ================================================================================================
 
 #[tokio::test]
-async fn test_init_and_sync_with_testnet() {
+async fn test_init_with_devnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "devnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Check in the config file that the network is devnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(Endpoint::devnet().to_string()));
+}
+
+#[tokio::test]
+async fn test_init_with_testnet() {
     let store_path = create_test_store_path();
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -572,7 +593,14 @@ async fn test_init_and_sync_with_testnet() {
     init_cmd.args(["init", "--network", "testnet", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
-    sync_cli(&temp_dir);
+    // Check in the config file that the network is testnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(Endpoint::testnet().to_string()));
 }
 
 // HELPERS
