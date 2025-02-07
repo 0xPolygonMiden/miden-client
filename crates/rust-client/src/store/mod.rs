@@ -323,8 +323,10 @@ pub trait Store: Send + Sync {
     /// - Updating the corresponding tracked input/output notes.
     /// - Removing note tags that are no longer relevant.
     /// - Updating transactions in the store, marking as `committed` or `discarded`.
+    ///   - In turn, validating private account's state transitions. If a private account's hash
+    ///     locally does not match the `StateSyncUpdate` information, the account may be locked.
     /// - Storing new MMR authentication nodes.
-    /// - Updating the tracked on-chain accounts.
+    /// - Updating the tracked public accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
 

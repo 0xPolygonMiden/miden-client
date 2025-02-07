@@ -96,49 +96,73 @@ impl SqliteStore {
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
-            block_header,
+            block_num,
+            block_updates,
             note_updates,
-            transactions_to_commit: committed_transactions,
-            new_mmr_peaks,
-            new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
-            tags_to_remove,
+            transaction_updates,
+            account_updates,
         } = state_sync_update;
+
+        let mut locked_accounts = vec![];
+
+        for (account_id, digest) in account_updates.mismatched_private_accounts() {
+            // Mismatched digests may be due to stale network data. If the mismatched digest is
+            // tracked in the db and corresponds to the mismatched account, it means we
+            // got a past update and shouldn't lock the account.
+            if let Some(account) = Self::get_account_header_by_hash(conn, *digest)? {
+                if account.id() == *account_id {
+                    continue;
+                }
+            }
+
+            locked_accounts.push(*account_id);
+        }
 
         let tx = conn.transaction()?;
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num().as_u32() as i64])?;
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_num.as_u64() as i64])?;
 
-        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+        for (block_header, block_has_relevant_notes, new_mmr_peaks) in block_updates.block_headers {
+            Self::insert_block_header_tx(
+                &tx,
+                block_header,
+                new_mmr_peaks,
+                block_has_relevant_notes,
+            )?;
+        }
+
+        // Insert new authentication nodes (inner nodes of the PartialMmr)
+        Self::insert_chain_mmr_nodes_tx(&tx, &block_updates.new_authentication_nodes)?;
 
         // Update notes
         apply_note_updates_tx(&tx, &note_updates)?;
 
         // Remove tags
+        let tags_to_remove = note_updates.committed_input_notes().map(|note| {
+            NoteTagRecord::with_note_source(
+                note.metadata().expect("Committed notes should have metadata").tag(),
+                note.id(),
+            )
+        });
         for tag in tags_to_remove {
             remove_note_tag_tx(&tx, tag)?;
         }
 
-        // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
-
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
         // Marc transactions as discarded
-        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
+        Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
 
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
-            lock_account(&tx, *account_id)?;
+        for account_id in locked_accounts {
+            lock_account(&tx, account_id)?;
         }
 
         // Commit the updates

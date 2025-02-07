@@ -343,7 +343,7 @@ async fn test_sync_state() {
 #[tokio::test]
 async fn test_sync_state_mmr() {
     // generate test client with a random store name
-    let (mut client, mut rpc_api) = create_test_client().await;
+    let (mut client, rpc_api) = create_test_client().await;
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
     insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
@@ -374,7 +374,7 @@ async fn test_sync_state_mmr() {
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
+    let partial_mmr = client.build_current_partial_mmr().await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_some()); // Account anchor block
     assert!(partial_mmr.open(1).unwrap().is_some());

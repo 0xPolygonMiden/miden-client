@@ -58,7 +58,7 @@ pub async fn create_test_client() -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
+        Arc::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout).await.unwrap()),
         rng,
         store,
         Arc::new(authenticator),
@@ -246,7 +246,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {
-                panic!("Unexpected error: {other_error}");
+                panic!("Unexpected error: {other_error:?}");
             },
             _ => return,
         }

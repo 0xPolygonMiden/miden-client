@@ -21,7 +21,7 @@
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000);
+//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000).await?;
 //!
 //! // Fetch the latest block header (by passing None).
 //! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
@@ -100,7 +100,7 @@ pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` RPC endpoint.
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError>;
 
@@ -111,7 +111,7 @@ pub trait NodeRpcClient {
     ///
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
@@ -121,7 +121,7 @@ pub trait NodeRpcClient {
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::note::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint.
@@ -136,7 +136,7 @@ pub trait NodeRpcClient {
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
@@ -147,13 +147,10 @@ pub trait NodeRpcClient {
     /// endpoint.
     ///
     /// - `account_id` is the ID of the wanted account.
-    async fn get_account_update(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError>;
+    async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError>;
 
     async fn sync_notes(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
@@ -161,7 +158,7 @@ pub trait NodeRpcClient {
     /// Fetches the nullifiers corresponding to a list of prefixes using the
     /// `/CheckNullifiersByPrefix` RPC endpoint.
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
@@ -172,7 +169,7 @@ pub trait NodeRpcClient {
     /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
     /// one of the tracked accounts is not found in the node, the method will return an error.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_storage_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError>;
@@ -182,7 +179,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
-        &mut self,
+        &self,
         nullifier: &Nullifier,
     ) -> Result<Option<u32>, RpcError> {
         let nullifiers =
@@ -197,7 +194,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
     async fn get_public_note_records(
-        &mut self,
+        &self,
         note_ids: &[NoteId],
         current_timestamp: Option<u64>,
     ) -> Result<Vec<InputNoteRecord>, RpcError> {
@@ -228,7 +225,7 @@ pub trait NodeRpcClient {
     /// change, it is ignored and will not be included in the returned list.
     /// The default implementation of this method uses [NodeRpcClient::get_account_update].
     async fn get_updated_public_accounts(
-        &mut self,
+        &self,
         local_accounts: &[&AccountHeader],
     ) -> Result<Vec<Account>, RpcError> {
         let mut public_accounts = vec![];
@@ -252,7 +249,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_block_header_by_number].
     async fn get_block_header_with_proof(
-        &mut self,
+        &self,
         block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
         let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
@@ -265,7 +262,7 @@ pub trait NodeRpcClient {
     ///
     /// Errors:
     /// - [RpcError::NoteNotFound] if the note with the specified ID is not found.
-    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
+    async fn get_note_by_id(&self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
         let notes = self.get_notes_by_id(&[note_id]).await?;
         notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
     }
