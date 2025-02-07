@@ -46,6 +46,7 @@ impl OutputNote {
         self.0.metadata().into()
     }
 
+    #[must_use]
     pub fn shrink(&self) -> OutputNote {
         self.0.shrink().into()
     }
