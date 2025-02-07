@@ -321,7 +321,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, ClientAuthenticato
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng);
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng).unwrap();
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 

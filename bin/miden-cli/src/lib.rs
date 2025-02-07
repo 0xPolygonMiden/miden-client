@@ -108,7 +108,8 @@ impl Cli {
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator =
-            ClientAuthenticator::new_with_rng(cli_config.secret_keys_directory.clone(), rng);
+            ClientAuthenticator::new_with_rng(cli_config.secret_keys_directory.clone(), rng)
+                .map_err(CliError::Authentication)?;
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(

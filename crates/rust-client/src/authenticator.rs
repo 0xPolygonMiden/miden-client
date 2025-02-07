@@ -16,18 +16,24 @@ use miden_tx::{
 };
 use rand::Rng;
 
-#[derive(Debug, Clone)] //TODO: check if clone is ok
+#[derive(Debug, Clone)]
 pub struct ClientAuthenticator<R> {
     keys_directory: PathBuf,
     rng: Arc<RwLock<R>>,
 }
 
 impl<R: Rng> ClientAuthenticator<R> {
-    pub fn new_with_rng(keys_directory: PathBuf, rng: R) -> Self {
-        ClientAuthenticator {
+    pub fn new_with_rng(keys_directory: PathBuf, rng: R) -> Result<Self, AuthenticationError> {
+        if !keys_directory.exists() {
+            std::fs::create_dir_all(&keys_directory).map_err(|err| {
+                AuthenticationError::other_with_source("error creating keys directory", err)
+            })?;
+        }
+
+        Ok(ClientAuthenticator {
             keys_directory,
             rng: Arc::new(RwLock::new(rng)),
-        }
+        })
     }
 
     pub fn add_key(&self, key: AuthSecretKey) -> Result<(), AuthenticationError> {

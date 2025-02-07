@@ -95,7 +95,7 @@ async fn export_account(
 
     let auth = authenticator
         .get_auth_by_pub_key(get_public_key_from_account(&account))
-        .map_err(|err| CliError::Export(format!("Error getting auth for account: {}", err)))?
+        .map_err(CliError::Authentication)?
         .ok_or(CliError::Export("Auth not found for account".to_string()))?;
 
     let account_data = AccountData::new(account, account_seed, auth);

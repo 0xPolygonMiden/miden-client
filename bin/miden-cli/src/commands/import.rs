@@ -84,7 +84,7 @@ async fn import_account(
 
     authenticator
         .add_key(account_data.auth_secret_key)
-        .map_err(|err| CliError::Export(format!("Error storing auth for account: {}", err)))?;
+        .map_err(CliError::Authentication)?;
 
     client
         .add_account(&account_data.account, account_data.account_seed, overwrite)

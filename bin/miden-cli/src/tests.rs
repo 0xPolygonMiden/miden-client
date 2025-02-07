@@ -672,7 +672,7 @@ async fn create_test_client_with_store_path(
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng);
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng).unwrap();
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),

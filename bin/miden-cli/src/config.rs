@@ -51,6 +51,7 @@ impl Provider for CliConfig {
 impl Default for CliConfig {
     fn default() -> Self {
         const STORE_FILENAME: &str = "store.sqlite3";
+        const KEYS_DIRECTORY: &str = "keys";
 
         // Get current directory
         let exec_dir = PathBuf::new();
@@ -58,7 +59,7 @@ impl Default for CliConfig {
         Self {
             rpc: RpcConfig::default(),
             store_filepath: exec_dir.join(STORE_FILENAME),
-            secret_keys_directory: exec_dir, // TODO: Check if we want a separate keys directory
+            secret_keys_directory: exec_dir.join(KEYS_DIRECTORY),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
