@@ -121,7 +121,6 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
     Ok(())
 }
 
-#[allow(clippy::cast_possible_truncation)]
 pub async fn show_account<R: FeltRng>(
     client: Client<R>,
     account_id: AccountId,
@@ -194,7 +193,7 @@ pub async fn show_account<R: FeltRng>(
 
         for (idx, entry) in account_storage.slots().iter().enumerate() {
             let item = account_storage
-                .get_item(idx as u8)
+                .get_item(u8::try_from(idx).expect("there are no more than 256 slots"))
                 .map_err(|err| CliError::Account(err, "Index out of bounds".to_string()))?;
 
             // Last entry is reserved so I don't think the user cares about it. Also, to keep the

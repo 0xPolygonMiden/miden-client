@@ -70,7 +70,6 @@ pub struct NoteSyncInfo {
 impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
     type Error = RpcError;
 
-    #[allow(clippy::cast_possible_truncation)]
     fn try_from(value: SyncNoteResponse) -> Result<Self, Self::Error> {
         let chain_tip = value.chain_tip;
 
@@ -105,8 +104,12 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
                 .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                 .try_into()?;
 
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
+            let committed_note = CommittedNote::new(
+                note_id,
+                u16::try_from(note.note_index).expect("note index out of range"),
+                merkle_path,
+                metadata,
+            );
 
             notes.push(committed_note);
         }

@@ -42,7 +42,6 @@ pub struct StateSyncInfo {
 impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = RpcError;
 
-    #[allow(clippy::cast_possible_truncation)]
     fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
         let chain_tip = value.chain_tip;
 
@@ -94,7 +93,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
             let committed_note = super::note::CommittedNote::new(
                 note_id,
-                note.note_index as u16,
+                u16::try_from(note.note_index).expect("note index out of range"),
                 merkle_path,
                 metadata,
             );

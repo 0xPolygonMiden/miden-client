@@ -56,10 +56,9 @@ impl WebStore {
 
 #[async_trait(?Send)]
 impl Store for WebStore {
-    #[allow(clippy::cast_sign_loss)]
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
-        Some(now.timestamp() as u64)
+        Some(u64::try_from(now.timestamp()).expect("timestamp is always after epoch"))
     }
 
     // SYNC

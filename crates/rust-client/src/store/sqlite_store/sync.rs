@@ -82,14 +82,17 @@ impl SqliteStore {
         Ok(removed_tags)
     }
 
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub(super) fn get_sync_height(conn: &mut Connection) -> Result<BlockNumber, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).map(|v: i64| BlockNumber::from(v as u32)))
+            .map(|result| {
+                Ok(result?).map(|v: i64| {
+                    BlockNumber::from(u32::try_from(v).expect("block number is always positive"))
+                })
+            })
             .next()
             .expect("state sync block number exists")
     }

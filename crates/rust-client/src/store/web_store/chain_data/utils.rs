@@ -51,7 +51,6 @@ pub fn serialize_chain_mmr_node(
     Ok(SerializedChainMmrNodeData { id: id_as_str, node })
 }
 
-#[allow(clippy::cast_possible_truncation)]
 pub fn process_chain_mmr_nodes_from_js_value(
     js_value: JsValue,
 ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
@@ -61,7 +60,12 @@ pub fn process_chain_mmr_nodes_from_js_value(
         .into_iter()
         .map(|record| {
             let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
-            let id = InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
+            let id = InOrderIndex::new(
+                NonZeroUsize::new(
+                    usize::try_from(id_as_u64).expect("usize should not fail converting to u64"),
+                )
+                .unwrap(),
+            );
             let node = Digest::try_from(&record.node)?;
             Ok((id, node))
         })

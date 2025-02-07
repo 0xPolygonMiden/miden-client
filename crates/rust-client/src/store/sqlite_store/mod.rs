@@ -117,10 +117,9 @@ impl SqliteStore {
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 #[async_trait(?Send)]
 impl Store for SqliteStore {
-    #[allow(clippy::cast_sign_loss)]
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
-        Some(now.timestamp() as u64)
+        Some(u64::try_from(now.timestamp()).expect("timestamp is always after epoch"))
     }
 
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {

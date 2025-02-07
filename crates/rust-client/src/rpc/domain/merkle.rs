@@ -52,13 +52,12 @@ impl From<MmrDelta> for generated::mmr::MmrDelta {
 impl TryFrom<generated::mmr::MmrDelta> for MmrDelta {
     type Error = RpcConversionError;
 
-    #[allow(clippy::cast_possible_truncation)]
     fn try_from(value: generated::mmr::MmrDelta) -> Result<Self, Self::Error> {
         let data: Result<Vec<_>, RpcConversionError> =
             value.data.into_iter().map(Digest::try_from).collect();
 
         Ok(MmrDelta {
-            forest: value.forest as usize,
+            forest: usize::try_from(value.forest).expect("forest is limited to usize size"),
             data: data?,
         })
     }

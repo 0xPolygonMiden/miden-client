@@ -218,7 +218,6 @@ impl Deserializable for InputNoteState {
 }
 
 impl Display for InputNoteState {
-    #[allow(clippy::cast_possible_wrap)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InputNoteState::Expected(state) => {
@@ -258,7 +257,11 @@ impl Display for InputNoteState {
                     "Processing (submitted at {} by account {})",
                     submission_data.submitted_at.map_or("?".to_string(), |submitted_at| {
                         Local
-                            .timestamp_opt(submitted_at as i64, 0)
+                            .timestamp_opt(
+                                i64::try_from(submitted_at)
+                                    .expect("i64::MAX as timestamp is year 2262"),
+                                0,
+                            )
                             .single()
                             .expect("timestamp should be valid")
                             .to_string()

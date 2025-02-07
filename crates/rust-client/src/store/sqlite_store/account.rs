@@ -19,7 +19,7 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (String, String, String, String, i64, bool, String);
+type SerializedAccountData = (String, String, String, String, u64, bool, String);
 type SerializedAccountsParts = (String, i64, String, String, String, Option<Vec<u8>>, bool);
 
 type SerializedAccountAuthData = (String, Vec<u8>, Vec<u8>);
@@ -331,7 +331,6 @@ pub(super) fn parse_accounts_columns(
 }
 
 /// Parse an account from the provided parts.
-#[allow(clippy::cast_sign_loss)]
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
 ) -> Result<(AccountHeader, AccountStatus), StoreError> {
@@ -348,7 +347,7 @@ pub(super) fn parse_accounts(
     Ok((
         AccountHeader::new(
             AccountId::from_hex(&id).expect("Conversion from stored AccountID should not panic"),
-            Felt::new(nonce as u64),
+            Felt::new(u64::try_from(nonce).expect("nonce are always positive")),
             Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
@@ -358,7 +357,6 @@ pub(super) fn parse_accounts(
 }
 
 /// Parse an account from the provided parts.
-#[allow(clippy::cast_sign_loss)]
 pub(super) fn parse_account(
     serialized_account_parts: SerializedFullAccountParts,
 ) -> Result<AccountRecord, StoreError> {
@@ -374,7 +372,7 @@ pub(super) fn parse_account(
         AssetVault::new(&account_assets)?,
         account_storage,
         account_code,
-        Felt::new(nonce as u64),
+        Felt::new(u64::try_from(nonce).expect("nonce is always positive")),
     );
 
     let status = match (account_seed, locked) {
@@ -388,14 +386,13 @@ pub(super) fn parse_account(
 
 /// Serialized the provided account into database compatible types.
 // TODO: review the clippy exemption.
-#[allow(clippy::cast_possible_wrap)]
 fn serialize_account(account: &Account) -> SerializedAccountData {
     let id: String = account.id().to_hex();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
     let vault_root = account.vault().commitment().to_string();
     let committed = account.is_public();
-    let nonce = account.nonce().as_int() as i64;
+    let nonce = account.nonce().as_int();
     let hash = account.hash().to_string();
 
     (id, code_root, commitment_root, vault_root, nonce, committed, hash)

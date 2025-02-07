@@ -150,7 +150,6 @@ impl ProtoAccountStateHeader {
     /// # Errors
     /// - If account code is missing both on `self` and `known_account_codes`
     /// - If data cannot be correctly deserialized
-    #[allow(clippy::cast_possible_truncation)]
     pub fn into_domain(
         self,
         account_id: AccountId,
@@ -190,9 +189,16 @@ impl ProtoAccountStateHeader {
         let mut storage_slot_proofs: BTreeMap<u8, Vec<SmtProof>> = BTreeMap::new();
         for StorageSlotMapProof { storage_slot, smt_proof } in storage_maps {
             let proof = SmtProof::read_from_bytes(&smt_proof)?;
-            match storage_slot_proofs.get_mut(&(storage_slot as u8)) {
+            match storage_slot_proofs
+                .get_mut(&(u8::try_from(storage_slot).expect("there are no more than 256 slots")))
+            {
                 Some(list) => list.push(proof),
-                None => _ = storage_slot_proofs.insert(storage_slot as u8, vec![proof]),
+                None => {
+                    _ = storage_slot_proofs.insert(
+                        u8::try_from(storage_slot).expect("only 256 storage slots"),
+                        vec![proof],
+                    );
+                },
             }
         }
 

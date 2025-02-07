@@ -79,7 +79,6 @@ impl SqliteStore {
             .collect()
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     pub(crate) fn get_chain_mmr_nodes(
         conn: &mut Connection,
         filter: &ChainMmrNodeFilter,
@@ -89,7 +88,7 @@ impl SqliteStore {
             let id_values = ids
                 .iter()
                  // id.inner() is a usize casted to u64, should not fail.
-                .map(|id| Value::Integer(id.inner() as i64))
+                .map(|id| Value::Integer(i64::try_from(id.inner()).expect("id is a valid i64")))
                 .collect::<Vec<_>>();
 
             params.push(Rc::new(id_values));
@@ -220,29 +219,28 @@ fn parse_block_header(
     Ok((BlockHeader::read_from_bytes(&header)?, has_client_notes))
 }
 
-#[allow(clippy::cast_possible_wrap)]
 fn serialize_chain_mmr_node(id: InOrderIndex, node: Digest) -> SerializedChainMmrNodeData {
-    let id: u64 = id.into();
+    let id = i64::try_from(id.inner()).expect("id is a valid i64");
     let node = node.to_hex();
-    (id as i64, node)
+    (id, node)
 }
 
-#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 fn parse_chain_mmr_nodes_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
-    let id: i64 = row.get(0)?;
+    let id: u64 = row.get(0)?;
     let node = row.get(1)?;
-    Ok((id as u64, node))
+    Ok((id, node))
 }
 
-#[allow(clippy::cast_possible_truncation)]
 fn parse_chain_mmr_nodes(
     serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
 ) -> Result<(InOrderIndex, Digest), StoreError> {
     let (id, node) = serialized_chain_mmr_node_parts;
 
-    let id = InOrderIndex::new(NonZeroUsize::new(id as usize).unwrap());
+    let id = InOrderIndex::new(
+        NonZeroUsize::new(usize::try_from(id).expect("id is u64, should not fail")).unwrap(),
+    );
     let node: Digest = Digest::try_from(&node)?;
     Ok((id, node))
 }

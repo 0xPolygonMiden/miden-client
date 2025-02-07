@@ -146,7 +146,6 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    #[allow(clippy::cast_possible_truncation)]
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
@@ -168,7 +167,11 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
+                NoteInclusionProof::new(
+                    note.block_num.into(),
+                    u16::try_from(note.note_index).expect("note index out of range"),
+                    merkle_path,
+                )?
             };
 
             let note = if let Some(details) = note.details {

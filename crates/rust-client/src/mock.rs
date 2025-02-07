@@ -206,7 +206,6 @@ impl MockRpcApi {
 }
 use alloc::boxed::Box;
 #[async_trait(?Send)]
-#[allow(clippy::cast_possible_truncation)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
@@ -214,7 +213,7 @@ impl NodeRpcClient for MockRpcApi {
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
-            chain_tip: self.blocks.len() as u32,
+            chain_tip: u32::try_from(self.blocks.len()).expect("block number overflow"),
             notes: vec![],
             block_header: Some(self.blocks.last().unwrap().header().into()),
             mmr_path: Some(MerklePath::default()),
