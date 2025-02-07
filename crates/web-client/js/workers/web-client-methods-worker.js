@@ -1,5 +1,36 @@
 import wasm from "../../dist/wasm.js";
 
+/**
+ * Worker for executing WebClient methods in a separate thread.
+ *
+ * This worker offloads computationally heavy tasks from the main thread by handling
+ * WebClient operations asynchronously. It imports the WASM module and instantiates a
+ * WASM WebClient, then listens for messages from the main thread to perform one of two actions:
+ *
+ * 1. **Initialization (init):**
+ *    - The worker receives an "init" message along with user parameters (RPC URL, prover URL, and seed).
+ *    - It instantiates the WASM WebClient and calls its create_client method.
+ *    - Once initialization is complete, the worker sends a `{ ready: true }` message back to signal
+ *      that it is fully initialized.
+ *
+ * 2. **Method Invocation (callMethod):**
+ *    - The worker receives a "callMethod" message with a specific method name and arguments.
+ *    - It uses a mapping (defined in `methodHandlers`) to route the call to the corresponding WASM WebClient method.
+ *    - Complex data is serialized before being sent and deserialized upon return.
+ *    - The result (or any error) is then posted back to the main thread.
+ *
+ * The worker uses a message queue to process incoming messages sequentially, ensuring that only one message
+ * is handled at a time.
+ *
+ * Additionally, the worker immediately sends a `{ loaded: true }` message upon script load. This informs the main
+ * thread that the worker script is loaded and ready to receive the "init" message.
+ *
+ * Supported actions (defined in `WorkerAction`):
+ *   - "init"       : Initialize the WASM WebClient with provided parameters.
+ *   - "callMethod" : Invoke a designated method on the WASM WebClient.
+ *
+ * Supported method names are defined in the `MethodName` constant.
+ */
 const WorkerAction = Object.freeze({
   INIT: "init",
   CALL_METHOD: "callMethod",

@@ -83,7 +83,31 @@ export {
   Word,
 };
 
-// Wrapper for WebClient
+/**
+ * WebClient is a wrapper around the underlying WASM WebClient object.
+ *
+ * This wrapper serves several purposes:
+ *
+ * 1. It creates a dedicated web worker to offload computationally heavy tasks
+ *    (such as creating accounts, executing transactions, submitting transactions, etc.)
+ *    from the main thread, helping to prevent UI freezes in the browser.
+ *
+ * 2. It defines methods that mirror the API of the underlying WASM WebClient,
+ *    with the intention of executing these functions via the web worker. This allows us
+ *    to maintain the same API and parameters while benefiting from asynchronous, worker-based computation.
+ *
+ * 3. It employs a Proxy to forward any calls not designated for web worker computation
+ *    directly to the underlying WASM WebClient instance.
+ *
+ * Additionally, the wrapper provides a static create_client function. This static method
+ * instantiates the WebClient object and ensures that the necessary create_client calls are
+ * performed both in the main thread and within the worker thread. This dual initialization
+ * correctly passes user parameters (RPC URL, prover URL, and seed) to both the main-thread
+ * WASM WebClient and the worker-side instance.
+ *
+ * Because of this implementation, the only breaking change for end users is in the way the
+ * web client is instantiated. Users should now use the WebClient.create_client static call.
+ */
 export class WebClient {
   constructor(rpcUrl, proverUrl, seed) {
     this.rpcUrl = rpcUrl;
