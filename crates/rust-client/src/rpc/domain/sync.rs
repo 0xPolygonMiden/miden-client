@@ -21,7 +21,7 @@ pub struct StateSyncInfo {
     pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
-    /// MMR delta that contains data for `(current_block.num, incoming_block_header.num-1)`.
+    /// MMR delta that contains data for (`current_block.num`, `incoming_block_header.num-1`).
     pub mmr_delta: MmrDelta,
     /// Tuples of `AccountId` alongside their new account hashes.
     pub account_hash_updates: Vec<(AccountId, Digest)>,
