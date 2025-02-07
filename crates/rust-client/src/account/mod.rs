@@ -30,7 +30,6 @@
 //! // for new accounts.
 //! client.add_account(&account,
 //!     Some(seed),
-//!     &AuthSecretKey::RpoFalcon512(key_pair),
 //!     false
 //! ).await?;
 //! #   Ok(())
