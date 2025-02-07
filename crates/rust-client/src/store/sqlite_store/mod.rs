@@ -13,7 +13,7 @@ use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteTag, Nullifier},
@@ -246,13 +246,11 @@ impl Store for SqliteStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
         let account = account.clone();
-        let auth_info = auth_info.clone();
 
         self.interact_with_connection(move |conn| {
-            SqliteStore::insert_account(conn, &account, account_seed, &auth_info)
+            SqliteStore::insert_account(conn, &account, account_seed)
         })
         .await
     }
@@ -270,16 +268,6 @@ impl Store for SqliteStore {
 
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_headers).await
-    }
-
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.interact_with_connection(move |conn| {
-            SqliteStore::get_account_auth_by_pub_key(conn, pub_key)
-        })
-        .await
     }
 
     async fn get_account_header(
@@ -305,14 +293,6 @@ impl Store for SqliteStore {
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, StoreError> {
         self.interact_with_connection(move |conn| SqliteStore::get_account(conn, account_id))
-            .await
-    }
-
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_account_auth(conn, account_id))
             .await
     }
 

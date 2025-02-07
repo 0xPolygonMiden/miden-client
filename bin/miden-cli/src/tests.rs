@@ -13,20 +13,20 @@ use miden_client::{
         component::{BasicWallet, RpoFalcon512},
         AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
-    auth::AuthSecretKey,
+    authenticator::ClientAuthenticator,
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
     rpc::TonicRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
+    store::{sqlite_store::SqliteStore, NoteFilter},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
     Client, Felt,
 };
-use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet};
+use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR};
 use predicates::str::contains;
 use rand::Rng;
 use uuid::Uuid;
@@ -112,7 +112,7 @@ async fn test_mint_with_untracked_account() {
 
     let target_account_id = {
         let other_store_path = create_test_store_path();
-        let mut client = create_test_client_with_store_path(&other_store_path).await;
+        let (mut client, _) = create_test_client_with_store_path(&other_store_path).await;
         let key_pair = SecretKey::with_rng(client.rng());
 
         let mut init_seed = [0u8; 32];
@@ -129,10 +129,7 @@ async fn test_mint_with_untracked_account() {
             .build()
             .unwrap();
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await
-            .unwrap();
+        client.add_account(&new_account, Some(seed), false).await.unwrap();
 
         new_account.id().to_hex()
     };
@@ -158,7 +155,7 @@ async fn test_mint_with_untracked_account() {
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -223,7 +220,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     sync_cli(&temp_dir);
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let (client, _) = create_test_client_with_store_path(&store_path).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
@@ -293,7 +290,7 @@ async fn test_cli_export_import_note() {
     create_wallet_cmd.current_dir(&temp_dir_2).assert().success();
 
     let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_2).await;
+        let client = create_test_client_with_store_path(&store_path_2).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -326,7 +323,7 @@ async fn test_cli_export_import_note() {
     create_faucet_cmd.current_dir(&temp_dir_1).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -339,7 +336,7 @@ async fn test_cli_export_import_note() {
 
     // Create a Client to get notes
     let note_to_export_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
         output_notes.first().unwrap().id().to_hex()
@@ -429,11 +426,21 @@ async fn test_cli_export_import_account() {
 
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
-    create_wallet_cmd.args(["new-wallet", "-s", "private"]);
+    create_wallet_cmd.args([
+        "new-faucet",
+        "-s",
+        "private",
+        "-t",
+        "BTC",
+        "-d",
+        "8",
+        "-m",
+        "100000000000",
+    ]);
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
-    let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+    let faucet_id = {
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -441,13 +448,7 @@ async fn test_cli_export_import_account() {
 
     // Export the account
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args([
-        "export",
-        &first_basic_account_id,
-        "--account",
-        "--filename",
-        ACCOUNT_FILENAME,
-    ]);
+    export_cmd.args(["export", &faucet_id, "--account", "--filename", ACCOUNT_FILENAME]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Copy the account file
@@ -463,11 +464,16 @@ async fn test_cli_export_import_account() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Ensure the account was imported
-    let client_2 = create_test_client_with_store_path(&store_path_2).await;
-    assert!(client_2
-        .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
-        .await
-        .is_ok());
+    let client_2 = create_test_client_with_store_path(&store_path_2).await.0;
+    assert!(client_2.get_account(AccountId::from_hex(&faucet_id).unwrap()).await.is_ok());
+
+    sync_cli(&temp_dir_2);
+
+    mint_cli(
+        &temp_dir_2,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap().to_hex().as_str(),
+        &faucet_id,
+    );
 }
 
 #[test]
@@ -515,7 +521,7 @@ async fn test_consume_unauthenticated_note() {
     create_wallet_cmd.current_dir(&temp_dir).assert().success();
 
     let wallet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts[0].0.id().to_hex()
@@ -537,7 +543,7 @@ async fn test_consume_unauthenticated_note() {
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts[1].0.id().to_hex()
@@ -549,7 +555,7 @@ async fn test_consume_unauthenticated_note() {
     mint_cli(&temp_dir, &wallet_account_id, &fungible_faucet_account_id);
 
     // Get consumable note to consume without authentication
-    let client = create_test_client_with_store_path(&store_path).await;
+    let client = create_test_client_with_store_path(&store_path).await.0;
     let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
     let note_id = output_notes.first().unwrap().id().to_hex();
@@ -626,7 +632,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
 
 /// Syncs until there are no input notes satisfying the provided filter.
 async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
-    let client = create_test_client_with_store_path(store_path).await;
+    let client = create_test_client_with_store_path(store_path).await.0;
 
     while !client.get_input_notes(filter.clone()).await.unwrap().is_empty() {
         sync_cli(cli_path);
@@ -651,7 +657,9 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
+async fn create_test_client_with_store_path(
+    store_path: &Path,
+) -> (TestClient, ClientAuthenticator<RpoRandomCoin>) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -664,13 +672,16 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
-        rng,
-        store,
-        std::sync::Arc::new(authenticator),
-        true,
+    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng).unwrap();
+    (
+        TestClient::new(
+            Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+            rng,
+            store,
+            std::sync::Arc::new(authenticator.clone()),
+            true,
+        ),
+        authenticator,
     )
 }
 
@@ -688,8 +699,10 @@ async fn debug_mode_outputs_logs() {
 
     // Create a Client and a custom note
     let store_path = create_test_store_path();
-    let mut client = create_test_client_with_store_path(&store_path).await;
-    let (account, _) = insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (mut client, authenticator) = create_test_client_with_store_path(&store_path).await;
+    let (account, ..) = insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+        .await
+        .unwrap();
 
     // Create the custom note
     let note_script = "       
@@ -748,11 +761,22 @@ async fn debug_mode_outputs_logs() {
 
     sync_cli(&temp_dir);
 
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "public"]);
+    create_wallet_cmd.current_dir(&temp_dir).assert().success();
+
+    let wallet_account_id = {
+        let client = create_test_client_with_store_path(&store_path).await.0;
+        let accounts = client.get_account_headers().await.unwrap();
+
+        accounts[1].0.id().to_hex()
+    };
+
     // Consume the note and check the output
     let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    let account_id = account.id().to_hex();
     let note_id = note.id().to_hex();
-    let mut cli_args = vec!["consume-notes", "--account", &account_id[0..8], "--force"];
+    let mut cli_args = vec!["consume-notes", "--account", &wallet_account_id[0..8], "--force"];
     cli_args.extend_from_slice(vec![note_id.as_str()].as_slice());
     consume_note_cmd.args(&cli_args);
     consume_note_cmd

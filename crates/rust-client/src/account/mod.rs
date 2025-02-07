@@ -41,11 +41,7 @@
 
 use alloc::vec::Vec;
 
-pub use miden_objects::account::{
-    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot,
-};
-use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
+use miden_objects::{crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
@@ -55,6 +51,12 @@ use crate::{
 
 // RE-EXPORTS
 // ================================================================================================
+pub mod procedure_roots;
+
+pub use miden_objects::account::{
+    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    AccountStorageMode, AccountType, StorageSlot,
+};
 
 pub mod component {
     pub use miden_lib::account::{
@@ -105,7 +107,6 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_secret_key: &AuthSecretKey,
         overwrite: bool,
     ) -> Result<(), ClientError> {
         let account_seed = if account.is_new() {
@@ -134,7 +135,7 @@ impl<R: FeltRng> Client<R> {
                 self.store.add_note_tag(account.try_into()?).await?;
 
                 self.store
-                    .insert_account(account, account_seed, auth_secret_key)
+                    .insert_account(account, account_seed)
                     .await
                     .map_err(ClientError::StoreError)
             },
@@ -198,15 +199,6 @@ impl<R: FeltRng> Client<R> {
         self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
-    /// Returns an [AuthSecretKey] object utilized to authenticate an account. Returns `None`
-    /// if the account ID is not found.
-    pub async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, ClientError> {
-        self.store.get_account_auth(account_id).await.map_err(|err| err.into())
-    }
-
     /// Attempts to retrieve an [AccountRecord] by its [AccountId].
     ///
     /// # Errors
@@ -233,21 +225,6 @@ impl<R: FeltRng> Client<R> {
         account_id: AccountId,
     ) -> Result<(AccountHeader, AccountStatus), ClientError> {
         self.get_account_header_by_id(account_id)
-            .await?
-            .ok_or(ClientError::AccountDataNotFound(account_id))
-    }
-
-    /// Attempts to retrieve an [AuthSecretKey] by the [AccountId] associated with the account.
-    ///
-    /// # Errors
-    ///
-    /// - If the key is not found for the passed `account_id`.
-    /// - If the underlying store operation fails.
-    pub async fn try_get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthSecretKey, ClientError> {
-        self.get_account_auth(account_id)
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
@@ -297,7 +274,7 @@ pub mod tests {
     #[tokio::test]
     pub async fn try_add_account() {
         // generate test client
-        let (mut client, _rpc_api) = create_test_client().await;
+        let (mut client, _rpc_api, _) = create_test_client().await;
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -305,38 +282,20 @@ pub mod tests {
             TransactionKernel::testing_assembler(),
         );
 
-        let key_pair = SecretKey::new();
-
-        assert!(client
-            .add_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
-            .await
-            .is_err());
-        assert!(client
-            .add_account(
-                &account,
-                Some(Word::default()),
-                &AuthSecretKey::RpoFalcon512(key_pair),
-                false
-            )
-            .await
-            .is_ok());
+        assert!(client.add_account(&account, None, false).await.is_err());
+        assert!(client.add_account(&account, Some(Word::default()), false).await.is_ok());
     }
 
     #[tokio::test]
     async fn load_accounts_test() {
         // generate test client
-        let (mut client, _) = create_test_client().await;
+        let (mut client, ..) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
             client
-                .add_account(
-                    &account_data.account,
-                    account_data.account_seed,
-                    &account_data.auth_secret_key,
-                    false,
-                )
+                .add_account(&account_data.account, account_data.account_seed, false)
                 .await
                 .unwrap();
         }

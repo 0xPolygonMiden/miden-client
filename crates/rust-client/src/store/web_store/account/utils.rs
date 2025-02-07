@@ -1,7 +1,7 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
     asset::{Asset, AssetVault},
     utils::Deserializable,
     Digest, Felt, Word,
@@ -39,24 +39,6 @@ pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), 
 
     let promise = idxdb_insert_account_asset_vault(commitment, assets);
     let _ = JsFuture::from(promise).await;
-    Ok(())
-}
-
-pub async fn insert_account_auth(
-    account_id: AccountId,
-    auth_info: &AuthSecretKey,
-) -> Result<(), ()> {
-    let pub_key = match auth_info {
-        AuthSecretKey::RpoFalcon512(secret) => Word::from(secret.public_key()),
-    }
-    .to_bytes();
-
-    let account_id_str = account_id.to_string();
-    let auth_info = auth_info.to_bytes();
-
-    let promise = idxdb_insert_account_auth(account_id_str, auth_info, pub_key);
-    let _ = JsFuture::from(promise).await;
-
     Ok(())
 }
 
