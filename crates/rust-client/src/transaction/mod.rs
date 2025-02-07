@@ -79,7 +79,7 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, Word, ZERO,
+    AccountError, AssetError, Digest, Felt, Word, ZERO,
 };
 use miden_tx::{
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -93,7 +93,7 @@ use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
-    note::{NoteScreener, NoteUpdates},
+    note::{script_roots::RPO_FALCON_512_AUTH_PROCEDURE, NoteScreener, NoteUpdates},
     rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
@@ -796,7 +796,7 @@ impl<R: FeltRng> Client<R> {
         let account: Account = self.try_get_account(account_id).await?.into();
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
-        let account_capabilities = match account.account_type() {
+        let interfaces = match account.account_type() {
             AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
             AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
             AccountType::RegularAccountImmutableCode | AccountType::RegularAccountUpdatableCode => {
@@ -804,11 +804,19 @@ impl<R: FeltRng> Client<R> {
             },
         };
 
-        Ok(AccountCapabilities {
-            account_id,
-            auth: AuthSecretKey::RpoFalcon512(SecretKey::new()), /* TODO: we don't know if this is the secret key component */
-            interfaces: account_capabilities,
-        })
+        let auth = if account
+            .code()
+            .procedure_roots()
+            .any(|root| root.to_hex() == RPO_FALCON_512_AUTH_PROCEDURE)
+        {
+            AuthSecretKey::RpoFalcon512(SecretKey::new())
+        } else {
+            return Err(ClientError::AccountError(AccountError::AssumptionViolated(
+                "Account doesn't have authentication procedure".to_string(),
+            )));
+        };
+
+        Ok(AccountCapabilities { account_id, auth, interfaces })
     }
 
     /// Injects foreign account data inputs into `tx_args` (account proof, code commitment and

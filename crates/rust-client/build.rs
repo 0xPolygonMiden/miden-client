@@ -5,7 +5,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miden_lib::note::scripts::{p2id, p2idr, swap};
+use miden_lib::{
+    account::auth::RpoFalcon512,
+    note::scripts::{p2id, p2idr, swap},
+};
+use miden_objects::{account::AccountComponent, crypto::dsa::rpo_falcon512::PublicKey, EMPTY_WORD};
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
@@ -107,7 +111,22 @@ fn generate_known_script_roots() -> std::io::Result<()> {
     writeln!(f, "pub const P2IDR: &str = \"{}\";\n", p2idr().hash())?;
 
     writeln!(f, "/// Script root of the SWAP note script.")?;
-    writeln!(f, "pub const SWAP: &str = \"{}\";", swap().hash())?;
+    writeln!(f, "pub const SWAP: &str = \"{}\";\n", swap().hash())?;
+
+    // Generate rpo falcon authenticaion script root
+
+    let rpo_falcon_512_component: AccountComponent =
+        RpoFalcon512::new(PublicKey::new(EMPTY_WORD)).into();
+
+    let rpo_auth_proc_root = rpo_falcon_512_component
+        .library()
+        .mast_forest()
+        .procedure_digests()
+        .next()
+        .expect("RpoFalcon512 component should have one procedure root");
+
+    writeln!(f, "/// Procedure root of the RpoFalcon512 authentication component.")?;
+    writeln!(f, "pub const RPO_FALCON_512_AUTH_PROCEDURE: &str = \"{}\";", rpo_auth_proc_root)?;
 
     Ok(())
 }
