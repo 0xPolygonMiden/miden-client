@@ -1,10 +1,10 @@
 use miden_client::{
     transaction::TransactionResult as NativeTransactionResult,
-    utils::{Serializable, Deserializable}
+    utils::{Deserializable, Serializable},
 };
 use miden_objects::utils::SliceReader;
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys::Uint8Array;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
 use super::{
     account_delta::AccountDelta, executed_transaction::ExecutedTransaction,

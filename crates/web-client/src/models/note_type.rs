@@ -19,7 +19,7 @@ impl NoteType {
         NoteType(NativeNoteType::Encrypted)
     }
 
-    pub fn as_str(&self) -> String {
+    pub fn serialize(&self) -> String {
         match self.0 {
             NativeNoteType::Private => "private".to_string(),
             NativeNoteType::Public => "public".to_string(),
@@ -27,7 +27,7 @@ impl NoteType {
         }
     }
 
-    pub fn from_str(mode: &str) -> Result<NoteType, JsValue> {
+    pub fn deserialize(mode: &str) -> Result<NoteType, JsValue> {
         match mode {
             "private" => Ok(NoteType::private()),
             "public" => Ok(NoteType::public()),

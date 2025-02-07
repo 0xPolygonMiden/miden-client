@@ -58,7 +58,6 @@ before(async () => {
   // Creates the client in the test context and attach to window object
   await testingPage.evaluate(
     async (rpc_port, remote_prover_port) => {
-      console.log("MOCHA GLOBAL SETUP: Start of evaluate");
       const {
         Account,
         AccountHeader,
@@ -156,7 +155,6 @@ before(async () => {
         maxWaitTime = 20000,
         delayInterval = 1000
       ) => {
-        console.log("Waiting for transaction", JSON.stringify(transactionId));
         const client = window.client;
         let timeWaited = 0;
         while (true) {
@@ -179,7 +177,11 @@ before(async () => {
       };
 
       window.helpers.refreshClient = async (initSeed) => {
-        const client = await WebClient.create_client(rpc_url, prover_url, initSeed);
+        const client = await WebClient.create_client(
+          rpc_url,
+          prover_url,
+          initSeed
+        );
         window.client = client;
       };
     },

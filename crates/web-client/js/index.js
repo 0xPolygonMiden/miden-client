@@ -80,7 +80,7 @@ export {
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
-  Word
+  Word,
 };
 
 // Wrapper for WebClient
@@ -101,7 +101,12 @@ export class WebClient {
     // containing the corresponding promise's resolve and reject functions.
     this.pendingRequests = new Map();
 
-    // Create a promise that resolves when the worker signals it is ready.
+    // Create a promise that resolves when the worker script has loaded.
+    this.loaded = new Promise((resolve) => {
+      this.loadedResolver = resolve;
+    });
+
+    // Create a promise that resolves when the worker signals that it is fully initialized.
     this.ready = new Promise((resolve) => {
       this.readyResolver = resolve;
     });
@@ -110,7 +115,13 @@ export class WebClient {
     this.worker.addEventListener("message", (event) => {
       const data = event.data;
 
-      // Worker initialization message.
+      // Worker script loaded message.
+      if (data.loaded) {
+        this.loadedResolver();
+        return;
+      }
+
+      // Worker initialization (ready) message.
       if (data.ready) {
         this.readyResolver();
         return;
@@ -122,7 +133,10 @@ export class WebClient {
         const { resolve, reject } = this.pendingRequests.get(requestId);
         this.pendingRequests.delete(requestId);
         if (error) {
-          console.error(`WebClient: Error from worker in ${methodName}:`, error);
+          console.error(
+            `WebClient: Error from worker in ${methodName}:`,
+            error
+          );
           reject(new Error(error));
         } else {
           resolve(result);
@@ -130,9 +144,12 @@ export class WebClient {
       }
     });
 
-    // Once ready, initialize the worker.
-    this.ready.then(() => {
-      this.worker.postMessage({ action: "init", args: [this.rpcUrl, this.proverUrl, this.seed] });
+    // Once the worker script has fully loaded, initialize the worker.
+    this.loaded.then(() => {
+      this.worker.postMessage({
+        action: "init",
+        args: [this.rpcUrl, this.proverUrl, this.seed],
+      });
     });
 
     // Create the underlying WASM WebClient.
@@ -193,7 +210,12 @@ export class WebClient {
       // Save the resolve and reject callbacks in the pendingRequests map.
       this.pendingRequests.set(requestId, { resolve, reject });
       // Send the method call request to the worker.
-      this.worker.postMessage({ action: "callMethod", methodName, args, requestId });
+      this.worker.postMessage({
+        action: "callMethod",
+        methodName,
+        args,
+        requestId,
+      });
     });
   }
 
@@ -218,8 +240,12 @@ export class WebClient {
 
   async new_wallet(storageMode, mutable) {
     try {
-      const serializedStorageMode = storageMode.as_str();
-      const serializedAccountBytes = await this.callMethodWithWorker("new_wallet", serializedStorageMode, mutable);
+      const serializedStorageMode = storageMode.serialize();
+      const serializedAccountBytes = await this.callMethodWithWorker(
+        "new_wallet",
+        serializedStorageMode,
+        mutable
+      );
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
       console.error("INDEX.JS: Error in new_wallet:", error);
@@ -229,7 +255,7 @@ export class WebClient {
 
   async new_faucet(storageMode, nonFungible, tokenSymbol, decimals, maxSupply) {
     try {
-      const serializedStorageMode = storageMode.as_str();
+      const serializedStorageMode = storageMode.serialize();
       const serializedMaxSupply = maxSupply.toString();
       const serializedAccountBytes = await this.callMethodWithWorker(
         "new_faucet",
@@ -239,7 +265,7 @@ export class WebClient {
         decimals,
         serializedMaxSupply
       );
-    
+
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
       console.error("INDEX.JS: Error in new_faucet:", error);
@@ -256,7 +282,9 @@ export class WebClient {
         serializedAccountId,
         serializedTransactionRequest
       );
-      return wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResultBytes));
+      return wasm.TransactionResult.deserialize(
+        new Uint8Array(serializedTransactionResultBytes)
+      );
     } catch (error) {
       console.error("INDEX.JS: Error in new_transaction:", error);
       throw error;
@@ -266,7 +294,7 @@ export class WebClient {
   async new_mint_transaction(targetAccountId, faucetId, noteType, amount) {
     const serializedTargetAccountId = targetAccountId.to_string();
     const serializedFaucetId = faucetId.to_string();
-    const serializedNoteType = noteType.as_str();
+    const serializedNoteType = noteType.serialize();
     const serializedAmount = amount.toString();
     try {
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
@@ -276,7 +304,9 @@ export class WebClient {
         serializedNoteType,
         serializedAmount
       );
-      return wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResultBytes));
+      return wasm.TransactionResult.deserialize(
+        new Uint8Array(serializedTransactionResultBytes)
+      );
     } catch (error) {
       console.error("INDEX.JS: Error in new_mint_transaction:", error);
       throw error; // Ensure the test catches and asserts
@@ -291,18 +321,30 @@ export class WebClient {
         serializedTargetAccountId,
         noteId
       );
-      return wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResultBytes));
+      return wasm.TransactionResult.deserialize(
+        new Uint8Array(serializedTransactionResultBytes)
+      );
     } catch (error) {
-      console.error("INDEX.JS: Error in consume_transaction:", JSON.stringify(error));
+      console.error(
+        "INDEX.JS: Error in consume_transaction:",
+        JSON.stringify(error)
+      );
       throw error;
     }
   }
 
-  async new_send_transaction(senderAccountId, receiverAccountId, faucetId, noteType, amount, recallHeight = null) {
+  async new_send_transaction(
+    senderAccountId,
+    receiverAccountId,
+    faucetId,
+    noteType,
+    amount,
+    recallHeight = null
+  ) {
     const serializedSenderAccountId = senderAccountId.to_string();
     const serializedReceiverAccountId = receiverAccountId.to_string();
     const serializedFaucetId = faucetId.to_string();
-    const serializedNoteType = noteType.as_str();
+    const serializedNoteType = noteType.serialize();
     const serializedAmount = amount.toString();
     try {
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
@@ -314,7 +356,9 @@ export class WebClient {
         serializedAmount,
         recallHeight
       );
-      return wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResultBytes));
+      return wasm.TransactionResult.deserialize(
+        new Uint8Array(serializedTransactionResultBytes)
+      );
     } catch (error) {
       console.error("INDEX.JS: Error in send_transaction:", error);
       throw error;
@@ -324,7 +368,10 @@ export class WebClient {
   async submit_transaction(transactionResult) {
     const serializedTransactionResult = transactionResult.serialize();
     try {
-      await this.callMethodWithWorker("submit_transaction", serializedTransactionResult);
+      await this.callMethodWithWorker(
+        "submit_transaction",
+        serializedTransactionResult
+      );
     } catch (error) {
       console.error("INDEX.JS: Error in submit_transaction:", error);
       throw error;
@@ -333,11 +380,18 @@ export class WebClient {
 
   async submit_transaction_with_prover(transactionResult, prover) {
     const serializedTransactionResult = transactionResult.serialize();
-    const serializedProver = prover.as_str();
+    const serializedProver = prover.serialize();
     try {
-      await this.callMethodWithWorker("submit_transaction_with_prover", serializedTransactionResult, serializedProver);
+      await this.callMethodWithWorker(
+        "submit_transaction_with_prover",
+        serializedTransactionResult,
+        serializedProver
+      );
     } catch (error) {
-      console.error("INDEX.JS: Error in submit_transaction_with_prover:", error);
+      console.error(
+        "INDEX.JS: Error in submit_transaction_with_prover:",
+        error
+      );
       throw error;
     }
   }
@@ -347,7 +401,7 @@ export class WebClient {
       await this.callMethodWithWorker("sync_state");
     } catch (error) {
       console.error("INDEX.JS: Error in sync_state:", error);
-      throw error
+      throw error;
     }
   }
 

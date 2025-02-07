@@ -1,6 +1,6 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.6.1-next.4",
+  "version": "0.7.0-next.0",
   "description": "Polygon Miden Wasm SDK",
   "collaborators": [
     "Polygon Miden",
@@ -32,7 +32,6 @@
     "@types/mocha": "^10.0.7",
     "@types/node": "^22.4.1",
     "@wasm-tool/rollup-plugin-rust": "^3.0.3",
-    "binaryen": "^121.0.0",
     "chai": "^5.1.1",
     "cpr": "^3.0.1",
     "cross-env": "^7.0.3",
@@ -49,9 +48,6 @@
   "dependencies": {
     "chai-as-promised": "^8.0.0",
     "dexie": "^4.0.1",
-    "events": "^3.3.0",
-    "glob": "^11.0.0",
-    "rollup-plugin-web-worker-loader": "^1.6.1",
-    "threads": "^1.7.0"
+    "glob": "^11.0.0"
   }
 }

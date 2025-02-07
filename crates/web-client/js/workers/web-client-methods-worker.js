@@ -28,25 +28,44 @@ let processing = false; // Flag to ensure one message is processed at a time.
 const methodHandlers = {
   [MethodName.NEW_WALLET]: async (args) => {
     const [walletStorageModeStr, mutable] = args;
-    const walletStorageMode = wasm.AccountStorageMode.from_str(walletStorageModeStr);
+    const walletStorageMode =
+      wasm.AccountStorageMode.deserialize(walletStorageModeStr);
     const wallet = await wasmWebClient.new_wallet(walletStorageMode, mutable);
     const serializedWallet = await wallet.serialize();
     return serializedWallet.buffer;
   },
   [MethodName.NEW_FAUCET]: async (args) => {
-    const [faucetStorageModeStr, nonFungible, tokenSymbol, decimals, maxSupplyStr] = args;
-    const faucetStorageMode = wasm.AccountStorageMode.from_str(faucetStorageModeStr);
+    const [
+      faucetStorageModeStr,
+      nonFungible,
+      tokenSymbol,
+      decimals,
+      maxSupplyStr,
+    ] = args;
+    const faucetStorageMode =
+      wasm.AccountStorageMode.deserialize(faucetStorageModeStr);
     const maxSupply = BigInt(maxSupplyStr);
-    const faucet = await wasmWebClient.new_faucet(faucetStorageMode, nonFungible, tokenSymbol, decimals, maxSupply);
+    const faucet = await wasmWebClient.new_faucet(
+      faucetStorageMode,
+      nonFungible,
+      tokenSymbol,
+      decimals,
+      maxSupply
+    );
     const serializedFaucet = await faucet.serialize();
     return serializedFaucet.buffer;
   },
   [MethodName.NEW_TRANSACTION]: async (args) => {
     const [accountIdStr, serializedTransactionRequest] = args;
     const accountId = wasm.AccountId.from_hex(accountIdStr);
-    const transactionRequest = wasm.TransactionRequest.deserialize(new Uint8Array(serializedTransactionRequest));
+    const transactionRequest = wasm.TransactionRequest.deserialize(
+      new Uint8Array(serializedTransactionRequest)
+    );
     await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(accountId);
-    const transactionResult = await wasmWebClient.new_transaction(accountId, transactionRequest);
+    const transactionResult = await wasmWebClient.new_transaction(
+      accountId,
+      transactionRequest
+    );
     const serializedTransactionResult = await transactionResult.serialize();
     return serializedTransactionResult.buffer;
   },
@@ -54,29 +73,48 @@ const methodHandlers = {
     const [targetAccountIdStr, faucetIdStr, noteTypeStr, amountStr] = args;
     const targetAccountId = wasm.AccountId.from_hex(targetAccountIdStr);
     const faucetId = wasm.AccountId.from_hex(faucetIdStr);
-    const noteType = wasm.NoteType.from_str(noteTypeStr);
+    const noteType = wasm.NoteType.deserialize(noteTypeStr);
     const amount = BigInt(amountStr);
     await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(faucetId);
-    const transactionResult = await wasmWebClient.new_mint_transaction(targetAccountId, faucetId, noteType, amount);
+    const transactionResult = await wasmWebClient.new_mint_transaction(
+      targetAccountId,
+      faucetId,
+      noteType,
+      amount
+    );
     const serializedTransactionResult = await transactionResult.serialize();
     return serializedTransactionResult.buffer;
   },
   [MethodName.NEW_CONSUME_TRANSACTION]: async (args) => {
     const [targetAccountIdStr, noteId] = args;
     const targetAccountId = wasm.AccountId.from_hex(targetAccountIdStr);
-    await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(targetAccountId);
-    const transactionResult = await wasmWebClient.new_consume_transaction(targetAccountId, noteId);
+    await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(
+      targetAccountId
+    );
+    const transactionResult = await wasmWebClient.new_consume_transaction(
+      targetAccountId,
+      noteId
+    );
     const serializedTransactionResult = await transactionResult.serialize();
     return serializedTransactionResult.buffer;
   },
   [MethodName.NEW_SEND_TRANSACTION]: async (args) => {
-    const [senderAccountIdStr, receiverAccountIdStr, faucetIdStr, noteTypeStr, amountStr, recallHeight] = args;
+    const [
+      senderAccountIdStr,
+      receiverAccountIdStr,
+      faucetIdStr,
+      noteTypeStr,
+      amountStr,
+      recallHeight,
+    ] = args;
     const senderAccountId = wasm.AccountId.from_hex(senderAccountIdStr);
     const receiverAccountId = wasm.AccountId.from_hex(receiverAccountIdStr);
     const faucetId = wasm.AccountId.from_hex(faucetIdStr);
-    const noteType = wasm.NoteType.from_str(noteTypeStr);
+    const noteType = wasm.NoteType.deserialize(noteTypeStr);
     const amount = BigInt(amountStr);
-    await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
+    await wasmWebClient.fetch_and_cache_account_auth_by_pub_key(
+      senderAccountId
+    );
     const transactionResult = await wasmWebClient.new_send_transaction(
       senderAccountId,
       receiverAccountId,
@@ -90,29 +128,36 @@ const methodHandlers = {
   },
   [MethodName.SUBMIT_TRANSACTION]: async (args) => {
     const [serializedTransactionResult] = args;
-    const transactionResult = wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResult));
+    const transactionResult = wasm.TransactionResult.deserialize(
+      new Uint8Array(serializedTransactionResult)
+    );
     await wasmWebClient.submit_transaction(transactionResult);
     return;
   },
   [MethodName.SUBMIT_TRANSACTION_WITH_PROVER]: async (args) => {
     const [serializedTransactionResult, serializedProver] = args;
-    const transactionResult = wasm.TransactionResult.deserialize(new Uint8Array(serializedTransactionResult));
+    const transactionResult = wasm.TransactionResult.deserialize(
+      new Uint8Array(serializedTransactionResult)
+    );
     let prover;
     if (serializedProver.startsWith("remote:")) {
-        // For a remote prover, extract the endpoint.
-        // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
-        const endpoint = serializedProver.split("remote:")[1];
-        prover = wasm.TransactionProver.from_str("remote", endpoint);
-      } else if (serializedProver === "local") {
-        prover = TransactionProver.from_str("local", null);
-      } else {
-        throw new Error("Invalid prover tag received in worker");
-      }
-    await wasmWebClient.submit_transaction_with_prover(transactionResult, prover);
+      // For a remote prover, extract the endpoint.
+      // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
+      const endpoint = serializedProver.split("remote:")[1];
+      prover = wasm.TransactionProver.deserialize("remote", endpoint);
+    } else if (serializedProver === "local") {
+      prover = TransactionProver.deserialize("local");
+    } else {
+      throw new Error("Invalid prover tag received in worker");
+    }
+    await wasmWebClient.submit_transaction_with_prover(
+      transactionResult,
+      prover
+    );
   },
-  [MethodName.SYNC_STATE]: async (args) => {
+  [MethodName.SYNC_STATE]: async () => {
     await wasmWebClient.sync_state();
-    return null;
+    return;
   },
 };
 
@@ -178,4 +223,4 @@ self.onmessage = (event) => {
 
 // Immediately signal that the worker script has loaded.
 // This tells the main thread that the file is fully loaded before sending the "init" message.
-self.postMessage({ ready: true });
+self.postMessage({ loaded: true });

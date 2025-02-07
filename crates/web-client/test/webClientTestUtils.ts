@@ -193,7 +193,6 @@ export const setupWalletAndFaucet =
         window.AccountStorageMode.private(),
         true
       );
-
       const faucetAccount = await client.new_faucet(
         window.AccountStorageMode.private(),
         false,
@@ -201,7 +200,6 @@ export const setupWalletAndFaucet =
         8,
         BigInt(10000000)
       );
-
       await client.sync_state();
 
       return {

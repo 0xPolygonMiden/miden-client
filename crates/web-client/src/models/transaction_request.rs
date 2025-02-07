@@ -1,7 +1,7 @@
 use miden_client::{
     transaction::{
         NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
-        TransactionRequestBuilder as NativeTransactionRequestBuilder
+        TransactionRequestBuilder as NativeTransactionRequestBuilder,
     },
     utils::{Deserializable, Serializable},
 };

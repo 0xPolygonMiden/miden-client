@@ -27,6 +27,7 @@
 * Enabled TLS on tonic client (#697).
 * Added account creation from component templates (#680).
 * Added serialization for `TransactionResult` (#704).
+* [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
 
 ### Fixes
 

@@ -351,13 +351,11 @@ export const customTransaction = async (
         .build();
 
       // Execute and Submit Transaction
-      console.log("Executing Custom Transaction");
       await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
       let transaction_result = await client.new_transaction(
         faucetAccount.id(),
         transaction_request
       );
-      console.log("Submitting Custom Transaction")
 
       if (_with_custom_prover) {
         await client.submit_transaction_with_prover(
@@ -367,12 +365,10 @@ export const customTransaction = async (
       } else {
         await client.submit_transaction(transaction_result);
       }
-      console.log("Waiting for Custom Transaction to Complete")
 
       await window.helpers.waitForTransaction(
         transaction_result.executed_transaction().id().to_hex()
       );
-      console.log("Custom Transaction Completed");
 
       // Just like in the miden test, you can modify this script to get the execution to fail
       // by modifying the assert
