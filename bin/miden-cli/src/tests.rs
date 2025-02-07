@@ -6,7 +6,7 @@ use std::{
 };
 
 use assert_cmd::Command;
-use config::{CliConfig, RpcConfig};
+use config::RpcConfig;
 use miden_client::{
     self,
     account::{
@@ -579,7 +579,7 @@ async fn test_init_with_devnet() {
     let mut config_file_str = String::new();
     config_file.read_to_string(&mut config_file_str).unwrap();
 
-    assert!(config_file_str.contains(Endpoint::devnet().to_string()));
+    assert!(config_file_str.contains(&Endpoint::devnet().to_string()));
 }
 
 #[tokio::test]
@@ -600,7 +600,7 @@ async fn test_init_with_testnet() {
     let mut config_file_str = String::new();
     config_file.read_to_string(&mut config_file_str).unwrap();
 
-    assert!(config_file_str.contains(Endpoint::testnet().to_string()));
+    assert!(config_file_str.contains(&Endpoint::testnet().to_string()));
 }
 
 // HELPERS
