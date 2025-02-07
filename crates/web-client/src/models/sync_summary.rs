@@ -12,10 +12,6 @@ impl SyncSummary {
         self.0.block_num.as_u32()
     }
 
-    pub fn received_notes(&self) -> Vec<NoteId> {
-        self.0.received_notes.iter().map(|note_id| note_id.into()).collect()
-    }
-
     pub fn committed_notes(&self) -> Vec<NoteId> {
         self.0.committed_notes.iter().map(|note_id| note_id.into()).collect()
     }

@@ -144,13 +144,9 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_sync_height).await
     }
 
-    async fn apply_state_sync_step(
-        &self,
-        state_sync_update: StateSyncUpdate,
-        block_has_relevant_notes: bool,
-    ) -> Result<(), StoreError> {
+    async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::apply_state_sync_step(conn, state_sync_update, block_has_relevant_notes)
+            SqliteStore::apply_state_sync(conn, state_sync_update)
         })
         .await
     }

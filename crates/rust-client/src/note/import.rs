@@ -175,7 +175,7 @@ impl<R: FeltRng> Client<R> {
                 note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
             if block_height < current_block_num {
-                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
 
                 let block_header = self
                     .get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
@@ -219,7 +219,7 @@ impl<R: FeltRng> Client<R> {
 
         match committed_note_data {
             Some((metadata, inclusion_proof)) => {
-                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
                 let block_header = self
                     .get_and_store_authenticated_block(
                         inclusion_proof.location().block_num(),

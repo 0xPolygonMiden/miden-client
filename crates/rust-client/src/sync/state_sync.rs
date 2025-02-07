@@ -3,22 +3,23 @@ use core::{future::Future, pin::Pin};
 
 use miden_objects::{
     account::{Account, AccountHeader, AccountId},
-    block::BlockHeader,
+    block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    transaction::TransactionId,
     Digest,
 };
 use tracing::info;
 
-use super::{get_nullifier_prefix, NoteTagRecord, SyncSummary};
+use super::{block_header::BlockUpdates, get_nullifier_prefix, SyncSummary};
 use crate::{
     account::AccountUpdates,
-    note::NoteUpdates,
+    note::{NoteScreener, NoteUpdates},
     rpc::{
         domain::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate},
         NodeRpcClient,
     },
-    store::{InputNoteRecord, NoteFilter, Store, StoreError},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     transaction::TransactionUpdates,
     ClientError,
 };
@@ -26,31 +27,25 @@ use crate::{
 // STATE SYNC UPDATE
 // ================================================================================================
 
+#[derive(Default)]
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the
-    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_header: BlockHeader,
-    /// Information about note changes after the sync.
+    /// The block number of the last block that was synced.
+    pub block_num: BlockNumber,
+    /// New blocks and authentication nodes.
+    pub block_updates: BlockUpdates,
+    /// New and updated notes to be upserted in the store.
     pub note_updates: NoteUpdates,
-    /// Information about transaction changes after the sync.
+    /// Committed and discarded transactions after the sync.
     pub transaction_updates: TransactionUpdates,
-    /// New MMR peaks for the locally tracked MMR of the blockchain.
-    pub new_mmr_peaks: MmrPeaks,
-    /// New authentications nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Information abount account changes after the sync.
+    /// Public account updates and mismatched private accounts after the sync.
     pub account_updates: AccountUpdates,
-    /// Tag records that are no longer relevant.
-    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
         SyncSummary::new(
-            value.block_header.block_num(),
-            value.note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
+            value.block_num,
             value.note_updates.committed_note_ids().into_iter().collect(),
             value.note_updates.consumed_note_ids().into_iter().collect(),
             value
@@ -75,62 +70,30 @@ impl From<&StateSyncUpdate> for SyncSummary {
     }
 }
 
-/// Gives information about the status of the sync process after a step.
-pub enum SyncStatus {
-    SyncedToLastBlock(StateSyncUpdate),
-    SyncedToBlock(StateSyncUpdate),
-}
-
-impl SyncStatus {
-    pub fn is_last_block(&self) -> bool {
-        matches!(self, SyncStatus::SyncedToLastBlock(_))
-    }
-}
-
-impl From<SyncStatus> for StateSyncUpdate {
-    fn from(value: SyncStatus) -> StateSyncUpdate {
-        match value {
-            SyncStatus::SyncedToLastBlock(update) => update,
-            SyncStatus::SyncedToBlock(update) => update,
-        }
-    }
-}
-
 // SYNC CALLBACKS
 // ================================================================================================
 
 /// Callback to be executed when a new note inclusion is received in the sync response. It receives
-/// the committed note received from the node and the block header in which the note was included.
-/// It returns the note updates that should be applied to the store and a list of public note IDs
-/// that should be queried from the node and start being tracked.
+/// the committed note received from the node, the block header in which the note was included and
+/// the list of public notes that were included in the block.
+///
+/// It returns two optional notes (one input and one output) that should be updated in the store and
+/// a flag indicating if the block is relevant to the client.
 pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
-        BlockHeader,
-    ) -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, Vec<NoteId>), ClientError>>>>,
+        Option<InputNoteRecord>,
+    ) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>,
 >;
 
-/// Callback to be executed when a transaction is marked committed in the sync response. It receives
-/// the transaction update received from the node. It returns the note updates and transaction
-/// updates that should be applied to the store as a result of the transaction being committed.
-pub type OnTransactionCommitted = Box<
-    dyn Fn(
-        TransactionUpdate,
-    )
-        -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, TransactionUpdates), ClientError>>>>,
->;
-
-/// Callback to be executed when a nullifier is received in the sync response. If a note was
-/// consumed by a committed transaction provided in the [OnTransactionCommitted] callback, its
-/// nullifier will not be passed to this callback. It receives the nullifier update received from
-/// the node. It returns the note updates and transaction updates that should be applied to the
-/// store as a result of the nullifier being received.
-pub type OnNullifierReceived = Box<
-    dyn Fn(
-        NullifierUpdate,
-    )
-        -> Pin<Box<dyn Future<Output = Result<(NoteUpdates, TransactionUpdates), ClientError>>>>,
->;
+/// Callback to be executed when a nullifier is received in the sync response. It receives the
+/// nullifier update received from the node and the list of transaction updates that were committed
+/// in the block.
+///
+/// It returns two optional notes (one input and one output) that should be updated in the store and
+/// an optional transaction ID if a transaction should be discarded.
+pub type OnNullifierReceived =
+    Box<dyn Fn(NullifierUpdate) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>>;
 
 // STATE SYNC
 // ================================================================================================
@@ -145,10 +108,11 @@ pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// Callback to be executed when a new note inclusion is received.
     on_note_received: OnNoteReceived,
-    /// Callback to be executed when a transaction is committed.
-    on_transaction_committed: OnTransactionCommitted,
     /// Callback to be executed when a nullifier is received.
     on_nullifier_received: OnNullifierReceived,
+    /// The state sync update that will be returned after the sync process is completed. It
+    /// agregates all the updates that come from each sync step.
+    state_sync_update: StateSyncUpdate,
 }
 
 impl StateSync {
@@ -158,51 +122,37 @@ impl StateSync {
     ///
     /// * `rpc_api` - The RPC client used to communicate with the node.
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
-    /// * `on_committed_transaction` - A callback to be executed when a transaction is committed.
     /// * `on_nullifier_received` - A callback to be executed when a nullifier is received.
     pub fn new(
         rpc_api: Arc<dyn NodeRpcClient + Send>,
         on_note_received: OnNoteReceived,
-        on_transaction_committed: OnTransactionCommitted,
         on_nullifier_received: OnNullifierReceived,
     ) -> Self {
         Self {
             rpc_api,
             on_note_received,
-            on_transaction_committed,
             on_nullifier_received,
+            state_sync_update: StateSyncUpdate::default(),
         }
     }
 
-    /// Executes a single step of the state sync process, returning the changes that should be
-    /// applied to the store.
+    /// Executes a single step of the state sync process, returning `true` if the client should
+    /// continue syncing and `false` if the client has reached the chain tip.
     ///
     /// A step in this context means a single request to the node to get the next relevant block and
     /// the changes that happened in it. This block may not be the last one in the chain and
     /// the client may need to call this method multiple times until it reaches the chain tip.
-    /// Wheter or not the client has reached the chain tip is indicated by the returned
-    /// [SyncStatus] variant. `None` is returned if the client is already synced with the chain tip
-    /// and there are no new changes.
     ///
-    /// # Arguments
-    /// * `current_block` - The latest tracked block header.
-    /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
-    ///   are relevant to the client. This is used to determine whether new MMR authentication nodes
-    ///   are stored for this block.
-    /// * `current_partial_mmr` - The current partial MMR.
-    /// * `accounts` - The headers of tracked accounts.
-    /// * `note_tags` - The note tags to be used in the sync state request.
-    /// * `unspent_nullifiers` - The nullifiers of tracked notes that haven't been consumed.
-    pub async fn sync_state_step(
-        &self,
-        current_block: BlockHeader,
-        current_block_has_relevant_notes: bool,
-        current_partial_mmr: PartialMmr,
-        accounts: Vec<AccountHeader>,
-        note_tags: Vec<NoteTag>,
-        unspent_nullifiers: Vec<Nullifier>,
-    ) -> Result<Option<SyncStatus>, ClientError> {
-        let current_block_num = current_block.block_num();
+    /// The `sync_state_update` field of the struct will be updated with the new changes from this
+    /// step.
+    async fn sync_state_step(
+        &mut self,
+        current_partial_mmr: &mut PartialMmr,
+        accounts: &[AccountHeader],
+        note_tags: &[NoteTag],
+        unspent_nullifiers: &[Nullifier],
+    ) -> Result<bool, ClientError> {
+        let current_block_num = (current_partial_mmr.num_leaves() as u32 - 1).into();
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
@@ -214,18 +164,19 @@ impl StateSync {
 
         let response = self
             .rpc_api
-            .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
+            .sync_state(current_block_num, &account_ids, note_tags, &nullifiers_tags)
             .await?;
+
+        self.state_sync_update.block_num = response.block_header.block_num();
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
-            return Ok(None);
+            return Ok(false);
         }
 
-        let account_updates =
-            self.account_state_sync(&accounts, &response.account_hash_updates).await?;
+        self.account_state_sync(accounts, &response.account_hash_updates).await?;
 
-        let (note_updates, transaction_updates, tags_to_remove) = self
+        let found_relevant_note = self
             .note_state_sync(
                 response.note_inclusions,
                 response.transactions,
@@ -235,34 +186,81 @@ impl StateSync {
             .await?;
 
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
-            current_block,
-            current_block_has_relevant_notes,
+            response.block_header,
+            found_relevant_note,
             current_partial_mmr,
             response.mmr_delta,
         )
         .await?;
 
-        let update = StateSyncUpdate {
-            block_header: response.block_header,
-            note_updates,
-            transaction_updates,
-            new_mmr_peaks,
+        self.state_sync_update.block_updates.extend(BlockUpdates {
+            block_headers: vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
             new_authentication_nodes,
-            account_updates,
-            tags_to_remove,
-        };
+        });
 
         if response.chain_tip == response.block_header.block_num() {
-            Ok(Some(SyncStatus::SyncedToLastBlock(update)))
+            Ok(false)
         } else {
-            Ok(Some(SyncStatus::SyncedToBlock(update)))
+            Ok(true)
         }
+    }
+
+    /// Syncs the state of the client with the chain tip of the node, returning the updates that
+    /// should be applied to the store.
+    ///
+    /// # Arguments
+    /// * `current_block` - The latest tracked block header.
+    /// * `current_block_has_relevant_notes` - A flag indicating if the current block has notes that
+    ///   are relevant to the client. This is used to determine whether new MMR authentication nodes
+    ///   are stored for this block.
+    /// * `current_partial_mmr` - The current partial MMR.
+    /// * `accounts` - The headers of tracked accounts.
+    /// * `note_tags` - The note tags to be used in the sync state request.
+    /// * `unspent_nullifiers` - The nullifiers of tracked notes that haven't been consumed.
+    pub async fn sync_state(
+        mut self,
+        mut current_partial_mmr: PartialMmr,
+        accounts: Vec<AccountHeader>,
+        note_tags: Vec<NoteTag>,
+        unspent_input_notes: Vec<InputNoteRecord>,
+        unspent_output_notes: Vec<OutputNoteRecord>,
+    ) -> Result<StateSyncUpdate, ClientError> {
+        let mut unspent_nullifiers: Vec<Nullifier> = unspent_input_notes
+            .iter()
+            .map(|note| note.nullifier())
+            .chain(unspent_output_notes.iter().filter_map(|note| note.nullifier()))
+            .collect();
+
+        self.state_sync_update.note_updates =
+            NoteUpdates::new(unspent_input_notes, unspent_output_notes);
+
+        while self
+            .sync_state_step(&mut current_partial_mmr, &accounts, &note_tags, &unspent_nullifiers)
+            .await?
+        {
+            // New nullfiers should be added for new untracked notes that were added in previous
+            // steps
+            unspent_nullifiers.append(
+                &mut self
+                    .state_sync_update
+                    .note_updates
+                    .updated_input_notes()
+                    .filter(|note| {
+                        note.is_committed() && !unspent_nullifiers.contains(&note.nullifier())
+                    })
+                    .map(|note| note.nullifier())
+                    .collect::<Vec<_>>(),
+            );
+        }
+
+        Ok(self.state_sync_update)
     }
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Compares the state of tracked accounts with the updates received from the node and returns
+    /// Compares the state of tracked accounts with the updates received from the node and updates
+    /// the `state_sync_update` with the details of
     /// the accounts that need to be updated.
     ///
     /// When a mismatch is detected, two scenarios are possible:
@@ -271,10 +269,10 @@ impl StateSync {
     /// * If the account is private it will be marked as mismatched and the client will need to
     ///   handle it (it could be a stale account state or a reason to lock the account).
     async fn account_state_sync(
-        &self,
+        &mut self,
         accounts: &[AccountHeader],
         account_hash_updates: &[(AccountId, Digest)],
-    ) -> Result<AccountUpdates, ClientError> {
+    ) -> Result<(), ClientError> {
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.iter().partition(|account_header| account_header.id().is_public());
 
@@ -291,7 +289,11 @@ impl StateSync {
             .cloned()
             .collect::<Vec<_>>();
 
-        Ok(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts))
+        self.state_sync_update
+            .account_updates
+            .extend(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts));
+
+        Ok(())
     }
 
     /// Queries the node for the latest state of the public accounts that don't match the current
@@ -320,7 +322,8 @@ impl StateSync {
     }
 
     /// Applies the changes received from the sync response to the notes and transactions tracked
-    /// by the client. It returns the updates that should be applied to the store.
+    /// by the client and updates the
+    /// `state_sync_update` accordingly.
     ///
     /// This method uses the callbacks provided to the [StateSync] component to apply the changes.
     ///
@@ -336,66 +339,66 @@ impl StateSync {
     /// * Local tracked transactions that were discarded because the notes that they were processing
     ///   were nullified by an another transaction.
     async fn note_state_sync(
-        &self,
+        &mut self,
         note_inclusions: Vec<CommittedNote>,
         transactions: Vec<TransactionUpdate>,
-        mut nullifiers: Vec<NullifierUpdate>,
+        nullifiers: Vec<NullifierUpdate>,
         block_header: BlockHeader,
-    ) -> Result<(NoteUpdates, TransactionUpdates, Vec<NoteTagRecord>), ClientError> {
-        let mut note_updates = NoteUpdates::default();
-        let mut public_note_ids = vec![];
-
-        for committed_note in note_inclusions {
-            let (new_note_update, new_note_ids) =
-                (self.on_note_received)(committed_note, block_header).await?;
-            note_updates.extend(new_note_update);
-            public_note_ids.extend(new_note_ids);
-        }
-
-        let new_public_notes =
-            self.fetch_public_note_details(&public_note_ids, &block_header).await?;
-
-        note_updates.extend(NoteUpdates::new(new_public_notes, vec![], vec![], vec![]));
-
-        // We can remove tags from notes that got committed
-        let tags_to_remove = note_updates
-            .updated_input_notes()
+    ) -> Result<bool, ClientError> {
+        let public_note_ids: Vec<NoteId> = note_inclusions
             .iter()
-            .filter(|note| note.is_committed())
-            .map(|note| {
-                NoteTagRecord::with_note_source(
-                    note.metadata().expect("Committed note should have metadata").tag(),
-                    note.id(),
-                )
-            })
+            .filter_map(|note| (!note.metadata().is_private()).then_some(*note.note_id()))
             .collect();
 
-        let mut transaction_updates = TransactionUpdates::default();
+        let mut found_relevant_note = false;
 
-        for transaction_update in transactions {
-            let (new_note_update, new_transaction_update) =
-                (self.on_transaction_committed)(transaction_update).await?;
+        // Process note inclusions
+        let new_public_notes =
+            Arc::new(self.fetch_public_note_details(&public_note_ids, &block_header).await?);
+        for committed_note in note_inclusions {
+            let public_note = new_public_notes
+                .iter()
+                .find(|note| &note.id() == committed_note.note_id())
+                .cloned();
+            if (self.on_note_received)(committed_note.clone(), public_note.clone()).await? {
+                found_relevant_note = true;
 
-            // Remove nullifiers if they were consumed by the transaction
-            nullifiers.retain(|nullifier| {
-                !new_note_update
-                    .updated_input_notes()
-                    .iter()
-                    .any(|note| note.nullifier() == nullifier.nullifier)
-            });
+                if let Some(public_note) = public_note {
+                    self.state_sync_update.note_updates.insert_updates(Some(public_note), None);
+                }
 
-            note_updates.extend(new_note_update);
-            transaction_updates.extend(new_transaction_update);
+                committed_state_transions(
+                    &mut self.state_sync_update.note_updates,
+                    committed_note,
+                    block_header,
+                )
+                .await?;
+            }
         }
 
+        // Process nullifiers
         for nullifier_update in nullifiers {
-            let (new_note_update, new_transaction_update) =
-                (self.on_nullifier_received)(nullifier_update).await?;
-            note_updates.extend(new_note_update);
-            transaction_updates.extend(new_transaction_update);
+            if (self.on_nullifier_received)(nullifier_update.clone()).await? {
+                let discarded_transaction = nullfier_state_transitions(
+                    &mut self.state_sync_update.note_updates,
+                    nullifier_update,
+                    &transactions,
+                )
+                .await?;
+
+                if let Some(transaction_id) = discarded_transaction {
+                    self.state_sync_update
+                        .transaction_updates
+                        .discarded_transaction(transaction_id);
+                }
+            }
         }
 
-        Ok((note_updates, transaction_updates, tags_to_remove))
+        self.state_sync_update
+            .transaction_updates
+            .extend(TransactionUpdates::new(transactions, vec![]));
+
+        Ok(found_relevant_note)
     }
 
     /// Queries the node for all received notes that aren't being locally tracked in the client.
@@ -427,180 +430,132 @@ impl StateSync {
 
 /// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
 /// authentication nodes for leaves we track.
-pub(crate) async fn apply_mmr_changes(
-    current_block: BlockHeader,
-    current_block_has_relevant_notes: bool,
-    mut current_partial_mmr: PartialMmr,
+async fn apply_mmr_changes(
+    new_block: BlockHeader,
+    new_block_has_relevant_notes: bool,
+    current_partial_mmr: &mut PartialMmr,
     mmr_delta: MmrDelta,
 ) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), ClientError> {
     // First, apply curent_block to the MMR. This is needed as the MMR delta received from the
     // node doesn't contain the request block itself.
-    let new_authentication_nodes = current_partial_mmr
-        .add(current_block.hash(), current_block_has_relevant_notes)
-        .into_iter();
+    // let new_authentication_nodes = current_partial_mmr
+    //     .add(current_block.hash(), current_block_has_relevant_notes)
+    //     .into_iter();
 
     // Apply the MMR delta to bring MMR to forest equal to chain tip
-    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = current_partial_mmr
-        .apply(mmr_delta)
-        .map_err(StoreError::MmrError)?
-        .into_iter()
-        .chain(new_authentication_nodes)
-        .collect();
+    let mut new_authentication_nodes: Vec<(InOrderIndex, Digest)> =
+        current_partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
 
-    Ok((current_partial_mmr.peaks(), new_authentication_nodes))
+    let new_peaks = current_partial_mmr.peaks();
+
+    new_authentication_nodes
+        .append(&mut current_partial_mmr.add(new_block.hash(), new_block_has_relevant_notes));
+
+    Ok((new_peaks, new_authentication_nodes))
 }
 
 // DEFAULT CALLBACK IMPLEMENTATIONS
 // ================================================================================================
 
 /// Default implementation of the [OnNoteReceived] callback. It queries the store for the committed
-/// note and updates the note records accordingly. If the note is not being tracked, it returns the
-/// note ID to be queried from the node so it can be queried from the node and tracked.
-pub async fn on_note_received(
-    store: Arc<dyn Store>,
+/// note and updates it accordingly. If the note wasn't being tracked but it came in the sync
+/// response, it is also returned so it can be inserted in the store. The method also returns a
+/// flag indicating if the block is relevant to the client.
+async fn committed_state_transions(
+    note_updates: &mut NoteUpdates,
     committed_note: CommittedNote,
     block_header: BlockHeader,
-) -> Result<(NoteUpdates, Vec<NoteId>), ClientError> {
+) -> Result<(), ClientError> {
     let inclusion_proof = NoteInclusionProof::new(
         block_header.block_num(),
         committed_note.note_index(),
         committed_note.merkle_path().clone(),
     )?;
 
-    let mut updated_input_notes = vec![];
-    let mut updated_output_notes = vec![];
-    let mut new_note_ids = vec![];
-
-    if let Some(mut input_note_record) = store
-        .get_input_notes(NoteFilter::List(vec![*committed_note.note_id()]))
-        .await?
-        .pop()
-    {
+    if let Some(input_note_record) = note_updates.get_input_note_by_id(*committed_note.note_id()) {
         // The note belongs to our locally tracked set of input notes
-        let inclusion_proof_received = input_note_record
+        input_note_record
             .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
-        let block_header_received = input_note_record.block_header_received(block_header)?;
-
-        if inclusion_proof_received || block_header_received {
-            updated_input_notes.push(input_note_record);
-        }
+        input_note_record.block_header_received(block_header)?;
     }
 
-    if let Some(mut output_note_record) = store
-        .get_output_notes(NoteFilter::List(vec![*committed_note.note_id()]))
-        .await?
-        .pop()
+    if let Some(output_note_record) = note_updates.get_output_note_by_id(*committed_note.note_id())
     {
         // The note belongs to our locally tracked set of output notes
-        if output_note_record.inclusion_proof_received(inclusion_proof.clone())? {
-            updated_output_notes.push(output_note_record);
-        }
+        output_note_record.inclusion_proof_received(inclusion_proof.clone())?;
     }
 
-    if updated_input_notes.is_empty() && updated_output_notes.is_empty() {
-        // The note is public and we are not tracking it, push to the list of IDs to query
-        new_note_ids.push(*committed_note.note_id());
-    }
-
-    Ok((
-        NoteUpdates::new(vec![], vec![], updated_input_notes, updated_output_notes),
-        new_note_ids,
-    ))
-}
-
-/// Default implementation of the [OnTransactionCommitted] callback. It queries the store for the
-/// input notes that were consumed by the transaction and updates the note records accordingly. It
-/// also returns the committed transaction update to be applied to the store.
-pub async fn on_transaction_committed(
-    store: Arc<dyn Store>,
-    transaction_update: TransactionUpdate,
-) -> Result<(NoteUpdates, TransactionUpdates), ClientError> {
-    // TODO: This could be improved if we add a filter to get only notes that are being processed by
-    // a specific transaction
-    let processing_notes = store.get_input_notes(NoteFilter::Processing).await?;
-    let consumed_input_notes: Vec<InputNoteRecord> = processing_notes
-        .into_iter()
-        .filter(|note_record| {
-            note_record.consumer_transaction_id() == Some(&transaction_update.transaction_id)
-        })
-        .collect();
-
-    let consumed_output_notes = store
-        .get_output_notes(NoteFilter::Nullifiers(
-            consumed_input_notes.iter().map(|n| n.nullifier()).collect(),
-        ))
-        .await?;
-
-    let mut updated_input_notes = vec![];
-    let mut updated_output_notes = vec![];
-    for mut input_note_record in consumed_input_notes {
-        if input_note_record.transaction_committed(
-            transaction_update.transaction_id,
-            transaction_update.block_num,
-        )? {
-            updated_input_notes.push(input_note_record);
-        }
-    }
-
-    for mut output_note_record in consumed_output_notes {
-        // SAFETY: Output notes were queried from a nullifier list and should have a nullifier
-        let nullifier = output_note_record.nullifier().unwrap();
-        if output_note_record.nullifier_received(nullifier, transaction_update.block_num)? {
-            updated_output_notes.push(output_note_record);
-        }
-    }
-
-    Ok((
-        NoteUpdates::new(vec![], vec![], updated_input_notes, updated_output_notes),
-        TransactionUpdates::new(vec![transaction_update], vec![]),
-    ))
+    Ok(())
 }
 
 /// Default implementation of the [OnNullifierReceived] callback. It queries the store for the notes
-/// that match the nullifier and updates the note records accordingly. It also returns the
-/// transactions that should be discarded as they weren't committed when the nullifier was received.
-pub async fn on_nullifier_received(
-    store: Arc<dyn Store>,
+/// that match the nullifier and updates the note records accordingly. It also returns an optional
+/// transaction ID that should be discarded.
+async fn nullfier_state_transitions(
+    note_updates: &mut NoteUpdates,
     nullifier_update: NullifierUpdate,
-) -> Result<(NoteUpdates, TransactionUpdates), ClientError> {
-    let mut discarded_transactions = vec![];
-    let mut updated_input_notes = vec![];
-    let mut updated_output_notes = vec![];
+    transaction_updates: &[TransactionUpdate],
+) -> Result<Option<TransactionId>, ClientError> {
+    let mut discarded_transaction = None;
 
-    if let Some(mut input_note_record) = store
-        .get_input_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
-        .await?
-        .pop()
+    if let Some(input_note_record) =
+        note_updates.get_input_note_by_nullifier(nullifier_update.nullifier)
     {
-        if input_note_record.is_processing() {
-            discarded_transactions.push(
-                *input_note_record
-                    .consumer_transaction_id()
-                    .expect("Processing note should have consumer transaction id"),
-            );
-        }
-
-        if input_note_record
-            .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?
-        {
-            updated_input_notes.push(input_note_record);
+        if let Some(consumer_transaction) = transaction_updates.iter().find(|t| {
+            input_note_record
+                .consumer_transaction_id()
+                .map_or(false, |id| id == &t.transaction_id)
+        }) {
+            // The note was being processed by a local transaction that just got committed
+            input_note_record.transaction_committed(
+                consumer_transaction.transaction_id,
+                consumer_transaction.block_num,
+            )?;
+        } else {
+            // The note was consumed by an external transaction
+            if let Some(id) = input_note_record.consumer_transaction_id() {
+                // The note was being processed by a local transaction that didn't end up being
+                // committed so it should be discarded
+                discarded_transaction.replace(*id);
+            }
+            input_note_record
+                .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?;
         }
     }
 
-    if let Some(mut output_note_record) = store
-        .get_output_notes(NoteFilter::Nullifiers(vec![nullifier_update.nullifier]))
-        .await?
-        .pop()
+    if let Some(output_note_record) =
+        note_updates.get_output_note_by_nullifier(nullifier_update.nullifier)
     {
-        if output_note_record
-            .nullifier_received(nullifier_update.nullifier, nullifier_update.block_num)?
-        {
-            updated_output_notes.push(output_note_record);
-        }
+        output_note_record
+            .nullifier_received(nullifier_update.nullifier, nullifier_update.block_num)?;
     }
 
-    Ok((
-        NoteUpdates::new(vec![], vec![], updated_input_notes, updated_output_notes),
-        TransactionUpdates::new(vec![], discarded_transactions),
-    ))
+    Ok(discarded_transaction)
+}
+
+pub async fn on_note_received(
+    store: Arc<dyn Store>,
+    committed_note: CommittedNote,
+    public_note: Option<InputNoteRecord>,
+) -> Result<bool, ClientError> {
+    let note_id = *committed_note.note_id();
+    let note_screener = NoteScreener::new(store.clone());
+
+    if !store.get_input_notes(NoteFilter::Unique(note_id)).await?.is_empty()
+        || !store.get_output_notes(NoteFilter::Unique(note_id)).await?.is_empty()
+    {
+        // The note is being tracked by the client so it is relevant
+        Ok(true)
+    } else if let Some(public_note) = public_note {
+        // The note is not being tracked by the client and is public so we can screen it
+        let new_note_relevance = note_screener
+            .check_relevance(&public_note.try_into().expect("Public notes should contain metadata"))
+            .await?;
+
+        Ok(!new_note_relevance.is_empty())
+    } else {
+        // The note is not being tracked by the client and is private so we can't determine if it
+        // is relevant
+        Ok(false)
+    }
 }

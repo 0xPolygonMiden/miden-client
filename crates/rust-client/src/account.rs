@@ -256,7 +256,7 @@ impl<R: FeltRng> Client<R> {
 // ACCOUNT UPDATES
 // ================================================================================================
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Contains account changes to apply to the store.
 pub struct AccountUpdates {
     /// Updated public accounts.
@@ -285,6 +285,11 @@ impl AccountUpdates {
     /// Returns the mismatched private accounts.
     pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
         &self.mismatched_private_accounts
+    }
+
+    pub fn extend(&mut self, other: AccountUpdates) {
+        self.updated_public_accounts.extend(other.updated_public_accounts);
+        self.mismatched_private_accounts.extend(other.mismatched_private_accounts);
     }
 }
 

@@ -327,15 +327,7 @@ pub trait Store: Send + Sync {
     ///     locally does not match the `StateSyncUpdate` information, the account may be locked.
     /// - Storing new MMR authentication nodes.
     /// - Updating the tracked public accounts.
-    ///
-    /// A [StateSyncUpdate] corresponds to an update from a single `SyncState` RPC call. For the
-    /// client to be up to date against the current chain tip, multiple calls may be performed, and
-    /// so multiple store updates could happen sequentially.
-    async fn apply_state_sync_step(
-        &self,
-        state_sync_update: StateSyncUpdate,
-        new_block_has_relevant_notes: bool,
-    ) -> Result<(), StoreError>;
+    async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
 
 // CHAIN MMR NODE FILTER

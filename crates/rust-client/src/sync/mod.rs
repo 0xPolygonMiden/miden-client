@@ -38,7 +38,6 @@
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);
-//! println!("Received notes: {}", sync_summary.received_notes.len());
 //! println!("Committed notes: {}", sync_summary.committed_notes.len());
 //! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
 //! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
@@ -65,8 +64,9 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::TransactionId,
 };
+use state_sync::on_note_received;
 
-use crate::{note::NoteUpdates, Client, ClientError};
+use crate::{store::NoteFilter, Client, ClientError};
 
 mod block_header;
 
@@ -74,18 +74,13 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{
-    on_note_received, on_nullifier_received, on_transaction_committed, OnNoteReceived,
-    OnNullifierReceived, OnTransactionCommitted, StateSync, StateSyncUpdate, SyncStatus,
-};
+pub use state_sync::{OnNoteReceived, OnNullifierReceived, StateSync, StateSyncUpdate};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
-    /// IDs of new notes received.
-    pub received_notes: Vec<NoteId>,
-    /// IDs of tracked notes that received inclusion proofs.
+    /// IDs of notes that have been committed.
     pub committed_notes: Vec<NoteId>,
     /// IDs of notes that have been consumed.
     pub consumed_notes: Vec<NoteId>,
@@ -100,7 +95,6 @@ pub struct SyncSummary {
 impl SyncSummary {
     pub fn new(
         block_num: BlockNumber,
-        received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
@@ -109,7 +103,6 @@ impl SyncSummary {
     ) -> Self {
         Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -121,7 +114,6 @@ impl SyncSummary {
     pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
-            received_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
@@ -131,8 +123,7 @@ impl SyncSummary {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.received_notes.is_empty()
-            && self.committed_notes.is_empty()
+        self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
@@ -140,7 +131,6 @@ impl SyncSummary {
 
     pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.received_notes.append(&mut other.received_notes);
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
@@ -190,86 +180,50 @@ impl<R: FeltRng> Client<R> {
             self.rpc_api.clone(),
             Box::new({
                 let store_clone = self.store.clone();
-                move |committed_notes, block_header| {
-                    Box::pin(on_note_received(store_clone.clone(), committed_notes, block_header))
+                move |committed_note, public_note| {
+                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
                 }
             }),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |transaction_update| {
-                    Box::pin(on_transaction_committed(store_clone.clone(), transaction_update))
-                }
-            }),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |nullifier_update| {
-                    Box::pin(on_nullifier_received(store_clone.clone(), nullifier_update))
-                }
-            }),
+            Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
         );
 
-        let current_block_num = self.store.get_sync_height().await?;
-        let mut total_sync_summary = SyncSummary::new_empty(current_block_num);
+        // Get current state of the client
+        let accounts = self
+            .store
+            .get_account_headers()
+            .await?
+            .into_iter()
+            .map(|(acc_header, _)| acc_header)
+            .collect();
 
-        loop {
-            // Get current state of the client
-            let current_block_num = self.store.get_sync_height().await?;
-            let (current_block, has_relevant_notes) = self
-                .store
-                .get_block_header_by_num(current_block_num)
-                .await?
-                .expect("Current block should be in the store");
+        let note_tags: Vec<NoteTag> =
+            self.store.get_unique_note_tags().await?.into_iter().collect();
 
-            let accounts = self
-                .store
-                .get_account_headers()
-                .await?
-                .into_iter()
-                .map(|(acc_header, _)| acc_header)
-                .collect();
+        let unspent_input_notes = self.store.get_input_notes(NoteFilter::Unspent).await?;
+        let unspent_output_notes = self.store.get_output_notes(NoteFilter::Unspent).await?;
 
-            let note_tags: Vec<NoteTag> =
-                self.store.get_unique_note_tags().await?.into_iter().collect();
+        // Get the sync update from the network
+        let state_sync_update = state_sync
+            .sync_state(
+                self.build_current_partial_mmr().await?,
+                accounts,
+                note_tags,
+                unspent_input_notes,
+                unspent_output_notes,
+            )
+            .await?;
 
-            let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers().await?;
+        let sync_summary: SyncSummary = (&state_sync_update).into();
 
-            // Get the sync update from the network
-            let status = state_sync
-                .sync_state_step(
-                    current_block,
-                    has_relevant_notes,
-                    self.build_current_partial_mmr(false).await?,
-                    accounts,
-                    note_tags,
-                    unspent_nullifiers,
-                )
-                .await?;
+        // Apply received and computed updates to the store
+        self.store
+            .apply_state_sync(state_sync_update)
+            .await
+            .map_err(ClientError::StoreError)?;
 
-            let (is_last_block, state_sync_update): (bool, StateSyncUpdate) = match status {
-                Some(s) => (s.is_last_block(), s.into()),
-                None => break,
-            };
-
-            let sync_summary: SyncSummary = (&state_sync_update).into();
-
-            let has_relevant_notes =
-                self.check_block_relevance(&state_sync_update.note_updates).await?;
-
-            // Apply received and computed updates to the store
-            self.store
-                .apply_state_sync_step(state_sync_update, has_relevant_notes)
-                .await
-                .map_err(ClientError::StoreError)?;
-
-            total_sync_summary.combine_with(sync_summary);
-
-            if is_last_block {
-                break;
-            }
-        }
         self.update_mmr_data().await?;
 
-        Ok(total_sync_summary)
+        Ok(sync_summary)
     }
 }
 

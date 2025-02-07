@@ -155,6 +155,11 @@ impl TransactionUpdates {
     pub fn discarded_transactions(&self) -> &[TransactionId] {
         &self.discarded_transactions
     }
+
+    /// Inserts a committed transaction into the transaction updates.
+    pub fn discarded_transaction(&mut self, transaction_id: TransactionId) {
+        self.discarded_transactions.push(transaction_id);
+    }
 }
 
 // TRANSACTION RESULT
@@ -363,10 +368,8 @@ impl TransactionStoreUpdate {
             executed_transaction,
             updated_account,
             note_updates: NoteUpdates::new(
-                created_input_notes,
+                [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
-                updated_input_notes,
-                vec![],
             ),
             new_tags,
         }
@@ -910,7 +913,7 @@ impl<R: FeltRng> Client<R> {
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
-                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
                 self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                     .await?;
             }

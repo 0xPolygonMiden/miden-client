@@ -8,19 +8,36 @@ use miden_objects::{
 };
 use tracing::warn;
 
-use super::NoteUpdates;
 use crate::{
-    note::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
 };
+
+/// Contains all the block information that needs to be added in the client's store after a sync.
+
+#[derive(Debug, Clone, Default)]
+pub struct BlockUpdates {
+    /// New block headers to be stored, along with a flag indicating whether the block contains
+    /// notes that are relevant to the client and the MMR peaks for the block.
+    pub block_headers: Vec<(BlockHeader, bool, MmrPeaks)>,
+    /// New authentication nodes that are meant to be stored in order to authenticate block
+    /// headers.
+    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+}
+
+impl BlockUpdates {
+    pub fn extend(&mut self, other: BlockUpdates) {
+        self.block_headers.extend(other.block_headers);
+        self.new_authentication_nodes.extend(other.new_authentication_nodes);
+    }
+}
 
 /// Network information management methods.
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr().await?;
 
         let mut changed_notes = vec![];
         for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
@@ -73,43 +90,13 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Checks the relevance of the block by verifying if any of the input notes in the block are
-    /// relevant to the client. If any of the notes are relevant, the function returns `true`.
-    pub(crate) async fn check_block_relevance(
-        &self,
-        note_updates: &NoteUpdates,
-    ) -> Result<bool, ClientError> {
-        // We'll only do the check for either incoming public notes or expected input notes as
-        // output notes are not really candidates to be consumed here.
-
-        let note_screener = NoteScreener::new(self.store.clone());
-
-        // Find all relevant Input Notes using the note checker
-        for input_note in note_updates.committed_input_notes() {
-            // TODO: Map the below error into a better representation (ie, we expected to be able
-            // to convert here)
-            if !note_screener
-                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
-                .await?
-                .is_empty()
-            {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
-    }
-
     /// Builds the current store view of the chain's [PartialMmr]. Because we want to add all new
     /// authentication nodes that could come from applying the MMR updates, we need to track all
     /// known leaves thus far.
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    pub(crate) async fn build_current_partial_mmr(
-        &self,
-        include_current_block: bool,
-    ) -> Result<PartialMmr, ClientError> {
+    pub(crate) async fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
@@ -131,15 +118,13 @@ impl<R: FeltRng> Client<R> {
         let mut current_partial_mmr =
             PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
 
-        if include_current_block {
-            let (current_block, has_client_notes) = self
-                .store
-                .get_block_header_by_num(current_block_num)
-                .await?
-                .expect("Current block should be in the store");
+        let (current_block, has_client_notes) = self
+            .store
+            .get_block_header_by_num(current_block_num)
+            .await?
+            .expect("Current block should be in the store");
 
-            current_partial_mmr.add(current_block.hash(), has_client_notes);
-        }
+        current_partial_mmr.add(current_block.hash(), has_client_notes);
 
         Ok(current_partial_mmr)
     }
@@ -207,7 +192,7 @@ impl<R: FeltRng> Client<R> {
             return self.ensure_genesis_in_place().await;
         }
 
-        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+        let mut current_partial_mmr = self.build_current_partial_mmr().await?;
         let anchor_block = self
             .get_and_store_authenticated_block(epoch_block_number, &mut current_partial_mmr)
             .await?;

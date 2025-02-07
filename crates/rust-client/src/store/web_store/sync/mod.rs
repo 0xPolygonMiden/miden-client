@@ -29,6 +29,9 @@ use js_bindings::*;
 mod models;
 use models::*;
 
+mod flattened_vec;
+use flattened_vec::*;
+
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         let promise = idxdb_get_note_tags();
@@ -98,32 +101,38 @@ impl WebStore {
         Ok(removed_tags)
     }
 
-    pub(super) async fn apply_state_sync_step(
+    pub(super) async fn apply_state_sync(
         &self,
         state_sync_update: StateSyncUpdate,
-        block_has_relevant_notes: bool,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
-            block_header,
+            block_num,
+            block_updates,
             note_updates,
             transaction_updates, //TODO: Add support for discarded transactions in web store
-            new_mmr_peaks,
-            new_authentication_nodes,
             account_updates,
-            tags_to_remove,
         } = state_sync_update;
 
         // Serialize data for updating state sync and block header
-        let block_num_as_str = block_header.block_num().to_string();
+        let block_num_as_str = block_num.to_string();
 
         // Serialize data for updating block header
-        let block_header_as_bytes = block_header.to_bytes();
-        let new_mmr_peaks_as_bytes = new_mmr_peaks.peaks().to_vec().to_bytes();
+        let mut block_headers_as_bytes = vec![];
+        let mut new_mmr_peaks_as_bytes = vec![];
+        let mut block_nums_as_str = vec![];
+        let mut block_has_relevant_notes = vec![];
+
+        for (block_header, has_client_notes, mmr_peaks) in block_updates.block_headers.iter() {
+            block_headers_as_bytes.push(block_header.to_bytes());
+            new_mmr_peaks_as_bytes.push(mmr_peaks.peaks().to_vec().to_bytes());
+            block_nums_as_str.push(block_header.block_num().to_string());
+            block_has_relevant_notes.push(*has_client_notes as u8);
+        }
 
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
-        for (id, node) in new_authentication_nodes.iter() {
+        for (id, node) in block_updates.new_authentication_nodes.iter() {
             let serialized_data = serialize_chain_mmr_node(*id, *node)?;
             serialized_node_ids.push(serialized_data.id);
             serialized_nodes.push(serialized_data.node);
@@ -134,16 +143,8 @@ impl WebStore {
         apply_note_updates_tx(&note_updates).await?;
 
         // Tags to remove
-        let note_tags_to_remove_as_str: Vec<String> = tags_to_remove
-            .iter()
-            .filter_map(|tag_record| {
-                if let NoteTagSource::Note(note_id) = tag_record.source {
-                    Some(note_id.to_hex())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let note_tags_to_remove_as_str: Vec<String> =
+            note_updates.committed_input_notes().map(|note| note.id().to_hex()).collect();
 
         // Serialize data for updating committed transactions
         let transactions_to_commit_block_nums_as_str = transaction_updates
@@ -178,8 +179,9 @@ impl WebStore {
 
         let promise = idxdb_apply_state_sync(
             block_num_as_str,
-            block_header_as_bytes,
-            new_mmr_peaks_as_bytes,
+            flatten_nested_u8_vec(block_headers_as_bytes),
+            block_nums_as_str,
+            flatten_nested_u8_vec(new_mmr_peaks_as_bytes),
             block_has_relevant_notes,
             serialized_node_ids,
             serialized_nodes,
