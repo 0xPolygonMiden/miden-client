@@ -13,7 +13,7 @@ pub struct Rpo256;
 impl Rpo256 {
     pub fn hash_elements(felt_array: &FeltArray) -> RpoDigest {
         let felts: Vec<Felt> = felt_array.into();
-        let native_felts: Vec<NativeFelt> = felts.iter().map(|felt| felt.into()).collect();
+        let native_felts: Vec<NativeFelt> = felts.iter().map(Into::into).collect();
 
         let native_digest = NativeRpo256::hash_elements(&native_felts);
 

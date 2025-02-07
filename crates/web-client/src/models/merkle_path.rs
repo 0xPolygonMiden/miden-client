@@ -14,7 +14,7 @@ impl MerklePath {
     }
 
     pub fn nodes(&self) -> Vec<RpoDigest> {
-        self.0.nodes().iter().map(|node| node.into()).collect()
+        self.0.nodes().iter().map(Into::into).collect()
     }
 
     pub fn compute_root(&self, index: u64, node: &RpoDigest) -> RpoDigest {

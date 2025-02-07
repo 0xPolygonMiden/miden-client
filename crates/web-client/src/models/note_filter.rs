@@ -48,15 +48,13 @@ impl From<NoteFilter> for NativeNoteFilter {
             NoteFilterTypes::List => {
                 let note_ids =
                     filter.note_ids.unwrap_or_else(|| panic!("Note IDs required for List filter"));
-                NativeNoteFilter::List(note_ids.iter().map(|note| note.into()).collect())
+                NativeNoteFilter::List(note_ids.iter().map(Into::into).collect())
             },
             NoteFilterTypes::Unique => {
                 let note_ids =
                     filter.note_ids.unwrap_or_else(|| panic!("Note ID required for Unique filter"));
 
-                if note_ids.len() != 1 {
-                    panic!("Only one Note ID can be provided");
-                }
+                assert!(note_ids.len() == 1, "Only one Note ID can be provided");
 
                 NativeNoteFilter::Unique(note_ids.first().unwrap().into())
             },
@@ -79,7 +77,7 @@ impl From<&NoteFilter> for NativeNoteFilter {
                     .note_ids
                     .clone()
                     .unwrap_or_else(|| panic!("Note IDs required for List filter"));
-                NativeNoteFilter::List(note_ids.iter().map(|note| note.into()).collect())
+                NativeNoteFilter::List(note_ids.iter().map(Into::into).collect())
             },
             NoteFilterTypes::Unique => {
                 let note_ids = filter
@@ -87,9 +85,7 @@ impl From<&NoteFilter> for NativeNoteFilter {
                     .clone()
                     .unwrap_or_else(|| panic!("Note ID required for Unique filter"));
 
-                if note_ids.len() != 1 {
-                    panic!("Only one Note ID can be provided");
-                }
+                assert!(note_ids.len() == 1, "Only one Note ID can be provided");
 
                 NativeNoteFilter::Unique(note_ids.first().unwrap().into())
             },

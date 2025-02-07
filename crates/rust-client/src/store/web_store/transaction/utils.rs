@@ -9,9 +9,9 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
-use super::js_bindings::*;
+use super::js_bindings::{idxdb_insert_proven_transaction_data, idxdb_insert_transaction_script};
 use crate::store::StoreError;
 
 // TYPES
@@ -35,7 +35,7 @@ pub struct SerializedTransactionData {
 pub async fn insert_proven_transaction_data(
     executed_transaction: &ExecutedTransaction,
 ) -> Result<(), StoreError> {
-    let serialized_data = serialize_transaction_data(executed_transaction)?;
+    let serialized_data = serialize_transaction_data(executed_transaction);
 
     if let Some(hash) = serialized_data.script_hash.clone() {
         let promise = idxdb_insert_transaction_script(hash, serialized_data.tx_script);
@@ -60,7 +60,7 @@ pub async fn insert_proven_transaction_data(
 
 pub(super) fn serialize_transaction_data(
     executed_transaction: &ExecutedTransaction,
-) -> Result<SerializedTransactionData, StoreError> {
+) -> SerializedTransactionData {
     let transaction_id: String = executed_transaction.id().inner().into();
 
     let account_id_as_str: String = executed_transaction.account_id().to_string();
@@ -88,7 +88,7 @@ pub(super) fn serialize_transaction_data(
         tx_script = Some(script.to_bytes());
     }
 
-    Ok(SerializedTransactionData {
+    SerializedTransactionData {
         transaction_id,
         account_id: account_id_as_str,
         init_account_state: init_account_state.to_owned(),
@@ -99,5 +99,5 @@ pub(super) fn serialize_transaction_data(
         tx_script,
         block_num: executed_transaction.block_header().block_num().to_string(),
         commit_height: None,
-    })
+    }
 }

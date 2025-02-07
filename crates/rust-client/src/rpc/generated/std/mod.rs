@@ -1,3 +1,4 @@
+#![allow(clippy::doc_markdown, clippy::struct_field_names)]
 pub mod account;
 pub mod block;
 pub mod digest;

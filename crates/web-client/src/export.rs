@@ -20,15 +20,13 @@ impl WebClient {
     ) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_id = Digest::try_from(note_id)
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to parse input note id: {}", err))
-                })?
+                .map_err(|err| JsValue::from_str(&format!("Failed to parse input note id: {err}")))?
                 .into();
 
-            let mut output_notes =
-                client.get_output_notes(NoteFilter::Unique(note_id)).await.map_err(|err| {
-                    JsValue::from_str(&format!("Failed to get output notes: {}", err))
-                })?;
+            let mut output_notes = client
+                .get_output_notes(NoteFilter::Unique(note_id))
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get output notes: {err}")))?;
 
             let output_note =
                 output_notes.pop().ok_or_else(|| JsValue::from_str("No output note found"))?;
@@ -36,7 +34,6 @@ impl WebClient {
             let export_type = match export_type.as_str() {
                 "Id" => ExportType::Id,
                 "Full" => ExportType::Full,
-                "Partial" => ExportType::Partial,
                 _ => ExportType::Partial,
             };
 
@@ -45,7 +42,7 @@ impl WebClient {
                 ExportType::Full => match output_note.inclusion_proof() {
                     Some(inclusion_proof) => NoteFile::NoteWithProof(
                         output_note.clone().try_into().map_err(|err| {
-                            JsValue::from_str(&format!("Failed to convert output note: {}", err))
+                            JsValue::from_str(&format!("Failed to convert output note: {err}"))
                         })?,
                         inclusion_proof.clone(),
                     ),
@@ -53,10 +50,10 @@ impl WebClient {
                 },
                 ExportType::Partial => NoteFile::NoteDetails {
                     details: output_note.clone().try_into().map_err(|err| {
-                        JsValue::from_str(&format!("Failed to convert output note: {}", err))
+                        JsValue::from_str(&format!("Failed to convert output note: {err}"))
                     })?,
                     after_block_num: client.get_sync_height().await.map_err(|err| {
-                        JsValue::from_str(&format!("Failed to get sync height: {}", err))
+                        JsValue::from_str(&format!("Failed to get sync height: {err}"))
                     })?,
                     tag: Some(output_note.metadata().tag()),
                 },

@@ -14,7 +14,8 @@ impl OutputNotes {
     }
 
     pub fn num_notes(&self) -> u32 {
-        self.0.num_notes() as u32
+        u32::try_from(self.0.num_notes())
+            .expect("only 1024 output notes is allowed per transaction")
     }
 
     pub fn is_empty(&self) -> bool {

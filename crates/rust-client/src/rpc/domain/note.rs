@@ -21,10 +21,10 @@ impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
             .sender
             .ok_or_else(|| ProtoNoteMetadata::missing_field("Sender"))?
             .try_into()?;
-        let note_type = NoteType::try_from(value.note_type as u64)?;
+        let note_type = NoteType::try_from(u64::from(value.note_type))?;
         let tag = NoteTag::from(value.tag);
         let execution_hint_tag = (value.execution_hint & 0xff) as u8;
-        let execution_hint_payload = ((value.execution_hint >> 8) & 0xffffff) as u32;
+        let execution_hint_payload = ((value.execution_hint >> 8) & 0x00ff_ffff) as u32;
         let execution_hint =
             NoteExecutionHint::from_parts(execution_hint_tag, execution_hint_payload)?;
 
@@ -104,8 +104,12 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
                 .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
                 .try_into()?;
 
-            let committed_note =
-                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
+            let committed_note = CommittedNote::new(
+                note_id,
+                u16::try_from(note.note_index).expect("note index out of range"),
+                merkle_path,
+                metadata,
+            );
 
             notes.push(committed_note);
         }
@@ -168,10 +172,10 @@ impl CommittedNote {
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note.
 #[allow(clippy::large_enum_variant)]
 pub enum NetworkNote {
-    /// Details for a private note only include its [NoteMetadata] and [NoteInclusionProof].
+    /// Details for a private note only include its [`NoteMetadata`] and [`NoteInclusionProof`].
     /// Other details needed to consume the note are expected to be stored locally, off-chain.
     Private(NoteId, NoteMetadata, NoteInclusionProof),
-    /// Contains the full [Note] object alongside its [NoteInclusionProof].
+    /// Contains the full [`Note`] object alongside its [`NoteInclusionProof`].
     Public(Note, NoteInclusionProof),
 }
 
@@ -179,8 +183,8 @@ impl NetworkNote {
     /// Returns the note's inclusion details.
     pub fn inclusion_proof(&self) -> &NoteInclusionProof {
         match self {
-            NetworkNote::Private(_, _, inclusion_proof) => inclusion_proof,
-            NetworkNote::Public(_, inclusion_proof) => inclusion_proof,
+            NetworkNote::Private(_, _, inclusion_proof)
+            | NetworkNote::Public(_, inclusion_proof) => inclusion_proof,
         }
     }
 

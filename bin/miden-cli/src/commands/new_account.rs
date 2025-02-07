@@ -50,8 +50,7 @@ fn process_component_templates(
             component_template.metadata().get_unique_storage_placeholders()
         {
             print!(
-                "Enter hex value for placeholder '{}' (type: {}): ",
-                placeholder_key, placeholder_type
+                "Enter hex value for placeholder '{placeholder_key}' (type: {placeholder_type}): ",
             );
             std::io::stdout().flush()?;
 
@@ -81,7 +80,7 @@ fn process_component_templates(
                     let map: MapRepresentation = toml::from_str(input_value).map_err(|e| {
                         CliError::Parse(e.into(), "failed to parse map from input".into())
                     })?;
-                    let map = map.try_build_map(&Default::default()).map_err(|e| {
+                    let map = map.try_build_map(&InitStorageData::default()).map_err(|e| {
                         CliError::Parse(e.into(), "failed to parse map from input".into())
                     })?;
 

@@ -31,7 +31,7 @@ impl WebClient {
                 .new_transaction(account_id.into(), transaction_request.into())
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute New Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to execute New Transaction: {err}"))
                 })?;
 
             Ok(native_transaction_execution_result.into())
@@ -56,12 +56,12 @@ impl WebClient {
                         )
                         .await
                         .map_err(|err| {
-                            JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                            JsValue::from_str(&format!("Failed to submit Transaction: {err}"))
                         })?;
                 },
                 None => {
                     client.submit_transaction(native_transaction_result).await.map_err(|err| {
-                        JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                        JsValue::from_str(&format!("Failed to submit Transaction: {err}"))
                     })?;
                 },
             }
@@ -83,7 +83,7 @@ impl WebClient {
                 .submit_transaction_with_prover(native_transaction_result, prover.get_prover())
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to submit Transaction: {err}"))
                 })?;
 
             Ok(())
@@ -101,7 +101,7 @@ impl WebClient {
     ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
-                JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
+                JsValue::from_str(&format!("Failed to create Fungible Asset: {err}"))
             })?;
 
             let mint_transaction_request = NativeTransactionRequestBuilder::mint_fungible_asset(
@@ -111,7 +111,7 @@ impl WebClient {
                 client.rng(),
             )
             .map_err(|err| {
-                JsValue::from_str(&format!("Failed to create Mint Transaction Request: {}", err))
+                JsValue::from_str(&format!("Failed to create Mint Transaction Request: {err}"))
             })?
             .build();
 
@@ -119,7 +119,7 @@ impl WebClient {
                 .new_transaction(faucet_id.into(), mint_transaction_request)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Mint Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to execute Mint Transaction: {err}"))
                 })?;
 
             let result = mint_transaction_execution_result.clone().into();
@@ -128,7 +128,7 @@ impl WebClient {
                 .submit_transaction(mint_transaction_execution_result)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {err}"))
                 })?;
 
             Ok(result)
@@ -148,7 +148,7 @@ impl WebClient {
     ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
-                JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
+                JsValue::from_str(&format!("Failed to create Fungible Asset: {err}"))
             })?;
 
             let payment_transaction = PaymentTransactionData::new(
@@ -166,8 +166,7 @@ impl WebClient {
                 )
                 .map_err(|err| {
                     JsValue::from_str(&format!(
-                        "Failed to create Send Transaction Request with Recall Height: {}",
-                        err
+                        "Failed to create Send Transaction Request with Recall Height: {err}"
                     ))
                 })?
                 .build()
@@ -179,10 +178,7 @@ impl WebClient {
                     client.rng(),
                 )
                 .map_err(|err| {
-                    JsValue::from_str(&format!(
-                        "Failed to create Send Transaction Request: {}",
-                        err
-                    ))
+                    JsValue::from_str(&format!("Failed to create Send Transaction Request: {err}"))
                 })?
                 .build()
             };
@@ -191,7 +187,7 @@ impl WebClient {
                 .new_transaction(sender_account_id.into(), send_transaction_request)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Send Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to execute Send Transaction: {err}"))
                 })?;
 
             let result = send_transaction_execution_result.clone().into();
@@ -200,7 +196,7 @@ impl WebClient {
                 .submit_transaction(send_transaction_execution_result)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {err}"))
                 })?;
 
             Ok(result)
@@ -219,7 +215,7 @@ impl WebClient {
             for note_id in list_of_note_ids {
                 let note_record =
                     get_input_note_with_id_prefix(client, &note_id).await.map_err(|err| {
-                        JsValue::from_str(&format!("Failed to get input note: {}", err))
+                        JsValue::from_str(&format!("Failed to get input note: {err}"))
                     })?;
                 result.push(note_record.id());
             }
@@ -231,13 +227,13 @@ impl WebClient {
                 .new_transaction(account_id.into(), consume_transaction_request)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Consume Transaction: {}", err))
+                    JsValue::from_str(&format!("Failed to execute Consume Transaction: {err}"))
                 })?;
 
             let result = consume_transaction_execution_result.clone().into();
 
             client.submit_transaction(consume_transaction_execution_result).await.map_err(
-                |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {}", err)),
+                |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {err}")),
             )?;
 
             Ok(result)
@@ -283,7 +279,7 @@ impl WebClient {
             );
 
             let swap_transaction_request = NativeTransactionRequestBuilder::swap(
-                swap_transaction.clone(),
+                &swap_transaction,
                 note_type.into(),
                 client.rng(),
             )

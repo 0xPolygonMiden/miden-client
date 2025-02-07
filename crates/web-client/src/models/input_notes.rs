@@ -14,7 +14,7 @@ impl InputNotes {
     }
 
     pub fn num_notes(&self) -> u8 {
-        self.0.num_notes() as u8
+        u8::try_from(self.0.num_notes()).expect("only 256 input notes is allowed")
     }
 
     pub fn is_empty(&self) -> bool {

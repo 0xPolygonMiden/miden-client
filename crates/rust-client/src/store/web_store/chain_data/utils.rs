@@ -25,8 +25,8 @@ pub struct SerializedChainMmrNodeData {
 }
 
 pub fn serialize_block_header(
-    block_header: BlockHeader,
-    chain_mmr_peaks: Vec<Digest>,
+    block_header: &BlockHeader,
+    chain_mmr_peaks: &[Digest],
     has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num().to_string();
@@ -60,7 +60,12 @@ pub fn process_chain_mmr_nodes_from_js_value(
         .into_iter()
         .map(|record| {
             let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
-            let id = InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
+            let id = InOrderIndex::new(
+                NonZeroUsize::new(
+                    usize::try_from(id_as_u64).expect("usize should not fail converting to u64"),
+                )
+                .unwrap(),
+            );
             let node = Digest::try_from(&record.node)?;
             Ok((id, node))
         })

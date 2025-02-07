@@ -14,7 +14,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::ProcessingAuthenticated] state.
+/// Information related to notes in the [`InputNoteState::ProcessingAuthenticated`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcessingAuthenticatedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -52,7 +52,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
     fn block_header_received(
         &self,
         _note_id: NoteId,
-        _block_header: BlockHeader,
+        _block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }

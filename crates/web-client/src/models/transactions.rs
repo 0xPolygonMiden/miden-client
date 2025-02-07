@@ -48,7 +48,7 @@ impl NewSwapTransactionResult {
     }
 
     pub fn set_note_tag(&mut self, payback_note_tag: String) {
-        self.payback_note_tag = payback_note_tag
+        self.payback_note_tag = payback_note_tag;
     }
 
     #[wasm_bindgen(getter)]

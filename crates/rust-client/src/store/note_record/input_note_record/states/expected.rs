@@ -13,7 +13,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::Expected] state.
+/// Information related to notes in the [`InputNoteState::Expected`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExpectedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -46,7 +46,7 @@ impl NoteStateHandler for ExpectedNoteState {
     fn block_header_received(
         &self,
         _note_id: NoteId,
-        _block_header: BlockHeader,
+        _block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::StateTransitionError(
             "Can't verify an expected note".to_string(),

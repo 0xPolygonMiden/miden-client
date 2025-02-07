@@ -146,31 +146,30 @@ impl NodeRpcClient for WebTonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
+                NoteInclusionProof::new(
+                    note.block_num.into(),
+                    u16::try_from(note.note_index).expect("note index out of range"),
+                    merkle_path,
+                )?
             };
 
-            let note = match note.details {
-                // Public notes include details
-                Some(details) => {
-                    let note = Note::read_from_bytes(&details)?;
+            let note = if let Some(details) = note.details {
+                let note = Note::read_from_bytes(&details)?;
 
-                    NetworkNote::Public(note, inclusion_details)
-                },
-                // Private notes do not have details
-                None => {
-                    let note_metadata = note
-                        .metadata
-                        .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                        .try_into()?;
-                    let note_id: miden_objects::Digest = note
-                        .note_id
-                        .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
-                        .try_into()?;
+                NetworkNote::Public(note, inclusion_details)
+            } else {
+                let note_metadata = note
+                    .metadata
+                    .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
+                    .try_into()?;
+                let note_id: miden_objects::Digest = note
+                    .note_id
+                    .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
+                    .try_into()?;
 
-                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
-                },
+                NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
             };
-            response_notes.push(note)
+            response_notes.push(note);
         }
         Ok(response_notes)
     }
@@ -187,7 +186,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
+        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
@@ -241,7 +240,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let mut rpc_account_requests: Vec<get_account_proofs_request::AccountRequest> =
             Vec::with_capacity(account_requests.len());
 
-        for foreign_account in account_requests.iter() {
+        for foreign_account in account_requests {
             rpc_account_requests.push(get_account_proofs_request::AccountRequest {
                 account_id: Some(foreign_account.account_id().into()),
                 storage_requests: foreign_account.storage_slot_requirements().into(),
@@ -254,7 +253,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let request = GetAccountProofsRequest {
             account_requests: rpc_account_requests,
             include_headers: Some(true),
-            code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
+            code_commitments: known_account_codes.keys().map(Into::into).collect(),
         };
 
         let response = query_client
@@ -378,7 +377,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let mut query_client = self.build_api_client();
 
         let request = CheckNullifiersByPrefixRequest {
-            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
         };
 

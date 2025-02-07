@@ -1,21 +1,22 @@
-//! This module defines common structs to be used within the [Store](crate::store::Store) for notes
-//! that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
-//! result of executing a transaction ([OutputNoteRecord]).
+//! This module defines common structs to be used within the [`Store`](crate::store::Store) for
+//! notes that are available to be consumed ([`InputNoteRecord`]) and notes that have been produced
+//! as a result of executing a transaction ([`OutputNoteRecord`]).
 //!
 //! Both structs are similar in terms of the data they carry, but are differentiated semantically
 //! as they are involved in very different flows. As such, known states are modeled differently for
-//! the two structures, with [InputNoteRecord] having states described by the [InputNoteState] enum.
+//! the two structures, with [`InputNoteRecord`] having states described by the [`InputNoteState`]
+//! enum.
 //!
 //! ## Serialization / Deserialization
 //!
-//! We provide serialization and deserialization support via [Serializable] and [Deserializable]
+//! We provide serialization and deserialization support via [`Serializable`] and [`Deserializable`]
 //! traits implementations.
 //!
 //! ## Type conversion
 //!
-//! We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
-//! [Note](miden_objects::note::Note), although this is not always possible. Check both
-//! [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
+//! We also facilitate converting from/into [`InputNote`](miden_objects::transaction::InputNote) /
+//! [`Note`](miden_objects::note::Note), although this is not always possible. Check both
+//! [`InputNoteRecord`]'s and [`OutputNoteRecord`]'s documentation for more details about this.
 
 use alloc::string::{String, ToString};
 

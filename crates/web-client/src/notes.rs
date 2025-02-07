@@ -24,9 +24,9 @@ impl WebClient {
             let result = client
                 .get_input_notes(filter.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get input notes: {}", err)))?;
+                .map_err(|err| JsValue::from_str(&format!("Failed to get input notes: {err}")))?;
 
-            Ok(result.into_iter().map(|note| note.into()).collect())
+            Ok(result.into_iter().map(Into::into).collect())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -38,14 +38,14 @@ impl WebClient {
     ) -> Result<Option<InputNoteRecord>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_id: NoteId = Digest::try_from(note_id)
-                .map_err(|err| format!("Failed to parse input note id: {}", err))?
+                .map_err(|err| format!("Failed to parse input note id: {err}"))?
                 .into();
             let result = client
                 .get_input_note(note_id)
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get input note: {}", err)))?;
+                .map_err(|err| JsValue::from_str(&format!("Failed to get input note: {err}")))?;
 
-            Ok(result.map(|note| note.into()))
+            Ok(result.map(Into::into))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -66,7 +66,7 @@ impl WebClient {
     pub async fn get_output_note(&mut self, note_id: String) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_id: NoteId = Digest::try_from(note_id)
-                .map_err(|err| format!("Failed to parse output note id: {}", err))?
+                .map_err(|err| format!("Failed to parse output note id: {err}"))?
                 .into();
             let note: OutputNoteRecord = client.get_output_note(note_id).await.unwrap().unwrap();
 
@@ -77,7 +77,7 @@ impl WebClient {
         }
     }
 
-    pub async fn compile_note_script(&mut self, script: &str) -> Result<NoteScript, JsValue> {
+    pub fn compile_note_script(&mut self, script: &str) -> Result<NoteScript, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_note_script: NativeNoteScript = client.compile_note_script(script).unwrap();
 
@@ -92,12 +92,12 @@ impl WebClient {
         account_id: Option<AccountId>,
     ) -> Result<Vec<ConsumableNoteRecord>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id = account_id.map(|id| id.into());
+            let native_account_id = account_id.map(Into::into);
             let result = client.get_consumable_notes(native_account_id).await.map_err(|err| {
-                JsValue::from_str(&format!("Failed to get consumable notes: {}", err))
+                JsValue::from_str(&format!("Failed to get consumable notes: {err}"))
             })?;
 
-            Ok(result.into_iter().map(|record| record.into()).collect())
+            Ok(result.into_iter().map(Into::into).collect())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

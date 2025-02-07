@@ -10,7 +10,7 @@ use miden_objects::{
 use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::ConsumedAuthenticatedLocal] state.
+/// Information related to notes in the [`InputNoteState::ConsumedAuthenticatedLocal`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedAuthenticatedLocalNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -45,7 +45,7 @@ impl NoteStateHandler for ConsumedAuthenticatedLocalNoteState {
     fn block_header_received(
         &self,
         _note_id: NoteId,
-        _block_header: BlockHeader,
+        _block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }

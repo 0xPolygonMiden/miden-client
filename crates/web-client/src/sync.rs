@@ -9,7 +9,7 @@ impl WebClient {
             let sync_summary = client
                 .sync_state()
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to sync state: {}", err)))?;
+                .map_err(|err| JsValue::from_str(&format!("Failed to sync state: {err}")))?;
 
             Ok(sync_summary.into())
         } else {

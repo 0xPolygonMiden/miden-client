@@ -1,7 +1,7 @@
 //! This module provides an SQLite-backed implementation of the [Store] trait.
 //!
-//! [SqliteStore] enables the persistence of accounts, transactions, notes, block headers, and MMR
-//! nodes using an SQLite database.
+//! [`SqliteStore`] enables the persistence of accounts, transactions, notes, block headers, and MMR
+//! nodes using an `SQLite` database.
 //! It is compiled only when the `sqlite` feature flag is enabled.
 
 use alloc::{
@@ -19,7 +19,7 @@ use miden_objects::{
     note::{NoteTag, Nullifier},
     Digest, Word,
 };
-use rusqlite::{vtab::array, Connection};
+use rusqlite::{types::Value, vtab::array, Connection};
 use tonic::async_trait;
 
 use super::{
@@ -42,7 +42,7 @@ mod transaction;
 // SQLITE STORE
 // ================================================================================================
 
-/// Represents a pool of connections with an SQLite database. The pool is used to interact
+/// Represents a pool of connections with an `SQLite` database. The pool is used to interact
 /// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.
@@ -119,7 +119,7 @@ impl SqliteStore {
 impl Store for SqliteStore {
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
-        Some(now.timestamp() as u64)
+        Some(u64::try_from(now.timestamp()).expect("timestamp is always after epoch"))
     }
 
     async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -156,13 +156,13 @@ impl Store for SqliteStore {
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::get_transactions(conn, transaction_filter)
+            SqliteStore::get_transactions(conn, &transaction_filter)
         })
         .await
     }
 
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::apply_transaction(conn, tx_update))
+        self.interact_with_connection(move |conn| SqliteStore::apply_transaction(conn, &tx_update))
             .await
     }
 
@@ -170,7 +170,7 @@ impl Store for SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_input_notes(conn, filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_input_notes(conn, &filter))
             .await
     }
 
@@ -178,7 +178,7 @@ impl Store for SqliteStore {
         &self,
         note_filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_output_notes(conn, note_filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_output_notes(conn, &note_filter))
             .await
     }
 
@@ -195,7 +195,12 @@ impl Store for SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::insert_block_header(conn, block_header, chain_mmr_peaks, has_client_notes)
+            SqliteStore::insert_block_header(
+                conn,
+                &block_header,
+                &chain_mmr_peaks,
+                has_client_notes,
+            )
         })
         .await
     }
@@ -219,7 +224,7 @@ impl Store for SqliteStore {
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, filter))
+        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, &filter))
             .await
     }
 
@@ -322,7 +327,7 @@ impl Store for SqliteStore {
         code: AccountCode,
     ) -> Result<(), StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::upsert_foreign_account_code(conn, account_id, code)
+            SqliteStore::upsert_foreign_account_code(conn, account_id, &code)
         })
         .await
     }
@@ -341,6 +346,37 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_unspent_input_note_nullifiers)
             .await
     }
+}
+
+// UTILS
+// ================================================================================================
+
+/// Gets a `u64` value from the database.
+///
+/// Sqlite uses `i64` as its internal representation format, and so when retrieving
+/// we need to make sure we cast as `u64` to get the original value
+pub fn column_value_as_u64<I: rusqlite::RowIndex>(
+    row: &rusqlite::Row<'_>,
+    index: I,
+) -> rusqlite::Result<u64> {
+    let value: i64 = row.get(index)?;
+    #[allow(
+        clippy::cast_sign_loss,
+        reason = "We store u64 as i64 as sqlite only allows the latter."
+    )]
+    Ok(value as u64)
+}
+
+/// Converts a `u64` into a [Value].
+///
+/// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
+/// lossless conversion from `u64` to `i64`.
+pub fn u64_to_value(v: u64) -> Value {
+    #[allow(
+        clippy::cast_possible_wrap,
+        reason = "We store u64 as i64 as sqlite only allows the latter."
+    )]
+    Value::Integer(v as i64)
 }
 
 // TESTS

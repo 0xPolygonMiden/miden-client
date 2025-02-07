@@ -7,7 +7,7 @@ use js_sys::{Array, Promise};
 use miden_objects::{note::Nullifier, Digest};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen, JsFuture};
 
 use super::WebStore;
 use crate::store::{
@@ -15,13 +15,17 @@ use crate::store::{
 };
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_get_input_notes, idxdb_get_input_notes_from_ids, idxdb_get_input_notes_from_nullifiers,
+    idxdb_get_output_notes, idxdb_get_output_notes_from_ids,
+    idxdb_get_output_notes_from_nullifiers, idxdb_get_unspent_input_note_nullifiers,
+};
 
 mod models;
-use models::*;
+use models::{InputNoteIdxdbObject, OutputNoteIdxdbObject};
 
 pub(crate) mod utils;
-use utils::*;
+use utils::{parse_input_note_idxdb_object, parse_output_note_idxdb_object, upsert_input_note_tx};
 
 impl WebStore {
     pub(crate) async fn get_input_notes(
@@ -127,10 +131,8 @@ impl NoteFilter {
                 idxdb_get_input_notes_from_ids(note_ids)
             },
             NoteFilter::Nullifiers(nullifiers) => {
-                let nullifiers_as_str = nullifiers
-                    .iter()
-                    .map(|nullifier| nullifier.to_string())
-                    .collect::<Vec<String>>();
+                let nullifiers_as_str =
+                    nullifiers.iter().map(ToString::to_string).collect::<Vec<String>>();
 
                 idxdb_get_input_notes_from_nullifiers(nullifiers_as_str)
             },
@@ -178,10 +180,8 @@ impl NoteFilter {
                 idxdb_get_output_notes_from_ids(note_ids)
             },
             NoteFilter::Nullifiers(nullifiers) => {
-                let nullifiers_as_str = nullifiers
-                    .iter()
-                    .map(|nullifier| nullifier.to_string())
-                    .collect::<Vec<String>>();
+                let nullifiers_as_str =
+                    nullifiers.iter().map(ToString::to_string).collect::<Vec<String>>();
 
                 idxdb_get_output_notes_from_nullifiers(nullifiers_as_str)
             },

@@ -44,7 +44,7 @@ impl NoteAndArgs {
 impl From<NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
     fn from(note_and_args: NoteAndArgs) -> Self {
         let native_note: NativeNote = note_and_args.note.into();
-        let native_args: Option<NativeNoteArgs> = note_and_args.args.map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_and_args.args.map(Into::into);
         (native_note, native_args)
     }
 }
@@ -52,8 +52,7 @@ impl From<NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
 impl From<&NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
     fn from(note_and_args: &NoteAndArgs) -> Self {
         let native_note: NativeNote = note_and_args.note.clone().into();
-        let native_args: Option<NativeNoteArgs> =
-            note_and_args.args.clone().map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_and_args.args.clone().map(Into::into);
         (native_note, native_args)
     }
 }
@@ -77,17 +76,13 @@ impl NoteAndArgsArray {
 
 impl From<NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
     fn from(note_and_args_array: NoteAndArgsArray) -> Self {
-        note_and_args_array
-            .0
-            .into_iter()
-            .map(|note_and_args| note_and_args.into())
-            .collect()
+        note_and_args_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
     fn from(note_and_args_array: &NoteAndArgsArray) -> Self {
-        note_and_args_array.0.iter().map(|note_and_args| note_and_args.into()).collect()
+        note_and_args_array.0.iter().map(Into::into).collect()
     }
 }
 
@@ -111,7 +106,7 @@ impl NoteIdAndArgs {
 impl From<NoteIdAndArgs> for (NativeNoteId, Option<NativeNoteArgs>) {
     fn from(note_id_and_args: NoteIdAndArgs) -> Self {
         let native_note_id: NativeNoteId = note_id_and_args.note_id.into();
-        let native_args: Option<NativeNoteArgs> = note_id_and_args.args.map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> = note_id_and_args.args.map(Into::into);
         (native_note_id, native_args)
     }
 }
@@ -144,21 +139,13 @@ impl NoteIdAndArgsArray {
 
 impl From<NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     fn from(note_id_and_args_array: NoteIdAndArgsArray) -> Self {
-        note_id_and_args_array
-            .0
-            .into_iter()
-            .map(|note_id_and_args| note_id_and_args.into())
-            .collect()
+        note_id_and_args_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     fn from(note_id_and_args_array: &NoteIdAndArgsArray) -> Self {
-        note_id_and_args_array
-            .0
-            .iter()
-            .map(|note_id_and_args| note_id_and_args.into())
-            .collect()
+        note_id_and_args_array.0.iter().map(Into::into).collect()
     }
 }
 
@@ -218,21 +205,13 @@ impl NoteDetailsAndTagArray {
 
 impl From<NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
     fn from(note_details_and_tag_array: NoteDetailsAndTagArray) -> Self {
-        note_details_and_tag_array
-            .0
-            .into_iter()
-            .map(|note_details_and_tag| note_details_and_tag.into())
-            .collect()
+        note_details_and_tag_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
     fn from(note_details_and_tag_array: &NoteDetailsAndTagArray) -> Self {
-        note_details_and_tag_array
-            .0
-            .iter()
-            .map(|note_details_and_tag| note_details_and_tag.into())
-            .collect()
+        note_details_and_tag_array.0.iter().map(Into::into).collect()
     }
 }
 

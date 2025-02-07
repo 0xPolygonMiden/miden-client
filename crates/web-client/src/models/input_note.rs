@@ -25,11 +25,11 @@ impl InputNote {
     }
 
     pub fn proof(&self) -> Option<NoteInclusionProof> {
-        self.0.proof().map(|proof| proof.into())
+        self.0.proof().map(Into::into)
     }
 
     pub fn location(&self) -> Option<NoteLocation> {
-        self.0.location().map(|location| location.into())
+        self.0.location().map(Into::into)
     }
 }
 

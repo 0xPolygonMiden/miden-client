@@ -13,27 +13,23 @@ impl SyncSummary {
     }
 
     pub fn received_notes(&self) -> Vec<NoteId> {
-        self.0.received_notes.iter().map(|note_id| note_id.into()).collect()
+        self.0.received_notes.iter().map(Into::into).collect()
     }
 
     pub fn committed_notes(&self) -> Vec<NoteId> {
-        self.0.committed_notes.iter().map(|note_id| note_id.into()).collect()
+        self.0.committed_notes.iter().map(Into::into).collect()
     }
 
     pub fn consumed_notes(&self) -> Vec<NoteId> {
-        self.0.consumed_notes.iter().map(|note_id| note_id.into()).collect()
+        self.0.consumed_notes.iter().map(Into::into).collect()
     }
 
     pub fn updated_accounts(&self) -> Vec<AccountId> {
-        self.0.updated_accounts.iter().map(|account_id| account_id.into()).collect()
+        self.0.updated_accounts.iter().map(Into::into).collect()
     }
 
     pub fn committed_transactions(&self) -> Vec<TransactionId> {
-        self.0
-            .committed_transactions
-            .iter()
-            .map(|transaction_id| transaction_id.into())
-            .collect()
+        self.0.committed_transactions.iter().map(Into::into).collect()
     }
 }
 

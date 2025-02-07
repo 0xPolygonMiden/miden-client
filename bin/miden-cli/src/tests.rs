@@ -199,10 +199,8 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
         let cargo_workspace_dir =
             env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let source_path = format!(
-            "{}/../../miden-node/accounts/{}",
-            cargo_workspace_dir, genesis_account_filename
-        );
+        let source_path =
+            format!("{cargo_workspace_dir}/../../miden-node/accounts/{genesis_account_filename}",);
 
         std::fs::copy(source_path, new_file_path).unwrap();
     }
@@ -666,7 +664,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+        Box::new(TonicRpcClient::new(&(rpc_config.endpoint.into()), rpc_config.timeout_ms)),
         rng,
         store,
         std::sync::Arc::new(authenticator),
@@ -706,7 +704,7 @@ async fn debug_mode_outputs_logs() {
         NoteType::Private,
         NoteTag::from_account_id(account.id(), NoteExecutionMode::Local).unwrap(),
         NoteExecutionHint::None,
-        Default::default(),
+        Felt::default(),
     )
     .unwrap();
     let note_assets = NoteAssets::new(vec![]).unwrap();

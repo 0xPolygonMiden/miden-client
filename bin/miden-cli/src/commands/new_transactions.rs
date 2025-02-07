@@ -8,8 +8,8 @@ use miden_client::{
     note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
     store::NoteRecordError,
     transaction::{
-        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionRequestBuilder,
-        TransactionResult,
+        InputNote, OutputNote, PaymentTransactionData, SwapTransactionData, TransactionRequest,
+        TransactionRequestBuilder, TransactionResult,
     },
     Client,
 };
@@ -116,7 +116,7 @@ pub struct SendCmd {
     /// Set the recall height for the transaction. If the note wasn't consumed by this height, the
     /// sender may consume it back.
     ///
-    /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
+    /// Setting this flag turns the transaction from a `PayToId` to a `PayToIdWithRecall`.
     #[clap(short, long)]
     recall_height: Option<u32>,
 
@@ -215,7 +215,7 @@ impl SwapCmd {
         );
 
         let transaction_request = TransactionRequestBuilder::swap(
-            swap_transaction.clone(),
+            &swap_transaction,
             (&self.note_type).into(),
             client.rng(),
         )
@@ -241,8 +241,7 @@ impl SwapCmd {
         .map_err(|err| CliError::Transaction(err.into(), "Failed to build swap tag".to_string()))?
         .into();
         println!(
-            "To receive updates about the payback Swap Note run `miden tags add {}`",
-            payback_note_tag
+            "To receive updates about the payback Swap Note run `miden tags add {payback_note_tag}`",
         );
 
         Ok(())
@@ -361,7 +360,7 @@ async fn execute_transaction(
     let output_notes = transaction_execution_result
         .created_notes()
         .iter()
-        .map(|note| note.id())
+        .map(OutputNote::id)
         .collect::<Vec<_>>();
 
     if delegated_proving {
@@ -382,13 +381,15 @@ async fn execute_transaction(
     }
 
     println!("Successfully created transaction.");
-    println!("Transaction ID: {}", transaction_id);
+    println!("Transaction ID: {transaction_id}");
 
     if output_notes.is_empty() {
         println!("The transaction did not generate any output notes.");
     } else {
         println!("Output notes:");
-        output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
+        for note_id in &output_notes {
+            println!("\t- {note_id}");
+        }
     }
 
     Ok(())
@@ -402,7 +403,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         .executed_transaction()
         .input_notes()
         .iter()
-        .map(|note| note.id())
+        .map(InputNote::id)
         .collect::<Vec<_>>();
     if input_note_ids.is_empty() {
         println!("No notes will be consumed.");
@@ -449,7 +450,9 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         println!("Account Storage will not be changed.");
     }
 
-    if !account_delta.vault().is_empty() {
+    if account_delta.vault().is_empty() {
+        println!("Account Vault will not be changed.");
+    } else {
         let faucet_details_map = load_faucet_details_map()?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
@@ -459,9 +462,9 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
             let (faucet_fmt, amount_fmt) = faucet_details_map.format_fungible_asset(&asset)?;
 
             if amount.is_positive() {
-                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("+{}", amount_fmt)]);
+                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("+{amount_fmt}")]);
             } else {
-                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("-{}", amount_fmt)]);
+                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("-{amount_fmt}")]);
             }
         }
 
@@ -486,14 +489,12 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
 
         println!("Vault changes:");
         println!("{table}");
-    } else {
-        println!("Account Vault will not be changed.");
     }
 
     if let Some(new_nonce) = account_delta.nonce() {
-        println!("New nonce: {new_nonce}.")
+        println!("New nonce: {new_nonce}.");
     } else {
-        println!("No nonce changes.")
+        println!("No nonce changes.");
     }
 
     Ok(())

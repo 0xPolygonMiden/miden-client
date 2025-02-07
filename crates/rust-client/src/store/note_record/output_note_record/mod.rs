@@ -20,11 +20,11 @@ use super::NoteRecordError;
 /// Represents a Note which was the result of executing some transaction of which the Store can
 /// keep track and retrieve.
 ///
-/// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing
-/// the recipient details (nullifier, script, inputs and serial number).
+/// An [`OutputNoteRecord`] contains all the information of a [`Note`] while it allows for not
+/// knowing the recipient details (nullifier, script, inputs and serial number).
 ///
-/// It is also possible to convert [Note] into [OutputNoteRecord] with the state
-/// [OutputNoteState::ExpectedFull].
+/// It is also possible to convert [`Note`] into [`OutputNoteRecord`] with the state
+/// [`OutputNoteState::ExpectedFull`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     /// Assets contained in the note.
@@ -49,10 +49,10 @@ impl OutputNoteRecord {
         expected_height: BlockNumber,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
-            recipient_digest,
             assets,
-            state,
             metadata,
+            recipient_digest,
+            state,
             expected_height,
         }
     }
@@ -169,7 +169,7 @@ impl OutputNoteRecord {
         }
     }
 
-    pub fn from_partial_note(partial_note: PartialNote, expected_height: BlockNumber) -> Self {
+    pub fn from_partial_note(partial_note: &PartialNote, expected_height: BlockNumber) -> Self {
         OutputNoteRecord {
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
@@ -179,17 +179,17 @@ impl OutputNoteRecord {
         }
     }
 
-    /// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
-    /// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
-    /// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way
-    /// to filter the full and partial output notes.
+    /// [`OutputNote`] can always be turned into an [`OutputNoteRecord`] when they're either
+    /// [`OutputNote::Full`] or [`OutputNote::Partial`] and always fail the conversion if it's
+    /// [`OutputNote::Header`]. This also mean that `output_note.try_from()` can also be used as a
+    /// way to filter the full and partial output notes.
     pub fn try_from_output_note(
         output_note: OutputNote,
         expected_height: BlockNumber,
     ) -> Result<Self, NoteRecordError> {
         match output_note {
             OutputNote::Full(note) => Ok(Self::from_full_note(note, expected_height)),
-            OutputNote::Partial(partial_note) => Ok(Self::from_partial_note(partial_note, expected_height)),
+            OutputNote::Partial(partial_note) => Ok(Self::from_partial_note(&partial_note, expected_height)),
             OutputNote::Header(_) => Err(NoteRecordError::ConversionError(
                 "Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string(),
             )),
@@ -225,7 +225,7 @@ impl TryFrom<OutputNoteRecord> for Note {
     }
 }
 
-/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord].
+/// Variants of [`NoteFile`] that can be exported from an [`OutputNoteRecord`].
 pub enum NoteExportType {
     /// Export only the note ID.
     NoteId,
@@ -237,13 +237,13 @@ pub enum NoteExportType {
 
 impl OutputNoteRecord {
     /// Converts the output note record into a note file for exporting. The export type is used to
-    /// determine the variant of [NoteFile] to be created.
+    /// determine the variant of [`NoteFile`] to be created.
     ///
     /// # Errors
     ///
-    /// Will return an error if there isn't enough information to create the requested [NoteFile]
+    /// Will return an error if there isn't enough information to create the requested [`NoteFile`]
     /// variant.
-    pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
+    pub fn into_note_file(self, export_type: &NoteExportType) -> Result<NoteFile, NoteRecordError> {
         match export_type {
             NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
             NoteExportType::NoteDetails => {
@@ -327,9 +327,9 @@ impl OutputNoteState {
 
     pub fn recipient(&self) -> Option<&NoteRecipient> {
         match self {
-            OutputNoteState::ExpectedFull { recipient, .. } => Some(recipient),
-            OutputNoteState::CommittedFull { recipient, .. } => Some(recipient),
-            OutputNoteState::Consumed { recipient, .. } => Some(recipient),
+            OutputNoteState::ExpectedFull { recipient, .. }
+            | OutputNoteState::CommittedFull { recipient, .. }
+            | OutputNoteState::Consumed { recipient, .. } => Some(recipient),
             _ => None,
         }
     }

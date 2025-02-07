@@ -40,7 +40,7 @@ impl WebClient {
                 .collect();
 
             // call toString() on each tag
-            let result = tags.iter().map(|tag| tag.to_string()).collect::<Vec<String>>();
+            let result = tags.iter().map(ToString::to_string).collect::<Vec<String>>();
             serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Client not initialized"))

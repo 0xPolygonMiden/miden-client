@@ -65,7 +65,7 @@ pub struct AccountUpdateSummary {
 }
 
 impl AccountUpdateSummary {
-    /// Creates a new [AccountUpdateSummary].
+    /// Creates a new [`AccountUpdateSummary`].
     pub fn new(hash: Digest, last_block_num: u32) -> Self {
         Self { hash, last_block_num }
     }
@@ -189,9 +189,16 @@ impl ProtoAccountStateHeader {
         let mut storage_slot_proofs: BTreeMap<u8, Vec<SmtProof>> = BTreeMap::new();
         for StorageSlotMapProof { storage_slot, smt_proof } in storage_maps {
             let proof = SmtProof::read_from_bytes(&smt_proof)?;
-            match storage_slot_proofs.get_mut(&(storage_slot as u8)) {
+            match storage_slot_proofs
+                .get_mut(&(u8::try_from(storage_slot).expect("there are no more than 256 slots")))
+            {
                 Some(list) => list.push(proof),
-                None => _ = storage_slot_proofs.insert(storage_slot as u8, vec![proof]),
+                None => {
+                    _ = storage_slot_proofs.insert(
+                        u8::try_from(storage_slot).expect("only 256 storage slots"),
+                        vec![proof],
+                    );
+                },
             }
         }
 
@@ -281,7 +288,7 @@ impl AccountProof {
     }
 
     pub fn code_commitment(&self) -> Option<Digest> {
-        self.account_code().map(|c| c.commitment())
+        self.account_code().map(AccountCode::commitment)
     }
 
     pub fn account_hash(&self) -> Digest {
@@ -318,7 +325,7 @@ impl AccountStorageRequirements {
         let map = slots_and_keys
             .into_iter()
             .map(|(slot_index, keys_iter)| {
-                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().cloned().collect();
+                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().copied().collect();
                 (slot_index, keys_vec)
             })
             .collect();
@@ -334,9 +341,9 @@ impl AccountStorageRequirements {
 impl From<AccountStorageRequirements> for Vec<get_account_proofs_request::StorageRequest> {
     fn from(value: AccountStorageRequirements) -> Vec<get_account_proofs_request::StorageRequest> {
         let mut requests = Vec::with_capacity(value.0.len());
-        for (slot_index, map_keys) in value.0.into_iter() {
+        for (slot_index, map_keys) in value.0 {
             requests.push(get_account_proofs_request::StorageRequest {
-                storage_slot_index: slot_index as u32,
+                storage_slot_index: u32::from(slot_index),
                 map_keys: map_keys
                     .into_iter()
                     .map(crate::rpc::generated::digest::Digest::from)

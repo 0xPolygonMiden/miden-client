@@ -142,7 +142,7 @@ impl NotesArray {
     }
 
     pub fn push(&mut self, note: &Note) {
-        self.0.push(note.clone())
+        self.0.push(note.clone());
     }
 }
 
@@ -151,12 +151,12 @@ impl NotesArray {
 
 impl From<NotesArray> for Vec<NativeNote> {
     fn from(notes_array: NotesArray) -> Self {
-        notes_array.0.into_iter().map(|note| note.into()).collect()
+        notes_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NotesArray> for Vec<NativeNote> {
     fn from(notes_array: &NotesArray) -> Self {
-        notes_array.0.iter().map(|note| note.into()).collect()
+        notes_array.0.iter().map(Into::into).collect()
     }
 }

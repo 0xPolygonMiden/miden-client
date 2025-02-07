@@ -25,6 +25,8 @@
 //! This makes it easy to build web-based applications that interact with the miden client, enabling
 //! rich interaction with accounts, assets, and transactions directly from the browser.
 
+#![allow(clippy::return_self_not_must_use)]
+
 pub mod account;
 pub mod account_code;
 pub mod account_delta;

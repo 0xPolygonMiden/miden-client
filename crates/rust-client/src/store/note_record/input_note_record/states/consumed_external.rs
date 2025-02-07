@@ -9,7 +9,7 @@ use miden_objects::{
 use super::{InputNoteState, NoteStateHandler};
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::ConsumedExternal] state.
+/// Information related to notes in the [`InputNoteState::ConsumedExternal`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedExternalNoteState {
     /// Block height at which the note was nullified.
@@ -35,7 +35,7 @@ impl NoteStateHandler for ConsumedExternalNoteState {
     fn block_header_received(
         &self,
         _note_id: NoteId,
-        _block_header: BlockHeader,
+        _block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }

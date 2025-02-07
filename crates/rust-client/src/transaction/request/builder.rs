@@ -25,10 +25,10 @@ use crate::transaction::TransactionScriptBuilderError;
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
 
-/// A builder for a [TransactionRequest].
+/// A builder for a [`TransactionRequest`].
 ///
-/// Use this builder to construct a [TransactionRequest] by adding input notes, specifying scripts,
-/// and setting other transaction parameters.
+/// Use this builder to construct a [`TransactionRequest`] by adding input notes, specifying
+/// scripts, and setting other transaction parameters.
 #[derive(Clone, Debug)]
 pub struct TransactionRequestBuilder {
     /// Notes to be consumed by the transaction that aren't authenticated.
@@ -62,7 +62,7 @@ impl TransactionRequestBuilder {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new, empty [TransactionRequestBuilder].
+    /// Creates a new, empty [`TransactionRequestBuilder`].
     pub fn new() -> Self {
         Self {
             unauthenticated_input_notes: vec![],
@@ -78,6 +78,7 @@ impl TransactionRequestBuilder {
     }
 
     /// Adds the specified notes as unauthenticated input notes to the transaction request.
+    #[must_use]
     pub fn with_unauthenticated_input_notes(
         mut self,
         notes: impl IntoIterator<Item = (Note, Option<NoteArgs>)>,
@@ -90,6 +91,7 @@ impl TransactionRequestBuilder {
     }
 
     /// Adds the specified notes as authenticated input notes to the transaction request.
+    #[must_use]
     pub fn with_authenticated_input_notes(
         mut self,
         notes: impl IntoIterator<Item = (NoteId, Option<NoteArgs>)>,
@@ -164,6 +166,7 @@ impl TransactionRequestBuilder {
     ///   them as advice inputs.
     /// - **Private accounts**: the node retrieves a proof of the account's existence and injects
     ///   that as advice inputs.
+    #[must_use]
     pub fn with_foreign_accounts(
         mut self,
         foreign_accounts: impl IntoIterator<Item = impl Into<ForeignAccount>>,
@@ -181,9 +184,10 @@ impl TransactionRequestBuilder {
     /// The set of specified notes is treated as a subset of the notes that may be created by a
     /// transaction. That is, the transaction must create all the specified expected notes, but it
     /// may also create other notes which aren't included in the set of expected notes.
+    #[must_use]
     pub fn with_expected_output_notes(mut self, notes: Vec<Note>) -> Self {
         self.expected_output_notes =
-            BTreeMap::from_iter(notes.into_iter().map(|note| (note.id(), note)));
+            notes.into_iter().map(|note| (note.id(), note)).collect::<BTreeMap<_, _>>();
         self
     }
 
@@ -192,13 +196,15 @@ impl TransactionRequestBuilder {
     ///
     /// For example, after a SWAP note is consumed, a payback note is expected to be created. This
     /// allows the client to track this note accordingly.
+    #[must_use]
     pub fn with_expected_future_notes(mut self, notes: Vec<(NoteDetails, NoteTag)>) -> Self {
         self.expected_future_notes =
-            BTreeMap::from_iter(notes.into_iter().map(|note| (note.0.id(), note)));
+            notes.into_iter().map(|note| (note.0.id(), note)).collect::<BTreeMap<_, _>>();
         self
     }
 
-    /// Extends the advice map with the specified ([Digest], Vec<[Felt]>) pairs.
+    /// Extends the advice map with the specified `([Digest], Vec<[Felt]>)` pairs.
+    #[must_use]
     pub fn extend_advice_map<T: IntoIterator<Item = (Digest, Vec<Felt>)>>(
         mut self,
         iter: T,
@@ -207,7 +213,8 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Extends the merkle store with the specified [InnerNodeInfo] elements.
+    /// Extends the merkle store with the specified [`InnerNodeInfo`] elements.
+    #[must_use]
     pub fn extend_merkle_store<T: IntoIterator<Item = InnerNodeInfo>>(mut self, iter: T) -> Self {
         self.merkle_store.extend(iter);
         self
@@ -236,7 +243,8 @@ impl TransactionRequestBuilder {
     // STANDARDIZED REQUESTS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new [TransactionRequestBuilder] for a transaction to consume the specified notes.
+    /// Returns a new [`TransactionRequestBuilder`] for a transaction to consume the specified
+    /// notes.
     ///
     /// - `note_ids` is a list of note IDs to be consumed.
     pub fn consume_notes(note_ids: Vec<NoteId>) -> Self {
@@ -244,7 +252,7 @@ impl TransactionRequestBuilder {
         Self::new().with_authenticated_input_notes(input_notes)
     }
 
-    /// Returns a new [TransactionRequestBuilder] for a transaction to mint fungible assets. This
+    /// Returns a new [`TransactionRequestBuilder`] for a transaction to mint fungible assets. This
     /// request must be executed against a fungible faucet account.
     ///
     /// - `asset` is the fungible asset to be minted.
@@ -270,13 +278,13 @@ impl TransactionRequestBuilder {
         Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
-    /// Returns a new [TransactionRequestBuilder] for a transaction to send a P2ID or P2IDR note.
+    /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a P2ID or P2IDR note.
     /// This request must be executed against the wallet sender account.
     ///
     /// - `payment_data` is the data for the payment transaction that contains the asset to be
     ///   transferred, the sender account ID, and the target account ID.
     /// - `recall_height` is the block height after which the sender can recall the assets. If None,
-    ///   a P2ID note is created. If Some(), a P2IDR note is created.
+    ///   a P2ID note is created. If `Some()`, a P2IDR note is created.
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
@@ -325,7 +333,7 @@ impl TransactionRequestBuilder {
         Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
-    /// Returns a new [TransactionRequestBuilder] for a transaction to send a SWAP note. This
+    /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a SWAP note. This
     /// request must be executed against the wallet sender account.
     ///
     /// - `swap_data` is the data for the swap transaction that contains the sender account ID, the
@@ -334,7 +342,7 @@ impl TransactionRequestBuilder {
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
     pub fn swap(
-        swap_data: SwapTransactionData,
+        swap_data: &SwapTransactionData,
         note_type: NoteType,
         rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
@@ -360,7 +368,7 @@ impl TransactionRequestBuilder {
     // FINALIZE BUILDER
     // --------------------------------------------------------------------------------------------
 
-    /// Consumes the builder and returns a [TransactionRequest].
+    /// Consumes the builder and returns a [`TransactionRequest`].
     pub fn build(self) -> TransactionRequest {
         TransactionRequest {
             unauthenticated_input_notes: self.unauthenticated_input_notes,
@@ -394,7 +402,7 @@ impl PaymentTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [PaymentTransactionData].
+    /// Creates a new [`PaymentTransactionData`].
     pub fn new(
         assets: Vec<Asset>,
         sender_account_id: AccountId,
@@ -407,17 +415,17 @@ impl PaymentTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId].
+    /// Returns the executor [`AccountId`].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the target [AccountId].
+    /// Returns the target [`AccountId`].
     pub fn target_account_id(&self) -> AccountId {
         self.target_account_id
     }
 
-    /// Returns the transaction's list of [Asset].
+    /// Returns the transaction's list of [`Asset`].
     pub fn assets(&self) -> &Vec<Asset> {
         &self.assets
     }
@@ -445,7 +453,7 @@ impl SwapTransactionData {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [SwapTransactionData].
+    /// Creates a new [`SwapTransactionData`].
     pub fn new(
         sender_account_id: AccountId,
         offered_asset: Asset,
@@ -458,17 +466,17 @@ impl SwapTransactionData {
         }
     }
 
-    /// Returns the executor [AccountId].
+    /// Returns the executor [`AccountId`].
     pub fn account_id(&self) -> AccountId {
         self.sender_account_id
     }
 
-    /// Returns the transaction offered [Asset].
+    /// Returns the transaction offered [`Asset`].
     pub fn offered_asset(&self) -> Asset {
         self.offered_asset
     }
 
-    /// Returns the transaction requested [Asset].
+    /// Returns the transaction requested [`Asset`].
     pub fn requested_asset(&self) -> Asset {
         self.requested_asset
     }

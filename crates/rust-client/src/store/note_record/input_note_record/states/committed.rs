@@ -13,7 +13,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::Committed] state.
+/// Information related to notes in the [`InputNoteState::Committed`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CommittedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -49,7 +49,7 @@ impl NoteStateHandler for CommittedNoteState {
     fn block_header_received(
         &self,
         _note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if block_header.note_root() != self.block_note_root {
             return Err(NoteRecordError::StateTransitionError(

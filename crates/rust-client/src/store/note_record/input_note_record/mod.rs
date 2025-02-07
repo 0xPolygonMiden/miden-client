@@ -23,12 +23,12 @@ pub use states::{
 
 /// Represents a Note of which the Store can keep track and retrieve.
 ///
-/// An [InputNoteRecord] contains all the information of a [NoteDetails], in addition of specific
-/// information about the note state.
+/// An [`InputNoteRecord`] contains all the information of a [`NoteDetails`], in addition of
+/// specific information about the note state.
 ///
-/// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
-/// as input for transactions.
-/// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
+/// Once a proof is received, the [`InputNoteRecord`] can be transformed into an [`InputNote`] and
+/// used as input for transactions.
+/// It is also possible to convert [`Note`] and [`InputNote`] into [`InputNoteRecord`] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible).
 ///
 /// Notes can also be consumed as unauthenticated notes, where their existence is verified by
@@ -157,7 +157,7 @@ impl InputNoteRecord {
     /// information and inclusion proof. Returns `true` if the state was changed.
     pub(crate) fn block_header_received(
         &mut self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<bool, NoteRecordError> {
         let new_state = self.state.block_header_received(self.id(), block_header)?;
         if let Some(new_state) = new_state {
@@ -316,7 +316,7 @@ impl TryInto<Note> for InputNoteRecord {
     type Error = NoteRecordError;
 
     fn try_into(self) -> Result<Note, Self::Error> {
-        match self.metadata().cloned() {
+        match self.metadata().copied() {
             Some(metadata) => Ok(Note::new(
                 self.details.assets().clone(),
                 metadata,
@@ -333,7 +333,7 @@ impl TryInto<Note> for &InputNoteRecord {
     type Error = NoteRecordError;
 
     fn try_into(self) -> Result<Note, Self::Error> {
-        match self.metadata().cloned() {
+        match self.metadata().copied() {
             Some(metadata) => Ok(Note::new(
                 self.details.assets().clone(),
                 metadata,
