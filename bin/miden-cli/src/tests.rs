@@ -26,7 +26,7 @@ use miden_client::{
     utils::Serializable,
     Client, Felt,
 };
-use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet};
+use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR};
 use predicates::str::contains;
 use rand::Rng;
 use uuid::Uuid;
@@ -426,10 +426,20 @@ async fn test_cli_export_import_account() {
 
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
-    create_wallet_cmd.args(["new-wallet", "-s", "private"]);
+    create_wallet_cmd.args([
+        "new-faucet",
+        "-s",
+        "private",
+        "-t",
+        "BTC",
+        "-d",
+        "8",
+        "-m",
+        "100000000000",
+    ]);
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
-    let first_basic_account_id = {
+    let faucet_id = {
         let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
@@ -438,13 +448,7 @@ async fn test_cli_export_import_account() {
 
     // Export the account
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args([
-        "export",
-        &first_basic_account_id,
-        "--account",
-        "--filename",
-        ACCOUNT_FILENAME,
-    ]);
+    export_cmd.args(["export", &faucet_id, "--account", "--filename", ACCOUNT_FILENAME]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Copy the account file
@@ -461,10 +465,15 @@ async fn test_cli_export_import_account() {
 
     // Ensure the account was imported
     let client_2 = create_test_client_with_store_path(&store_path_2).await.0;
-    assert!(client_2
-        .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
-        .await
-        .is_ok());
+    assert!(client_2.get_account(AccountId::from_hex(&faucet_id).unwrap()).await.is_ok());
+
+    sync_cli(&temp_dir_2);
+
+    mint_cli(
+        &temp_dir_2,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap().to_hex().as_str(),
+        &faucet_id,
+    );
 }
 
 #[test]

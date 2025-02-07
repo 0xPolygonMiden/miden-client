@@ -6,6 +6,7 @@ use std::{
 
 use miden_client::{
     account::{AccountData, AccountId},
+    authenticator::ClientAuthenticator,
     crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
@@ -29,7 +30,11 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        authenticator: ClientAuthenticator<impl FeltRng>,
+    ) -> Result<(), CliError> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
@@ -45,9 +50,13 @@ impl ImportCmd {
                 );
                 let account_data_file_contents = fs::read(filename)?;
 
-                let account_id =
-                    import_account(&mut client, &account_data_file_contents, self.overwrite)
-                        .await?;
+                let account_id = import_account(
+                    &mut client,
+                    &authenticator,
+                    &account_data_file_contents,
+                    self.overwrite,
+                )
+                .await?;
 
                 println!("Successfully imported account {}", account_id);
 
@@ -65,12 +74,17 @@ impl ImportCmd {
 
 async fn import_account(
     client: &mut Client<impl FeltRng>,
+    authenticator: &ClientAuthenticator<impl FeltRng>,
     account_data_file_contents: &[u8],
     overwrite: bool,
 ) -> Result<AccountId, CliError> {
     let account_data = AccountData::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
+
+    authenticator
+        .add_key(account_data.auth_secret_key)
+        .map_err(|err| CliError::Export(format!("Error storing auth for account: {}", err)))?;
 
     client
         .add_account(&account_data.account, account_data.account_seed, overwrite)
