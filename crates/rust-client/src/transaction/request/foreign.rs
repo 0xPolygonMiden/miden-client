@@ -224,8 +224,13 @@ impl ForeignAccountInputs {
     }
 
     /// Extends the storage proofs with the input `smt_proofs` and returns the new structure
-    pub fn with_storage_map_proofs(mut self, smt_proofs: impl IntoIterator<Item = SmtProof>) {
+    #[must_use]
+    pub fn with_storage_map_proofs(
+        mut self,
+        smt_proofs: impl IntoIterator<Item = SmtProof>,
+    ) -> Self {
         self.storage_map_proofs.extend(smt_proofs);
+        self
     }
 
     /// Consumes the [`ForeignAccountInputs`] and returns its parts.

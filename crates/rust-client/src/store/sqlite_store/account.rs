@@ -14,13 +14,13 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, types::Value, Connection, Transaction};
 
-use super::SqliteStore;
+use super::{column_value_as_u64, u64_to_value, SqliteStore};
 use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (String, String, String, String, u64, bool, String);
-type SerializedAccountsParts = (String, i64, String, String, String, Option<Vec<u8>>, bool);
+type SerializedAccountData = (String, String, String, String, Value, bool, String);
+type SerializedAccountsParts = (String, u64, String, String, String, Option<Vec<u8>>, bool);
 
 type SerializedAccountAuthData = (String, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (String, Vec<u8>);
@@ -31,7 +31,7 @@ type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts = (String, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
+type SerializedFullAccountParts = (String, u64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -321,7 +321,7 @@ pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let nonce: i64 = row.get(1)?;
+    let nonce: u64 = column_value_as_u64(row, 1)?;
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
@@ -347,7 +347,7 @@ pub(super) fn parse_accounts(
     Ok((
         AccountHeader::new(
             AccountId::from_hex(&id).expect("Conversion from stored AccountID should not panic"),
-            Felt::new(u64::try_from(nonce).expect("nonce are always positive")),
+            Felt::new(nonce),
             Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
@@ -372,7 +372,7 @@ pub(super) fn parse_account(
         AssetVault::new(&account_assets)?,
         account_storage,
         account_code,
-        Felt::new(u64::try_from(nonce).expect("nonce is always positive")),
+        Felt::new(nonce),
     );
 
     let status = match (account_seed, locked) {
@@ -392,7 +392,7 @@ fn serialize_account(account: &Account) -> SerializedAccountData {
     let commitment_root = account.storage().commitment().to_string();
     let vault_root = account.vault().commitment().to_string();
     let committed = account.is_public();
-    let nonce = account.nonce().as_int();
+    let nonce = u64_to_value(account.nonce().as_int());
     let hash = account.hash().to_string();
 
     (id, code_root, commitment_root, vault_root, nonce, committed, hash)
@@ -460,7 +460,7 @@ pub(super) fn parse_account_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedFullAccountParts, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let nonce: i64 = row.get(1)?;
+    let nonce: u64 = column_value_as_u64(row, 1)?;
     let account_seed: Option<Vec<u8>> = row.get(2)?;
     let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
