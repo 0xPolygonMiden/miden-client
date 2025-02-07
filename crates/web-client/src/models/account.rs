@@ -1,5 +1,10 @@
-use miden_objects::account::{Account as NativeAccount, AccountType as NativeAccountType};
+use miden_client::utils::{Deserializable, Serializable};
+use miden_objects::{
+    account::{Account as NativeAccount, AccountType as NativeAccountType},
+    utils::SliceReader,
+};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
 use super::{
     account_code::AccountCode, account_id::AccountId, account_storage::AccountStorage,
@@ -53,6 +58,22 @@ impl Account {
 
     pub fn is_new(&self) -> bool {
         self.0.is_new()
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        let native_account = &self.0;
+        let size_hint = native_account.get_size_hint();
+        let mut buffer = vec![0u8; size_hint];
+        native_account.write_into(&mut buffer.as_mut_slice());
+        Uint8Array::from(&buffer[..])
+    }
+
+    pub fn deserialize(bytes: Uint8Array) -> Result<Account, JsValue> {
+        let vec: Vec<u8> = bytes.to_vec();
+        let mut reader = SliceReader::new(&vec); // Wrap with SliceReader
+        let native_account = NativeAccount::read_from(&mut reader)
+            .map_err(|e| JsValue::from_str(&format!("Deserialization error: {:?}", e)));
+        Ok(Account(native_account?))
     }
 }
 

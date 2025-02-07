@@ -1,5 +1,10 @@
-use miden_client::transaction::TransactionResult as NativeTransactionResult;
+use miden_client::{
+    transaction::TransactionResult as NativeTransactionResult,
+    utils::{Deserializable, Serializable},
+};
+use miden_objects::utils::SliceReader;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
 use super::{
     account_delta::AccountDelta, executed_transaction::ExecutedTransaction,
@@ -35,6 +40,22 @@ impl TransactionResult {
 
     pub fn consumed_notes(&self) -> InputNotes {
         self.0.consumed_notes().into()
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        let native_transaction_result = &self.0;
+        let mut buffer = Vec::new();
+        native_transaction_result.write_into(&mut buffer);
+        Uint8Array::from(&buffer[..])
+    }
+
+    pub fn deserialize(bytes: Uint8Array) -> Result<TransactionResult, JsValue> {
+        let vec: Vec<u8> = bytes.to_vec();
+        let mut reader = SliceReader::new(&vec);
+        let native_transaction_result = NativeTransactionResult::read_from(&mut reader)
+            .map_err(|e| JsValue::from_str(&format!("Deserialization error: {:?}", e)))?;
+        // Wrap the native TransactionResult in our wasm-exposed struct.
+        Ok(TransactionResult(native_transaction_result))
     }
 }
 

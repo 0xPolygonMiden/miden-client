@@ -14,6 +14,21 @@ impl AccountStorageMode {
     pub fn public() -> AccountStorageMode {
         AccountStorageMode(NativeAccountStorageMode::Public)
     }
+
+    pub fn serialize(&self) -> String {
+        match self.0 {
+            NativeAccountStorageMode::Private => "private".to_string(),
+            NativeAccountStorageMode::Public => "public".to_string(),
+        }
+    }
+
+    pub fn deserialize(mode: &str) -> Result<AccountStorageMode, JsValue> {
+        match mode {
+            "private" => Ok(AccountStorageMode::private()),
+            "public" => Ok(AccountStorageMode::public()),
+            _ => Err(JsValue::from_str("Invalid AccountStorageMode string")),
+        }
+    }
 }
 
 // CONVERSIONS

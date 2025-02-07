@@ -18,6 +18,23 @@ impl NoteType {
     pub fn encrypted() -> NoteType {
         NoteType(NativeNoteType::Encrypted)
     }
+
+    pub fn serialize(&self) -> String {
+        match self.0 {
+            NativeNoteType::Private => "private".to_string(),
+            NativeNoteType::Public => "public".to_string(),
+            NativeNoteType::Encrypted => "encrypted".to_string(),
+        }
+    }
+
+    pub fn deserialize(mode: &str) -> Result<NoteType, JsValue> {
+        match mode {
+            "private" => Ok(NoteType::private()),
+            "public" => Ok(NoteType::public()),
+            "encrypted" => Ok(NoteType::encrypted()),
+            _ => Err(JsValue::from_str("Invalid NoteType string")),
+        }
+    }
 }
 
 // CONVERSIONS
