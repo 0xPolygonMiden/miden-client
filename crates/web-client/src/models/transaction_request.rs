@@ -233,14 +233,12 @@ impl TransactionRequestBuilder {
         TransactionRequestBuilder(native_transaction_request)
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_unauthenticated_input_notes(mut self, notes: &NoteAndArgsArray) -> Self {
         let native_note_and_note_args: Vec<(NativeNote, Option<NativeNoteArgs>)> = notes.into();
         self.0 = self.0.clone().with_unauthenticated_input_notes(native_note_and_note_args);
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_authenticated_input_notes(mut self, notes: &NoteIdAndArgsArray) -> Self {
         let native_note_id_and_note_args: Vec<(NativeNoteId, Option<NativeNoteArgs>)> =
             notes.into();
@@ -248,28 +246,24 @@ impl TransactionRequestBuilder {
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_own_output_notes(mut self, notes: &OutputNotesArray) -> Self {
         let native_output_notes: Vec<NativeOutputNote> = notes.into();
         self.0 = self.0.clone().with_own_output_notes(native_output_notes).unwrap();
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_custom_script(mut self, script: &TransactionScript) -> Self {
         let native_script: NativeTransactionScript = script.into();
         self.0 = self.0.clone().with_custom_script(native_script).unwrap();
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_expected_output_notes(mut self, notes: &NotesArray) -> Self {
         let native_notes: Vec<NativeNote> = notes.into();
         self.0 = self.0.clone().with_expected_output_notes(native_notes);
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn with_expected_future_notes(
         mut self,
         note_details_and_tag: &NoteDetailsAndTagArray,
@@ -280,7 +274,6 @@ impl TransactionRequestBuilder {
         self
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn extend_advice_map(mut self, advice_map: &AdviceMap) -> Self {
         let native_advice_map: NativeAdviceMap = advice_map.into();
         self.0 = self.0.clone().extend_advice_map(native_advice_map);

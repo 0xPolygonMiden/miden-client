@@ -46,7 +46,6 @@ impl OutputNote {
         self.0.metadata().into()
     }
 
-    #[allow(clippy::return_self_not_must_use)]
     pub fn shrink(&self) -> OutputNote {
         self.0.shrink().into()
     }
