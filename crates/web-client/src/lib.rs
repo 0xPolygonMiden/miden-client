@@ -3,9 +3,7 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
-    rpc::WebTonicRpcClient,
-    store::{web_store::WebStore, StoreAuthenticator},
-    Client,
+    authenticator::WebAuthenticator, rpc::WebTonicRpcClient, store::web_store::WebStore, Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
 use miden_proving_service_client::RemoteTransactionProver;
@@ -27,6 +25,7 @@ pub mod transactions;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     remote_prover: Option<Arc<RemoteTransactionProver>>,
+    authenticator: Option<Arc<WebAuthenticator<RpoRandomCoin>>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -45,6 +44,7 @@ impl WebClient {
             inner: None,
             remote_prover: None,
             store: None,
+            authenticator: None,
         }
     }
 
@@ -77,16 +77,22 @@ impl WebClient {
             .await
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
-        let authenticator = Arc::new(StoreAuthenticator::new_with_rng(web_store.clone(), rng));
+        let authenticator = Arc::new(WebAuthenticator::new_with_rng(rng));
         let web_rpc_client = Box::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 
         self.remote_prover = prover_url
             .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
-        self.inner =
-            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            rng,
+            web_store.clone(),
+            authenticator.clone(),
+            false,
+        ));
         self.store = Some(web_store);
+        self.authenticator = Some(authenticator);
 
         Ok(JsValue::from_str("Client created successfully"))
     }

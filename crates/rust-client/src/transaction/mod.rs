@@ -791,7 +791,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves the account capabilities for the specified account.
     async fn get_account_capabilities(
-        &self,
+        &mut self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
         let account: Account = self.try_get_account(account_id).await?.into();
@@ -810,7 +810,7 @@ impl<R: FeltRng> Client<R> {
             .procedure_roots()
             .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
         {
-            AuthSecretKey::RpoFalcon512(SecretKey::new())
+            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(self.rng()))
         } else {
             return Err(ClientError::AccountError(AccountError::AssumptionViolated(
                 "Account doesn't have authentication procedure".to_string(),

@@ -9,10 +9,10 @@ use miden_objects::{
     account::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
-pub use miden_tx::AuthenticationError;
 use miden_tx::{
     auth::TransactionAuthenticator,
     utils::{sync::RwLock, Deserializable, Serializable},
+    AuthenticationError,
 };
 use rand::Rng;
 

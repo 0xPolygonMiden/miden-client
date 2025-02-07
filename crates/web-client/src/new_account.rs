@@ -20,8 +20,10 @@ impl WebClient {
         storage_mode: &AccountStorageMode,
         mutable: bool,
     ) -> Result<Account, JsValue> {
+        let authenticator = self.authenticator.clone();
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
+            let pub_key = key_pair.public_key();
 
             let mut init_seed = [0u8; 32];
             client.rng().fill_bytes(&mut init_seed);
@@ -38,7 +40,7 @@ impl WebClient {
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(account_type)
                 .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
+                .with_component(RpoFalcon512::new(pub_key))
                 .with_component(BasicWallet)
                 .build()
             {
@@ -49,15 +51,10 @@ impl WebClient {
                 },
             };
 
-            match client
-                .add_account(
-                    &new_account,
-                    Some(seed),
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                    false,
-                )
-                .await
-            {
+            authenticator
+                .expect("Authenticator should be initialized")
+                .add_key(AuthSecretKey::RpoFalcon512(key_pair))?;
+            match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
                     let error_message = format!("Failed to insert new wallet: {:?}", err);
@@ -81,8 +78,10 @@ impl WebClient {
             return Err(JsValue::from_str("Non-fungible faucets are not supported yet"));
         }
 
+        let authenticator = self.authenticator.clone();
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
+            let pub_key = key_pair.public_key();
 
             let mut init_seed = [0u8; 32];
             client.rng().fill_bytes(&mut init_seed);
@@ -98,7 +97,7 @@ impl WebClient {
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
+                .with_component(RpoFalcon512::new(pub_key))
                 .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
                     |err| {
                         JsValue::from_str(format!("Failed to create new faucet: {}", err).as_str())
@@ -113,15 +112,10 @@ impl WebClient {
                 },
             };
 
-            match client
-                .add_account(
-                    &new_account,
-                    Some(seed),
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                    false,
-                )
-                .await
-            {
+            authenticator
+                .expect("Authenticator should be initialized")
+                .add_key(AuthSecretKey::RpoFalcon512(key_pair))?;
+            match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
                     let error_message = format!("Failed to insert new faucet: {:?}", err);

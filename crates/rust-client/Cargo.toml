@@ -18,7 +18,7 @@ crate-type = ["lib"]
 [features]
 concurrent = ["miden-tx/concurrent", "std"]
 default = []
-idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
+idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
@@ -47,6 +47,9 @@ tonic-web-wasm-client = { version = "0.6", optional = true, default-features = f
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["console", "Window", "Storage"] }
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }

@@ -510,7 +510,6 @@
         console.log("state synced");
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(faucet.id());
         console.log("fetched");
         let result = await createNewMintTransaction(
           webClient,
@@ -546,7 +545,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(faucet.id());
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           targetAccount.id(),
@@ -564,9 +562,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccount.id()
-        );
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
           targetAccount.id(),
@@ -596,9 +591,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -609,9 +601,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          senderAccountId.to_string()
-        );
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -620,9 +609,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          senderAccountId.to_string()
-        );
         let sendTransactionResult = await createNewSendTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -635,9 +621,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccountId.to_string()
-        );
         let consumeSendTransactionResult = await createNewConsumeTransaction(
           webClient,
           targetAccountId.to_string(),
@@ -667,9 +650,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -680,9 +660,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          senderAccountId.to_string()
-        );
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -691,9 +668,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          senderAccountId.to_string()
-        );
         let sendTransactionResult = await createNewSendTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -706,9 +680,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          senderAccountId.to_string()
-        );
         let consumeSendTransactionResult = await createNewConsumeTransaction(
           webClient,
           senderAccountId.to_string(),
@@ -754,9 +725,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          offeredAssetFaucetId.to_string()
-        );
         let walletAMintTransactionResult = await createNewMintTransaction(
           webClient,
           walletAAccountId.to_string(),
@@ -767,9 +735,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          requestedAssetFaucetId.to_string()
-        );
         let walletBMintTransactionResult = await createNewMintTransaction(
           webClient,
           walletBAccountId.to_string(),
@@ -780,9 +745,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletAAccountId.to_string()
-        );
         let walletAConsumeTransactionResult = await createNewConsumeTransaction(
           webClient,
           walletAAccountId.to_string(),
@@ -791,9 +753,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletBAccountId.to_string()
-        );
         let walletBConsumeTransactionResult = await createNewConsumeTransaction(
           webClient,
           walletBAccountId.to_string(),
@@ -802,9 +761,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletAAccountId.to_string()
-        );
         let swapTransactionResult = await createNewSwapTransaction(
           webClient,
           walletAAccountId.to_string(),
@@ -821,9 +777,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletBAccountId.to_string()
-        );
         let walletBConsumeSwapTransactionResult =
           await createNewConsumeTransaction(
             webClient,
@@ -833,9 +786,6 @@
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletAAccountId.to_string()
-        );
         let walletAConsumeSwapTransactionResult =
           await createNewConsumeTransaction(
             webClient,
@@ -865,10 +815,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetAccount.to_string()
-        );
-
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           walletAccount.to_string(),
@@ -878,10 +824,6 @@
         );
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletAccount.to_string()
-        );
 
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
@@ -913,10 +855,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
-
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           targetAccountId.to_string(),
@@ -926,10 +864,6 @@
         );
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccountId.to_string()
-        );
 
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
@@ -961,10 +895,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
-
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           targetAccountId.to_string(),
@@ -974,10 +904,6 @@
         );
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccountId.to_string()
-        );
 
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
@@ -1058,10 +984,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
-
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           targetAccountId.to_string(),
@@ -1071,10 +993,6 @@
         );
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccountId.to_string()
-        );
 
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
@@ -1106,10 +1024,6 @@
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
 
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
-
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
           targetAccountId.to_string(),
@@ -1119,10 +1033,6 @@
         );
         await new Promise((r) => setTimeout(r, 20000));
         await syncState(webClient);
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          targetAccountId.to_string()
-        );
 
         let consumeTransactionResult = await createNewConsumeTransaction(
           webClient,
@@ -1156,8 +1066,6 @@
         );
         await syncState(webClient);
         await new Promise((r) => setTimeout(r, 20000));
-
-        await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId);
 
         let mintTransactionResult = await createNewMintTransaction(
           webClient,
@@ -1224,10 +1132,6 @@
                     false
                   );
                   console.log(result); // Log the result of the import process
-
-                  await webClient.fetch_and_cache_account_auth_by_pub_key(
-                    targetAccountId
-                  );
 
                   let consumeTransactionResult =
                     await createNewConsumeTransaction(
@@ -1437,9 +1341,7 @@
           .build();
 
         // Execute and Submit Transaction
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          faucetId.to_string()
-        );
+
         let transaction_result = await webClient.new_transaction(
           faucetId,
           transaction_request
@@ -1464,19 +1366,7 @@
                 end
             `;
 
-        // Creating Second Custom Transaction Request to Consume Custom Note
-        // with Invalid/Valid Transaction Script
-        let account_auth = await webClient.get_account_auth(walletId);
-        let public_key = account_auth.get_rpo_falcon_512_public_key_as_word();
-        let secret_key = account_auth.get_rpo_falcon_512_secret_key_as_felts();
-        let transcription_script_input_pair_array =
-          new TransactionScriptInputPairArray([
-            new TransactionScriptInputPair(public_key, secret_key),
-          ]);
-        let transaction_script = await webClient.compile_tx_script(
-          tx_script,
-          transcription_script_input_pair_array
-        );
+        let transaction_script = await webClient.compile_tx_script(tx_script);
         let note_id = note.id();
         let note_args_commitment = Rpo256.hash_elements(feltArray); // gets consumed by NoteIdAndArgs
         let note_id_and_args = new NoteIdAndArgs(
@@ -1494,9 +1384,6 @@
           .extend_advice_map(advice_map);
 
         // Execute and Submit Transaction
-        await webClient.fetch_and_cache_account_auth_by_pub_key(
-          walletId.to_string()
-        );
         let transaction_result_2 = await webClient.new_transaction(
           walletId,
           transaction_request_2

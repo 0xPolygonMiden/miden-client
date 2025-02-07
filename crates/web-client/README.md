@@ -123,8 +123,6 @@ const faucetId = await webClient.new_faucet("Private", true, "TOK", 6, 1_000_000
 
 // Syncs web client with node state.
 await webClient.sync_state();
-// Caches faucet account auth. A workaround to allow for synchronicity in the transaction flow.
-await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId);
 
 /**
  * Mints 10_000 tokens for the previously created wallet via a Private Note and returns a transaction the following result object:
@@ -188,8 +186,6 @@ let webClient = await createMidenWebClient();
 let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
 await syncState(webClient);
 await new Promise(r => setTimeout(r, 20000)); // Artificial delays to ensure sync is processed on remote node before continuing 
-
-await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId);
 
 let mintTransactionResult = await createNewMintTransaction(
     webClient,
@@ -268,18 +264,6 @@ get_accounts(): Promise<SerializedAccountHeader>;
  * @returns {Promise<any>}
  */
 get_account(account_id: string): Promise<any>;
-
-/**
- * @param {any} pub_key_bytes
- * @returns {any}
- */
-get_account_auth_by_pub_key(pub_key_bytes: any): any;
-
-/**
- * @param {string} account_id
- * @returns {Promise<any>}
- */
-fetch_and_cache_account_auth_by_pub_key(account_id: string): Promise<any>;
 
 /**
  * @param {string} note_id
