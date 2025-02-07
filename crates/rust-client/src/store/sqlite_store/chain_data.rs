@@ -87,7 +87,7 @@ impl SqliteStore {
         if let ChainMmrNodeFilter::List(ids) = &filter {
             let id_values = ids
                 .iter()
-                 // id.inner() is a usize casted to u64, should not fail.
+                 // SAFETY: d.inner() is a usize casted to u64, should not fail.
                 .map(|id| Value::Integer(i64::try_from(id.inner()).expect("id is a valid i64")))
                 .collect::<Vec<_>>();
 
