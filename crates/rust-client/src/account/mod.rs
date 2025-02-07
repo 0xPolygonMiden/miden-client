@@ -41,10 +41,6 @@
 
 use alloc::vec::Vec;
 
-pub use miden_objects::account::{
-    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot,
-};
 use miden_objects::{crypto::rand::FeltRng, Word};
 
 use super::Client;
@@ -55,6 +51,12 @@ use crate::{
 
 // RE-EXPORTS
 // ================================================================================================
+pub mod procedure_roots;
+
+pub use miden_objects::account::{
+    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    AccountStorageMode, AccountType, StorageSlot,
+};
 
 pub mod component {
     pub use miden_lib::account::{

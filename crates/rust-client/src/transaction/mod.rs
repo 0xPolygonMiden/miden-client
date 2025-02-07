@@ -93,7 +93,8 @@ use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
-    note::{script_roots::RPO_FALCON_512_AUTH_PROCEDURE, NoteScreener, NoteUpdates},
+    account::procedure_roots::RPO_FALCON_512_AUTH,
+    note::{NoteScreener, NoteUpdates},
     rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
@@ -807,7 +808,7 @@ impl<R: FeltRng> Client<R> {
         let auth = if account
             .code()
             .procedure_roots()
-            .any(|root| root.to_hex() == RPO_FALCON_512_AUTH_PROCEDURE)
+            .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
         {
             AuthSecretKey::RpoFalcon512(SecretKey::new())
         } else {
