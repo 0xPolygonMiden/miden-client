@@ -28,7 +28,7 @@ impl AccountDelta {
     // }
 
     pub fn nonce(&self) -> Option<Felt> {
-        self.0.nonce().map(|nonce| nonce.into())
+        self.0.nonce().map(Into::into)
     }
 
     // TODO: into parts

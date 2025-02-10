@@ -17,24 +17,30 @@ use super::WebStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_get_block_headers, idxdb_get_chain_mmr_nodes, idxdb_get_chain_mmr_nodes_all,
+    idxdb_get_chain_mmr_peaks_by_block_num, idxdb_get_tracked_block_headers,
+    idxdb_insert_block_header, idxdb_insert_chain_mmr_nodes,
+};
 
 mod models;
-use models::*;
+use models::{BlockHeaderIdxdbObject, ChainMmrNodeIdxdbObject, MmrPeaksIdxdbObject};
 
 pub mod utils;
-use utils::*;
+use utils::{
+    process_chain_mmr_nodes_from_js_value, serialize_block_header, serialize_chain_mmr_node,
+};
 
 impl WebStore {
     pub(crate) async fn insert_block_header(
         &self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
         let serialized_data =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
+            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
 
         let promise = idxdb_insert_block_header(
             serialized_data.block_num,
@@ -53,7 +59,7 @@ impl WebStore {
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let formatted_block_numbers_list: Vec<String> = block_numbers
             .iter()
-            .map(|block_number| (block_number.as_u32() as i64).to_string())
+            .map(|block_number| i64::from(block_number.as_u32()).to_string())
             .collect();
 
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
@@ -141,7 +147,7 @@ impl WebStore {
     ) -> Result<(), StoreError> {
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
-        for (id, node) in nodes.iter() {
+        for (id, node) in nodes {
             let serialized_data = serialize_chain_mmr_node(*id, *node)?;
             serialized_node_ids.push(serialized_data.id);
             serialized_nodes.push(serialized_data.node);
@@ -154,17 +160,17 @@ impl WebStore {
     }
 
     /// This function isn't used in this crate, rather it is used in the 'miden-client' crate.
-    /// https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105
+    /// The reference is [found here](https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105)
     /// It is duplicated here due to its reliance on the store.
     #[allow(dead_code)]
     pub(crate) async fn insert_block_header_tx(
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
         let serialized_data =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
+            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
 
         let promise = idxdb_insert_block_header(
             serialized_data.block_num,

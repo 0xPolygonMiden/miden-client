@@ -12,7 +12,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::Unverified] state.
+/// Information related to notes in the [`InputNoteState::Unverified`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnverifiedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -41,7 +41,7 @@ impl NoteStateHandler for UnverifiedNoteState {
     fn block_header_received(
         &self,
         note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self
             .inclusion_proof

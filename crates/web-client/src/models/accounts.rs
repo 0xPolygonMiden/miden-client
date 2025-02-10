@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 // the other structs in the models directory
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
+#[allow(clippy::unsafe_derive_deserialize)]
 pub struct SerializedAccountHeader {
     id: String,
     nonce: String,

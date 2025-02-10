@@ -1,3 +1,4 @@
+use miden_client::store::AccountRecord;
 use miden_objects::account::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
@@ -16,7 +17,7 @@ impl WebClient {
             let result = client
                 .get_account_headers()
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get accounts: {}", err)))?;
+                .map_err(|err| JsValue::from_str(&format!("Failed to get accounts: {err}")))?;
 
             Ok(result.into_iter().map(|(header, _)| header.into()).collect())
         } else {
@@ -32,10 +33,10 @@ impl WebClient {
             let result = client
                 .get_account(account_id.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
-            let account: Option<NativeAccount> = result.map(|account| account.into());
+                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {err}")))?;
+            let account: Option<NativeAccount> = result.map(AccountRecord::into);
 
-            Ok(account.map(|account| account.into()))
+            Ok(account.map(miden_client::account::Account::into))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -46,12 +47,12 @@ impl WebClient {
         account_id: &AccountId,
     ) -> Result<Option<AuthSecretKey>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_auth_secret_key =
-                client.get_account_auth(account_id.into()).await.map_err(|err| {
-                    JsValue::from_str(&format!("Failed to get account auth: {}", err))
-                })?;
+            let native_auth_secret_key = client
+                .get_account_auth(account_id.into())
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get account auth: {err}")))?;
 
-            Ok(native_auth_secret_key.map(|auth_secret_key| auth_secret_key.into()))
+            Ok(native_auth_secret_key.map(miden_client::auth::AuthSecretKey::into))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -66,10 +67,10 @@ impl WebClient {
                 .fetch_and_cache_account_auth_by_pub_key(&account_id.to_string())
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
+                    JsValue::from_str(&format!("Failed to fetch and cache account auth: {err}"))
                 })?;
 
-            Ok(native_auth_secret_key.map(|auth_secret_key| auth_secret_key.into()))
+            Ok(native_auth_secret_key.map(miden_client::auth::AuthSecretKey::into))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

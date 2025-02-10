@@ -44,7 +44,7 @@ impl TagsCmd {
 // ================================================================================================
 async fn list_tags(client: Client<impl FeltRng>) -> Result<(), CliError> {
     let tags = client.get_note_tags().await?;
-    println!("Tags: {:?}", tags);
+    println!("Tags: {tags:?}");
     Ok(())
 }
 
@@ -60,12 +60,12 @@ async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), CliEr
         execution_mode
     );
     client.add_note_tag(tag).await?;
-    println!("Tag {} added", tag);
+    println!("Tag {tag} added");
     Ok(())
 }
 
 async fn remove_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), CliError> {
     client.remove_note_tag(tag.into()).await?;
-    println!("Tag {} removed", tag);
+    println!("Tag {tag} removed");
     Ok(())
 }

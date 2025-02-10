@@ -10,10 +10,10 @@
 //! The module exposes APIs to:
 //!
 //! - Retrieve input notes and output notes.
-//! - Determine the consumability of notes using the [NoteScreener].
+//! - Determine the consumability of notes using the [`NoteScreener`].
 //! - Compile note scripts from source code with `compile_note_script`.
 //! - Retrieve an input note by a prefix of its ID using the helper function
-//!   [get_input_note_with_id_prefix].
+//!   [`get_input_note_with_id_prefix`].
 //!
 //! ## Example
 //!
@@ -41,7 +41,7 @@
 //! let note_prefix = "0x70b7ec";
 //! match get_input_note_with_id_prefix(client, note_prefix).await {
 //!     Ok(note) => println!("Found note with matching prefix: {}", note.id().to_hex()),
-//!     Err(err) => println!("Error retrieving note: {:?}", err),
+//!     Err(err) => println!("Error retrieving note: {err:?}"),
 //! }
 //!
 //! // Compile the note script
@@ -103,18 +103,18 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID.
+    /// Returns a [`ClientError::StoreError`] if the filter is [`NoteFilter::Unique`] and there is
+    /// no Note with the provided ID.
     pub async fn get_input_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, ClientError> {
-        self.store.get_input_notes(filter).await.map_err(|err| err.into())
+        self.store.get_input_notes(filter).await.map_err(Into::into)
     }
 
     /// Returns the input notes and their consumability.
     ///
-    /// If account_id is None then all consumable input notes are returned.
+    /// If `account_id` is None then all consumable input notes are returned.
     pub async fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
@@ -151,10 +151,10 @@ impl<R: FeltRng> Client<R> {
         note_screener
             .check_relevance(&note.clone().try_into()?)
             .await
-            .map_err(|err| err.into())
+            .map_err(Into::into)
     }
 
-    /// Retrieves the input note given a [NoteId]. Returns `None` if the note is not found.
+    /// Retrieves the input note given a [`NoteId`]. Returns `None` if the note is not found.
     pub async fn get_input_note(
         &self,
         note_id: NoteId,
@@ -170,10 +170,10 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        self.store.get_output_notes(filter).await.map_err(|err| err.into())
+        self.store.get_output_notes(filter).await.map_err(Into::into)
     }
 
-    /// Retrieves the output note given a [NoteId]. Returns `None` if the note is not found.
+    /// Retrieves the output note given a [`NoteId`]. Returns `None` if the note is not found.
     pub async fn get_output_note(
         &self,
         note_id: NoteId,
@@ -181,7 +181,7 @@ impl<R: FeltRng> Client<R> {
         Ok(self.store.get_output_notes(NoteFilter::Unique(note_id)).await?.pop())
     }
 
-    /// Compiles the provided program into a [NoteScript].
+    /// Compiles the provided program into a [`NoteScript`].
     ///
     /// The assembler uses the debug mode if the client was instantiated with debug mode on.
     pub fn compile_note_script(&self, note_script: &str) -> Result<NoteScript, ClientError> {
@@ -194,9 +194,9 @@ impl<R: FeltRng> Client<R> {
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any note where
 ///   `note_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
 pub async fn get_input_note_with_id_prefix<R: FeltRng>(
     client: &Client<R>,
@@ -219,10 +219,8 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
         ));
     }
     if input_note_records.len() > 1 {
-        let input_note_record_ids = input_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
+        let input_note_record_ids =
+            input_note_records.iter().map(InputNoteRecord::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple notes found for the prefix {}: {:?}",
             note_id_prefix,
@@ -254,7 +252,7 @@ pub struct NoteUpdates {
 }
 
 impl NoteUpdates {
-    /// Creates a [NoteUpdates].
+    /// Creates a [`NoteUpdates`].
     pub fn new(
         new_input_notes: Vec<InputNoteRecord>,
         new_output_notes: Vec<OutputNoteRecord>,
@@ -269,7 +267,8 @@ impl NoteUpdates {
         }
     }
 
-    /// Combines two [NoteUpdates] into a single one.
+    /// Combines two [`NoteUpdates`] into a single one.
+    #[must_use]
     pub fn combine_with(mut self, other: Self) -> Self {
         self.new_input_notes.extend(other.new_input_notes);
         self.new_output_notes.extend(other.new_output_notes);
@@ -321,7 +320,9 @@ impl NoteUpdates {
             .iter()
             .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
 
-        BTreeSet::from_iter(committed_input_note_ids.chain(committed_output_note_ids))
+        committed_input_note_ids
+            .chain(committed_output_note_ids)
+            .collect::<BTreeSet<_>>()
     }
 
     /// Returns the IDs of all notes that have been consumed
@@ -336,6 +337,6 @@ impl NoteUpdates {
             .iter()
             .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
-        BTreeSet::from_iter(consumed_input_note_ids.chain(consumed_output_note_ids))
+        consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
     }
 }

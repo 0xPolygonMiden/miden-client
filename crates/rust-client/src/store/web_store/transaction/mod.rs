@@ -8,7 +8,7 @@ use miden_objects::{
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
 use super::{account::utils::update_account, note::utils::apply_note_updates_tx, WebStore};
 use crate::{
@@ -17,13 +17,13 @@ use crate::{
 };
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::idxdb_get_transactions;
 
 mod models;
-use models::*;
+use models::TransactionIdxdbObject;
 
 pub mod utils;
-use utils::*;
+use utils::insert_proven_transaction_data;
 
 impl WebStore {
     pub async fn get_transactions(

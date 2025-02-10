@@ -23,11 +23,11 @@ impl WebClient {
                 .await
             {
                 Ok(_) => {
-                    let message = format!("Imported account with ID: {}", account_id);
+                    let message = format!("Imported account with ID: {account_id}");
                     Ok(JsValue::from_str(&message))
                 },
                 Err(err) => {
-                    let error_message = format!("Failed to import account: {:?}", err);
+                    let error_message = format!("Failed to import account: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }
@@ -46,7 +46,7 @@ impl WebClient {
             match client.import_note(note_file).await {
                 Ok(note_id) => Ok(JsValue::from_str(note_id.to_string().as_str())),
                 Err(err) => {
-                    let error_message = format!("Failed to import note: {:?}", err);
+                    let error_message = format!("Failed to import note: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }

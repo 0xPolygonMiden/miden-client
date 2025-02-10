@@ -24,6 +24,7 @@ impl Word {
         Word(native_word)
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new_from_felts(felt_vec: Vec<Felt>) -> Word {
         let native_felt_vec: [NativeFelt; 4] = felt_vec
             .iter()
