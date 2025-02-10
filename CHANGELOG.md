@@ -25,6 +25,7 @@
 * Enabled TLS on tonic client (#697).
 * Added account creation from component templates (#680).
 * Added serialization for `TransactionResult` (#704).
+* Implemented serialization and deserialization for `SyncSummary` (#725).
 
 ### Fixes
 
