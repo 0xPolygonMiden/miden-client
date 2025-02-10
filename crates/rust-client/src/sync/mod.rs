@@ -67,6 +67,7 @@ use miden_objects::{
     transaction::TransactionId,
     Digest,
 };
+use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use tracing::info;
 
 use crate::{
@@ -85,6 +86,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
+#[derive(Debug, PartialEq)]
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
@@ -150,6 +152,42 @@ impl SyncSummary {
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
+    }
+}
+
+impl Serializable for SyncSummary {
+    fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
+        self.block_num.write_into(target);
+        self.received_notes.write_into(target);
+        self.committed_notes.write_into(target);
+        self.consumed_notes.write_into(target);
+        self.updated_accounts.write_into(target);
+        self.locked_accounts.write_into(target);
+        self.committed_transactions.write_into(target);
+    }
+}
+
+impl Deserializable for SyncSummary {
+    fn read_from<R: miden_tx::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, DeserializationError> {
+        let block_num = BlockNumber::read_from(source)?;
+        let received_notes = Vec::<NoteId>::read_from(source)?;
+        let committed_notes = Vec::<NoteId>::read_from(source)?;
+        let consumed_notes = Vec::<NoteId>::read_from(source)?;
+        let updated_accounts = Vec::<AccountId>::read_from(source)?;
+        let locked_accounts = Vec::<AccountId>::read_from(source)?;
+        let committed_transactions = Vec::<TransactionId>::read_from(source)?;
+
+        Ok(Self {
+            block_num,
+            received_notes,
+            committed_notes,
+            consumed_notes,
+            updated_accounts,
+            locked_accounts,
+            committed_transactions,
+        })
     }
 }
 
@@ -666,4 +704,49 @@ impl<R: FeltRng> Client<R> {
 
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
     (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
+}
+
+#[cfg(test)]
+mod test {
+    use miden_objects::{
+        account::AccountId, block::BlockNumber, note::NoteId, transaction::TransactionId, Digest,
+    };
+    use miden_tx::utils::{Deserializable, Serializable, SliceReader};
+
+    use super::SyncSummary;
+
+    #[test]
+    fn test_sync_summary_serialization_and_deserialization() {
+        let summary = SyncSummary {
+            block_num: BlockNumber::from(100),
+            received_notes: vec![NoteId::try_from_hex(
+                "0xc9d31c82c098e060c9b6e3af2710b3fc5009a1a6f82ef9465f8f35d1f5ba4a80",
+            )
+            .unwrap()],
+            committed_notes: vec![NoteId::try_from_hex(
+                "0xa3f91b76d0e24c5f8e7a6b3c92d8e0ff12a47b65c3d9f08e54a21b7f6e8c9d30",
+            )
+            .unwrap()],
+            consumed_notes: vec![NoteId::try_from_hex(
+                "0xf07e1c9a45b2d68f3e10a5b4c27d9e81f6a3b50c2d98e47f01c7a6b35d2e4f89",
+            )
+            .unwrap()],
+            updated_accounts: vec![AccountId::from_hex("0xec6eb17da58222800000ba8ef7e353").unwrap()],
+            locked_accounts: vec![AccountId::from_hex("0x039613d3c276f1800000f2a56a3d7e").unwrap()],
+            committed_transactions: vec![TransactionId::new(
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+            )],
+        };
+
+        let mut bytes = vec![];
+        summary.write_into(&mut bytes);
+
+        let deserialized_summary =
+            SyncSummary::read_from(&mut SliceReader::new(bytes.as_slice())).unwrap();
+
+        assert_eq!(summary, deserialized_summary);
+    }
 }
