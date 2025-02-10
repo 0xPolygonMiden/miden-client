@@ -12,7 +12,7 @@ use miden_objects::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
         AccountType, AuthSecretKey,
     },
-    asset::{FungibleAsset, TokenSymbol},
+    asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
@@ -35,7 +35,8 @@ use crate::{
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
     transaction::{
-        TransactionRequestBuilder, TransactionRequestError, TransactionScriptBuilderError,
+        PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
+        TransactionScriptBuilderError,
     },
     Client, ClientError,
 };
@@ -687,6 +688,40 @@ async fn test_note_without_asset() {
             TransactionRequestError::TransactionScriptBuilderError(
                 TransactionScriptBuilderError::FaucetNoteWithoutAsset
             )
+        )
+    ));
+
+    let error = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![], faucet.id(), wallet.id()),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        TransactionRequestError::TransactionScriptBuilderError(
+            TransactionScriptBuilderError::P2IDNoteWithoutAsset
+        )
+    ));
+
+    let error = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(
+            vec![Asset::Fungible(FungibleAsset::new(faucet.id(), 0).unwrap())],
+            faucet.id(),
+            wallet.id(),
+        ),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        TransactionRequestError::TransactionScriptBuilderError(
+            TransactionScriptBuilderError::P2IDNoteWithoutAsset
         )
     ));
 }
