@@ -2,6 +2,10 @@
 
 ## 0.8.0 (TBD)
 
+### Changes
+
+* [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+
 ## 0.7.0 (2025-01-28)
 
 ### Features

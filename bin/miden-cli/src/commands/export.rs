@@ -154,6 +154,8 @@ async fn export_note(
     Ok(file)
 }
 
+/// Gets the public key from the storage of an account. This will only work if the account is
+/// created by the CLI as it expects the public key to be stored in index 1 of the account storage.
 pub fn get_public_key_from_account(account: &Account) -> Word {
     Word::from(
         account

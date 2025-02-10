@@ -14,14 +14,19 @@ use web_sys::wasm_bindgen::JsValue;
 
 #[derive(Debug, Clone)]
 pub struct WebAuthenticator<R> {
+    /// The random number generator used to generate signatures.
     rng: Arc<RwLock<R>>,
 }
 
+/// An account authenticator that stores keys in the browser's local storage.
 impl<R: Rng> WebAuthenticator<R> {
+    /// Creates a new instance of the authenticator.
     pub fn new_with_rng(rng: R) -> Self {
         WebAuthenticator { rng: Arc::new(RwLock::new(rng)) }
     }
 
+    /// Adds a new key to the authenticator. If a key with the same public key already exists, it
+    /// will be overwritten.
     pub fn add_key(&self, key: AuthSecretKey) -> Result<(), JsValue> {
         let window = web_sys::window().ok_or(JsValue::from_str("Window not available"))?;
         let pub_key = match &key {
@@ -39,6 +44,7 @@ impl<R: Rng> WebAuthenticator<R> {
         Ok(())
     }
 
+    /// Gets a secret key by public key. If the public key isn't found, `None` is returned.
     pub fn get_auth_by_pub_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, JsValue> {
         let window = web_sys::window().ok_or(JsValue::from_str("Window not available"))?;
         let pub_key_str = Digest::from(pub_key).to_hex();

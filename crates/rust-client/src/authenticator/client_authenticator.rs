@@ -16,13 +16,17 @@ use miden_tx::{
 };
 use rand::Rng;
 
+/// An account authenticator that stores keys in the filesystem.
 #[derive(Debug, Clone)]
 pub struct ClientAuthenticator<R> {
+    /// The directory where the keys are stored. Each key is stored in a separate file.
     keys_directory: PathBuf,
+    /// The random number generator used to generate signatures.
     rng: Arc<RwLock<R>>,
 }
 
 impl<R: Rng> ClientAuthenticator<R> {
+    /// Creates a new instance of the authenticator.
     pub fn new_with_rng(keys_directory: PathBuf, rng: R) -> Result<Self, AuthenticationError> {
         if !keys_directory.exists() {
             std::fs::create_dir_all(&keys_directory).map_err(|err| {
@@ -36,6 +40,8 @@ impl<R: Rng> ClientAuthenticator<R> {
         })
     }
 
+    /// Adds a new key to the authenticator. If a key with the same public key already exists, it
+    /// will be overwritten.
     pub fn add_key(&self, key: AuthSecretKey) -> Result<(), AuthenticationError> {
         let pub_key = match &key {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
@@ -60,6 +66,7 @@ impl<R: Rng> ClientAuthenticator<R> {
         Ok(())
     }
 
+    /// Gets a secret key by public key. If the public key isn't found, `None` is returned.
     pub fn get_auth_by_pub_key(
         &self,
         pub_key: Word,

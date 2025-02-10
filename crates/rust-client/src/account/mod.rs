@@ -90,9 +90,8 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If the account is already being tracked and `overwrite` is set to `true`, the account will
     /// be overwritten. The `account_seed` should be provided if the account is newly created.
-    /// The `auth_secret_key` is stored in client but it is never exposed. It is used to
-    /// authenticate transactions against the account. The seed is used when notifying the
-    /// network about a new account and is not used for any other purpose.
+    /// The account will not be authenticated, the account should be added to the authenticator
+    /// manually if transaction signing is required.
     ///
     /// # Errors
     ///

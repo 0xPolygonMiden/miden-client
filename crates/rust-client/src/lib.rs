@@ -76,7 +76,8 @@
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 //!
 //! // Create a authenticator with the store and random coin.
-//! let authenticator = ClientAuthenticator::new_with_rng("path/to/keys/directory".try_into()?, rng).unwrap();
+//! let authenticator =
+//!     ClientAuthenticator::new_with_rng("path/to/keys/directory".try_into()?, rng).unwrap();
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
