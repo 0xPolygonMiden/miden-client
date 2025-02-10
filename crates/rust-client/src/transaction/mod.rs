@@ -1060,7 +1060,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        authenticator.add_key(AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+        authenticator.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,

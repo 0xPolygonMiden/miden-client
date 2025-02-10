@@ -42,7 +42,7 @@ impl<R: Rng> ClientAuthenticator<R> {
 
     /// Adds a new key to the authenticator. If a key with the same public key already exists, it
     /// will be overwritten.
-    pub fn add_key(&self, key: AuthSecretKey) -> Result<(), AuthenticationError> {
+    pub fn add_key(&self, key: &AuthSecretKey) -> Result<(), AuthenticationError> {
         let pub_key = match &key {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
         };
@@ -105,7 +105,7 @@ impl<R: Rng> TransactionAuthenticator for ClientAuthenticator<R> {
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
     ///
     /// # Errors
-    /// If the public key isn't found in the store, [AuthenticationError::UnknownPublicKey] is
+    /// If the public key isn't found in the store, [`AuthenticationError::UnknownPublicKey`] is
     /// returned.
     fn get_signature(
         &self,

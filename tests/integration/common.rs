@@ -103,7 +103,7 @@ pub async fn insert_new_wallet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    authenticator.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -132,7 +132,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    authenticator.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];

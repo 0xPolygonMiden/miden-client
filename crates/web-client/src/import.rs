@@ -16,7 +16,7 @@ impl WebClient {
 
             authenticator
                 .expect("Authenticator should be initialized")
-                .add_key(account_data.auth_secret_key)?;
+                .add_key(&account_data.auth_secret_key)?;
             match client
                 .add_account(&account_data.account, account_data.account_seed, false)
                 .await

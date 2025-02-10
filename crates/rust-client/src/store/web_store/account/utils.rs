@@ -11,8 +11,8 @@ use wasm_bindgen_futures::JsFuture;
 
 use super::{
     js_bindings::{
-        idxdb_insert_account_asset_vault, idxdb_insert_account_auth, idxdb_insert_account_code,
-        idxdb_insert_account_record, idxdb_insert_account_storage,
+        idxdb_insert_account_asset_vault, idxdb_insert_account_code, idxdb_insert_account_record,
+        idxdb_insert_account_storage,
     },
     models::AccountRecordIdxdbObject,
 };

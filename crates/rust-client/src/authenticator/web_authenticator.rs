@@ -27,7 +27,7 @@ impl<R: Rng> WebAuthenticator<R> {
 
     /// Adds a new key to the authenticator. If a key with the same public key already exists, it
     /// will be overwritten.
-    pub fn add_key(&self, key: AuthSecretKey) -> Result<(), JsValue> {
+    pub fn add_key(&self, key: &AuthSecretKey) -> Result<(), JsValue> {
         let window = web_sys::window().ok_or(JsValue::from_str("Window not available"))?;
         let pub_key = match &key {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
@@ -57,12 +57,12 @@ impl<R: Rng> WebAuthenticator<R> {
         match secret_key_hex {
             Some(secret_key_hex) => {
                 let secret_key_bytes = hex::decode(secret_key_hex).map_err(|err| {
-                    JsValue::from_str(&format!("error decoding secret key hex: {:?}", err))
+                    JsValue::from_str(&format!("error decoding secret key hex: {err:?}"))
                 })?;
 
                 let secret_key = AuthSecretKey::read_from_bytes(secret_key_bytes.as_slice())
                     .map_err(|err| {
-                        JsValue::from_str(&format!("error reading secret key: {:?}", err))
+                        JsValue::from_str(&format!("error reading secret key: {err:?}"))
                     })?;
 
                 Ok(Some(secret_key))
@@ -78,7 +78,7 @@ impl<R: Rng> TransactionAuthenticator for WebAuthenticator<R> {
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
     ///
     /// # Errors
-    /// If the public key isn't found in the store, [AuthenticationError::UnknownPublicKey] is
+    /// If the public key isn't found in the store, [`AuthenticationError::UnknownPublicKey`] is
     /// returned.
     fn get_signature(
         &self,

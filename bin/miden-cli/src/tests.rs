@@ -19,7 +19,7 @@ use miden_client::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
-    rpc::TonicRpcClient,
+    rpc::{Endpoint, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
@@ -718,7 +718,7 @@ async fn create_test_client_with_store_path(
     let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng).unwrap();
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+            Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
             rng,
             store,
             std::sync::Arc::new(authenticator.clone()),

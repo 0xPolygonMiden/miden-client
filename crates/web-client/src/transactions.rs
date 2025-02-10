@@ -27,11 +27,11 @@ impl WebClient {
         }
     }
 
-    pub async fn compile_tx_script(&mut self, script: &str) -> Result<TransactionScript, JsValue> {
+    pub fn compile_tx_script(&mut self, script: &str) -> Result<TransactionScript, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_tx_script: NativeTransactionScript =
                 client.compile_tx_script(vec![], script).map_err(|err| {
-                    JsValue::from_str(&format!("Failed to compile transaction script: {}", err))
+                    JsValue::from_str(&format!("Failed to compile transaction script: {err}"))
                 })?;
             Ok(native_tx_script.into())
         } else {

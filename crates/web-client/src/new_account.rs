@@ -53,7 +53,7 @@ impl WebClient {
 
             authenticator
                 .expect("Authenticator should be initialized")
-                .add_key(AuthSecretKey::RpoFalcon512(key_pair))?;
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))?;
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
@@ -112,7 +112,7 @@ impl WebClient {
 
             authenticator
                 .expect("Authenticator should be initialized")
-                .add_key(AuthSecretKey::RpoFalcon512(key_pair))?;
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))?;
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {

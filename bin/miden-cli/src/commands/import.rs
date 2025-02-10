@@ -83,7 +83,7 @@ async fn import_account(
     let account_id = account_data.account.id();
 
     authenticator
-        .add_key(account_data.auth_secret_key)
+        .add_key(&account_data.auth_secret_key)
         .map_err(CliError::Authentication)?;
 
     client
