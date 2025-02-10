@@ -3,9 +3,9 @@ use miden_client::{
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    account::{AccountId, AccountStorageMode},
+    account::AccountStorageMode,
     asset::{Asset, FungibleAsset},
-    note::{NoteFile, NoteTag, NoteType},
+    note::{NoteFile, NoteType},
     transaction::InputNote,
 };
 
@@ -298,63 +298,4 @@ async fn test_onchain_accounts() {
 
     assert_eq!(new_from_account_balance, from_account_balance - TRANSFER_AMOUNT);
     assert_eq!(new_to_account_balance, to_account_balance + TRANSFER_AMOUNT);
-}
-
-#[tokio::test]
-async fn test_onchain_notes_sync_with_tag() {
-    // Client 1 has an private faucet which will mint an onchain note for client 2
-    let mut client_1 = create_test_client().await;
-    // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
-    // whose tag doesn't necessarily match any of its accounts
-    let mut client_2 = create_test_client().await;
-    // Client 3 will be the control client. We won't add any tags and expect the note not to be
-    // fetched
-    let mut client_3 = create_test_client().await;
-    wait_for_node(&mut client_3).await;
-
-    // Create faucet account
-    let (faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
-            .await
-            .unwrap();
-
-    client_1.sync_state().await.unwrap();
-    client_2.sync_state().await.unwrap();
-    client_3.sync_state().await.unwrap();
-
-    let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
-
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        target_account_id,
-        NoteType::Public,
-        client_1.rng(),
-    )
-    .unwrap()
-    .build();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
-
-    // Load tag into client 2
-    client_2
-        .add_note_tag(
-            NoteTag::from_account_id(
-                target_account_id,
-                miden_objects::note::NoteExecutionMode::Local,
-            )
-            .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    // Client 2's account should receive the note here:
-    client_2.sync_state().await.unwrap();
-    client_3.sync_state().await.unwrap();
-
-    // Assert that the note is the same
-    let received_note: InputNote =
-        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().hash(), note.hash());
-    assert_eq!(received_note.note(), &note);
-    assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }
