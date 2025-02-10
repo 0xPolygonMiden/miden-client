@@ -27,7 +27,7 @@ impl AuthSecretKey {
 
         let secret_key_as_native_felts = secret_key_as_bytes
             .iter()
-            .map(|a| NativeFelt::new(*a as u64))
+            .map(|a| NativeFelt::new(u64::from(*a)))
             .collect::<Vec<NativeFelt>>();
 
         secret_key_as_native_felts.into_iter().map(Into::into).collect()

@@ -68,7 +68,7 @@ pub(crate) async fn parse_account_id(
     Ok(account_id)
 }
 
-pub(crate) fn update_config(config_path: &Path, client_config: CliConfig) -> Result<(), CliError> {
+pub(crate) fn update_config(config_path: &Path, client_config: &CliConfig) -> Result<(), CliError> {
     let config_as_toml_string = toml::to_string_pretty(&client_config).map_err(|err| {
         CliError::Config("Failed to parse config file as TOML".to_string().into(), err.to_string())
     })?;

@@ -166,27 +166,27 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// Returns a list of [`AccountHeader`] of all accounts stored in the database along with their
     /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
     pub async fn get_account_headers(
         &self,
     ) -> Result<Vec<(AccountHeader, AccountStatus)>, ClientError> {
-        self.store.get_account_headers().await.map_err(|err| err.into())
+        self.store.get_account_headers().await.map_err(Into::into)
     }
 
-    /// Retrieves a full [AccountRecord] object for the specified `account_id`. This result
+    /// Retrieves a full [`AccountRecord`] object for the specified `account_id`. This result
     /// represents data for the latest state known to the client, alongside its status. Returns
     /// `None` if the account ID is not found.
     pub async fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, ClientError> {
-        self.store.get_account(account_id).await.map_err(|err| err.into())
+        self.store.get_account(account_id).await.map_err(Into::into)
     }
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
+    /// Retrieves an [`AccountHeader`] object for the specified [`AccountId`] along with its status.
     /// Returns `None` if the account ID is not found.
     ///
     /// Said account's state is the state according to the last sync performed.
@@ -194,10 +194,10 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<Option<(AccountHeader, AccountStatus)>, ClientError> {
-        self.store.get_account_header(account_id).await.map_err(|err| err.into())
+        self.store.get_account_header(account_id).await.map_err(Into::into)
     }
 
-    /// Attempts to retrieve an [AccountRecord] by its [AccountId].
+    /// Attempts to retrieve an [`AccountRecord`] by its [`AccountId`].
     ///
     /// # Errors
     ///
@@ -212,7 +212,7 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    /// Attempts to retrieve an [AccountHeader] by its [AccountId].
+    /// Attempts to retrieve an [`AccountHeader`] by its [`AccountId`].
     ///
     /// # Errors
     ///

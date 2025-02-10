@@ -16,6 +16,9 @@ edition.workspace = true
 name = "miden"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [features]
 default = []
 concurrent = ["miden-client/concurrent"]

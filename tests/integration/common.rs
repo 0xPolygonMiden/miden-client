@@ -60,7 +60,7 @@ pub async fn create_test_client() -> (TestClient, ClientAuthenticator<RpoRandomC
     let authenticator = ClientAuthenticator::new_with_rng(auth_path, rng).unwrap();
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(rpc_endpoint, rpc_timeout)),
+            Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
             rng,
             store,
             Arc::new(authenticator.clone()),

@@ -10,7 +10,7 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
 use super::{
     account::{lock_account, utils::update_account},
@@ -24,10 +24,13 @@ use crate::{
 };
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_get_note_tags, idxdb_get_sync_height,
+    idxdb_remove_note_tag,
+};
 
 mod models;
-use models::*;
+use models::{NoteTagIdxdbObject, SyncHeightIdxdbObject};
 
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -125,7 +128,7 @@ impl WebStore {
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
-        for (id, node) in new_authentication_nodes.iter() {
+        for (id, node) in &new_authentication_nodes {
             let serialized_data = serialize_chain_mmr_node(*id, *node)?;
             serialized_node_ids.push(serialized_data.id);
             serialized_nodes.push(serialized_data.node);

@@ -16,15 +16,12 @@ impl WebClient {
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let transaction_records: Vec<NativeTransactionRecord> =
-                client.get_transactions(transaction_filter.into()).await.map_err(|err| {
-                    JsValue::from_str(&format!("Failed to get transactions: {}", err))
-                })?;
+            let transaction_records: Vec<NativeTransactionRecord> = client
+                .get_transactions(transaction_filter.into())
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get transactions: {err}")))?;
 
-            Ok(transaction_records
-                .into_iter()
-                .map(|transaction_record| transaction_record.into())
-                .collect())
+            Ok(transaction_records.into_iter().map(Into::into).collect())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

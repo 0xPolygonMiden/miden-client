@@ -85,7 +85,7 @@ async fn insert_new_fungible_faucet<R: FeltRng>(
     client.rng.fill_bytes(&mut init_seed);
 
     let symbol = TokenSymbol::new("TEST").unwrap();
-    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+    let max_supply = Felt::try_from(9_999_999_u64.to_le_bytes().as_slice())
         .expect("u64 can be safely converted to a field element");
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
@@ -115,7 +115,7 @@ async fn test_input_notes_round_trip() {
     let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];
 
     // insert notes into database
-    for note in available_notes.iter() {
+    for note in &available_notes {
         client
             .import_note(NoteFile::NoteWithProof(
                 note.note().clone(),
@@ -179,7 +179,7 @@ async fn insert_basic_account() {
     assert!(fetched_account_data.is_ok());
 
     let fetched_account = fetched_account_data.unwrap().unwrap();
-    let fetched_account_seed = fetched_account.seed().cloned();
+    let fetched_account_seed = fetched_account.seed().copied();
     let fetched_account: Account = fetched_account.into();
 
     // Validate header has matching data
@@ -210,7 +210,7 @@ async fn insert_faucet_account() {
     assert!(fetched_account_data.is_ok());
 
     let fetched_account = fetched_account_data.unwrap().unwrap();
-    let fetched_account_seed = fetched_account.seed().cloned();
+    let fetched_account_seed = fetched_account.seed().copied();
     let fetched_account: Account = fetched_account.into();
 
     // Validate header has matching data
@@ -278,7 +278,7 @@ async fn test_get_account_by_id() {
     // Retrieving an existing account should succeed
     let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {
         Ok(account) => account.unwrap(),
-        Err(err) => panic!("Error retrieving account: {}", err),
+        Err(err) => panic!("Error retrieving account: {err}"),
     };
     assert_eq!(AccountHeader::from(account), acc_from_db);
 

@@ -79,7 +79,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     Ok(())
 }
 
-/// This function replaces all "std::result" with "core::result" in the generated "rpc.rs" file
+/// This function replaces all `std::result` with `core::result` in the generated "rpc.rs" file
 /// for the web tonic client. This is needed as `tonic_build` doesn't generate `no_std` compatible
 /// files and we want to build wasm without `std`.
 fn replace_no_std_types() {

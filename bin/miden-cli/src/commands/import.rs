@@ -58,7 +58,7 @@ impl ImportCmd {
                 )
                 .await?;
 
-                println!("Successfully imported account {}", account_id);
+                println!("Successfully imported account {account_id}");
 
                 if account_id.is_regular_account() {
                     maybe_set_default_account(&mut current_config, account_id)?;

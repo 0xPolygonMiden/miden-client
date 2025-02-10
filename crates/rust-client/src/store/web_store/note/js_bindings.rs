@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen};
 
 // Notes IndexedDB Operations
 #[wasm_bindgen(module = "/src/store/web_store/js/notes.js")]

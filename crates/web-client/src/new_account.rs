@@ -46,7 +46,7 @@ impl WebClient {
             {
                 Ok(result) => result,
                 Err(err) => {
-                    let error_message = format!("Failed to create new wallet: {:?}", err);
+                    let error_message = format!("Failed to create new wallet: {err:?}");
                     return Err(JsValue::from_str(&error_message));
                 },
             };
@@ -57,7 +57,7 @@ impl WebClient {
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to insert new wallet: {:?}", err);
+                    let error_message = format!("Failed to insert new wallet: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }
@@ -99,15 +99,13 @@ impl WebClient {
                 .storage_mode(storage_mode.into())
                 .with_component(RpoFalcon512::new(pub_key))
                 .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
-                    |err| {
-                        JsValue::from_str(format!("Failed to create new faucet: {}", err).as_str())
-                    },
+                    |err| JsValue::from_str(format!("Failed to create new faucet: {err}").as_str()),
                 )?)
                 .build()
             {
                 Ok(result) => result,
                 Err(err) => {
-                    let error_message = format!("Failed to create new faucet: {:?}", err);
+                    let error_message = format!("Failed to create new faucet: {err:?}");
                     return Err(JsValue::from_str(&error_message));
                 },
             };
@@ -118,7 +116,7 @@ impl WebClient {
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to insert new faucet: {:?}", err);
+                    let error_message = format!("Failed to insert new faucet: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }

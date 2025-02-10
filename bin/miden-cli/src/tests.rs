@@ -196,10 +196,8 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
         let cargo_workspace_dir =
             env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let source_path = format!(
-            "{}/../../miden-node/accounts/{}",
-            cargo_workspace_dir, genesis_account_filename
-        );
+        let source_path =
+            format!("{cargo_workspace_dir}/../../miden-node/accounts/{genesis_account_filename}",);
 
         std::fs::copy(source_path, new_file_path).unwrap();
     }
@@ -564,6 +562,51 @@ async fn test_consume_unauthenticated_note() {
     consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
 }
 
+// DEVNET & TESTNET TESTS
+// ================================================================================================
+
+#[tokio::test]
+async fn test_init_with_devnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "devnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Check in the config file that the network is devnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(&Endpoint::devnet().to_string()));
+}
+
+#[tokio::test]
+async fn test_init_with_testnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "testnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Check in the config file that the network is testnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(&Endpoint::testnet().to_string()));
+}
+
 // HELPERS
 // ================================================================================================
 
@@ -719,7 +762,7 @@ async fn debug_mode_outputs_logs() {
         NoteType::Private,
         NoteTag::from_account_id(account.id(), NoteExecutionMode::Local).unwrap(),
         NoteExecutionHint::None,
-        Default::default(),
+        Felt::default(),
     )
     .unwrap();
     let note_assets = NoteAssets::new(vec![]).unwrap();

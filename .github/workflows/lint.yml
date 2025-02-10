@@ -6,6 +6,14 @@ on:
     types: [opened, repoened, synchronize]
 
 jobs:
+  unused_deps:
+    name: check for unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: machete
+        uses: bnjbvr/cargo-machete@main
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

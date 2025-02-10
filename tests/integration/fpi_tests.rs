@@ -137,7 +137,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         let foreign_account: Account =
             client.get_account(foreign_account_id).await.unwrap().unwrap().into();
         ForeignAccount::private(
-            ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
+            ForeignAccountInputs::from_account(foreign_account, &storage_requirements).unwrap(),
         )
     };
 

@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -12,13 +14,13 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, types::Value, Connection, Transaction};
 
-use super::SqliteStore;
+use super::{column_value_as_u64, u64_to_value, SqliteStore};
 use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (String, String, String, String, i64, bool, String);
-type SerializedAccountsParts = (String, i64, String, String, String, Option<Vec<u8>>, bool);
+type SerializedAccountData = (String, String, String, String, Value, bool, String);
+type SerializedAccountsParts = (String, u64, String, String, String, Option<Vec<u8>>, bool);
 
 type SerializedAccountVaultData = (String, Vec<u8>);
 
@@ -26,7 +28,7 @@ type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts = (String, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
+type SerializedFullAccountParts = (String, u64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>, bool);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -163,7 +165,7 @@ impl SqliteStore {
     pub fn upsert_foreign_account_code(
         conn: &mut Connection,
         account_id: AccountId,
-        code: AccountCode,
+        code: &AccountCode,
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
 
@@ -171,7 +173,7 @@ impl SqliteStore {
             "INSERT OR REPLACE INTO foreign_account_code (account_id, code_root) VALUES (?, ?)";
         tx.execute(QUERY, params![account_id.to_hex(), code.commitment().to_string()])?;
 
-        insert_account_code(&tx, &code)?;
+        insert_account_code(&tx, code)?;
         Ok(tx.commit()?)
     }
 
@@ -230,7 +232,7 @@ pub(super) fn insert_account_record(
     account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
     let (id, code_root, storage_root, vault_root, nonce, committed, hash) =
-        serialize_account(account)?;
+        serialize_account(account);
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
@@ -242,31 +244,31 @@ pub(super) fn insert_account_record(
     Ok(())
 }
 
-/// Inserts an [AccountCode].
+/// Inserts an [`AccountCode`].
 fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Result<(), StoreError> {
-    let (code_root, code) = serialize_account_code(account_code)?;
+    let (code_root, code) = serialize_account_code(account_code);
     const QUERY: &str = "INSERT OR IGNORE INTO account_code (root, code) VALUES (?, ?)";
     tx.execute(QUERY, params![code_root, code,])?;
     Ok(())
 }
 
-/// Inserts an [AccountStorage].
+/// Inserts an [`AccountStorage`].
 pub(super) fn insert_account_storage(
     tx: &Transaction<'_>,
     account_storage: &AccountStorage,
 ) -> Result<(), StoreError> {
-    let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
+    let (storage_root, storage_slots) = serialize_account_storage(account_storage);
     const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
     tx.execute(QUERY, params![storage_root, storage_slots])?;
     Ok(())
 }
 
-/// Inserts an [AssetVault].
+/// Inserts an [`AssetVault`].
 pub(super) fn insert_account_asset_vault(
     tx: &Transaction<'_>,
     asset_vault: &AssetVault,
 ) -> Result<(), StoreError> {
-    let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
+    let (vault_root, assets) = serialize_account_asset_vault(asset_vault);
     const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
     tx.execute(QUERY, params![vault_root, assets])?;
     Ok(())
@@ -283,7 +285,7 @@ pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let nonce: i64 = row.get(1)?;
+    let nonce: u64 = column_value_as_u64(row, 1)?;
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
@@ -309,7 +311,7 @@ pub(super) fn parse_accounts(
     Ok((
         AccountHeader::new(
             AccountId::from_hex(&id).expect("Conversion from stored AccountID should not panic"),
-            Felt::new(nonce as u64),
+            Felt::new(nonce),
             Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
@@ -334,7 +336,7 @@ pub(super) fn parse_account(
         AssetVault::new(&account_assets)?,
         account_storage,
         account_code,
-        Felt::new(nonce as u64),
+        Felt::new(nonce),
     );
 
     let status = match (account_seed, locked) {
@@ -347,45 +349,42 @@ pub(super) fn parse_account(
 }
 
 /// Serialized the provided account into database compatible types.
-fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
+// TODO: review the clippy exemption.
+fn serialize_account(account: &Account) -> SerializedAccountData {
     let id: String = account.id().to_hex();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
     let vault_root = account.vault().commitment().to_string();
     let committed = account.is_public();
-    let nonce = account.nonce().as_int() as i64;
+    let nonce = u64_to_value(account.nonce().as_int());
     let hash = account.hash().to_string();
 
-    Ok((id, code_root, commitment_root, vault_root, nonce, committed, hash))
+    (id, code_root, commitment_root, vault_root, nonce, committed, hash)
 }
 
-/// Serialize the provided account_code into database compatible types.
+// Serialize the provided `account_code` into database compatible types.
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
     let commitment = account_code.commitment().to_string();
     let code = account_code.to_bytes();
 
-    Ok((commitment, code))
+    (commitment, code)
 }
 
-/// Serialize the provided account_storage into database compatible types.
-fn serialize_account_storage(
-    account_storage: &AccountStorage,
-) -> Result<SerializedAccountStorageData, StoreError> {
+/// Serialize the provided `account_storage` into database compatible types.
+fn serialize_account_storage(account_storage: &AccountStorage) -> SerializedAccountStorageData {
     let commitment = account_storage.commitment().to_string();
     let storage = account_storage.to_bytes();
 
-    Ok((commitment, storage))
+    (commitment, storage)
 }
 
-/// Serialize the provided asset_vault into database compatible types.
-fn serialize_account_asset_vault(
-    asset_vault: &AssetVault,
-) -> Result<SerializedAccountVaultData, StoreError> {
+/// Serialize the provided `asset_vault` into database compatible types.
+fn serialize_account_asset_vault(asset_vault: &AssetVault) -> SerializedAccountVaultData {
     let commitment = asset_vault.commitment().to_string();
     let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
-    Ok((commitment, assets))
+    (commitment, assets)
 }
 
 /// Parse accounts parts from the provided row into native types.
@@ -393,7 +392,7 @@ pub(super) fn parse_account_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedFullAccountParts, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let nonce: i64 = row.get(1)?;
+    let nonce: u64 = column_value_as_u64(row, 1)?;
     let account_seed: Option<Vec<u8>> = row.get(2)?;
     let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
