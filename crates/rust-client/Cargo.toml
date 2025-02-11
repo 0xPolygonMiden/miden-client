@@ -37,7 +37,6 @@ hex = { version = "0.4" }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }
-pollster = { version = "0.4" }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
