@@ -38,7 +38,6 @@
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);
-//! println!("Received notes: {}", sync_summary.received_notes.len());
 //! println!("Committed notes: {}", sync_summary.committed_notes.len());
 //! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
 //! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
@@ -88,8 +87,6 @@ pub use tag::{NoteTagRecord, NoteTagSource};
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
-    /// IDs of new notes received.
-    pub received_notes: Vec<NoteId>,
     /// IDs of tracked notes that received inclusion proofs.
     pub committed_notes: Vec<NoteId>,
     /// IDs of notes that have been consumed.
@@ -105,7 +102,6 @@ pub struct SyncSummary {
 impl SyncSummary {
     pub fn new(
         block_num: BlockNumber,
-        received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
@@ -114,7 +110,6 @@ impl SyncSummary {
     ) -> Self {
         Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -126,7 +121,6 @@ impl SyncSummary {
     pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
-            received_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
@@ -136,8 +130,7 @@ impl SyncSummary {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.received_notes.is_empty()
-            && self.committed_notes.is_empty()
+        self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
@@ -145,7 +138,6 @@ impl SyncSummary {
 
     pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.received_notes.append(&mut other.received_notes);
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
@@ -327,7 +319,6 @@ impl<R: FeltRng> Client<R> {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            note_updates.new_input_notes().iter().map(InputNoteRecord::id).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_public_accounts.iter().map(Account::id).collect(),
