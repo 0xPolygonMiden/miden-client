@@ -57,11 +57,10 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
-    crypto::{self, rand::FeltRng},
+    crypto::rand::FeltRng,
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
     Digest,
@@ -74,6 +73,7 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
+    transaction::TransactionUpdates,
     Client, ClientError,
 };
 
@@ -82,6 +82,9 @@ use block_header::apply_mmr_changes;
 
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
+
+mod state_sync_update;
+pub use state_sync_update::StateSyncUpdate;
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
@@ -156,31 +159,6 @@ impl SyncStatus {
             SyncStatus::SyncedToBlock(summary) | SyncStatus::SyncedToLastBlock(summary) => summary,
         }
     }
-}
-
-/// Contains all information needed to apply the update in the store after syncing with the node.
-pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the
-    /// [`StateSyncInfo`](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_header: BlockHeader,
-    /// Information about note changes after the sync.
-    pub note_updates: NoteUpdates,
-    /// Transaction updates for any transaction that was committed between the sync request's
-    /// block number and the response's block number.
-    pub transactions_to_commit: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    pub transactions_to_discard: Vec<TransactionId>,
-    /// New MMR peaks for the locally tracked MMR of the blockchain.
-    pub new_mmr_peaks: MmrPeaks,
-    /// New authentications nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Information abount account changes after the sync.
-    pub updated_accounts: AccountUpdates,
-    /// Whether the block header has notes relevant to the client.
-    pub block_has_relevant_notes: bool,
-    /// Tag records that are no longer relevant.
-    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 // CONSTANTS
@@ -330,16 +308,18 @@ impl<R: FeltRng> Client<R> {
 
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
-            note_updates,
-            transactions_to_commit,
+            block_has_relevant_notes: incoming_block_has_relevant_notes,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_accounts: AccountUpdates::new(
+            note_updates,
+            transaction_updates: TransactionUpdates::new(
+                transactions_to_commit,
+                transactions_to_discard,
+            ),
+            account_updates: AccountUpdates::new(
                 updated_public_accounts,
                 mismatched_private_accounts,
             ),
-            block_has_relevant_notes: incoming_block_has_relevant_notes,
-            transactions_to_discard,
             tags_to_remove,
         };
 

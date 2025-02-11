@@ -103,13 +103,12 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
-            note_updates,
-            transactions_to_commit: committed_transactions,
+            block_has_relevant_notes,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
+            note_updates,
+            transaction_updates,
+            account_updates,
             tags_to_remove,
         } = state_sync_update;
 
@@ -133,17 +132,17 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
         // Marc transactions as discarded
-        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
+        Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
 
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
+        for (account_id, _) in account_updates.mismatched_private_accounts() {
             lock_account(&tx, *account_id)?;
         }
 

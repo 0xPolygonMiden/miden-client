@@ -107,14 +107,12 @@ impl WebStore {
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
-            note_updates,
-            transactions_to_commit: committed_transactions,
+            block_has_relevant_notes,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: _transactions_to_discard, /* TODO: Add support for discarded
-                                                                * transactions in web store */
+            note_updates,
+            transaction_updates,
+            account_updates,
             tags_to_remove,
         } = state_sync_update;
 
@@ -151,22 +149,24 @@ impl WebStore {
             .collect();
 
         // Serialize data for updating committed transactions
-        let transactions_to_commit_block_nums_as_str = committed_transactions
+        let transactions_to_commit_block_nums_as_str = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.block_num.to_string())
             .collect();
-        let transactions_to_commit_as_str: Vec<String> = committed_transactions
+        let transactions_to_commit_as_str: Vec<String> = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&account.clone()).await.unwrap();
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
+        for (account_id, _) in account_updates.mismatched_private_accounts() {
             lock_account(account_id).await.unwrap();
         }
 
