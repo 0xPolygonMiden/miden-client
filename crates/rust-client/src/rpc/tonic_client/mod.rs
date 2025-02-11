@@ -17,7 +17,7 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockWriteGuard};
 use tonic::transport::Channel;
 use tracing::info;
 
@@ -63,18 +63,21 @@ impl TonicRpcClient {
     }
 
     /// Takes care of establishing the RPC connection if not connected yet.
-    async fn ensure_connection(&self) -> Result<(), RpcError> {
-        if self.rpc_api.read().await.is_none() {
+    async fn ensure_connected(
+        &self,
+    ) -> Result<RwLockWriteGuard<Option<ApiClient<Channel>>>, RpcError> {
+        let mut rpc_api = self.rpc_api.write().await;
+        if rpc_api.is_none() {
             let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
                 .map_err(|err| RpcError::ConnectionError(err.to_string()))?
                 .timeout(Duration::from_millis(self.timeout_ms));
             let connected_rpc_api = ApiClient::connect(endpoint)
                 .await
                 .map_err(|err| RpcError::ConnectionError(err.to_string()))?;
-            self.rpc_api.write().await.replace(connected_rpc_api);
+            rpc_api.replace(connected_rpc_api);
         }
 
-        Ok(())
+        Ok(rpc_api)
     }
 }
 
@@ -88,8 +91,7 @@ impl NodeRpcClient for TonicRpcClient {
             transaction: proven_transaction.to_bytes(),
         };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         rpc_api.submit_proven_transaction(request).await.map_err(|err| {
@@ -114,8 +116,7 @@ impl NodeRpcClient for TonicRpcClient {
 
         info!("Calling GetBlockHeaderByNumber: {:?}", request);
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
@@ -158,8 +159,7 @@ impl NodeRpcClient for TonicRpcClient {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let api_response = rpc_api.get_notes_by_id(request).await.map_err(|err| {
@@ -229,8 +229,7 @@ impl NodeRpcClient for TonicRpcClient {
             nullifiers,
         };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.sync_state(request).await.map_err(|err| {
@@ -253,8 +252,7 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError> {
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.get_account_details(request).await.map_err(|err| {
@@ -328,8 +326,7 @@ impl NodeRpcClient for TonicRpcClient {
             code_commitments: known_account_codes.keys().map(Into::into).collect(),
         };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api
@@ -399,8 +396,7 @@ impl NodeRpcClient for TonicRpcClient {
 
         let request = SyncNoteRequest { block_num: block_num.as_u32(), note_tags };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.sync_notes(request).await.map_err(|err| {
@@ -419,8 +415,7 @@ impl NodeRpcClient for TonicRpcClient {
             prefix_len: 16,
         };
 
-        self.ensure_connection().await?;
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
         let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.check_nullifiers_by_prefix(request).await.map_err(|err| {

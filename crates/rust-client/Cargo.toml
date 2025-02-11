@@ -25,7 +25,7 @@ idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-b
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
-tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots", "tokio"]
+tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots", "dep:tokio"]
 web-tonic = ["dep:tonic-web-wasm-client"]
 
 [dependencies]
