@@ -74,69 +74,10 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{OnNoteReceived, OnNullifierReceived, StateSync, StateSyncUpdate};
+pub use state_sync::{OnNoteReceived, OnNullifierReceived, StateSync};
 
-/// Contains stats about the sync operation.
-pub struct SyncSummary {
-    /// Block number up to which the client has been synced.
-    pub block_num: BlockNumber,
-    /// IDs of notes that have been committed.
-    pub committed_notes: Vec<NoteId>,
-    /// IDs of notes that have been consumed.
-    pub consumed_notes: Vec<NoteId>,
-    /// IDs of on-chain accounts that have been updated.
-    pub updated_accounts: Vec<AccountId>,
-    /// IDs of private accounts that have been locked.
-    pub locked_accounts: Vec<AccountId>,
-    /// IDs of committed transactions.
-    pub committed_transactions: Vec<TransactionId>,
-}
-
-impl SyncSummary {
-    pub fn new(
-        block_num: BlockNumber,
-        committed_notes: Vec<NoteId>,
-        consumed_notes: Vec<NoteId>,
-        updated_accounts: Vec<AccountId>,
-        locked_accounts: Vec<AccountId>,
-        committed_transactions: Vec<TransactionId>,
-    ) -> Self {
-        Self {
-            block_num,
-            committed_notes,
-            consumed_notes,
-            updated_accounts,
-            locked_accounts,
-            committed_transactions,
-        }
-    }
-
-    pub fn new_empty(block_num: BlockNumber) -> Self {
-        Self {
-            block_num,
-            committed_notes: vec![],
-            consumed_notes: vec![],
-            updated_accounts: vec![],
-            locked_accounts: vec![],
-            committed_transactions: vec![],
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.committed_notes.is_empty()
-            && self.consumed_notes.is_empty()
-            && self.updated_accounts.is_empty()
-            && self.locked_accounts.is_empty()
-    }
-
-    pub fn combine_with(&mut self, mut other: Self) {
-        self.block_num = max(self.block_num, other.block_num);
-        self.committed_notes.append(&mut other.committed_notes);
-        self.consumed_notes.append(&mut other.consumed_notes);
-        self.updated_accounts.append(&mut other.updated_accounts);
-        self.locked_accounts.append(&mut other.locked_accounts);
-    }
-}
+mod state_sync_update;
+pub use state_sync_update::StateSyncUpdate;
 
 // CONSTANTS
 // ================================================================================================
@@ -229,4 +170,69 @@ impl<R: FeltRng> Client<R> {
 
 pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
     (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
+}
+
+// SYNC SUMMARY
+// ================================================================================================
+
+/// Contains stats about the sync operation.
+pub struct SyncSummary {
+    /// Block number up to which the client has been synced.
+    pub block_num: BlockNumber,
+    /// IDs of notes that have been committed.
+    pub committed_notes: Vec<NoteId>,
+    /// IDs of notes that have been consumed.
+    pub consumed_notes: Vec<NoteId>,
+    /// IDs of on-chain accounts that have been updated.
+    pub updated_accounts: Vec<AccountId>,
+    /// IDs of private accounts that have been locked.
+    pub locked_accounts: Vec<AccountId>,
+    /// IDs of committed transactions.
+    pub committed_transactions: Vec<TransactionId>,
+}
+
+impl SyncSummary {
+    pub fn new(
+        block_num: BlockNumber,
+        committed_notes: Vec<NoteId>,
+        consumed_notes: Vec<NoteId>,
+        updated_accounts: Vec<AccountId>,
+        locked_accounts: Vec<AccountId>,
+        committed_transactions: Vec<TransactionId>,
+    ) -> Self {
+        Self {
+            block_num,
+            committed_notes,
+            consumed_notes,
+            updated_accounts,
+            locked_accounts,
+            committed_transactions,
+        }
+    }
+
+    pub fn new_empty(block_num: BlockNumber) -> Self {
+        Self {
+            block_num,
+            committed_notes: vec![],
+            consumed_notes: vec![],
+            updated_accounts: vec![],
+            locked_accounts: vec![],
+            committed_transactions: vec![],
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.committed_notes.is_empty()
+            && self.consumed_notes.is_empty()
+            && self.updated_accounts.is_empty()
+            && self.locked_accounts.is_empty()
+    }
+
+    pub fn combine_with(&mut self, mut other: Self) {
+        self.block_num = max(self.block_num, other.block_num);
+        self.committed_notes.append(&mut other.committed_notes);
+        self.consumed_notes.append(&mut other.consumed_notes);
+        self.updated_accounts.append(&mut other.updated_accounts);
+        self.locked_accounts.append(&mut other.locked_accounts);
+    }
 }

@@ -34,8 +34,8 @@ impl TryFrom<ProtoTransactionId> for TransactionId {
 // TRANSACTION UPDATE
 // ================================================================================================
 
-#[derive(Debug, Clone)]
 /// Represents a transaction that was included in the node at a certain block.
+#[derive(Debug, Clone)]
 pub struct TransactionUpdate {
     /// The transaction identifier.
     pub transaction_id: TransactionId,
