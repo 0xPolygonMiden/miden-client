@@ -800,7 +800,7 @@ async fn test_get_account_update() {
     // [`AccountDetails`] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
     let (endpoint, timeout, _) = get_client_config();
-    let rpc_api = TonicRpcClient::new(endpoint, timeout).await.unwrap();
+    let rpc_api = TonicRpcClient::new(&endpoint, timeout);
     let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 

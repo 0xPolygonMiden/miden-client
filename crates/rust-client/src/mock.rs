@@ -262,7 +262,7 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
-        // assume all off-chain notes for now
+        // assume all private notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
