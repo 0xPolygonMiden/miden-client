@@ -331,8 +331,9 @@ impl NoteUpdates {
         consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
     }
 
-    /// Extends this note update information with `other`. If the two contain updates to the same note (i.e. their IDs match),
-    /// the updates from `other` will overwrite the updates in `self`.
+    /// Extends this note update information with `other`. If the two contain updates to the same
+    /// note (i.e. their IDs match), the updates from `other` will overwrite the updates in
+    /// `self`.
     pub(crate) fn extend(&mut self, other: NoteUpdates) {
         self.updated_input_notes.extend(other.updated_input_notes);
         self.updated_output_notes.extend(other.updated_output_notes);

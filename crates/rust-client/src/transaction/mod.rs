@@ -406,8 +406,8 @@ impl TransactionUpdates {
         &self.discarded_transactions
     }
 
-    /// Inserts a committed transaction into the transaction updates.
-    pub fn discarded_transaction(&mut self, transaction_id: TransactionId) {
+    /// Inserts a discarded transaction into the transaction updates.
+    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
         self.discarded_transactions.push(transaction_id);
     }
 }
