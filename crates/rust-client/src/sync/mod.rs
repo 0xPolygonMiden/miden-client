@@ -285,7 +285,9 @@ impl<R: FeltRng> Client<R> {
         let (consumed_note_updates, transactions_to_discard) =
             self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
 
-        let note_updates = committed_note_updates.combine_with(consumed_note_updates);
+        let mut note_updates = NoteUpdates::new(vec![], vec![]);
+        note_updates.extend(committed_note_updates);
+        note_updates.extend(consumed_note_updates);
 
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
@@ -434,9 +436,7 @@ impl<R: FeltRng> Client<R> {
 
         Ok((
             NoteUpdates::new(
-                new_public_notes,
-                vec![],
-                committed_tracked_input_notes,
+                [new_public_notes, committed_tracked_input_notes].concat(),
                 committed_tracked_output_notes,
             ),
             removed_tags,
@@ -536,12 +536,7 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok((
-            NoteUpdates::new(
-                vec![],
-                vec![],
-                consumed_tracked_input_notes,
-                consumed_tracked_output_notes,
-            ),
+            NoteUpdates::new(consumed_tracked_input_notes, consumed_tracked_output_notes),
             discarded_transactions,
         ))
     }

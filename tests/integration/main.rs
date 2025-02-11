@@ -850,7 +850,7 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.committed_notes.len(), 0);
+    assert_eq!(new_details.committed_notes.len(), 1);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 

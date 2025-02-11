@@ -340,10 +340,8 @@ impl TransactionStoreUpdate {
             executed_transaction,
             updated_account,
             note_updates: NoteUpdates::new(
-                created_input_notes,
+                [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
-                updated_input_notes,
-                vec![],
             ),
             new_tags,
         }

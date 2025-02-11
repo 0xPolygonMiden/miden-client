@@ -56,7 +56,11 @@
 //! For more details on the API and error handling, see the documentation for the specific functions
 //! and types in this module.
 
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::ToString,
+    vec::Vec,
+};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{account::AccountId, crypto::rand::FeltRng};
@@ -240,84 +244,63 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 // ------------------------------------------------------------------------------------------------
 
 /// Contains note changes to apply to the store.
+#[derive(Clone, Debug, Default)]
 pub struct NoteUpdates {
-    /// A list of new input notes.
-    new_input_notes: Vec<InputNoteRecord>,
-    /// A list of new output notes.
-    new_output_notes: Vec<OutputNoteRecord>,
-    /// A list of updated input note records corresponding to locally-tracked input notes.
-    updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of updated output note records corresponding to locally-tracked output notes.
-    updated_output_notes: Vec<OutputNoteRecord>,
+    /// A map of new and updated input note records to be upserted in the store.
+    updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
+    /// A map of updated output note records to be upserted in the store.
+    updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
 }
 
 impl NoteUpdates {
     /// Creates a [`NoteUpdates`].
     pub fn new(
-        new_input_notes: Vec<InputNoteRecord>,
-        new_output_notes: Vec<OutputNoteRecord>,
         updated_input_notes: Vec<InputNoteRecord>,
         updated_output_notes: Vec<OutputNoteRecord>,
     ) -> Self {
         Self {
-            new_input_notes,
-            new_output_notes,
-            updated_input_notes,
-            updated_output_notes,
+            updated_input_notes: updated_input_notes
+                .into_iter()
+                .map(|note| (note.id(), note))
+                .collect(),
+            updated_output_notes: updated_output_notes
+                .into_iter()
+                .map(|note| (note.id(), note))
+                .collect(),
         }
     }
 
-    /// Combines two [`NoteUpdates`] into a single one.
-    #[must_use]
-    pub fn combine_with(mut self, other: Self) -> Self {
-        self.new_input_notes.extend(other.new_input_notes);
-        self.new_output_notes.extend(other.new_output_notes);
-        self.updated_input_notes.extend(other.updated_input_notes);
-        self.updated_output_notes.extend(other.updated_output_notes);
-
-        self
+    /// Returns all input note records that have been updated.
+    pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
+        self.updated_input_notes.values()
     }
 
-    /// Returns all new input note records, meant to be tracked by the client.
-    pub fn new_input_notes(&self) -> &[InputNoteRecord] {
-        &self.new_input_notes
-    }
-
-    /// Returns all new output note records, meant to be tracked by the client.
-    pub fn new_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.new_output_notes
-    }
-
-    /// Returns all updated input note records. That is, any input notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_input_notes(&self) -> &[InputNoteRecord] {
-        &self.updated_input_notes
-    }
-
-    /// Returns all updated output note records. That is, any output notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.updated_output_notes
+    /// Returns all updated output note records that have been updated.
+    pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
+        self.updated_output_notes.values()
     }
 
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty()
-            && self.updated_output_notes.is_empty()
-            && self.new_input_notes.is_empty()
-            && self.new_output_notes.is_empty()
+        self.updated_input_notes.is_empty() && self.updated_output_notes.is_empty()
     }
 
-    /// Returns the IDs of all notes that have been committed.
+    /// Returns any note that has been committed into the chain in this update (either new or
+    /// already locally tracked)
+    pub fn committed_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
+        self.updated_input_notes.values().filter(|note| note.is_committed())
+    }
+
+    /// Returns the IDs of all notes that have been committed (previously locally tracked).
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
 
         let committed_input_note_ids = self
             .updated_input_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
 
         committed_input_note_ids
@@ -325,18 +308,23 @@ impl NoteUpdates {
             .collect::<BTreeSet<_>>()
     }
 
-    /// Returns the IDs of all notes that have been consumed
+    /// Returns the IDs of all notes that have been consumed.
     pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
         let consumed_output_note_ids = self
             .updated_output_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
         let consumed_input_note_ids = self
             .updated_input_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
         consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
+    }
+
+    pub fn extend(&mut self, other: NoteUpdates) {
+        self.updated_input_notes.extend(other.updated_input_notes);
+        self.updated_output_notes.extend(other.updated_output_notes);
     }
 }
