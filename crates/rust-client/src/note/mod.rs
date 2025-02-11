@@ -255,8 +255,8 @@ pub struct NoteUpdates {
 impl NoteUpdates {
     /// Creates a [`NoteUpdates`].
     pub fn new(
-        updated_input_notes: Vec<InputNoteRecord>,
-        updated_output_notes: Vec<OutputNoteRecord>,
+        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        updated_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
     ) -> Self {
         Self {
             updated_input_notes: updated_input_notes
@@ -271,11 +271,17 @@ impl NoteUpdates {
     }
 
     /// Returns all input note records that have been updated.
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
     pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
         self.updated_input_notes.values()
     }
 
-    /// Returns all updated output note records that have been updated.
+    /// Returns all output note records that have been updated.
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
     pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
         self.updated_output_notes.values()
     }
@@ -291,7 +297,8 @@ impl NoteUpdates {
         self.updated_input_notes.values().filter(|note| note.is_committed())
     }
 
-    /// Returns the IDs of all notes that have been committed (previously locally tracked).
+    /// Returns the IDs of all notes that have been committed in this update.
+    /// This includes both new notes and tracked expected notes that were committed in this update.
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
@@ -309,6 +316,7 @@ impl NoteUpdates {
     }
 
     /// Returns the IDs of all notes that have been consumed.
+    /// This includes both notes that have been consumed locally or externally in this update.
     pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
         let consumed_output_note_ids = self
             .updated_output_notes
@@ -323,7 +331,9 @@ impl NoteUpdates {
         consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
     }
 
-    pub fn extend(&mut self, other: NoteUpdates) {
+    /// Extends this note update information with `other`. If the two contain updates to the same note (i.e. their IDs match),
+    /// the updates from `other` will overwrite the updates in `self`.
+    pub(crate) fn extend(&mut self, other: NoteUpdates) {
         self.updated_input_notes.extend(other.updated_input_notes);
         self.updated_output_notes.extend(other.updated_output_notes);
     }
