@@ -1,4 +1,4 @@
-use miden_objects::{account::AccountData, note::NoteFile, utils::Deserializable};
+use miden_objects::{account::AccountFile, note::NoteFile, utils::Deserializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
@@ -9,7 +9,7 @@ impl WebClient {
     pub async fn import_account(&mut self, account_bytes: JsValue) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let account_bytes_result: Vec<u8> = from_value(account_bytes).unwrap();
-            let account_data = AccountData::read_from_bytes(&account_bytes_result)
+            let account_data = AccountFile::read_from_bytes(&account_bytes_result)
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
 
