@@ -44,6 +44,7 @@ use miden_objects::{crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
+    rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
     ClientError,
 };
@@ -161,6 +162,17 @@ impl<R: FeltRng> Client<R> {
                 self.store.update_account(account).await.map_err(ClientError::StoreError)
             },
         }
+    }
+
+    pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
+        let account_details = self.rpc_api.get_account_update(account_id).await?;
+
+        let account = match account_details {
+            AccountDetails::Private(..) => todo!(),
+            AccountDetails::Public(account, ..) => account,
+        };
+
+        self.add_account(&account, None, true).await
     }
 
     // ACCOUNT DATA RETRIEVAL

@@ -91,7 +91,10 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
-    (endpoint, timeout_ms, create_test_store_path(), temp_dir())
+    let auth_path = temp_dir().join(format!("keystore-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&auth_path).unwrap();
+
+    (endpoint, timeout_ms, create_test_store_path(), auth_path)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
