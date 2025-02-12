@@ -51,15 +51,10 @@ export declare class WebClient extends WasmWebClient {
    * Factory method to create and initialize a new wrapped WebClient.
    *
    * @param rpcUrl - The RPC URL (optional).
-   * @param proverUrl - The prover URL (optional).
    * @param seed - The seed for the account (optional).
    * @returns A promise that resolves to a fully initialized WebClient.
    */
-  static create_client(
-    rpcUrl?: string,
-    proverUrl?: string,
-    seed?: string
-  ): Promise<WebClient>;
+  static create_client(rpcUrl?: string, seed?: string): Promise<WebClient>;
 
   /**
    * Terminates the underlying worker.

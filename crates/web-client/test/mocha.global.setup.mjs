@@ -177,10 +177,7 @@ before(async () => {
       };
 
       window.helpers.refreshClient = async (initSeed) => {
-        const client = await WebClient.create_client(
-          rpc_url,
-          initSeed
-        );
+        const client = await WebClient.create_client(rpc_url, initSeed);
         window.client = client;
       };
     },

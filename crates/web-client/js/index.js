@@ -195,11 +195,8 @@ export class WebClient {
     // Wait for the underlying wasmWebClient to be initialized.
     await instance.wasmWebClient.create_client(rpcUrl, seed);
 
+    // Wait for the worker to be ready
     await instance.ready;
-
-    // Optionally, you might also want to wait until the worker is ready,
-    // for example:
-    // await instance.ready;
 
     // Return a proxy that forwards missing properties to wasmWebClient.
     return new Proxy(instance, {
