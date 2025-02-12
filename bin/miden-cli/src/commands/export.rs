@@ -1,14 +1,14 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    account::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
+    account::AccountFile, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
 
 use crate::{errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client output notes")]
+#[clap(about = "Export client output notes, or account-related data")]
 pub struct ExportCmd {
     /// ID (or a valid prefix) of the output note or account to export.
     #[clap()]
@@ -84,7 +84,7 @@ async fn export_account<R: FeltRng>(
         .await?
         .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
 
-    let account_data = AccountData::new(account.into(), account_seed, auth);
+    let account_data = AccountFile::new(account.into(), account_seed, auth);
 
     let file_path = if let Some(filename) = filename {
         filename

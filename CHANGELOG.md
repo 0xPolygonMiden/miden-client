@@ -4,7 +4,8 @@
 
 ### Changes
 
-* Add check for empty pay to id notes (#714).
+* Added check for empty pay to ID notes (#714).
+* [BREAKING] Generalized `miden new-account` CLI command (#728).
 
 ## 0.7.0 (2025-01-28)
 

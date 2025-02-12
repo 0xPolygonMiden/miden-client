@@ -49,7 +49,7 @@ impl Network {
 #[clap(
     about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
 the CLI and client configurations, and will be placed by default in the current working \
-directory."
+directory"
 )]
 pub struct InitCmd {
     /// Network configuration to use. Options are `devnet`, `testnet`, `localhost` or a custom RPC

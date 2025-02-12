@@ -45,9 +45,8 @@ pub enum CliError {
     #[error("io error")]
     #[diagnostic(code(cli::io_error))]
     IO(#[from] std::io::Error),
-    #[error("missing flag: {0}")]
-    #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
-    MissingFlag(String),
+    #[error("invalid argument: {0}")]
+    InvalidArgument(String),
     #[error("parse error: {1}")]
     #[diagnostic(code(cli::parse_error), help("Check the inputs."))]
     Parse(#[source] SourceError, String),
