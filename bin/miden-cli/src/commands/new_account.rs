@@ -10,7 +10,6 @@ use miden_client::{
 };
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::account::{AccountComponent, AccountComponentTemplate, InitStorageData};
-use serde::de::IntoDeserializer;
 
 use crate::{
     commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
@@ -192,7 +191,7 @@ pub struct NewAccountCmd {
     pub account_type: CliAccountType,
     /// If set, add the fungible faucet component template. The fungible faucet component exposes
     /// functionality for distributing assets and burning them. Only accounts of type
-    /// [CliAccountType::FungibleFaucet] can make use of this component.
+    /// [`CliAccountType::FungibleFaucet`] can make use of this component.
     #[clap(long)]
     pub fungible_faucet_component: bool,
     /// Optional list of files specifying additional component template files to add to the
@@ -227,7 +226,7 @@ impl NewAccountCmd {
             component_templates.push(template);
         }
 
-        if component_templates.len() == 0 {
+        if component_templates.is_empty() {
             return Err(CliError::InvalidArgument(
                 "account must contain one or more components".into(),
             ));

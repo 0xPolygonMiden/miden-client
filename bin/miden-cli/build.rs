@@ -17,7 +17,7 @@ fn main() {
 /// Builds a component template and stores it under `{OUT_DIR}/templates`.
 pub fn build_component_template(metadata_path: &Path, library: Library) {
     let toml_string = fs::read_to_string(metadata_path)
-        .expect(&format!("failed to read {}", metadata_path.display()));
+        .expect("failed to read file");
 
     let template_metadata =
         AccountComponentMetadata::from_toml(&toml_string).expect("faucet toml is well-formed");
