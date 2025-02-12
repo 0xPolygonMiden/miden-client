@@ -22,7 +22,6 @@ export const mintTransaction = async (
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
 
-      await client.fetch_and_cache_account_auth_by_pub_key(faucetAccountId);
       const new_mint_transaction_result = await client.new_mint_transaction(
         targetAccountId,
         faucetAccountId,
@@ -79,9 +78,6 @@ export const sendTransaction = async (
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
 
-      await client.fetch_and_cache_account_auth_by_pub_key(
-        window.AccountId.from_hex(_faucetAccountId)
-      );
       let mint_transaction_result = await client.new_mint_transaction(
         senderAccountId,
         window.AccountId.from_hex(_faucetAccountId),
@@ -94,7 +90,6 @@ export const sendTransaction = async (
         mint_transaction_result.executed_transaction().id().to_hex()
       );
 
-      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
       const consume_transaction_result = await client.new_consume_transaction(
         senderAccountId,
         created_note_ids
@@ -103,7 +98,6 @@ export const sendTransaction = async (
         consume_transaction_result.executed_transaction().id().to_hex()
       );
 
-      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
       let send_transaction_result = await client.new_send_transaction(
         senderAccountId,
         targetAccountId,
@@ -150,7 +144,6 @@ export const consumeTransaction = async (
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetId = window.AccountId.from_hex(_faucetId);
 
-      await client.fetch_and_cache_account_auth_by_pub_key(targetAccountId);
       const consumeTransactionResult = await client.new_consume_transaction(
         targetAccountId,
         [_noteId]
@@ -208,14 +201,6 @@ export const setupWalletAndFaucet =
       };
     });
   };
-
-export const fetchAndCacheAccountAuth = async (accountId: string) => {
-  return await testingPage.evaluate(async (_accountId) => {
-    const accountId = window.AccountId.from_hex(_accountId);
-    const client = window.client;
-    await client.fetch_and_cache_account_auth_by_pub_key(accountId);
-  }, accountId);
-};
 
 export const syncState = async () => {
   return await testingPage.evaluate(async () => {

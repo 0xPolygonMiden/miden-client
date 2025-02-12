@@ -99,18 +99,7 @@ export const compileTxScript = async (
       true
     );
 
-    let account_auth = await client.get_account_auth(walletAccount.id());
-    let public_key = account_auth.get_rpo_falcon_512_public_key_as_word();
-    let secret_key = account_auth.get_rpo_falcon_512_secret_key_as_felts();
-    let transcription_script_input_pair_array =
-      new window.TransactionScriptInputPairArray([
-        new window.TransactionScriptInputPair(public_key, secret_key),
-      ]);
-
-    const compiledScript = await client.compile_tx_script(
-      _script,
-      transcription_script_input_pair_array
-    );
+    const compiledScript = await client.compile_tx_script(_script);
 
     return {
       scriptHash: compiledScript.hash().to_hex(),

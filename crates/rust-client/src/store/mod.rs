@@ -29,7 +29,7 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteTag, Nullifier},
@@ -48,9 +48,6 @@ use crate::{
 /// The user is tasked with creating a [`Store`] which the client will wrap into a
 /// [`ClientDataStore`] at creation time.
 pub(crate) mod data_store;
-
-mod authenticator;
-pub use authenticator::StoreAuthenticator;
 
 mod errors;
 pub use errors::*;
@@ -249,27 +246,11 @@ pub trait Store: Send + Sync {
     async fn get_account(&self, account_id: AccountId)
         -> Result<Option<AccountRecord>, StoreError>;
 
-    /// Retrieves an account's [`AuthSecretKey`] by pub key, utilized to authenticate the account.
-    /// This is mainly used for authentication in transactions. Returns `None` if the account is not
-    /// found.
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError>;
-
-    /// Retrieves an account's [`AuthSecretKey`], utilized to authenticate the account. Returns
-    /// `None` if the account is not found.
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError>;
-
-    /// Inserts an [`Account`] along with the seed used to create it and its [`AuthSecretKey`].
+    /// Inserts an [`Account`] along with the seed used to create it.
     async fn insert_account(
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
 
     /// Upserts the account code for a foreign account. This value will be used as a cache of known

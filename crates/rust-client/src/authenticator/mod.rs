@@ -1,28 +1,36 @@
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{string::ToString, sync::Arc, vec::Vec};
 
 use miden_objects::{
     account::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, utils::sync::RwLock, AuthenticationError};
-use pollster::FutureExt as _;
 use rand::Rng;
 
-use super::Store;
+use crate::authenticator::keystore::KeyStore;
 
-/// Represents an authenticator based on a [Store].
-pub struct StoreAuthenticator<R> {
-    store: Arc<dyn Store>,
+pub mod keystore;
+
+/// An account authenticator based on a [`KeyStore`].
+#[derive(Debug, Clone)]
+pub struct ClientAuthenticator<R, K> {
+    /// The random number generator used to generate signatures.
     rng: Arc<RwLock<R>>,
+    /// The key store used to retrieve secret keys.
+    keystore: K,
 }
 
-impl<R: Rng> StoreAuthenticator<R> {
-    pub fn new_with_rng(store: Arc<dyn Store>, rng: R) -> Self {
-        StoreAuthenticator { store, rng: Arc::new(RwLock::new(rng)) }
+impl<R: Rng, K: KeyStore> ClientAuthenticator<R, K> {
+    /// Creates a new instance of the authenticator.
+    pub fn new(rng: R, keystore: K) -> Self {
+        ClientAuthenticator {
+            rng: Arc::new(RwLock::new(rng)),
+            keystore,
+        }
     }
 }
 
-impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
+impl<R: Rng, K: KeyStore> TransactionAuthenticator for ClientAuthenticator<R, K> {
     /// Gets a signature over a message, given a public key.
     ///
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
@@ -38,13 +46,14 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.write();
 
-        let secret_key =
-            self.store.get_account_auth_by_pub_key(pub_key).block_on().map_err(|err| {
-                AuthenticationError::other_with_source("error getting secret key from Store", err)
-            })?;
+        let secret_key = self
+            .keystore
+            .get_key(pub_key)
+            .map_err(|err| AuthenticationError::other(err.to_string()))?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key
             .ok_or(AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
+
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
 }

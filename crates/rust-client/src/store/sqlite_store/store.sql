@@ -19,14 +19,6 @@ CREATE TABLE account_vaults (
     PRIMARY KEY (root)
 );
 
--- Create account_auth table
-CREATE TABLE account_auth (
-    account_id TEXT NOT NULL,              -- ID of the account
-    auth_info BLOB NOT NULL,               -- Serialized representation of information needed for authentication
-    pub_key BLOB NOT NULL,                 -- Public key for easier authenticator use
-    PRIMARY KEY (account_id)
-);
-
 -- Create foreign_account_code table
 CREATE TABLE foreign_account_code(
     account_id TEXT NOT NULL,              -- ID of the account
