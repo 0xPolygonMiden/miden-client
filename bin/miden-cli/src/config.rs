@@ -20,7 +20,7 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint.
     pub rpc: RpcConfig,
-    /// Path to the sqlite store file.
+    /// Path to the SQLite store file.
     pub store_filepath: PathBuf,
     /// Path to secret keys file.
     pub secret_keys_directory: PathBuf,
