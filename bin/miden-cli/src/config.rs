@@ -20,9 +20,9 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint.
     pub rpc: RpcConfig,
-    /// Path to the SQLite store file.
+    /// Path to the `SQLite` store file.
     pub store_filepath: PathBuf,
-    /// Path to secret keys file.
+    /// Path to the directory that contains the secret key files.
     pub secret_keys_directory: PathBuf,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,

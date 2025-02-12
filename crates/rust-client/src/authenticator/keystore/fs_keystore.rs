@@ -10,7 +10,8 @@ use miden_tx::utils::{Deserializable, Serializable};
 
 use super::{KeyStore, KeyStoreError};
 
-/// A filesystem-based keystore that stores keys in separate files.
+/// A filesystem-based keystore that stores keys in separate files. The public key is used as the
+/// filename and the contents of the file are the serialized secret key.
 #[derive(Clone)]
 pub struct FilesystemKeyStore {
     /// The directory where the keys are stored.

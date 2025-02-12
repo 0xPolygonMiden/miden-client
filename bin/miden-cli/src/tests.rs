@@ -26,7 +26,7 @@ use miden_client::{
     utils::Serializable,
     Client, Felt,
 };
-use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR};
+use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet};
 use predicates::str::contains;
 use rand::Rng;
 use uuid::Uuid;
@@ -388,7 +388,8 @@ async fn test_cli_export_import_note() {
 
 #[tokio::test]
 async fn test_cli_export_import_account() {
-    const ACCOUNT_FILENAME: &str = "test_account.acc";
+    const FAUCET_FILENAME: &str = "test_faucet.mac";
+    const WALLET_FILENAME: &str = "test_wallet.wal";
 
     let store_path_1 = create_test_store_path();
     let mut temp_dir_1 = temp_dir();
@@ -422,7 +423,7 @@ async fn test_cli_export_import_account() {
     ]);
     init_cmd.current_dir(&temp_dir_2).assert().success();
 
-    // Create wallet account
+    // Create faucet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
     create_wallet_cmd.args([
         "new-faucet",
@@ -437,41 +438,73 @@ async fn test_cli_export_import_account() {
     ]);
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
-    let faucet_id = {
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "private"]);
+    create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
+
+    let (faucet_id, wallet_id) = {
         let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
-        accounts.first().unwrap().0.id().to_hex()
+        let faucet_id =
+            accounts.iter().find(|(acc, _)| acc.id().is_faucet()).unwrap().0.id().to_hex();
+        let wallet_id = accounts
+            .iter()
+            .find(|(acc, _)| acc.id().is_regular_account())
+            .unwrap()
+            .0
+            .id()
+            .to_hex();
+
+        (faucet_id, wallet_id)
     };
 
-    // Export the account
+    // Export the accounts
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args(["export", &faucet_id, "--account", "--filename", ACCOUNT_FILENAME]);
+    export_cmd.args(["export", &faucet_id, "--account", "--filename", FAUCET_FILENAME]);
+    export_cmd.current_dir(&temp_dir_1).assert().success();
+    let mut export_cmd = Command::cargo_bin("miden").unwrap();
+    export_cmd.args(["export", &wallet_id, "--account", "--filename", WALLET_FILENAME]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
-    // Copy the account file
-    let mut client_1_account_file_path = temp_dir_1.clone();
-    client_1_account_file_path.push(ACCOUNT_FILENAME);
-    let mut client_2_account_file_path = temp_dir_2.clone();
-    client_2_account_file_path.push(ACCOUNT_FILENAME);
-    std::fs::copy(client_1_account_file_path, client_2_account_file_path).unwrap();
+    // Copy the account files
+    for filename in &[FAUCET_FILENAME, WALLET_FILENAME] {
+        let mut client_1_file_path = temp_dir_1.clone();
+        client_1_file_path.push(filename);
+        let mut client_2_file_path = temp_dir_2.clone();
+        client_2_file_path.push(filename);
+        std::fs::copy(client_1_file_path, client_2_file_path).unwrap();
+    }
 
     // Import the account from the second client
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
-    import_cmd.args(["import", ACCOUNT_FILENAME]);
+    import_cmd.args(["import", FAUCET_FILENAME]);
+    import_cmd.current_dir(&temp_dir_2).assert().success();
+    let mut import_cmd = Command::cargo_bin("miden").unwrap();
+    import_cmd.args(["import", WALLET_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Ensure the account was imported
     let client_2 = create_test_client_with_store_path(&store_path_2).await.0;
     assert!(client_2.get_account(AccountId::from_hex(&faucet_id).unwrap()).await.is_ok());
+    assert!(client_2.get_account(AccountId::from_hex(&wallet_id).unwrap()).await.is_ok());
 
     sync_cli(&temp_dir_2);
 
-    mint_cli(
-        &temp_dir_2,
-        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap().to_hex().as_str(),
-        &faucet_id,
-    );
+    mint_cli(&temp_dir_2, &wallet_id, &faucet_id);
+
+    // Wait until the note is committed on the node
+    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected).await;
+
+    // Get consumable note
+    let client = create_test_client_with_store_path(&store_path_2).await.0;
+    let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
+
+    let note_id = output_notes.first().unwrap().id().to_hex();
+
+    // Consume the note
+    consume_note_cli(&temp_dir_2, &wallet_id, &[&note_id]);
 }
 
 #[test]

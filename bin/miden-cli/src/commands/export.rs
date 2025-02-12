@@ -153,12 +153,13 @@ async fn export_note(
 }
 
 /// Gets the public key from the storage of an account. This will only work if the account is
-/// created by the CLI as it expects the public key to be stored in index 1 of the account storage.
+/// created by the CLI as it expects the public key to be stored in index 0 of the account storage
+/// if it is a regular account, and in index 1 if it is a faucet account.
 pub fn get_public_key_from_account(account: &Account) -> Word {
     Word::from(
         account
             .storage()
-            .get_item(1)
-            .expect("Account storage should have an element in index 1"),
+            .get_item(u8::from(account.is_faucet()))
+            .expect("Account should have the public key in storage"),
     )
 }
