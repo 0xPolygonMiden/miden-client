@@ -2,6 +2,10 @@
 
 ## 0.8.0 (TBD)
 
+### Features
+
+* Added support to import public accounts to `Client` (#733).
+
 ### Changes
 
 * Add check for empty pay to id notes (#714).

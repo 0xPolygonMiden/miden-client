@@ -91,7 +91,10 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
-    (endpoint, timeout_ms, create_test_store_path(), temp_dir())
+    let auth_path = temp_dir().join(format!("keystore-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&auth_path).unwrap();
+
+    (endpoint, timeout_ms, create_test_store_path(), auth_path)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
@@ -105,13 +108,22 @@ pub async fn insert_new_wallet<R: FeltRng>(
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
+    let mut init_seed = [0u8; 32];
+    client.rng().fill_bytes(&mut init_seed);
+
+    insert_new_wallet_with_seed(client, storage_mode, keystore, init_seed).await
+}
+
+pub async fn insert_new_wallet_with_seed<R: FeltRng>(
+    client: &mut Client<R>,
+    storage_mode: AccountStorageMode,
+    keystore: &FilesystemKeyStore,
+    init_seed: [u8; 32],
+) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
     keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
-
-    let mut init_seed = [0u8; 32];
-    client.rng().fill_bytes(&mut init_seed);
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
