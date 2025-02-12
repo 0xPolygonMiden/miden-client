@@ -9,7 +9,7 @@ import { MethodName, WorkerAction } from "../constants.js";
  * WASM WebClient, then listens for messages from the main thread to perform one of two actions:
  *
  * 1. **Initialization (init):**
- *    - The worker receives an "init" message along with user parameters (RPC URL, prover URL, and seed).
+ *    - The worker receives an "init" message along with user parameters (RPC URL and seed).
  *    - It instantiates the WASM WebClient and calls its create_client method.
  *    - Once initialization is complete, the worker sends a `{ ready: true }` message back to signal
  *      that it is fully initialized.
@@ -185,10 +185,10 @@ async function processMessage(event) {
   const { action, args, methodName, requestId } = event.data;
   try {
     if (action === WorkerAction.INIT) {
-      const [rpcUrl, proverUrl, seed] = args;
+      const [rpcUrl, seed] = args;
       // Initialize the WASM WebClient.
       wasmWebClient = new wasm.WebClient();
-      await wasmWebClient.create_client(rpcUrl, proverUrl, seed);
+      await wasmWebClient.create_client(rpcUrl, seed);
       ready = true;
       // Signal that the worker is fully initialized.
       self.postMessage({ ready: true });

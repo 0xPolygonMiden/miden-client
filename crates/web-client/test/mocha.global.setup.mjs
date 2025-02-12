@@ -103,7 +103,7 @@ before(async () => {
       if (remote_prover_port) {
         prover_url = `http://localhost:${remote_prover_port}`;
       }
-      const client = await WebClient.create_client(rpc_url, prover_url);
+      const client = await WebClient.create_client(rpc_url);
 
       window.client = client;
       window.Account = Account;
@@ -179,7 +179,6 @@ before(async () => {
       window.helpers.refreshClient = async (initSeed) => {
         const client = await WebClient.create_client(
           rpc_url,
-          prover_url,
           initSeed
         );
         window.client = client;

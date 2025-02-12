@@ -110,9 +110,8 @@ export {
  * web client is instantiated. Users should now use the WebClient.create_client static call.
  */
 export class WebClient {
-  constructor(rpcUrl, proverUrl, seed) {
+  constructor(rpcUrl, seed) {
     this.rpcUrl = rpcUrl;
-    this.proverUrl = proverUrl;
     this.seed = seed;
 
     // Create the worker.
@@ -173,7 +172,7 @@ export class WebClient {
     this.loaded.then(() => {
       this.worker.postMessage({
         action: WorkerAction.INIT,
-        args: [this.rpcUrl, this.proverUrl, this.seed],
+        args: [this.rpcUrl, this.seed],
       });
     });
 
@@ -186,16 +185,17 @@ export class WebClient {
    * This method is async so you can await the asynchronous call to create_client().
    *
    * @param {string} rpcUrl - The RPC URL.
-   * @param {string} proverUrl - The prover URL.
    * @param {string} seed - The seed for the account.
    * @returns {Promise<WebClient>} The fully initialized WebClient.
    */
-  static async create_client(rpcUrl, proverUrl, seed) {
+  static async create_client(rpcUrl, seed) {
     // Construct the instance (synchronously).
-    const instance = new WebClient(rpcUrl, proverUrl, seed);
+    const instance = new WebClient(rpcUrl, seed);
 
     // Wait for the underlying wasmWebClient to be initialized.
-    await instance.wasmWebClient.create_client(rpcUrl, proverUrl, seed);
+    await instance.wasmWebClient.create_client(rpcUrl, seed);
+
+    await instance.ready;
 
     // Optionally, you might also want to wait until the worker is ready,
     // for example:
