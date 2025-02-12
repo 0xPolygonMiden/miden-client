@@ -80,7 +80,7 @@
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
+//!     Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
@@ -98,8 +98,6 @@
 
 #[macro_use]
 extern crate alloc;
-
-use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -210,7 +208,7 @@ pub struct Client<R: FeltRng> {
     rng: R,
     /// An instance of [`NodeRpcClient`] which provides a way for the client to connect to the
     /// Miden node.
-    rpc_api: Box<dyn NodeRpcClient + Send>,
+    rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// An instance of a [`LocalTransactionProver`] which will be the default prover for the
     /// client.
     tx_prover: Arc<LocalTransactionProver>,
@@ -246,7 +244,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Returns an error if the client couldn't be instantiated.
     pub fn new(
-        rpc_api: Box<dyn NodeRpcClient + Send>,
+        rpc_api: Arc<dyn NodeRpcClient + Send>,
         rng: R,
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
@@ -287,7 +285,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn test_rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
+    pub fn test_rpc_api(&mut self) -> &mut Arc<dyn NodeRpcClient + Send> {
         &mut self.rpc_api
     }
 
