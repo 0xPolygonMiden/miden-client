@@ -6,7 +6,7 @@ use std::{
 
 use miden_client::{
     account::{AccountData, AccountId},
-    authenticator::ClientAuthenticator,
+    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
@@ -33,7 +33,7 @@ impl ImportCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        authenticator: ClientAuthenticator<impl FeltRng>,
+        keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
@@ -52,7 +52,7 @@ impl ImportCmd {
 
                 let account_id = import_account(
                     &mut client,
-                    &authenticator,
+                    &keystore,
                     &account_data_file_contents,
                     self.overwrite,
                 )
@@ -74,7 +74,7 @@ impl ImportCmd {
 
 async fn import_account(
     client: &mut Client<impl FeltRng>,
-    authenticator: &ClientAuthenticator<impl FeltRng>,
+    keystore: &FilesystemKeyStore,
     account_data_file_contents: &[u8],
     overwrite: bool,
 ) -> Result<AccountId, CliError> {
@@ -82,9 +82,7 @@ async fn import_account(
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
-    authenticator
-        .add_key(&account_data.auth_secret_key)
-        .map_err(CliError::Authentication)?;
+    keystore.add_key(&account_data.auth_secret_key).map_err(CliError::KeyStore)?;
 
     client
         .add_account(&account_data.account, account_data.account_seed, overwrite)

@@ -6,7 +6,10 @@ use miden_client::{
         AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
-    authenticator::ClientAuthenticator,
+    authenticator::{
+        keystore::{FilesystemKeyStore, KeyStore},
+        ClientAuthenticator,
+    },
     crypto::FeltRng,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
@@ -44,7 +47,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, ClientAuthenticator<RpoRandomCoin>) {
+pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -57,16 +60,18 @@ pub async fn create_test_client() -> (TestClient, ClientAuthenticator<RpoRandomC
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = ClientAuthenticator::new_with_rng(auth_path, rng).unwrap();
+    let keystore = FilesystemKeyStore::new(auth_path).unwrap();
+
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
             rng,
             store,
-            Arc::new(authenticator.clone()),
+            Arc::new(authenticator),
             true,
         ),
-        authenticator,
+        keystore,
     )
 }
 
@@ -98,12 +103,12 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    authenticator: &ClientAuthenticator<R>,
+    keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -127,12 +132,12 @@ pub async fn insert_new_wallet<R: FeltRng>(
 pub async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    authenticator: &ClientAuthenticator<R>,
+    keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    authenticator.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -270,7 +275,7 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 pub async fn setup(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
-    authenticator: &ClientAuthenticator<RpoRandomCoin>,
+    keystore: &FilesystemKeyStore,
 ) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_account_headers().await.unwrap().is_empty());
@@ -278,17 +283,16 @@ pub async fn setup(
     assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Create faucet account
-    let (faucet_account, ..) =
-        insert_new_fungible_faucet(client, accounts_storage_mode, authenticator)
-            .await
-            .unwrap();
+    let (faucet_account, ..) = insert_new_fungible_faucet(client, accounts_storage_mode, keystore)
+        .await
+        .unwrap();
 
     // Create regular accounts
     let (first_basic_account, ..) =
-        insert_new_wallet(client, accounts_storage_mode, authenticator).await.unwrap();
+        insert_new_wallet(client, accounts_storage_mode, keystore).await.unwrap();
 
     let (second_basic_account, ..) =
-        insert_new_wallet(client, accounts_storage_mode, authenticator).await.unwrap();
+        insert_new_wallet(client, accounts_storage_mode, keystore).await.unwrap();
 
     println!("Syncing State...");
     client.sync_state().await.unwrap();

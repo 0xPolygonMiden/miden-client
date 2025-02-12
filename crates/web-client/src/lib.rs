@@ -3,7 +3,10 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
-    authenticator::WebAuthenticator, rpc::WebTonicRpcClient, store::web_store::WebStore, Client,
+    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
+    rpc::WebTonicRpcClient,
+    store::web_store::WebStore,
+    Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
 use miden_proving_service_client::RemoteTransactionProver;
@@ -25,7 +28,7 @@ pub mod transactions;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     remote_prover: Option<Arc<RemoteTransactionProver>>,
-    authenticator: Option<Arc<WebAuthenticator<RpoRandomCoin>>>,
+    keystore: Option<WebKeyStore>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -44,7 +47,7 @@ impl WebClient {
             inner: None,
             remote_prover: None,
             store: None,
-            authenticator: None,
+            keystore: None,
         }
     }
 
@@ -77,22 +80,20 @@ impl WebClient {
             .await
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
-        let authenticator = Arc::new(WebAuthenticator::new_with_rng(rng));
+
+        let keystore = WebKeyStore {};
+
+        let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
         let web_rpc_client = Box::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 
         self.remote_prover = prover_url
             .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
-        self.inner = Some(Client::new(
-            web_rpc_client,
-            rng,
-            web_store.clone(),
-            authenticator.clone(),
-            false,
-        ));
+        self.inner =
+            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
-        self.authenticator = Some(authenticator);
+        self.keystore = Some(keystore);
 
         Ok(JsValue::from_str("Client created successfully"))
     }

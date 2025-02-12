@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use errors::CliError;
 use miden_client::{
     account::AccountHeader,
-    authenticator::ClientAuthenticator,
+    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
@@ -107,9 +107,9 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator =
-            ClientAuthenticator::new_with_rng(cli_config.secret_keys_directory.clone(), rng)
-                .map_err(CliError::Authentication)?;
+        let keystore = FilesystemKeyStore::new(cli_config.secret_keys_directory.clone())
+            .map_err(CliError::KeyStore)?;
+        let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
@@ -118,23 +118,23 @@ impl Cli {
             )),
             rng,
             store as Arc<dyn Store>,
-            Arc::new(authenticator.clone()),
+            Arc::new(authenticator),
             in_debug_mode,
         );
 
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client).await,
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client, authenticator).await,
-            Command::NewWallet(new_wallet) => new_wallet.execute(client, authenticator).await,
-            Command::Import(import) => import.execute(client, authenticator).await,
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client, keystore).await,
+            Command::NewWallet(new_wallet) => new_wallet.execute(client, keystore).await,
+            Command::Import(import) => import.execute(client, keystore).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &cli_config).await,
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            Command::Export(cmd) => cmd.execute(client, authenticator).await,
+            Command::Export(cmd) => cmd.execute(client, keystore).await,
             Command::Mint(mint) => mint.execute(client).await,
             Command::Send(send) => send.execute(client).await,
             Command::Swap(swap) => swap.execute(client).await,

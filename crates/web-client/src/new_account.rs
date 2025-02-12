@@ -4,6 +4,7 @@ use miden_client::{
         AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     crypto::SecretKey,
     Felt,
 };
@@ -20,7 +21,7 @@ impl WebClient {
         storage_mode: &AccountStorageMode,
         mutable: bool,
     ) -> Result<Account, JsValue> {
-        let authenticator = self.authenticator.clone();
+        let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
             let pub_key = key_pair.public_key();
@@ -51,9 +52,10 @@ impl WebClient {
                 },
             };
 
-            authenticator
-                .expect("Authenticator should be initialized")
-                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))?;
+            keystore
+                .expect("KeyStore should be initialized")
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .map_err(|err| err.to_string())?;
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
@@ -78,7 +80,7 @@ impl WebClient {
             return Err(JsValue::from_str("Non-fungible faucets are not supported yet"));
         }
 
-        let authenticator = self.authenticator.clone();
+        let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
             let pub_key = key_pair.public_key();
@@ -110,9 +112,11 @@ impl WebClient {
                 },
             };
 
-            authenticator
-                .expect("Authenticator should be initialized")
-                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))?;
+            keystore
+                .expect("KeyStore should be initialized")
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .map_err(|err| err.to_string())?;
+
             match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {

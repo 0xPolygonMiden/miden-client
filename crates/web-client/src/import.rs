@@ -1,3 +1,4 @@
+use miden_client::authenticator::keystore::KeyStore;
 use miden_objects::{account::AccountData, note::NoteFile, utils::Deserializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
@@ -7,16 +8,17 @@ use crate::WebClient;
 #[wasm_bindgen]
 impl WebClient {
     pub async fn import_account(&mut self, account_bytes: JsValue) -> Result<JsValue, JsValue> {
-        let authenticator = self.authenticator.clone();
+        let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let account_bytes_result: Vec<u8> = from_value(account_bytes).unwrap();
             let account_data = AccountData::read_from_bytes(&account_bytes_result)
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
 
-            authenticator
-                .expect("Authenticator should be initialized")
-                .add_key(&account_data.auth_secret_key)?;
+            keystore
+                .expect("KeyStore should be initialized")
+                .add_key(&account_data.auth_secret_key)
+                .map_err(|err| err.to_string())?;
             match client
                 .add_account(&account_data.account, account_data.account_seed, false)
                 .await

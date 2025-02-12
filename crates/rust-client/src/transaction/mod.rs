@@ -1042,13 +1042,14 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
+        authenticator::keystore::KeyStore,
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let (mut client, _, authenticator) = create_test_client().await;
+        let (mut client, _, keystore) = create_test_client().await;
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()
@@ -1060,7 +1061,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        authenticator.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,

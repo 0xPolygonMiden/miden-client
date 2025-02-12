@@ -362,7 +362,7 @@ fn serialize_account(account: &Account) -> SerializedAccountData {
     (id, code_root, commitment_root, vault_root, nonce, committed, hash)
 }
 
-// Serialize the provided `account_code` into database compatible types.
+/// Serialize the provided `account_code` into database compatible types.
 fn serialize_account_code(account_code: &AccountCode) -> SerializedAccountCodeData {
     let commitment = account_code.commitment().to_string();
     let code = account_code.to_bytes();

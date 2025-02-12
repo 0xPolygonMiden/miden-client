@@ -1,6 +1,7 @@
 use miden_client::{
     account::{Account, StorageSlot},
     auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
@@ -42,7 +43,7 @@ async fn test_standard_fpi_private() {
 /// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
 /// foreign account's code is correctly cached after the transaction.
 async fn test_standard_fpi(storage_mode: AccountStorageMode) {
-    let (mut client, authenticator) = create_test_client().await;
+    let (mut client, keystore) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
@@ -50,7 +51,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    authenticator.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
@@ -81,7 +82,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     println!("Calling FPI functions with new account");
 
     let (native_account, _native_seed, _) =
-        insert_new_wallet(&mut client, AccountStorageMode::Public, &authenticator)
+        insert_new_wallet(&mut client, AccountStorageMode::Public, &keystore)
             .await
             .unwrap();
 

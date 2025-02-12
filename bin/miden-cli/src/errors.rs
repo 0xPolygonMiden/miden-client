@@ -1,6 +1,6 @@
 use std::error::Error as StdError;
 
-use miden_client::{authenticator::AuthenticationError, ClientError};
+use miden_client::{authenticator::keystore::KeyStoreError, ClientError};
 use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
 use thiserror::Error;
@@ -21,9 +21,6 @@ pub enum CliError {
     #[error("asset error")]
     #[diagnostic(code(cli::asset_error))]
     Asset(#[source] AssetError),
-    #[error("authentication error")]
-    #[diagnostic(code(cli::auth_error))]
-    Authentication(#[source] AuthenticationError),
     #[error("client error")]
     #[diagnostic(code(cli::client_error))]
     Client(#[from] ClientError),
@@ -48,6 +45,9 @@ pub enum CliError {
     #[error("io error")]
     #[diagnostic(code(cli::io_error))]
     IO(#[from] std::io::Error),
+    #[error("keystore error")]
+    #[diagnostic(code(cli::keystore_error))]
+    KeyStore(#[source] KeyStoreError),
     #[error("missing flag: {0}")]
     #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
     MissingFlag(String),

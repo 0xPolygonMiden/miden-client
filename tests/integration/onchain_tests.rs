@@ -1,5 +1,6 @@
 use miden_client::{
     auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
@@ -15,28 +16,28 @@ use super::common::*;
 #[tokio::test]
 async fn test_onchain_notes_flow() {
     // Client 1 is an private faucet which will mint an onchain note for client 2
-    let (mut client_1, authenticator_1) = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client().await;
     // Client 2 is an private account which will consume the note that it will sync from the node
-    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
     // Client 3 will be transferred part of the assets by client 2's account
-    let (mut client_3, authenticator_3) = create_test_client().await;
+    let (mut client_3, keystore_3) = create_test_client().await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
     let (faucet_account, ..) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &authenticator_1)
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &keystore_1)
             .await
             .unwrap();
 
     // Create regular accounts
     let (basic_wallet_1, ..) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
             .await
             .unwrap();
 
     // Create regular accounts
     let (basic_wallet_2, ..) =
-        insert_new_wallet(&mut client_3, AccountStorageMode::Private, &authenticator_3)
+        insert_new_wallet(&mut client_3, AccountStorageMode::Private, &keystore_3)
             .await
             .unwrap();
 
@@ -113,22 +114,22 @@ async fn test_onchain_notes_flow() {
 
 #[tokio::test]
 async fn test_onchain_accounts() {
-    let (mut client_1, authenticator_1) = create_test_client().await;
-    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
     wait_for_node(&mut client_2).await;
 
     let (faucet_account_header, _, secret_key) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &authenticator_1)
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
             .await
             .unwrap();
 
     let (first_regular_account, ..) =
-        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &authenticator_1)
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &keystore_1)
             .await
             .unwrap();
 
     let (second_client_first_regular_account, ..) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
             .await
             .unwrap();
 
@@ -139,7 +140,7 @@ async fn test_onchain_accounts() {
     let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
 
-    authenticator_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client_2.add_account(&faucet_account_header, faucet_seed, false).await.unwrap();
 
     // First Mint necesary token
@@ -288,7 +289,7 @@ async fn test_onchain_accounts() {
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
     // Client 1 has an private faucet which will mint an onchain note for client 2
-    let (mut client_1, authenticator) = create_test_client().await;
+    let (mut client_1, keystore) = create_test_client().await;
     // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
     // whose tag doesn't necessarily match any of its accounts
     let (mut client_2, _) = create_test_client().await;
@@ -299,7 +300,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Create faucet account
     let (faucet_account, ..) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &authenticator)
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &keystore)
             .await
             .unwrap();
 

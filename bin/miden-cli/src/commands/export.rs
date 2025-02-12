@@ -2,7 +2,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
     account::{Account, AccountData},
-    authenticator::ClientAuthenticator,
+    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
     store::NoteExportType,
     utils::Serializable,
@@ -57,11 +57,10 @@ impl ExportCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        authenticator: ClientAuthenticator<impl FeltRng>,
+        keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         if self.account {
-            export_account(&client, &authenticator, self.id.as_str(), self.filename.clone())
-                .await?;
+            export_account(&client, &keystore, self.id.as_str(), self.filename.clone()).await?;
         } else if let Some(export_type) = &self.export_type {
             export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type).await?;
         } else {
@@ -78,7 +77,7 @@ impl ExportCmd {
 
 async fn export_account(
     client: &Client<impl FeltRng>,
-    authenticator: &ClientAuthenticator<impl FeltRng>,
+    keystore: &FilesystemKeyStore,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, CliError> {
@@ -92,9 +91,9 @@ async fn export_account(
 
     let account: Account = account.into();
 
-    let auth = authenticator
-        .get_auth_by_pub_key(get_public_key_from_account(&account))
-        .map_err(CliError::Authentication)?
+    let auth = keystore
+        .get_key(get_public_key_from_account(&account))
+        .map_err(CliError::KeyStore)?
         .ok_or(CliError::Export("Auth not found for account".to_string()))?;
 
     let account_data = AccountData::new(account, account_seed, auth);

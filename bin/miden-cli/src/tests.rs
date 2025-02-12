@@ -13,7 +13,7 @@ use miden_client::{
         component::{BasicWallet, RpoFalcon512},
         AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
-    authenticator::ClientAuthenticator,
+    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
@@ -700,9 +700,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-async fn create_test_client_with_store_path(
-    store_path: &Path,
-) -> (TestClient, ClientAuthenticator<RpoRandomCoin>) {
+async fn create_test_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -715,16 +713,18 @@ async fn create_test_client_with_store_path(
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = ClientAuthenticator::new_with_rng(temp_dir(), rng).unwrap();
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
             rng,
             store,
-            std::sync::Arc::new(authenticator.clone()),
+            std::sync::Arc::new(authenticator),
             true,
         ),
-        authenticator,
+        keystore,
     )
 }
 
