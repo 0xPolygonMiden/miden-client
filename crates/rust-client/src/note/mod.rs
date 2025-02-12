@@ -331,11 +331,51 @@ impl NoteUpdates {
         consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
     }
 
-    /// Extends this note update information with `other`. If the two contain updates to the same
-    /// note (i.e. their IDs match), the updates from `other` will overwrite the updates in
-    /// `self`.
-    pub(crate) fn extend(&mut self, other: NoteUpdates) {
-        self.updated_input_notes.extend(other.updated_input_notes);
-        self.updated_output_notes.extend(other.updated_output_notes);
+    /// Inserts new or updated input and output notes. If an update with the same note ID already
+    /// exists, it will be replaced.
+    pub(crate) fn insert_updates(
+        &mut self,
+        input_note: Option<InputNoteRecord>,
+        output_note: Option<OutputNoteRecord>,
+    ) {
+        if let Some(input_note) = input_note {
+            self.updated_input_notes.insert(input_note.id(), input_note);
+        }
+        if let Some(output_note) = output_note {
+            self.updated_output_notes.insert(output_note.id(), output_note);
+        }
+    }
+
+    /// Returns a mutable reference to the input note record with the provided ID if it exists.
+    pub(crate) fn get_input_note_by_id(&mut self, note_id: NoteId) -> Option<&mut InputNoteRecord> {
+        self.updated_input_notes.get_mut(&note_id)
+    }
+
+    /// Returns a mutable reference to the output note record with the provided ID if it exists.
+    pub(crate) fn get_output_note_by_id(
+        &mut self,
+        note_id: NoteId,
+    ) -> Option<&mut OutputNoteRecord> {
+        self.updated_output_notes.get_mut(&note_id)
+    }
+
+    /// Returns a mutable reference to the input note record with the provided nullifier if it
+    /// exists.
+    pub(crate) fn get_input_note_by_nullifier(
+        &mut self,
+        nullifier: Nullifier,
+    ) -> Option<&mut InputNoteRecord> {
+        self.updated_input_notes.values_mut().find(|note| note.nullifier() == nullifier)
+    }
+
+    /// Returns a mutable reference to the output note record with the provided nullifier if it
+    /// exists.
+    pub(crate) fn get_output_note_by_nullifier(
+        &mut self,
+        nullifier: Nullifier,
+    ) -> Option<&mut OutputNoteRecord> {
+        self.updated_output_notes
+            .values_mut()
+            .find(|note| note.nullifier() == Some(nullifier))
     }
 }
