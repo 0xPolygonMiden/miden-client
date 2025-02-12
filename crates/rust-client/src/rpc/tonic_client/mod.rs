@@ -62,7 +62,8 @@ impl TonicRpcClient {
         }
     }
 
-    /// Takes care of establishing the RPC connection if not connected yet.
+    /// Takes care of establishing the RPC connection if not connected yet. It ensures that the
+    /// `rpc_api` field is initialized and returns a write guard to it.
     async fn ensure_connected(
         &self,
     ) -> Result<RwLockWriteGuard<Option<ApiClient<Channel>>>, RpcError> {
