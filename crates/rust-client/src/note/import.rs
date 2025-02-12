@@ -1,13 +1,13 @@
 //! Provides note importing methods.
 //!
 //! This module allows users to import notes into the client's store.
-//! Depending on the variant of [NoteFile] provided, the client will either fetch note details
+//! Depending on the variant of [`NoteFile`] provided, the client will either fetch note details
 //! from the network or create a new note record from supplied data. If a note already exists in
 //! the store, it is updated with the new information. Additionally, the appropriate note tag
 //! is tracked based on the imported note's metadata.
 //!
 //! For more specific information on how the process is performed, refer to the docs for
-//! [Client::import_note()].
+//! [`Client::import_note()`].
 use alloc::string::ToString;
 
 use miden_objects::{
@@ -32,11 +32,11 @@ impl<R: FeltRng> Client<R> {
     /// type of note file provided. If the note existed previously, it will be updated with the
     /// new information. The tag specified by the `NoteFile` will start being tracked.
     ///
-    /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
-    ///   the client's store. If the note is private or doesn't exist, an error is returned.
-    /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
+    /// - If the note file is a [`NoteFile::NoteId`], the note is fetched from the node and stored
+    ///   in the client's store. If the note is private or doesn't exist, an error is returned.
+    /// - If the note file is a [`NoteFile::NoteDetails`], a new note is created with the provided
     ///   details and tag.
-    /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
+    /// - If the note file is a [`NoteFile::NoteWithProof`], the note is stored with the provided
     ///   inclusion proof and metadata. The block header data is only fetched from the node if the
     ///   note is committed in the past relative to the client.
     ///
@@ -53,10 +53,9 @@ impl<R: FeltRng> Client<R> {
         let previous_note = self.get_input_note(id).await?;
 
         // If the note is already in the store and is in the state processing we return an error.
-        if let Some(true) = previous_note.as_ref().map(|note| note.is_processing()) {
+        if let Some(true) = previous_note.as_ref().map(InputNoteRecord::is_processing) {
             return Err(ClientError::NoteImportError(format!(
-                "Can't overwrite note with id {} as it's currently being processed",
-                id
+                "Can't overwrite note with id {id} as it's currently being processed",
             )));
         }
 
@@ -95,7 +94,7 @@ impl<R: FeltRng> Client<R> {
     /// - If the note doesn't exist on the node.
     /// - If the note exists but is private.
     async fn import_note_record_by_id(
-        &mut self,
+        &self,
         previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
@@ -106,31 +105,26 @@ impl<R: FeltRng> Client<R> {
 
         let inclusion_proof = network_note.inclusion_proof().clone();
 
-        match previous_note {
-            Some(mut previous_note) => {
-                if previous_note
-                    .inclusion_proof_received(inclusion_proof, *network_note.metadata())?
-                {
-                    self.store.remove_note_tag((&previous_note).try_into()?).await?;
+        if let Some(mut previous_note) = previous_note {
+            if previous_note.inclusion_proof_received(inclusion_proof, *network_note.metadata())? {
+                self.store.remove_note_tag((&previous_note).try_into()?).await?;
 
-                    Ok(Some(previous_note))
-                } else {
-                    Ok(None)
-                }
-            },
-            None => {
-                let network_note = match network_note {
-                    NetworkNote::Public(note, _) => note,
-                    NetworkNote::Private(..) => {
-                        return Err(ClientError::NoteImportError(
-                            "Incomplete imported note is private".to_string(),
-                        ))
-                    },
-                };
+                Ok(Some(previous_note))
+            } else {
+                Ok(None)
+            }
+        } else {
+            let network_note = match network_note {
+                NetworkNote::Public(note, _) => note,
+                NetworkNote::Private(..) => {
+                    return Err(ClientError::NoteImportError(
+                        "Incomplete imported note is private".to_string(),
+                    ))
+                },
+            };
 
-                self.import_note_record_by_proof(previous_note, network_note, inclusion_proof)
-                    .await
-            },
+            self.import_note_record_by_proof(previous_note, network_note, inclusion_proof)
+                .await
         }
     }
 
@@ -142,7 +136,7 @@ impl<R: FeltRng> Client<R> {
     /// If the note isn't consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
-        &mut self,
+        &self,
         previous_note: Option<InputNoteRecord>,
         note: Note,
         inclusion_proof: NoteInclusionProof,
@@ -181,7 +175,7 @@ impl<R: FeltRng> Client<R> {
                     .get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
                     .await?;
 
-                note_changed |= note_record.block_header_received(block_header)?;
+                note_changed |= note_record.block_header_received(&block_header)?;
             }
 
             if note_changed {
@@ -230,7 +224,7 @@ impl<R: FeltRng> Client<R> {
                 let note_changed =
                     note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
-                if note_record.block_header_received(block_header)? | note_changed {
+                if note_record.block_header_received(&block_header)? | note_changed {
                     self.store
                         .remove_note_tag(NoteTagRecord::with_note_source(
                             metadata.tag(),
@@ -247,7 +241,7 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Checks if a note with the given note_tag and ID is present in the chain between the
+    /// Checks if a note with the given `note_tag` and ID is present in the chain between the
     /// `request_block_num` and the current block. If found it returns its metadata and inclusion
     /// proof.
     async fn check_expected_note(
@@ -289,13 +283,12 @@ impl<R: FeltRng> Client<R> {
                 )?;
 
                 return Ok(Some((note.metadata(), note_inclusion_proof)));
-            } else {
-                // This means that a note with the same id was not found.
-                // Therefore, we should request again for sync_notes with the same note_tag
-                // and with the block_num of the last block header
-                // (sync_notes.block_header.unwrap()).
-                request_block_num = sync_notes.block_header.block_num();
             }
+            // This means that a note with the same id was not found.
+            // Therefore, we should request again for sync_notes with the same note_tag
+            // and with the block_num of the last block header
+            // (sync_notes.block_header.unwrap()).
+            request_block_num = sync_notes.block_header.block_num();
         }
     }
 }

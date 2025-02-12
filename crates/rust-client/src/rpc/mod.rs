@@ -1,7 +1,8 @@
 //! Provides an interface for the client to communicate with a Miden node using
 //! Remote Procedure Calls (RPC).
 //!
-//! This module defines the [NodeRpcClient] trait which abstracts calls to the RPC protocol used to:
+//! This module defines the [`NodeRpcClient`] trait which abstracts calls to the RPC protocol used
+//! to:
 //!
 //! - Submit proven transactions.
 //! - Retrieve block headers (optionally with MMR proofs).
@@ -21,7 +22,7 @@
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let mut rpc_client = TonicRpcClient::new(endpoint, 1000).await?;
+//! let mut rpc_client = TonicRpcClient::new(&endpoint, 1000);
 //!
 //! // Fetch the latest block header (by passing None).
 //! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
@@ -37,7 +38,7 @@
 //! The client also makes use of this component in order to communicate with the node.
 //!
 //! For further details and examples, see the documentation for the individual methods in the
-//! [NodeRpcClient] trait.
+//! [`NodeRpcClient`] trait.
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;

@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.7.0 (TBD)
+## 0.8.0 (TBD)
+
+### Changes
+
+* Add check for empty pay to id notes (#714).
+
+## 0.7.0 (2025-01-28)
 
 ### Features
 
@@ -22,7 +28,9 @@
 * [BREAKING] Updated `init` command in the CLI to receive a `--network` flag (#690).
 * Improved CLI error messages (#682).
 * [BREAKING] Renamed APIs for retrieving account information to use the `try_get_*` naming convention, and added/improved module documentation (#683).
+* Enabled TLS on tonic client (#697).
 * Added account creation from component templates (#680).
+* Added serialization for `TransactionResult` (#704).
 
 ### Fixes
 

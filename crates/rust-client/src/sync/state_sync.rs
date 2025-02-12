@@ -109,8 +109,11 @@ impl StateSync {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<bool, ClientError> {
-        let current_block_num = (current_partial_mmr.num_leaves() as u32 - 1).into();
-        let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
+        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves())
+            .expect("The number of leaves in the MMR should be less than 2^32")
+            - 1)
+        .into();
+        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
 
         let response = self
             .rpc_api
@@ -131,17 +134,16 @@ impl StateSync {
                 response.note_inclusions,
                 response.transactions,
                 response.nullifiers,
-                response.block_header,
+                &response.block_header,
             )
             .await?;
 
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
-            response.block_header,
+            &response.block_header,
             found_relevant_note,
             current_partial_mmr,
             response.mmr_delta,
-        )
-        .await?;
+        )?;
 
         self.state_sync_update.block_updates.extend(BlockUpdates {
             block_headers: vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
@@ -170,7 +172,7 @@ impl StateSync {
     /// 4. Tracked notes are updated with their new states. Notes might be committed or nullified
     ///    during the sync processing.
     /// 5. New notes are checked, and only relevant ones are stored. Relevance is determined by the
-    ///    [OnNoteReceived] callback.
+    ///    [`OnNoteReceived`] callback.
     /// 6. Transactions are updated with their new states. Transactions might be committed or
     ///    discarded.
     /// 7. The MMR is updated with the new peaks and authentication nodes.
@@ -191,8 +193,8 @@ impl StateSync {
     ) -> Result<StateSyncUpdate, ClientError> {
         let unspent_nullifiers = unspent_input_notes
             .iter()
-            .map(|note| note.nullifier())
-            .chain(unspent_output_notes.iter().filter_map(|note| note.nullifier()));
+            .map(InputNoteRecord::nullifier)
+            .chain(unspent_output_notes.iter().filter_map(OutputNoteRecord::nullifier));
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
@@ -257,7 +259,7 @@ impl StateSync {
                     .iter()
                     .any(|account| account.id() == *account_id && &account.hash() != digest)
             })
-            .cloned()
+            .copied()
             .collect::<Vec<_>>();
 
         self.state_sync_update
@@ -295,8 +297,8 @@ impl StateSync {
     /// Applies the changes received from the sync response to the notes and transactions tracked
     /// by the client and updates the `state_sync_update` accordingly.
     ///
-    /// This method uses the callbacks provided to the [StateSync] component to check if the updates
-    /// received are relevant to the client.
+    /// This method uses the callbacks provided to the [`StateSync`] component to check if the
+    /// updates received are relevant to the client.
     ///
     /// The note updates might include:
     /// * New notes that we received from the node and might be relevant to the client.
@@ -314,7 +316,7 @@ impl StateSync {
         note_inclusions: Vec<CommittedNote>,
         transactions: Vec<TransactionUpdate>,
         nullifiers: Vec<NullifierUpdate>,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<bool, ClientError> {
         let public_note_ids: Vec<NoteId> = note_inclusions
             .iter()
@@ -325,7 +327,7 @@ impl StateSync {
 
         // Process note inclusions
         let new_public_notes =
-            Arc::new(self.fetch_public_note_details(&public_note_ids, &block_header).await?);
+            Arc::new(self.fetch_public_note_details(&public_note_ids, block_header).await?);
         for committed_note in note_inclusions {
             let public_note = new_public_notes
                 .iter()
@@ -340,10 +342,9 @@ impl StateSync {
 
                 committed_state_transions(
                     &mut self.state_sync_update.note_updates,
-                    committed_note,
+                    &committed_note,
                     block_header,
-                )
-                .await?;
+                )?;
             }
         }
 
@@ -352,15 +353,14 @@ impl StateSync {
             if (self.on_nullifier_received)(nullifier_update.clone()).await? {
                 let discarded_transaction = nullfier_state_transitions(
                     &mut self.state_sync_update.note_updates,
-                    nullifier_update,
+                    &nullifier_update,
                     &transactions,
-                )
-                .await?;
+                )?;
 
                 if let Some(transaction_id) = discarded_transaction {
                     self.state_sync_update
                         .transaction_updates
-                        .discarded_transaction(transaction_id);
+                        .insert_discarded_transaction(transaction_id);
                 }
             }
         }
@@ -388,8 +388,8 @@ impl StateSync {
 
         let mut return_notes = self.rpc_api.get_public_note_records(query_notes, None).await?;
 
-        for note in return_notes.iter_mut() {
-            note.block_header_received(*block_header)?;
+        for note in &mut return_notes {
+            note.block_header_received(block_header)?;
         }
 
         Ok(return_notes)
@@ -399,10 +399,10 @@ impl StateSync {
 // HELPERS
 // ================================================================================================
 
-/// Applies changes to the current MMR structure, returns the updated [MmrPeaks] and the
+/// Applies changes to the current MMR structure, returns the updated [`MmrPeaks`] and the
 /// authentication nodes for leaves we track.
-async fn apply_mmr_changes(
-    new_block: BlockHeader,
+fn apply_mmr_changes(
+    new_block: &BlockHeader,
     new_block_has_relevant_notes: bool,
     current_partial_mmr: &mut PartialMmr,
     mmr_delta: MmrDelta,
@@ -419,12 +419,12 @@ async fn apply_mmr_changes(
     Ok((new_peaks, new_authentication_nodes))
 }
 
-/// Applies the necessary state transitions to the [NoteUpdates] when a note is committed in a
+/// Applies the necessary state transitions to the [`NoteUpdates`] when a note is committed in a
 /// block.
-async fn committed_state_transions(
+fn committed_state_transions(
     note_updates: &mut NoteUpdates,
-    committed_note: CommittedNote,
-    block_header: BlockHeader,
+    committed_note: &CommittedNote,
+    block_header: &BlockHeader,
 ) -> Result<(), ClientError> {
     let inclusion_proof = NoteInclusionProof::new(
         block_header.block_num(),
@@ -448,14 +448,14 @@ async fn committed_state_transions(
     Ok(())
 }
 
-/// Applies the necessary state transitions to the [NoteUpdates] when a note is nullified in a
+/// Applies the necessary state transitions to the [`NoteUpdates`] when a note is nullified in a
 /// block. For input note records two possible scenarios are considered:
 /// 1. The note was being processed by a local transaction that just got committed.
 /// 2. The note was consumed by an external transaction. If a local transaction was processing the
 ///    note and it didn't get committed, the transaction should be discarded.
-async fn nullfier_state_transitions(
+fn nullfier_state_transitions(
     note_updates: &mut NoteUpdates,
-    nullifier_update: NullifierUpdate,
+    nullifier_update: &NullifierUpdate,
     transaction_updates: &[TransactionUpdate],
 ) -> Result<Option<TransactionId>, ClientError> {
     let mut discarded_transaction = None;
@@ -463,11 +463,10 @@ async fn nullfier_state_transitions(
     if let Some(input_note_record) =
         note_updates.get_input_note_by_nullifier(nullifier_update.nullifier)
     {
-        if let Some(consumer_transaction) = transaction_updates.iter().find(|t| {
-            input_note_record
-                .consumer_transaction_id()
-                .map_or(false, |id| id == &t.transaction_id)
-        }) {
+        if let Some(consumer_transaction) = transaction_updates
+            .iter()
+            .find(|t| input_note_record.consumer_transaction_id() == Some(&t.transaction_id))
+        {
             // The note was being processed by a local transaction that just got committed
             input_note_record.transaction_committed(
                 consumer_transaction.transaction_id,
@@ -498,9 +497,9 @@ async fn nullfier_state_transitions(
 // DEFAULT CALLBACK IMPLEMENTATIONS
 // ================================================================================================
 
-/// Default implementation of the [OnNoteReceived] callback. It queries the store for the committed
-/// note to check if it's relevant. If the note wasn't being tracked but it came in the sync
-/// response it may be a new public note, in that case we use the [NoteScreener] to check its
+/// Default implementation of the [`OnNoteReceived`] callback. It queries the store for the
+/// committed note to check if it's relevant. If the note wasn't being tracked but it came in the
+/// sync response it may be a new public note, in that case we use the [`NoteScreener`] to check its
 /// relevance.
 pub async fn on_note_received(
     store: Arc<dyn Store>,

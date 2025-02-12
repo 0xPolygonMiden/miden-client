@@ -10,7 +10,7 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
 use super::{
     account::{lock_account, utils::update_account},
@@ -24,13 +24,16 @@ use crate::{
 };
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_get_note_tags, idxdb_get_sync_height,
+    idxdb_remove_note_tag,
+};
 
 mod models;
-use models::*;
+use models::{NoteTagIdxdbObject, SyncHeightIdxdbObject};
 
 mod flattened_vec;
-use flattened_vec::*;
+use flattened_vec::flatten_nested_u8_vec;
 
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -113,26 +116,23 @@ impl WebStore {
             account_updates,
         } = state_sync_update;
 
-        // Serialize data for updating state sync and block header
-        let block_num_as_str = block_num.to_string();
-
         // Serialize data for updating block header
         let mut block_headers_as_bytes = vec![];
         let mut new_mmr_peaks_as_bytes = vec![];
         let mut block_nums_as_str = vec![];
         let mut block_has_relevant_notes = vec![];
 
-        for (block_header, has_client_notes, mmr_peaks) in block_updates.block_headers.iter() {
+        for (block_header, has_client_notes, mmr_peaks) in &block_updates.block_headers {
             block_headers_as_bytes.push(block_header.to_bytes());
             new_mmr_peaks_as_bytes.push(mmr_peaks.peaks().to_vec().to_bytes());
             block_nums_as_str.push(block_header.block_num().to_string());
-            block_has_relevant_notes.push(*has_client_notes as u8);
+            block_has_relevant_notes.push(u8::from(*has_client_notes));
         }
 
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
-        for (id, node) in block_updates.new_authentication_nodes.iter() {
+        for (id, node) in &block_updates.new_authentication_nodes {
             let serialized_data = serialize_chain_mmr_node(*id, *node)?;
             serialized_node_ids.push(serialized_data.id);
             serialized_nodes.push(serialized_data.node);
@@ -178,7 +178,7 @@ impl WebStore {
         }
 
         let promise = idxdb_apply_state_sync(
-            block_num_as_str,
+            block_num.to_string(),
             flatten_nested_u8_vec(block_headers_as_bytes),
             block_nums_as_str,
             flatten_nested_u8_vec(new_mmr_peaks_as_bytes),

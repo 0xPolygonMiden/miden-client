@@ -25,15 +25,15 @@ impl InputNoteRecord {
     }
 
     pub fn metadata(&self) -> Option<NoteMetadata> {
-        self.0.metadata().map(|metadata| metadata.into())
+        self.0.metadata().map(Into::into)
     }
 
     pub fn inclusion_proof(&self) -> Option<NoteInclusionProof> {
-        self.0.inclusion_proof().map(|proof| proof.into())
+        self.0.inclusion_proof().map(Into::into)
     }
 
     pub fn consumer_transaction_id(&self) -> Option<String> {
-        self.0.consumer_transaction_id().map(|id| id.to_string())
+        self.0.consumer_transaction_id().map(ToString::to_string)
     }
 
     pub fn nullifier(&self) -> String {

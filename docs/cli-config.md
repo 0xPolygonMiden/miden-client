@@ -1,15 +1,11 @@
----
-comments: true
----
-
 After [installation](install-and-run.md#install-the-client), use the client by running the following and adding the [relevant commands](cli-reference.md#commands):
 
 ```sh
 miden
 ```
 
-!!! info "Help" 
-    Run `miden --help` for information on `miden` commands.
+> **Info** "Help" 
+> Run `miden --help` for information on `miden` commands.
 
 ## Client Configuration
 
@@ -33,9 +29,9 @@ In the configuration file, you will find a section for defining the node's rpc `
 
 By default, the node is set up to run on `localhost:57291`.
 
-!!! note
-    - Running the node locally for development is encouraged. 
-    - However, the endpoint can point to any remote node.
+> **Note**
+> - Running the node locally for development is encouraged. 
+> - However, the endpoint can point to any remote node.
 
 There's an additional **optional** section used for CLI configuration. It
 currently contains the default account ID, which is used to execute
@@ -47,8 +43,8 @@ By default none is set, but you can set and unset it with:
 miden account --default <ACCOUNT_ID> #Sets default account
 miden account --default none #Unsets default account
 ```
-!!! note
-    - The account must be tracked by the client in order to be set as the default account.
+> **Note**
+> - The account must be tracked by the client in order to be set as the default account.
 
 You can also see the current default account ID with:
 

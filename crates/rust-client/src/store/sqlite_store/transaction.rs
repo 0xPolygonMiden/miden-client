@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
@@ -69,10 +71,10 @@ type SerializedTransactionData = (
 );
 
 impl SqliteStore {
-    /// Retrieves tracked transactions, filtered by [TransactionFilter].
+    /// Retrieves tracked transactions, filtered by [`TransactionFilter`].
     pub fn get_transactions(
         conn: &mut Connection,
-        filter: TransactionFilter,
+        filter: &TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         conn.prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
@@ -84,7 +86,7 @@ impl SqliteStore {
     /// Inserts a transaction and updates the current state based on the `tx_result` changes.
     pub fn apply_transaction(
         conn: &mut Connection,
-        tx_update: TransactionStoreUpdate,
+        tx_update: &TransactionStoreUpdate,
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
 
@@ -168,7 +170,7 @@ pub(super) fn insert_proven_transaction_data(
         block_num,
         committed,
         discarded,
-    ) = serialize_transaction_data(executed_transaction)?;
+    ) = serialize_transaction_data(executed_transaction);
 
     if let Some(hash) = script_hash.clone() {
         tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, tx_script])?;
@@ -195,7 +197,7 @@ pub(super) fn insert_proven_transaction_data(
 
 pub(super) fn serialize_transaction_data(
     executed_transaction: &ExecutedTransaction,
-) -> Result<SerializedTransactionData, StoreError> {
+) -> SerializedTransactionData {
     let transaction_id: String = executed_transaction.id().inner().into();
     let account_id = executed_transaction.account_id().to_hex();
     let init_account_state = &executed_transaction.initial_account().hash().to_string();
@@ -217,10 +219,10 @@ pub(super) fn serialize_transaction_data(
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = executed_transaction.tx_args();
-    let tx_script = transaction_args.tx_script().map(|script| script.to_bytes());
+    let tx_script = transaction_args.tx_script().map(TransactionScript::to_bytes);
     let script_hash = transaction_args.tx_script().map(|script| script.hash().to_bytes());
 
-    Ok((
+    (
         transaction_id,
         account_id,
         init_account_state.to_owned(),
@@ -232,7 +234,7 @@ pub(super) fn serialize_transaction_data(
         executed_transaction.block_header().block_num().as_u32(),
         None,
         false,
-    ))
+    )
 }
 
 fn parse_transaction_columns(

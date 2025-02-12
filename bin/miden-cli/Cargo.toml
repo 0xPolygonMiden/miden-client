@@ -1,9 +1,9 @@
 [package]
 name = "miden-cli"
-version = "0.6.0"
+version = "0.8.0"
 description = "CLI binary application that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-cli/0.6.0"
+documentation = "https://docs.rs/miden-cli/0.8.0"
 categories = ["command-line-utilities"]
 keywords = ["miden", "client", "cli"]
 license.workspace = true
@@ -16,6 +16,9 @@ edition.workspace = true
 name = "miden"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [features]
 default = []
 concurrent = ["miden-client/concurrent"]
@@ -27,7 +30,7 @@ required-features = ["concurrent"]
 
 [dev-dependencies]
 assert_cmd = { version = "2.0" }
-miden-client-tests = { path = "../../tests", version = "0.6.0"}
+miden-client-tests = { path = "../../tests" }
 predicates = { version = "3.0" }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 
@@ -35,7 +38,7 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 clap = { version = "4.5", features = ["derive"] }
 comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { version = "0.6", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
+miden-client = { version = "0.8", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
 miden-lib = { workspace = true }
 miden-proving-service-client = { workspace = true , features = ["std", "tx-prover"]}
 miden-objects = { workspace = true }

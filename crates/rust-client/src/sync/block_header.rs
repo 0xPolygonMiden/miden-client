@@ -50,7 +50,7 @@ impl<R: FeltRng> Client<R> {
                 .get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
 
-            if note.block_header_received(block_header)? {
+            if note.block_header_received(&block_header)? {
                 changed_notes.push(note);
             }
         }
@@ -90,7 +90,7 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Builds the current store view of the chain's [PartialMmr]. Because we want to add all new
+    /// Builds the current view of the chain's [`PartialMmr`]. Because we want to add all new
     /// authentication nodes that could come from applying the MMR updates, we need to track all
     /// known leaves thus far.
     ///
@@ -129,7 +129,8 @@ impl<R: FeltRng> Client<R> {
         Ok(current_partial_mmr)
     }
 
-    /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    /// Retrieves and stores a [`BlockHeader`] by number, and stores its authentication data as
+    /// well.
     ///
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
@@ -225,9 +226,10 @@ fn adjust_merkle_path_for_forest(
     block_num: BlockNumber,
     forest: usize,
 ) -> Vec<(InOrderIndex, Digest)> {
-    if forest - 1 < block_num.as_usize() {
-        panic!("Can't adjust merkle path for a forest that does not include the block number");
-    }
+    assert!(
+        forest > block_num.as_usize(),
+        "Can't adjust merkle path for a forest that does not include the block number"
+    );
 
     let rightmost_index = InOrderIndex::from_leaf_pos(forest - 1);
 

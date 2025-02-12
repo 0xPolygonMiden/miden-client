@@ -1,6 +1,6 @@
 [package]
 name = "miden-client-tests"
-version = "0.6.0"
+version = "0.8.0"
 description = "Integration Tests for the miden client library and CLI"
 readme = "README.md"
 publish = false

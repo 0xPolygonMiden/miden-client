@@ -1,11 +1,7 @@
----
-comments: true
----
-
 The following document lists the commands that the CLI currently supports.
 
-!!! note
-    Use `--help` as a flag on any command for more information.
+> **Note**
+> Use `--help` as a flag on any command for more information.
 
 ## Usage
 
@@ -34,7 +30,12 @@ Creates a configuration file for the client in the current directory.
 # This file contains information useful for the CLI like the RPC provider and database path
 miden init
 
-# You can use the --network flag to override the default rpc config
+# You can set up the CLI for any of the default networks
+miden init --network testnet # This is the default value if no network is provided
+miden init --network devnet
+miden init --network localhost
+
+# You can use the --network flag to override the default RPC config
 miden init --network 18.203.155.106
 # You can specify the port
 miden init --network 18.203.155.106:8080
@@ -42,10 +43,6 @@ miden init --network 18.203.155.106:8080
 miden init --network https://18.203.155.106
 # You can specify both
 miden init --network https://18.203.155.106:1234
-# You can use one of the pre-defined networks
-miden init --network testnet
-miden init --network devnet
-miden init --network localhost
 
 # You can use the --store_path flag to override the default store config
 miden init --store_path db/store.sqlite3
@@ -87,7 +84,7 @@ Creates a new wallet account.
 This command has three optional flags:
 - `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--mutable`: Makes the account code mutable (it's immutable by default).
-- `--extra_components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
+- `--extra-components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
 
 After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
 
@@ -98,7 +95,7 @@ Creates a new faucet account.
 This command has three optional flags:
 - `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--non-fungible`: Makes the faucet asset non-fungible (it's fungible by default).
-- `--extra_components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
+- `--extra-components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
 
 After creating an account with the `new-faucet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
 

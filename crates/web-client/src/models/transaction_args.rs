@@ -12,11 +12,11 @@ pub struct TransactionArgs(NativeTransactionArgs);
 #[wasm_bindgen]
 impl TransactionArgs {
     pub fn tx_script(&self) -> Option<TransactionScript> {
-        self.0.tx_script().map(|script| script.into())
+        self.0.tx_script().map(Into::into)
     }
 
     pub fn get_note_args(&self, note_id: &NoteId) -> Option<Word> {
-        self.0.get_note_args(note_id.into()).map(|word| word.into())
+        self.0.get_note_args(note_id.into()).map(Into::into)
     }
 
     pub fn advice_inputs(&self) -> AdviceInputs {

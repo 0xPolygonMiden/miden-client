@@ -38,9 +38,9 @@ impl Network {
     pub fn to_rpc_endpoint(&self) -> String {
         match self {
             Network::Custom(custom) => custom.clone(),
-            Network::Devnet => "https://rpc.devnet.miden.io".to_string(),
+            Network::Devnet => Endpoint::devnet().to_string(),
             Network::Localhost => Endpoint::default().to_string(),
-            Network::Testnet => "https://rpc.testnet.miden.io".to_string(),
+            Network::Testnet => Endpoint::testnet().to_string(),
         }
     }
 }
@@ -70,13 +70,12 @@ pub struct InitCmd {
 }
 
 impl InitCmd {
-    pub fn execute(&self, config_file_path: PathBuf) -> Result<(), CliError> {
+    pub fn execute(&self, config_file_path: &PathBuf) -> Result<(), CliError> {
         if config_file_path.exists() {
             return Err(CliError::Config(
                 "Error with the configuration file".to_string().into(),
                 format!(
-                    "The file \"{}\" already exists in the working directory. Please try using another directory or removing the file.",
-                    CLIENT_CONFIG_FILE_NAME
+                    "The file \"{CLIENT_CONFIG_FILE_NAME}\" already exists in the working directory. Please try using another directory or removing the file.",
                 ),
             ));
         }
@@ -108,16 +107,16 @@ impl InitCmd {
         let mut file_handle = File::options()
             .write(true)
             .create_new(true)
-            .open(&config_file_path)
+            .open(config_file_path)
             .map_err(|err| {
-                CliError::Config("failed to create config file".to_string().into(), err.to_string())
-            })?;
+            CliError::Config("failed to create config file".to_string().into(), err.to_string())
+        })?;
 
         file_handle.write(config_as_toml_string.as_bytes()).map_err(|err| {
             CliError::Config("failed to write config file".to_string().into(), err.to_string())
         })?;
 
-        println!("Config file successfully created at: {:?}", config_file_path);
+        println!("Config file successfully created at: {config_file_path:?}");
 
         Ok(())
     }

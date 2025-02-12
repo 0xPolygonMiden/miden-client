@@ -32,6 +32,21 @@ impl Endpoint {
         Self { protocol, host, port }
     }
 
+    /// Returns the [Endpoint] associated with the testnet network.
+    pub fn testnet() -> Self {
+        Self::new("https".into(), "rpc.testnet.miden.io".into(), None)
+    }
+
+    /// Returns the [Endpoint] associated with the devnet network.
+    pub fn devnet() -> Self {
+        Self::new("https".into(), "rpc.devnet.miden.io".into(), None)
+    }
+
+    /// Returns the [Endpoint] for a default node running in `localhost`.
+    pub fn localhost() -> Self {
+        Self::new("http".into(), "localhost".into(), Some(Self::MIDEN_NODE_PORT))
+    }
+
     pub fn protocol(&self) -> &str {
         &self.protocol
     }
@@ -56,11 +71,7 @@ impl fmt::Display for Endpoint {
 
 impl Default for Endpoint {
     fn default() -> Self {
-        Self {
-            protocol: "http".to_string(),
-            host: "localhost".to_string(),
-            port: Some(Self::MIDEN_NODE_PORT),
-        }
+        Self::localhost()
     }
 }
 

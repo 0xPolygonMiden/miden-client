@@ -1,7 +1,11 @@
 use miden_objects::block::BlockNumber;
 
 use super::{block_header::BlockUpdates, SyncSummary};
-use crate::{account::AccountUpdates, note::NoteUpdates, transaction::TransactionUpdates};
+use crate::{
+    account::{Account, AccountUpdates},
+    note::NoteUpdates,
+    transaction::TransactionUpdates,
+};
 
 // STATE SYNC UPDATE
 // ================================================================================================
@@ -31,7 +35,7 @@ impl From<&StateSyncUpdate> for SyncSummary {
                 .account_updates
                 .updated_public_accounts()
                 .iter()
-                .map(|acc| acc.id())
+                .map(Account::id)
                 .collect(),
             value
                 .account_updates

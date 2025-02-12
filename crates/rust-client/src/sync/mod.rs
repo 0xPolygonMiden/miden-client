@@ -92,11 +92,11 @@ impl<R: FeltRng> Client<R> {
 
     /// Returns the block number of the last state sync block.
     pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
-        self.store.get_sync_height().await.map_err(|err| err.into())
+        self.store.get_sync_height().await.map_err(Into::into)
     }
 
     /// Syncs the client's state with the current state of the Miden network and returns a
-    /// [SyncSummary] corresponding to the local state update.
+    /// [`SyncSummary`] corresponding to the local state update.
     ///
     /// The sync process is done in multiple steps:
     /// 1. A request is sent to the node to get the state updates. This request includes tracked
@@ -108,7 +108,7 @@ impl<R: FeltRng> Client<R> {
     /// 3. Tracked notes are updated with their new states.
     /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
     ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::note::NoteScreener])
+    ///    [`crate::note::NoteScreener`])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and private accounts are validated against the node
     ///    state.

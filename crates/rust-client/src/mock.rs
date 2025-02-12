@@ -15,7 +15,7 @@ use miden_objects::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
         note::NoteBuilder,
@@ -36,6 +36,7 @@ use crate::{
             sync::StateSyncInfo,
         },
         generated::{
+            merkle::MerklePath,
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
@@ -142,15 +143,14 @@ impl MockRpcApi {
         let next_block_num = self
             .notes
             .values()
-            .filter_map(|n| n.location().map(|loc| loc.block_num()))
+            .filter_map(|n| n.location().map(NoteLocation::block_num))
             .filter(|&n| n > request_block_num)
             .min()
             .unwrap_or_else(|| self.get_chain_tip_block_num());
 
         // Retrieve the next block
-        let next_block = match self.get_block_by_num(next_block_num) {
-            Some(block) => block,
-            None => return SyncStateResponse::default(), // Return default if block not found
+        let Some(next_block) = self.get_block_by_num(next_block_num) else {
+            return SyncStateResponse::default();
         };
 
         // Prepare the MMR delta
@@ -190,7 +190,7 @@ impl MockRpcApi {
         block_num: BlockNumber,
     ) -> impl Iterator<Item = NoteSyncRecord> + '_ {
         self.notes.values().filter_map(move |note| {
-            if note.location().map_or(false, |loc| loc.block_num() == block_num) {
+            if note.location().is_some_and(|loc| loc.block_num() == block_num) {
                 let proof = note.proof()?;
                 Some(NoteSyncRecord {
                     note_index: 0,
@@ -213,10 +213,10 @@ impl NodeRpcClient for MockRpcApi {
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
-            chain_tip: self.blocks.len() as u32,
+            chain_tip: u32::try_from(self.blocks.len()).expect("block number overflow"),
             notes: vec![],
             block_header: Some(self.blocks.last().unwrap().header().into()),
-            mmr_path: Some(Default::default()),
+            mmr_path: Some(MerklePath::default()),
         };
         let response = Response::new(response.clone());
         response.into_inner().try_into()
@@ -289,7 +289,7 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn get_account_proofs(
         &self,
-        _account_ids: &BTreeSet<ForeignAccount>,
+        _: &BTreeSet<ForeignAccount>,
         _code_commitments: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully

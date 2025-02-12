@@ -95,13 +95,13 @@ impl TransactionRequest {
 
     /// Returns an iterator over unauthenticated note IDs for the transaction request.
     pub fn unauthenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
-        self.unauthenticated_input_notes.iter().map(|note| note.id())
+        self.unauthenticated_input_notes.iter().map(Note::id)
     }
 
     /// Returns an iterator over authenticated input note IDs for the transaction request.
     pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
-        let unauthenticated_note_ids: BTreeSet<NoteId> =
-            BTreeSet::from_iter(self.unauthenticated_input_note_ids());
+        let unauthenticated_note_ids =
+            self.unauthenticated_input_note_ids().collect::<BTreeSet<_>>();
 
         self.input_notes()
             .iter()
@@ -109,18 +109,18 @@ impl TransactionRequest {
             .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
     }
 
-    /// Returns a mapping for input note IDs and their optional [NoteArgs].
+    /// Returns a mapping for input note IDs and their optional [`NoteArgs`].
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
         &self.input_notes
     }
 
     /// Returns a list of all input note IDs.
     pub fn get_input_note_ids(&self) -> Vec<NoteId> {
-        self.input_notes.keys().cloned().collect()
+        self.input_notes.keys().copied().collect()
     }
 
-    /// Returns a map of note IDs to their respective [NoteArgs]. The result will include
-    /// exclusively note IDs for notes for which [NoteArgs] have been defined.
+    /// Returns a map of note IDs to their respective [`NoteArgs`]. The result will include
+    /// exclusively note IDs for notes for which [`NoteArgs`] have been defined.
     pub fn get_note_args(&self) -> BTreeMap<NoteId, NoteArgs> {
         self.input_notes
             .iter()
@@ -138,17 +138,17 @@ impl TransactionRequest {
         self.expected_future_notes.values()
     }
 
-    /// Returns the [TransactionScriptTemplate].
+    /// Returns the [`TransactionScriptTemplate`].
     pub fn script_template(&self) -> &Option<TransactionScriptTemplate> {
         &self.script_template
     }
 
-    /// Returns the [AdviceMap] for the transaction request.
+    /// Returns the [`AdviceMap`] for the transaction request.
     pub fn advice_map(&self) -> &AdviceMap {
         &self.advice_map
     }
 
-    /// Returns the [MerkleStore] for the transaction request.
+    /// Returns the [`MerkleStore`] for the transaction request.
     pub fn merkle_store(&self) -> &MerkleStore {
         &self.merkle_store
     }
@@ -158,8 +158,8 @@ impl TransactionRequest {
         &self.foreign_accounts
     }
 
-    /// Converts the [TransactionRequest] into [TransactionArgs] in order to be executed by a Miden
-    /// host.
+    /// Converts the [`TransactionRequest`] into [`TransactionArgs`] in order to be executed by a
+    /// Miden host.
     pub(super) fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
         let note_args = self.get_note_args();
         let TransactionRequest {
@@ -279,8 +279,8 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
-            expiration_delta,
             foreign_accounts,
+            expiration_delta,
         })
     }
 }
@@ -314,8 +314,7 @@ pub enum TransactionRequestError {
     #[error("invalid sender account id: {0}")]
     InvalidSenderAccount(AccountId),
     #[error("invalid transaction script")]
-    //TODO: use source in this error when possible
-    InvalidTransactionScript(AssemblyError),
+    InvalidTransactionScript(#[from] AssemblyError),
     #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
     #[error("note not found: {0}")]
@@ -389,7 +388,7 @@ mod tests {
         }
 
         let account = AccountBuilder::new(Default::default())
-            .anchor(AccountIdAnchor::new_unchecked(0, Default::default()))
+            .anchor(AccountIdAnchor::new_unchecked(0, Digest::default()))
             .with_component(
                 AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),
             )
@@ -417,7 +416,7 @@ mod tests {
                 ForeignAccount::private(
                     ForeignAccountInputs::from_account(
                         account,
-                        AccountStorageRequirements::default(),
+                        &AccountStorageRequirements::default(),
                     )
                     .unwrap(),
                 )

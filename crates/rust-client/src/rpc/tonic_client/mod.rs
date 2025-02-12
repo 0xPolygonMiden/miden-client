@@ -1,4 +1,9 @@
-use alloc::{boxed::Box, collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::BTreeSet,
+    string::{String, ToString},
+    vec::Vec,
+};
 use std::{collections::BTreeMap, time::Duration};
 
 use async_trait::async_trait;
@@ -12,7 +17,7 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockWriteGuard};
 use tonic::transport::Channel;
 use tracing::info;
 
@@ -38,22 +43,42 @@ use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction
 // ================================================================================================
 
 /// Client for the Node RPC API using tonic.
+///
+/// Wraps the `ApiClient` which defers establishing a connection with a node until necessary.
 pub struct TonicRpcClient {
-    rpc_api: RwLock<ApiClient<Channel>>,
+    rpc_api: RwLock<Option<ApiClient<Channel>>>,
+    endpoint: String,
+    timeout_ms: u64,
 }
 
 impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls to the provided [Endpoint] with
-    /// the given timeout in milliseconds.
-    pub async fn new(endpoint: Endpoint, timeout_ms: u64) -> Result<TonicRpcClient, RpcError> {
-        let endpoint = tonic::transport::Endpoint::try_from(endpoint.to_string())
-            .map_err(|err| RpcError::ConnectionError(err.to_string()))?
-            .timeout(Duration::from_millis(timeout_ms));
-        let rpc_api = ApiClient::connect(endpoint)
-            .await
-            .map_err(|err| RpcError::ConnectionError(err.to_string()))?;
+    /// Returns a new instance of [`TonicRpcClient`] that'll do calls to the provided [`Endpoint`]
+    /// with the given timeout in milliseconds.
+    pub fn new(endpoint: &Endpoint, timeout_ms: u64) -> TonicRpcClient {
+        TonicRpcClient {
+            rpc_api: RwLock::new(None),
+            endpoint: endpoint.to_string(),
+            timeout_ms,
+        }
+    }
 
-        Ok(TonicRpcClient { rpc_api: RwLock::new(rpc_api) })
+    /// Takes care of establishing the RPC connection if not connected yet. It ensures that the
+    /// `rpc_api` field is initialized and returns a write guard to it.
+    async fn ensure_connected(
+        &self,
+    ) -> Result<RwLockWriteGuard<Option<ApiClient<Channel>>>, RpcError> {
+        let mut rpc_api = self.rpc_api.write().await;
+        if rpc_api.is_none() {
+            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
+                .map_err(|err| RpcError::ConnectionError(err.to_string()))?
+                .timeout(Duration::from_millis(self.timeout_ms));
+            let connected_rpc_api = ApiClient::connect(endpoint)
+                .await
+                .map_err(|err| RpcError::ConnectionError(err.to_string()))?;
+            rpc_api.replace(connected_rpc_api);
+        }
+
+        Ok(rpc_api)
     }
 }
 
@@ -66,7 +91,10 @@ impl NodeRpcClient for TonicRpcClient {
         let request = SubmitProvenTransactionRequest {
             transaction: proven_transaction.to_bytes(),
         };
-        let mut rpc_api = self.rpc_api.write().await;
+
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         rpc_api.submit_proven_transaction(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::SubmitProvenTx.to_string(),
@@ -89,7 +117,9 @@ impl NodeRpcClient for TonicRpcClient {
 
         info!("Calling GetBlockHeaderByNumber: {:?}", request);
 
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
@@ -129,7 +159,10 @@ impl NodeRpcClient for TonicRpcClient {
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
-        let mut rpc_api = self.rpc_api.write().await;
+
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         let api_response = rpc_api.get_notes_by_id(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
@@ -146,32 +179,31 @@ impl NodeRpcClient for TonicRpcClient {
                     .ok_or(RpcError::ExpectedDataMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionProof::new(note.block_num.into(), note.note_index as u16, merkle_path)?
+                NoteInclusionProof::new(
+                    note.block_num.into(),
+                    u16::try_from(note.note_index).expect("note index out of range"),
+                    merkle_path,
+                )?
             };
 
-            let note = match note.details {
-                // Public notes include details
-                Some(details) => {
-                    let note = Note::read_from_bytes(&details)?;
+            let note = if let Some(details) = note.details {
+                let note = Note::read_from_bytes(&details)?;
 
-                    NetworkNote::Public(note, inclusion_details)
-                },
-                // Private notes do not have details
-                None => {
-                    let note_metadata = note
-                        .metadata
-                        .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                        .try_into()?;
+                NetworkNote::Public(note, inclusion_details)
+            } else {
+                let note_metadata = note
+                    .metadata
+                    .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
+                    .try_into()?;
 
-                    let note_id: Digest = note
-                        .note_id
-                        .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
-                        .try_into()?;
+                let note_id: Digest = note
+                    .note_id
+                    .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
+                    .try_into()?;
 
-                    NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
-                },
+                NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
             };
-            response_notes.push(note)
+            response_notes.push(note);
         }
         Ok(response_notes)
     }
@@ -187,7 +219,7 @@ impl NodeRpcClient for TonicRpcClient {
     ) -> Result<StateSyncInfo, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
+        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
@@ -198,7 +230,9 @@ impl NodeRpcClient for TonicRpcClient {
             nullifiers,
         };
 
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         let response = rpc_api.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
@@ -219,7 +253,8 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError> {
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.get_account_details(request).await.map_err(|err| {
             RpcError::RequestError(
@@ -276,7 +311,7 @@ impl NodeRpcClient for TonicRpcClient {
         let mut rpc_account_requests: Vec<get_account_proofs_request::AccountRequest> =
             Vec::with_capacity(account_requests.len());
 
-        for foreign_account in account_requests.iter() {
+        for foreign_account in account_requests {
             rpc_account_requests.push(get_account_proofs_request::AccountRequest {
                 account_id: Some(foreign_account.account_id().into()),
                 storage_requests: foreign_account.storage_slot_requirements().into(),
@@ -289,10 +324,12 @@ impl NodeRpcClient for TonicRpcClient {
         let request = GetAccountProofsRequest {
             account_requests: rpc_account_requests,
             include_headers: Some(true),
-            code_commitments: known_account_codes.keys().map(|c| c.into()).collect(),
+            code_commitments: known_account_codes.keys().map(Into::into).collect(),
         };
 
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         let response = rpc_api
             .get_account_proofs(request)
             .await
@@ -360,7 +397,8 @@ impl NodeRpcClient for TonicRpcClient {
 
         let request = SyncNoteRequest { block_num: block_num.as_u32(), note_tags };
 
-        let mut rpc_api = self.rpc_api.write().await;
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
 
         let response = rpc_api.sync_notes(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncNotes.to_string(), err.to_string())
@@ -374,10 +412,13 @@ impl NodeRpcClient for TonicRpcClient {
         prefixes: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
-            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
         };
-        let mut rpc_api = self.rpc_api.write().await;
+
+        let mut rpc_api = self.ensure_connected().await?;
+        let rpc_api = rpc_api.as_mut().expect("rpc_api should be initialized");
+
         let response = rpc_api.check_nullifiers_by_prefix(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::CheckNullifiersByPrefix.to_string(),

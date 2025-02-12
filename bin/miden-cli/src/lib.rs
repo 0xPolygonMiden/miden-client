@@ -87,7 +87,7 @@ impl Cli {
         // the first time we won't have a config file and thus creating the store would not be
         // possible.
         if let Command::Init(init_cmd) = &self.action {
-            init_cmd.execute(current_dir.clone())?;
+            init_cmd.execute(&current_dir)?;
             return Ok(());
         }
 
@@ -112,14 +112,10 @@ impl Cli {
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
         let client = Client::new(
-            Arc::new(
-                TonicRpcClient::new(
-                    cli_config.rpc.endpoint.clone().into(),
-                    cli_config.rpc.timeout_ms,
-                )
-                .await
-                .map_err(ClientError::RpcError)?,
-            ),
+            Arc::new(TonicRpcClient::new(
+                &cli_config.rpc.endpoint.clone().into(),
+                cli_config.rpc.timeout_ms,
+            )),
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),
@@ -166,9 +162,9 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any note where
 ///   `note_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
 pub(crate) async fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
@@ -191,10 +187,8 @@ pub(crate) async fn get_output_note_with_id_prefix(
         ));
     }
     if output_note_records.len() > 1 {
-        let output_note_record_ids = output_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
+        let output_note_record_ids =
+            output_note_records.iter().map(OutputNoteRecord::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple notes found for the prefix {}: {:?}",
             note_id_prefix,
@@ -214,10 +208,10 @@ pub(crate) async fn get_output_note_with_id_prefix(
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any account where
 ///   `account_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
-///   `account_id_prefix` is a prefix of its ID.
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one account found
+///   where `account_id_prefix` is a prefix of its ID.
 async fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,
@@ -242,8 +236,7 @@ async fn get_account_with_id_prefix(
         ));
     }
     if accounts.len() > 1 {
-        let account_ids =
-            accounts.iter().map(|account_header| account_header.id()).collect::<Vec<_>>();
+        let account_ids = accounts.iter().map(AccountHeader::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,

@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{block::BlockNumber, note::NoteTag};
@@ -86,7 +88,11 @@ impl SqliteStore {
         conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).map(|v: i64| BlockNumber::from(v as u32)))
+            .map(|result| {
+                Ok(result?).map(|v: i64| {
+                    BlockNumber::from(u32::try_from(v).expect("block number is always positive"))
+                })
+            })
             .next()
             .expect("state sync block number exists")
     }
@@ -122,13 +128,13 @@ impl SqliteStore {
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_num.as_u64() as i64])?;
+        tx.execute(BLOCK_NUMBER_QUERY, params![i64::from(block_num.as_u32())])?;
 
         for (block_header, block_has_relevant_notes, new_mmr_peaks) in block_updates.block_headers {
             Self::insert_block_header_tx(
                 &tx,
-                block_header,
-                new_mmr_peaks,
+                &block_header,
+                &new_mmr_peaks,
                 block_has_relevant_notes,
             )?;
         }
