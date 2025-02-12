@@ -12,6 +12,5 @@ export const MethodName = Object.freeze({
   NEW_CONSUME_TRANSACTION: "new_consume_transaction",
   NEW_SEND_TRANSACTION: "new_send_transaction",
   SUBMIT_TRANSACTION: "submit_transaction",
-  SUBMIT_TRANSACTION_WITH_PROVER: "submit_transaction_with_prover",
   SYNC_STATE: "sync_state",
 });

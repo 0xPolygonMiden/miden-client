@@ -142,37 +142,39 @@ const methodHandlers = {
     return serializedTransactionResult.buffer;
   },
   [MethodName.SUBMIT_TRANSACTION]: async (args) => {
-    const [serializedTransactionResult] = args;
-    const transactionResult = wasm.TransactionResult.deserialize(
-      new Uint8Array(serializedTransactionResult)
-    );
-    await wasmWebClient.submit_transaction(transactionResult);
-    return;
-  },
-  [MethodName.SUBMIT_TRANSACTION_WITH_PROVER]: async (args) => {
+    // Destructure the arguments. The prover may be undefined.
     const [serializedTransactionResult, serializedProver] = args;
     const transactionResult = wasm.TransactionResult.deserialize(
       new Uint8Array(serializedTransactionResult)
     );
-    let prover;
-    if (serializedProver.startsWith("remote:")) {
-      // For a remote prover, extract the endpoint.
-      // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
-      const endpoint = serializedProver.split("remote:")[1];
-      prover = wasm.TransactionProver.deserialize("remote", endpoint);
-    } else if (serializedProver === "local") {
-      prover = TransactionProver.deserialize("local");
+
+    if (serializedProver) {
+      // A prover was provided, so determine which one it is.
+      let prover;
+      if (serializedProver.startsWith("remote:")) {
+        // For a remote prover, extract the endpoint.
+        // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
+        const endpoint = serializedProver.split("remote:")[1];
+        prover = wasm.TransactionProver.deserialize("remote", endpoint);
+      } else if (serializedProver === "local") {
+        prover = wasm.TransactionProver.deserialize("local");
+      } else {
+        throw new Error("Invalid prover tag received in worker");
+      }
+      await wasmWebClient.submit_transaction_with_prover(
+        transactionResult,
+        prover
+      );
     } else {
-      throw new Error("Invalid prover tag received in worker");
+      // No prover was passed, so submit the transaction without one.
+      await wasmWebClient.submit_transaction(transactionResult);
     }
-    await wasmWebClient.submit_transaction_with_prover(
-      transactionResult,
-      prover
-    );
+    return;
   },
   [MethodName.SYNC_STATE]: async () => {
-    await wasmWebClient.sync_state();
-    return;
+    const syncSummary = await wasmWebClient.sync_state();
+    const serializedSyncSummary = await syncSummary.serialize();
+    return serializedSyncSummary.buffer;
   },
 };
 

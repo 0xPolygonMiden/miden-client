@@ -299,9 +299,9 @@ export class WebClient {
   }
 
   async new_transaction(accountId, transactionRequest) {
-    const serializedAccountId = accountId.to_string();
-    const serializedTransactionRequest = transactionRequest.serialize();
     try {
+      const serializedAccountId = accountId.to_string();
+      const serializedTransactionRequest = transactionRequest.serialize();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_TRANSACTION,
         serializedAccountId,
@@ -317,11 +317,11 @@ export class WebClient {
   }
 
   async new_mint_transaction(targetAccountId, faucetId, noteType, amount) {
-    const serializedTargetAccountId = targetAccountId.to_string();
-    const serializedFaucetId = faucetId.to_string();
-    const serializedNoteType = noteType.serialize();
-    const serializedAmount = amount.toString();
     try {
+      const serializedTargetAccountId = targetAccountId.to_string();
+      const serializedFaucetId = faucetId.to_string();
+      const serializedNoteType = noteType.serialize();
+      const serializedAmount = amount.toString();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_MINT_TRANSACTION,
         serializedTargetAccountId,
@@ -339,8 +339,8 @@ export class WebClient {
   }
 
   async new_consume_transaction(targetAccountId, noteId) {
-    const serializedTargetAccountId = targetAccountId.to_string();
     try {
+      const serializedTargetAccountId = targetAccountId.to_string();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_CONSUME_TRANSACTION,
         serializedTargetAccountId,
@@ -366,12 +366,12 @@ export class WebClient {
     amount,
     recallHeight = null
   ) {
-    const serializedSenderAccountId = senderAccountId.to_string();
-    const serializedReceiverAccountId = receiverAccountId.to_string();
-    const serializedFaucetId = faucetId.to_string();
-    const serializedNoteType = noteType.serialize();
-    const serializedAmount = amount.toString();
     try {
+      const serializedSenderAccountId = senderAccountId.to_string();
+      const serializedReceiverAccountId = receiverAccountId.to_string();
+      const serializedFaucetId = faucetId.to_string();
+      const serializedNoteType = noteType.serialize();
+      const serializedAmount = amount.toString();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_SEND_TRANSACTION,
         serializedSenderAccountId,
@@ -390,40 +390,32 @@ export class WebClient {
     }
   }
 
-  async submit_transaction(transactionResult) {
-    const serializedTransactionResult = transactionResult.serialize();
+  async submit_transaction(transactionResult, prover = null) {
     try {
-      await this.callMethodWithWorker(
-        MethodName.SUBMIT_TRANSACTION,
-        serializedTransactionResult
-      );
+      const serializedTransactionResult = transactionResult.serialize();
+      const args = [serializedTransactionResult];
+
+      // If a prover is provided, serialize it and add it to the args.
+      if (prover) {
+        args.push(prover.serialize());
+      }
+
+      // Always call the same worker method.
+      await this.callMethodWithWorker(MethodName.SUBMIT_TRANSACTION, ...args);
     } catch (error) {
       console.error("INDEX.JS: Error in submit_transaction:", error);
       throw error;
     }
   }
 
-  async submit_transaction_with_prover(transactionResult, prover) {
-    const serializedTransactionResult = transactionResult.serialize();
-    const serializedProver = prover.serialize();
-    try {
-      await this.callMethodWithWorker(
-        MethodName.SUBMIT_TRANSACTION_WITH_PROVER,
-        serializedTransactionResult,
-        serializedProver
-      );
-    } catch (error) {
-      console.error(
-        "INDEX.JS: Error in submit_transaction_with_prover:",
-        error
-      );
-      throw error;
-    }
-  }
-
   async sync_state() {
     try {
-      await this.callMethodWithWorker(MethodName.SYNC_STATE);
+      const serializedSyncSummaryBytes = await this.callMethodWithWorker(
+        MethodName.SYNC_STATE
+      );
+      return wasm.SyncSummary.deserialize(
+        new Uint8Array(serializedSyncSummaryBytes)
+      );
     } catch (error) {
       console.error("INDEX.JS: Error in sync_state:", error);
       throw error;
