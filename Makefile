@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="main"
+NODE_BRANCH="tomasarrachea-stream-sync-state"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -127,7 +127,7 @@ setup-miden-node: ## Clone the miden-node repository if it doesn't exist
 
 .PHONY: update-node-branch
 update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
-	cd $(NODE_DIR) && git pull origin && git checkout tomasarrachea-stream-sync-state && git pull origin tomasarrachea-stream-sync-state
+	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features
