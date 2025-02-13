@@ -30,11 +30,10 @@ pub fn build_component_template(metadata_path: &Path, library: Library) {
     fs::create_dir_all(&templates_out_dir)
         .expect("Failed to create templates directory in OUT_DIR");
 
-    let output_filename = metadata_path
+    let mut output_filename = metadata_path
         .file_stem()
         .expect("metadata path should have a file stem")
         .to_os_string();
-    let mut output_filename = output_filename;
     // TODO: Do we want to add this?
     output_filename.push(".mct");
 
