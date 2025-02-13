@@ -127,7 +127,7 @@ setup-miden-node: ## Clone the miden-node repository if it doesn't exist
 
 .PHONY: update-node-branch
 update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
-	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
+	cd $(NODE_DIR) && git pull origin && git checkout tomasarrachea-stream-sync-state && git pull origin tomasarrachea-stream-sync-state
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features

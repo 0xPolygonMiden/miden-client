@@ -72,7 +72,8 @@ use tracing::info;
 use crate::{
     note::NoteUpdates,
     rpc::domain::{
-        note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
+        note::CommittedNote, nullifier::NullifierUpdate, sync::StateSyncInfo,
+        transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
@@ -230,6 +231,7 @@ impl<R: FeltRng> Client<R> {
         _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0.into());
         loop {
+            // TODO: this iterates until the client is fully synced, it's no longer necessary
             let response = self.sync_state_once().await?;
             let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
             total_sync_summary.combine_with(response.into_sync_summary());
@@ -270,11 +272,17 @@ impl<R: FeltRng> Client<R> {
             .collect();
 
         // Send request
+        // this sends a single update request. Instead, use the stream to take out each new update, and loop through them
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
-        let response = self
+        let mut response_stream = self
             .rpc_api
             .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
             .await?;
+
+        let Ok(Some(response)) = response_stream.message().await else {
+            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
+        };
+        let response: StateSyncInfo = response.try_into().map_err(ClientError::RpcError)?;
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {

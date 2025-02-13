@@ -1383,6 +1383,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "thiserror 2.0.11",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
  "tonic-web-wasm-client",
@@ -1599,9 +1600,7 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e68f00e0e97ba6bc65896e5ca2bb0995d59b14fd8f0389916dc2ee792f353f50"
+version = "0.0.0"
 
 [[package]]
 name = "miden-stdlib"
