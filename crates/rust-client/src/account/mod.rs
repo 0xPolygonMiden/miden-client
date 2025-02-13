@@ -38,9 +38,14 @@
 //!
 //! For more details on accounts, refer to the [Account] documentation.
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
 
-use miden_objects::{crypto::rand::FeltRng, Word};
+use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
+use miden_objects::{
+    block::BlockHeader,
+    crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
+    AccountError, Word,
+};
 
 use super::Client;
 use crate::{
@@ -238,6 +243,39 @@ impl<R: FeltRng> Client<R> {
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
+}
+
+// UTILITY FUNCTIONS
+// ================================================================================================
+
+pub fn build_wallet_id(
+    init_seed: [u8; 32],
+    public_key: PublicKey,
+    storage_mode: AccountStorageMode,
+    is_mutable: bool,
+    anchor_block: BlockHeader,
+) -> Result<AccountId, ClientError> {
+    let account_type = if is_mutable {
+        AccountType::RegularAccountUpdatableCode
+    } else {
+        AccountType::RegularAccountImmutableCode
+    };
+
+    let accound_id_anchor = (&anchor_block).try_into().map_err(|_| {
+        ClientError::AccountError(AccountError::AssumptionViolated(
+            "Provided block header is not an anchor block".to_string(),
+        ))
+    })?;
+
+    let (account, _) = AccountBuilder::new(init_seed)
+        .anchor(accound_id_anchor)
+        .account_type(account_type)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(public_key))
+        .with_component(BasicWallet)
+        .build()?;
+
+    Ok(account.id())
 }
 
 // TESTS

@@ -1,4 +1,5 @@
 use miden_client::{
+    account::build_wallet_id,
     auth::AuthSecretKey,
     authenticator::keystore::KeyStore,
     store::{InputNoteState, NoteFilter},
@@ -349,43 +350,59 @@ async fn test_onchain_notes_sync_with_tag() {
 async fn test_import_account_by_id() {
     let (mut client_1, keystore_1) = create_test_client().await;
     let (mut client_2, keystore_2) = create_test_client().await;
-    wait_for_node(&mut client_2).await;
+    wait_for_node(&mut client_1).await;
 
-    let (faucet_account_header, _, secret_key) =
+    let mut user_seed = [0u8; 32];
+    client_1.rng().fill_bytes(&mut user_seed);
+
+    let (faucet_account_header, ..) =
         insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
             .await
             .unwrap();
 
-    let (first_regular_account, ..) =
-        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &keystore_1)
-            .await
-            .unwrap();
+    let (first_regular_account, _, secret_key) = insert_new_wallet_with_seed(
+        &mut client_1,
+        AccountStorageMode::Public,
+        &keystore_1,
+        user_seed,
+    )
+    .await
+    .unwrap();
 
     let target_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    // First Mint necesary token
+    // First mint and consume in the first client
     println!("First client consuming note");
     let note =
-        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;
+        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
+
+    consume_notes(&mut client_1, target_account_id, &[note]).await;
+
+    // Mint a note for the second client
+    let note =
+        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
 
     // Import the public account by id
-    client_2.import_account_by_id(faucet_account_id).await.unwrap();
+    let anchor_block = client_1.get_latest_epoch_block().await.unwrap();
+    let built_wallet_id = build_wallet_id(
+        user_seed,
+        secret_key.public_key(),
+        AccountStorageMode::Public,
+        false,
+        anchor_block,
+    )
+    .unwrap();
+    assert_eq!(built_wallet_id, first_regular_account.id());
+    client_2.import_account_by_id(built_wallet_id).await.unwrap();
     keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
-    // Now use the faucet in the second client to mint to its own account
+    // Now use the wallet in the second client to consume the generated note
     println!("Second client consuming note");
-    let second_client_note =
-        mint_note(&mut client_2, target_account_id, faucet_account_id, NoteType::Public).await;
-
-    // Update the state in the other client and ensure the onchain faucet hash is consistent
-    // between clients
-    client_1.sync_state().await.unwrap();
-
-    println!("About to consume");
-    consume_notes(&mut client_1, target_account_id, &[note, second_client_note]).await;
+    client_2.sync_state().await.unwrap();
+    consume_notes(&mut client_2, target_account_id, &[note]).await;
     assert_account_has_single_asset(
-        &client_1,
+        &client_2,
         target_account_id,
         faucet_account_id,
         MINT_AMOUNT * 2,
