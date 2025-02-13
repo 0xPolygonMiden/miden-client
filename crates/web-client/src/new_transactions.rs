@@ -44,28 +44,11 @@ impl WebClient {
         &mut self,
         transaction_result: &TransactionResult,
     ) -> Result<(), JsValue> {
-        let remote_prover = self.remote_prover.clone();
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            match remote_prover {
-                Some(ref remote_prover) => {
-                    client
-                        .submit_transaction_with_prover(
-                            native_transaction_result,
-                            remote_prover.clone(),
-                        )
-                        .await
-                        .map_err(|err| {
-                            JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
-                        })?;
-                },
-                None => {
-                    client.submit_transaction(native_transaction_result).await.map_err(|err| {
-                        JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
-                    })?;
-                },
-            }
-
+            client.submit_transaction(native_transaction_result).await.map_err(|err| {
+                JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+            })?;
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
