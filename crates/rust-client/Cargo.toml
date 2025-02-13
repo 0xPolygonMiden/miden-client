@@ -20,7 +20,7 @@ workspace = true
 
 [features]
 concurrent = ["miden-tx/concurrent", "std"]
-default = []
+default = ["std", "tonic/channel"]
 idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std"]
