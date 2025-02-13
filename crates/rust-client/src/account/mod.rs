@@ -169,11 +169,19 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
+    /// Imports a new account from the node to the client's store. The account needs to be public
+    /// and is fetched from the node by its ID. If the account was already being tracked, it's
+    /// state will be overwritten.
+    ///
+    /// # Errors
+    /// - If the account is private.
     pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
         let account_details = self.rpc_api.get_account_update(account_id).await?;
 
         let account = match account_details {
-            AccountDetails::Private(..) => todo!(),
+            AccountDetails::Private(..) => {
+                return Err(ClientError::AccountIsPrivate(account_id));
+            },
             AccountDetails::Public(account, ..) => account,
         };
 
@@ -248,6 +256,7 @@ impl<R: FeltRng> Client<R> {
 // UTILITY FUNCTIONS
 // ================================================================================================
 
+/// Builds an regular account ID from the provided parameters.
 pub fn build_wallet_id(
     init_seed: [u8; 32],
     public_key: PublicKey,
