@@ -42,7 +42,7 @@
 use alloc::vec::Vec;
 
 pub use miden_objects::account::{
-    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    Account, AccountBuilder, AccountCode, AccountFile, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot,
 };
 use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
@@ -262,7 +262,7 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        account::{Account, AccountData, AuthSecretKey},
+        account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
@@ -272,18 +272,18 @@ pub mod tests {
 
     use crate::mock::create_test_client;
 
-    fn create_account_data(account_id: u128) -> AccountData {
+    fn create_account_data(account_id: u128) -> AccountFile {
         let account =
             Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 
-        AccountData::new(
+        AccountFile::new(
             account.clone(),
             Some(Word::default()),
             AuthSecretKey::RpoFalcon512(SecretKey::new()),
         )
     }
 
-    pub fn create_initial_accounts_data() -> Vec<AccountData> {
+    pub fn create_initial_accounts_data() -> Vec<AccountFile> {
         let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
 
         let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
