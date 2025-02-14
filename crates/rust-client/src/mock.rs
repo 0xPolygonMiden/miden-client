@@ -3,8 +3,6 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use std::env::temp_dir;
-
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -25,7 +23,9 @@ use miden_objects::{
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
-use tonic::Response;
+use std::env::temp_dir;
+use tokio_stream::wrappers::ReceiverStream;
+use tonic::{Response, Streaming};
 use uuid::Uuid;
 
 use crate::{
@@ -33,7 +33,6 @@ use crate::{
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
-            sync::StateSyncInfo,
         },
         generated::{
             merkle::MerklePath,
@@ -229,11 +228,8 @@ impl NodeRpcClient for MockRpcApi {
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError> {
-        // Match request -> response through block_num
-        let response = self.get_sync_state_request(block_num);
-
-        Ok(response.try_into().unwrap())
+    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+        unimplemented!("MockRpcApi::sync_state")
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].

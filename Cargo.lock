@@ -1383,6 +1383,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "thiserror 2.0.11",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
  "tonic-web-wasm-client",
@@ -1596,8 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ebef2151f5883f76f8c36c5c835634e94d0aa8bf"
+version = "0.0.0"
 
 [[package]]
 name = "miden-stdlib"

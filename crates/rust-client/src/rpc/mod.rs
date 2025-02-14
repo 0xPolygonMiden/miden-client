@@ -42,12 +42,13 @@
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
+use generated::responses::SyncStateResponse;
+use tonic::Streaming;
 
 use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
-    sync::StateSyncInfo,
 };
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
@@ -142,7 +143,7 @@ pub trait NodeRpcClient {
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError>;
+    ) -> Result<Streaming<SyncStateResponse>, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint.

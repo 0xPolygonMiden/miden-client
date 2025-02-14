@@ -341,6 +341,7 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncNotes"));
             self.inner.unary(req, path, codec).await
         }
+        /// TODO: update docs
         /// Returns info which can be used by the client to sync up to the latest state of the chain
         /// for the objects (accounts, notes, nullifiers) the client is interested in.
         ///
@@ -360,7 +361,9 @@ pub mod api_client {
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
         ) -> core::result::Result<
-            tonic::Response<super::super::responses::SyncStateResponse>,
+            tonic::Response<
+                tonic::codec::Streaming<super::super::responses::SyncStateResponse>,
+            >,
             tonic::Status,
         > {
             self.inner
@@ -375,7 +378,7 @@ pub mod api_client {
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncState");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncState"));
-            self.inner.unary(req, path, codec).await
+            self.inner.server_streaming(req, path, codec).await
         }
     }
 }
