@@ -5,8 +5,7 @@ use miden_objects::{
     account::{Account, AccountHeader, AccountId},
     block::BlockHeader,
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
-    note::{NoteId, NoteInclusionProof, NoteTag},
-    transaction::TransactionId,
+    note::{NoteId, NoteTag},
     Digest,
 };
 use tracing::info;
@@ -28,11 +27,13 @@ use crate::{
 // ================================================================================================
 
 /// Callback that gets executed when a new note inclusion is received as part of the sync response.
-/// It receives the committed note received from the network and the input note state and an optional
-/// note record that corresponds to the state of the note in the network (only if the note is public).
+/// It receives the committed note received from the network and the input note state and an
+/// optional note record that corresponds to the state of the note in the network (only if the note
+/// is public).
 ///
 /// It returns a boolean indicating if the received note update is relevant.
-/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to the client's store.
+/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to
+/// the client's store.
 pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
@@ -40,11 +41,12 @@ pub type OnNoteReceived = Box<
     ) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>,
 >;
 
-/// Callback to be executed when a nullifier is received as part of the the sync response. It receives the
-/// nullifier update received from the network.
+/// Callback to be executed when a nullifier is received as part of the the sync response. It
+/// receives the nullifier update received from the network.
 ///
 /// It returns a boolean indicating if the received note update is relevant
-/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to the client's store.
+/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to
+/// the client's store.
 pub type OnNullifierReceived =
     Box<dyn Fn(NullifierUpdate) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>>;
 
@@ -339,22 +341,19 @@ impl StateSync {
                     self.state_sync_update.note_updates.insert_updates(Some(public_note), None);
                 }
 
-                committed_state_transions(
-                    &mut self.state_sync_update.note_updates,
-                    &committed_note,
-                    block_header,
-                )?;
+                self.state_sync_update
+                    .note_updates
+                    .apply_committed_note_state_transitions(&committed_note, block_header)?;
             }
         }
 
         // Process nullifiers
         for nullifier_update in nullifiers {
             if (self.on_nullifier_received)(nullifier_update.clone()).await? {
-                let discarded_transaction = nullfier_state_transitions(
-                    &mut self.state_sync_update.note_updates,
-                    &nullifier_update,
-                    &transactions,
-                )?;
+                let discarded_transaction = self
+                    .state_sync_update
+                    .note_updates
+                    .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
 
                 if let Some(transaction_id) = discarded_transaction {
                     self.state_sync_update
@@ -416,81 +415,6 @@ fn apply_mmr_changes(
         .append(&mut current_partial_mmr.add(new_block.hash(), new_block_has_relevant_notes));
 
     Ok((new_peaks, new_authentication_nodes))
-}
-
-/// Applies the necessary state transitions to the [`NoteUpdates`] when a note is committed in a
-/// block.
-fn committed_state_transions(
-    note_updates: &mut NoteUpdates,
-    committed_note: &CommittedNote,
-    block_header: &BlockHeader,
-) -> Result<(), ClientError> {
-    let inclusion_proof = NoteInclusionProof::new(
-        block_header.block_num(),
-        committed_note.note_index(),
-        committed_note.merkle_path().clone(),
-    )?;
-
-    if let Some(input_note_record) = note_updates.get_input_note_by_id(*committed_note.note_id()) {
-        // The note belongs to our locally tracked set of input notes
-        input_note_record
-            .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
-        input_note_record.block_header_received(block_header)?;
-    }
-
-    if let Some(output_note_record) = note_updates.get_output_note_by_id(*committed_note.note_id())
-    {
-        // The note belongs to our locally tracked set of output notes
-        output_note_record.inclusion_proof_received(inclusion_proof.clone())?;
-    }
-
-    Ok(())
-}
-
-/// Applies the necessary state transitions to the [`NoteUpdates`] when a note is nullified in a
-/// block. For input note records two possible scenarios are considered:
-/// 1. The note was being processed by a local transaction that just got committed.
-/// 2. The note was consumed by an external transaction. If a local transaction was processing the
-///    note and it didn't get committed, the transaction should be discarded.
-fn nullfier_state_transitions(
-    note_updates: &mut NoteUpdates,
-    nullifier_update: &NullifierUpdate,
-    transaction_updates: &[TransactionUpdate],
-) -> Result<Option<TransactionId>, ClientError> {
-    let mut discarded_transaction = None;
-
-    if let Some(input_note_record) =
-        note_updates.get_input_note_by_nullifier(nullifier_update.nullifier)
-    {
-        if let Some(consumer_transaction) = transaction_updates
-            .iter()
-            .find(|t| input_note_record.consumer_transaction_id() == Some(&t.transaction_id))
-        {
-            // The note was being processed by a local transaction that just got committed
-            input_note_record.transaction_committed(
-                consumer_transaction.transaction_id,
-                consumer_transaction.block_num,
-            )?;
-        } else {
-            // The note was consumed by an external transaction
-            if let Some(id) = input_note_record.consumer_transaction_id() {
-                // The note was being processed by a local transaction that didn't end up being
-                // committed so it should be discarded
-                discarded_transaction.replace(*id);
-            }
-            input_note_record
-                .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?;
-        }
-    }
-
-    if let Some(output_note_record) =
-        note_updates.get_output_note_by_nullifier(nullifier_update.nullifier)
-    {
-        output_note_record
-            .nullifier_received(nullifier_update.nullifier, nullifier_update.block_num)?;
-    }
-
-    Ok(discarded_transaction)
 }
 
 // DEFAULT CALLBACK IMPLEMENTATIONS
