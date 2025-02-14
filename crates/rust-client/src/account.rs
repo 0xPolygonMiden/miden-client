@@ -45,7 +45,7 @@ pub use miden_objects::account::{
     Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
     AccountStorageMode, AccountType, StorageSlot,
 };
-use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
+use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Digest, Word};
 
 use super::Client;
 use crate::{
@@ -250,6 +250,51 @@ impl<R: FeltRng> Client<R> {
         self.get_account_auth(account_id)
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
+    }
+}
+
+// ACCOUNT UPDATES
+// ================================================================================================
+
+#[derive(Debug, Clone, Default)]
+/// Contains account changes to apply to the store after a sync request.
+pub struct AccountUpdates {
+    /// Updated public accounts.
+    updated_public_accounts: Vec<Account>,
+    /// Account hashes received from the network that don't match the currently locally-tracked
+    /// state of the private accounts.
+    ///
+    /// These updates may represent a stale account hash (meaning that the latest local state
+    /// hasn't been committed). If this is not the case, the account may be locked until the state
+    /// is restored manually.
+    mismatched_private_accounts: Vec<(AccountId, Digest)>,
+}
+
+impl AccountUpdates {
+    /// Creates a new instance of `AccountUpdates`.
+    pub fn new(
+        updated_public_accounts: Vec<Account>,
+        mismatched_private_accounts: Vec<(AccountId, Digest)>,
+    ) -> Self {
+        Self {
+            updated_public_accounts,
+            mismatched_private_accounts,
+        }
+    }
+
+    /// Returns the updated public accounts.
+    pub fn updated_public_accounts(&self) -> &[Account] {
+        &self.updated_public_accounts
+    }
+
+    /// Returns the mismatched private accounts.
+    pub fn mismatched_private_accounts(&self) -> &[(AccountId, Digest)] {
+        &self.mismatched_private_accounts
+    }
+
+    pub fn extend(&mut self, other: AccountUpdates) {
+        self.updated_public_accounts.extend(other.updated_public_accounts);
+        self.mismatched_private_accounts.extend(other.mismatched_private_accounts);
     }
 }
 
