@@ -27,12 +27,12 @@ use crate::{
 // SYNC CALLBACKS
 // ================================================================================================
 
-/// Callback to be executed when a new note inclusion is received in the sync response. It receives
-/// the committed note received from the node and the input note state and an optional note record
-/// that corresponds to the state of the note in the node (only if the note is public).
+/// Callback that gets executed when a new note inclusion is received as part of the sync response.
+/// It receives the committed note received from the network and the input note state and an optional
+/// note record that corresponds to the state of the note in the network (only if the note is public).
 ///
-/// It returns a boolean indicating if received note update is relevant and the client should be
-/// updated.
+/// It returns a boolean indicating if the received note update is relevant.
+/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to the client's store.
 pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
@@ -40,11 +40,11 @@ pub type OnNoteReceived = Box<
     ) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>,
 >;
 
-/// Callback to be executed when a nullifier is received in the sync response. It receives the
-/// nullifier update received from the node.
+/// Callback to be executed when a nullifier is received as part of the the sync response. It receives the
+/// nullifier update received from the network.
 ///
-/// It returns a boolean indicating if the received note update is relevant and the client should be
-/// updated.
+/// It returns a boolean indicating if the received note update is relevant
+/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to the client's store.
 pub type OnNullifierReceived =
     Box<dyn Fn(NullifierUpdate) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>>;
 
@@ -90,70 +90,6 @@ impl StateSync {
             on_note_received,
             on_nullifier_received,
             state_sync_update: StateSyncUpdate::default(),
-        }
-    }
-
-    /// Executes a single step of the state sync process, returning `true` if the client should
-    /// continue syncing and `false` if the client has reached the chain tip.
-    ///
-    /// A step in this context means a single request to the node to get the next relevant block and
-    /// the changes that happened in it. This block may not be the last one in the chain and
-    /// the client may need to call this method multiple times until it reaches the chain tip.
-    ///
-    /// The `sync_state_update` field of the struct will be updated with the new changes from this
-    /// step.
-    async fn sync_state_step(
-        &mut self,
-        current_partial_mmr: &mut PartialMmr,
-        accounts: &[AccountHeader],
-        note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
-    ) -> Result<bool, ClientError> {
-        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves())
-            .expect("The number of leaves in the MMR should be less than 2^32")
-            - 1)
-        .into();
-        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
-
-        let response = self
-            .rpc_api
-            .sync_state(current_block_num, &account_ids, note_tags, nullifiers_tags)
-            .await?;
-
-        self.state_sync_update.block_num = response.block_header.block_num();
-
-        // We don't need to continue if the chain has not advanced, there are no new changes
-        if response.block_header.block_num() == current_block_num {
-            return Ok(false);
-        }
-
-        self.account_state_sync(accounts, &response.account_hash_updates).await?;
-
-        let found_relevant_note = self
-            .note_state_sync(
-                response.note_inclusions,
-                response.transactions,
-                response.nullifiers,
-                &response.block_header,
-            )
-            .await?;
-
-        let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
-            &response.block_header,
-            found_relevant_note,
-            current_partial_mmr,
-            response.mmr_delta,
-        )?;
-
-        self.state_sync_update.block_updates.extend(BlockUpdates {
-            block_headers: vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
-            new_authentication_nodes,
-        });
-
-        if response.chain_tip == response.block_header.block_num() {
-            Ok(false)
-        } else {
-            Ok(true)
         }
     }
 
@@ -229,6 +165,69 @@ impl StateSync {
         Ok(self.state_sync_update)
     }
 
+    /// Executes a single step of the state sync process, returning `true` if the client should
+    /// continue syncing and `false` if the client has reached the chain tip.
+    ///
+    /// A step in this context means a single request to the node to get the next relevant block and
+    /// the changes that happened in it. This block may not be the last one in the chain and
+    /// the client may need to call this method multiple times until it reaches the chain tip.
+    ///
+    /// The `sync_state_update` field of the struct will be updated with the new changes from this
+    /// step.
+    async fn sync_state_step(
+        &mut self,
+        current_partial_mmr: &mut PartialMmr,
+        accounts: &[AccountHeader],
+        note_tags: &[NoteTag],
+        nullifiers_tags: &[u16],
+    ) -> Result<bool, ClientError> {
+        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
+            .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
+        .into();
+        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
+
+        let response = self
+            .rpc_api
+            .sync_state(current_block_num, &account_ids, note_tags, nullifiers_tags)
+            .await?;
+
+        self.state_sync_update.block_num = response.block_header.block_num();
+
+        // We don't need to continue if the chain has not advanced, there are no new changes
+        if response.block_header.block_num() == current_block_num {
+            return Ok(false);
+        }
+
+        self.account_state_sync(accounts, &response.account_hash_updates).await?;
+
+        let found_relevant_note = self
+            .note_state_sync(
+                response.note_inclusions,
+                response.transactions,
+                response.nullifiers,
+                &response.block_header,
+            )
+            .await?;
+
+        let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
+            &response.block_header,
+            found_relevant_note,
+            current_partial_mmr,
+            response.mmr_delta,
+        )?;
+
+        self.state_sync_update.block_updates.extend(BlockUpdates::new(
+            vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
+            new_authentication_nodes,
+        ));
+
+        if response.chain_tip == response.block_header.block_num() {
+            Ok(false)
+        } else {
+            Ok(true)
+        }
+    }
+
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
@@ -279,7 +278,7 @@ impl StateSync {
         let mut mismatched_public_accounts = vec![];
 
         for (id, hash) in account_updates {
-            // check if this updated account is tracked by the client
+            // check if this updated account state is tracked by the client
             if let Some(account) = current_public_accounts
                 .iter()
                 .find(|acc| *id == acc.id() && *hash != acc.hash())

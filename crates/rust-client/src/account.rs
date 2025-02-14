@@ -257,11 +257,16 @@ impl<R: FeltRng> Client<R> {
 // ================================================================================================
 
 #[derive(Debug, Clone, Default)]
-/// Contains account changes to apply to the store.
+/// Contains account changes to apply to the store after a sync request.
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
-    /// Node account hashes that don't match the tracked information.
+    /// Account hashes received from the network that don't match the currently locally-tracked
+    /// state of the private accounts.
+    ///
+    /// These updates may represent a stale account hash (meaning that the latest local state
+    /// hasn't been committed). If this is not the case, the account may be locked until the state
+    /// is restored manually.
     mismatched_private_accounts: Vec<(AccountId, Digest)>,
 }
 
