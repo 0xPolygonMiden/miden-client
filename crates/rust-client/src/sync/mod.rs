@@ -57,6 +57,7 @@
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
+use std::{println, string::ToString};
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
@@ -71,9 +72,12 @@ use tracing::info;
 
 use crate::{
     note::NoteUpdates,
-    rpc::domain::{
-        note::CommittedNote, nullifier::NullifierUpdate, sync::StateSyncInfo,
-        transaction::TransactionUpdate,
+    rpc::{
+        domain::{
+            note::CommittedNote, nullifier::NullifierUpdate, sync::StateSyncInfo,
+            transaction::TransactionUpdate,
+        },
+        RpcError::ConnectionError,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     Client, ClientError,
@@ -229,24 +233,9 @@ impl<R: FeltRng> Client<R> {
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         _ = self.ensure_genesis_in_place().await?;
-        let mut total_sync_summary = SyncSummary::new_empty(0.into());
-        loop {
-            // TODO: this iterates until the client is fully synced, it's no longer necessary
-            let response = self.sync_state_once().await?;
-            let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
-            total_sync_summary.combine_with(response.into_sync_summary());
 
-            if is_last_block {
-                break;
-            }
-        }
-        self.update_mmr_data().await?;
-
-        Ok(total_sync_summary)
-    }
-
-    async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
+        let mut total_sync_summary = SyncSummary::new_empty(current_block_num);
 
         let accounts: Vec<AccountHeader> = self
             .store
@@ -271,24 +260,49 @@ impl<R: FeltRng> Client<R> {
             .map(get_nullifier_prefix)
             .collect();
 
-        // Send request
-        // this sends a single update request. Instead, use the stream to take out each new update, and loop through them
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
+
         let mut response_stream = self
             .rpc_api
             .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
             .await?;
 
-        let Ok(Some(response)) = response_stream.message().await else {
-            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
-        };
-        let response: StateSyncInfo = response.try_into().map_err(ClientError::RpcError)?;
+        loop {
+            let response = response_stream
+                .message()
+                .await
+                .map_err(|e| ClientError::RpcError(ConnectionError(e.message().to_string())))?;
 
-        // We don't need to continue if the chain has not advanced, there are no new changes
-        if response.block_header.block_num() == current_block_num {
-            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
+            let response: StateSyncInfo = match response {
+                Some(res) => res.try_into().map_err(ClientError::RpcError)?,
+                None => {
+                    // Stream closed, sync completed
+                    break;
+                },
+            };
+
+            let summary = self
+                .apply_state_sync(response, total_sync_summary.block_num, accounts.clone())
+                .await?;
+
+            println!(
+                "Synced up to block number: {}. From: {}",
+                summary.block_num, current_block_num
+            );
+
+            total_sync_summary.combine_with(summary);
         }
+        self.update_mmr_data().await?;
 
+        Ok(total_sync_summary)
+    }
+
+    async fn apply_state_sync(
+        &mut self,
+        response: StateSyncInfo,
+        current_block_num: BlockNumber,
+        accounts: Vec<AccountHeader>,
+    ) -> Result<SyncSummary, ClientError> {
         let (committed_note_updates, tags_to_remove) = self
             .committed_note_updates(response.note_inclusions, &response.block_header)
             .await?;
@@ -364,11 +378,7 @@ impl<R: FeltRng> Client<R> {
             .await
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == response.block_header.block_num() {
-            Ok(SyncStatus::SyncedToLastBlock(sync_summary))
-        } else {
-            Ok(SyncStatus::SyncedToBlock(sync_summary))
-        }
+        Ok(sync_summary)
     }
 
     // HELPERS
