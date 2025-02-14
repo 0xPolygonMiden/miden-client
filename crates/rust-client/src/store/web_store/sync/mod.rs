@@ -122,7 +122,7 @@ impl WebStore {
         let mut block_nums_as_str = vec![];
         let mut block_has_relevant_notes = vec![];
 
-        for (block_header, has_client_notes, mmr_peaks) in &block_updates.block_headers {
+        for (block_header, has_client_notes, mmr_peaks) in block_updates.block_headers() {
             block_headers_as_bytes.push(block_header.to_bytes());
             new_mmr_peaks_as_bytes.push(mmr_peaks.peaks().to_vec().to_bytes());
             block_nums_as_str.push(block_header.block_num().to_string());
@@ -132,7 +132,7 @@ impl WebStore {
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
-        for (id, node) in &block_updates.new_authentication_nodes {
+        for (id, node) in block_updates.new_authentication_nodes() {
             let serialized_data = serialize_chain_mmr_node(*id, *node)?;
             serialized_node_ids.push(serialized_data.id);
             serialized_nodes.push(serialized_data.node);
