@@ -69,9 +69,6 @@ pub struct StateSync {
     on_note_received: OnNoteReceived,
     /// Callback to be executed when a nullifier is received.
     on_nullifier_received: OnNullifierReceived,
-    /// The state sync update that will be returned after the sync process is completed. It
-    /// agregates all the updates that come from each sync step.
-    state_sync_update: StateSyncUpdate,
 }
 
 impl StateSync {
@@ -91,7 +88,6 @@ impl StateSync {
             rpc_api,
             on_note_received,
             on_nullifier_received,
-            state_sync_update: StateSyncUpdate::default(),
         }
     }
 
@@ -141,18 +137,25 @@ impl StateSync {
         let mut nullifiers_tags: Vec<u16> =
             unspent_nullifiers.map(|nullifier| get_nullifier_prefix(&nullifier)).collect();
 
-        self.state_sync_update.note_updates =
-            NoteUpdates::new(unspent_input_notes, unspent_output_notes);
+        let mut state_sync_update = StateSyncUpdate {
+            note_updates: NoteUpdates::new(unspent_input_notes, unspent_output_notes),
+            ..Default::default()
+        };
 
         while self
-            .sync_state_step(&mut current_partial_mmr, &accounts, &note_tags, &nullifiers_tags)
+            .sync_state_step(
+                &mut state_sync_update,
+                &mut current_partial_mmr,
+                &accounts,
+                &note_tags,
+                &nullifiers_tags,
+            )
             .await?
         {
             // New nullfiers should be added for new untracked notes that were added in previous
             // steps
             nullifiers_tags.append(
-                &mut self
-                    .state_sync_update
+                &mut state_sync_update
                     .note_updates
                     .updated_input_notes()
                     .filter(|note| {
@@ -164,7 +167,7 @@ impl StateSync {
             );
         }
 
-        Ok(self.state_sync_update)
+        Ok(state_sync_update)
     }
 
     /// Executes a single step of the state sync process, returning `true` if the client should
@@ -178,6 +181,7 @@ impl StateSync {
     /// step.
     async fn sync_state_step(
         &mut self,
+        state_sync_update: &mut StateSyncUpdate,
         current_partial_mmr: &mut PartialMmr,
         accounts: &[AccountHeader],
         note_tags: &[NoteTag],
@@ -193,23 +197,29 @@ impl StateSync {
             .sync_state(current_block_num, &account_ids, note_tags, nullifiers_tags)
             .await?;
 
-        self.state_sync_update.block_num = response.block_header.block_num();
+        state_sync_update.block_num = response.block_header.block_num();
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
             return Ok(false);
         }
 
-        self.account_state_sync(accounts, &response.account_hash_updates).await?;
+        let account_updates =
+            self.account_state_sync(accounts, &response.account_hash_updates).await?;
 
-        let found_relevant_note = self
+        state_sync_update.account_updates = account_updates;
+
+        let (found_relevant_note, transaction_updates) = self
             .note_state_sync(
+                &mut state_sync_update.note_updates,
                 response.note_inclusions,
                 response.transactions,
                 response.nullifiers,
                 &response.block_header,
             )
             .await?;
+
+        state_sync_update.transaction_updates.extend(transaction_updates);
 
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
             &response.block_header,
@@ -218,7 +228,7 @@ impl StateSync {
             response.mmr_delta,
         )?;
 
-        self.state_sync_update.block_updates.extend(BlockUpdates::new(
+        state_sync_update.block_updates.extend(BlockUpdates::new(
             vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
             new_authentication_nodes,
         ));
@@ -246,7 +256,7 @@ impl StateSync {
         &mut self,
         accounts: &[AccountHeader],
         account_hash_updates: &[(AccountId, Digest)],
-    ) -> Result<(), ClientError> {
+    ) -> Result<AccountUpdates, ClientError> {
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.iter().partition(|account_header| account_header.id().is_public());
 
@@ -263,11 +273,7 @@ impl StateSync {
             .copied()
             .collect::<Vec<_>>();
 
-        self.state_sync_update
-            .account_updates
-            .extend(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts));
-
-        Ok(())
+        Ok(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts))
     }
 
     /// Queries the node for the latest state of the public accounts that don't match the current
@@ -314,17 +320,19 @@ impl StateSync {
     ///   were nullified by an another transaction.
     async fn note_state_sync(
         &mut self,
+        note_updates: &mut NoteUpdates,
         note_inclusions: Vec<CommittedNote>,
         transactions: Vec<TransactionUpdate>,
         nullifiers: Vec<NullifierUpdate>,
         block_header: &BlockHeader,
-    ) -> Result<bool, ClientError> {
+    ) -> Result<(bool, TransactionUpdates), ClientError> {
         let public_note_ids: Vec<NoteId> = note_inclusions
             .iter()
             .filter_map(|note| (!note.metadata().is_private()).then_some(*note.note_id()))
             .collect();
 
         let mut found_relevant_note = false;
+        let mut discarded_transactions = vec![];
 
         // Process note inclusions
         let new_public_notes =
@@ -338,11 +346,10 @@ impl StateSync {
                 found_relevant_note = true;
 
                 if let Some(public_note) = public_note {
-                    self.state_sync_update.note_updates.insert_updates(Some(public_note), None);
+                    note_updates.insert_updates(Some(public_note), None);
                 }
 
-                self.state_sync_update
-                    .note_updates
+                note_updates
                     .apply_committed_note_state_transitions(&committed_note, block_header)?;
             }
         }
@@ -350,24 +357,19 @@ impl StateSync {
         // Process nullifiers
         for nullifier_update in nullifiers {
             if (self.on_nullifier_received)(nullifier_update.clone()).await? {
-                let discarded_transaction = self
-                    .state_sync_update
-                    .note_updates
+                let discarded_transaction = note_updates
                     .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
 
                 if let Some(transaction_id) = discarded_transaction {
-                    self.state_sync_update
-                        .transaction_updates
-                        .insert_discarded_transaction(transaction_id);
+                    discarded_transactions.push(transaction_id);
                 }
             }
         }
 
-        self.state_sync_update
-            .transaction_updates
-            .extend(TransactionUpdates::new(transactions, vec![]));
-
-        Ok(found_relevant_note)
+        Ok((
+            found_relevant_note,
+            TransactionUpdates::new(transactions, discarded_transactions),
+        ))
     }
 
     /// Queries the node for all received notes that aren't being locally tracked in the client.
