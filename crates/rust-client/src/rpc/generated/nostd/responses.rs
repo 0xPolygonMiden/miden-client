@@ -42,27 +42,24 @@ pub struct NullifierUpdate {
 /// Represents the result of syncing state request.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncStateResponse {
-    /// Number of the latest block in the chain.
-    #[prost(fixed32, tag = "1")]
-    pub chain_tip: u32,
     /// Block header of the block with the first note matching the specified criteria.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag = "1")]
     pub block_header: ::core::option::Option<super::block::BlockHeader>,
     /// Data needed to update the partial MMR from `request.block_num + 1` to `response.block_header.block_num`.
-    #[prost(message, optional, tag = "3")]
+    #[prost(message, optional, tag = "2")]
     pub mmr_delta: ::core::option::Option<super::mmr::MmrDelta>,
     /// List of account hashes updated after `request.block_num + 1` but not after `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "5")]
+    #[prost(message, repeated, tag = "3")]
     pub accounts: ::prost::alloc::vec::Vec<super::account::AccountSummary>,
     /// List of transactions executed against requested accounts between `request.block_num + 1` and
     /// `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "6")]
+    #[prost(message, repeated, tag = "4")]
     pub transactions: ::prost::alloc::vec::Vec<super::transaction::TransactionSummary>,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`.
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "5")]
     pub notes: ::prost::alloc::vec::Vec<super::note::NoteSyncRecord>,
     /// List of nullifiers created between `request.block_num + 1` and `response.block_header.block_num`.
-    #[prost(message, repeated, tag = "8")]
+    #[prost(message, repeated, tag = "6")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
 /// Represents the result of syncing notes request.
@@ -128,6 +125,21 @@ pub struct GetBlockInputsResponse {
         super::note::NoteAuthenticationInfo,
     >,
 }
+/// Represents the result of getting batch inputs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBatchInputsResponse {
+    /// The block header that the transaction batch should reference.
+    #[prost(message, optional, tag = "1")]
+    pub batch_reference_block_header: ::core::option::Option<super::block::BlockHeader>,
+    /// Proof of each _found_ unauthenticated note's inclusion in a block.
+    #[prost(message, repeated, tag = "2")]
+    pub note_proofs: ::prost::alloc::vec::Vec<super::note::NoteInclusionInBlockProof>,
+    /// The serialized chain MMR which includes proofs for all blocks referenced by the
+    /// above note inclusion proofs as well as proofs for inclusion of the blocks referenced
+    /// by the transactions in the batch.
+    #[prost(bytes = "vec", tag = "3")]
+    pub chain_mmr: ::prost::alloc::vec::Vec<u8>,
+}
 /// An account returned as a response to the `GetTransactionInputs`.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountTransactionInputRecord {
@@ -177,13 +189,6 @@ pub struct GetNotesByIdResponse {
     /// Lists Note's returned by the database.
     #[prost(message, repeated, tag = "1")]
     pub notes: ::prost::alloc::vec::Vec<super::note::Note>,
-}
-/// Represents the result of getting note authentication info.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetNoteAuthenticationInfoResponse {
-    /// Proofs of note inclusions in blocks and block inclusions in chain.
-    #[prost(message, optional, tag = "1")]
-    pub proofs: ::core::option::Option<super::note::NoteAuthenticationInfo>,
 }
 /// Represents the result of getting account details.
 #[derive(Clone, PartialEq, ::prost::Message)]
