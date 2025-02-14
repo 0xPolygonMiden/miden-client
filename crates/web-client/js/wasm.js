@@ -1,1 +1,2 @@
-export { default } from "../Cargo.toml";
+import * as wasmModule from "../Cargo.toml";
+export default wasmModule;
