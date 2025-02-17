@@ -90,8 +90,6 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If the account is already being tracked and `overwrite` is set to `true`, the account will
     /// be overwritten. The `account_seed` should be provided if the account is newly created.
-    /// The account will not be authenticated, the account should be added to the authenticator
-    /// manually if transaction signing is required.
     ///
     /// # Errors
     ///
