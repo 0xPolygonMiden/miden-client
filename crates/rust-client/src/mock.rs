@@ -25,7 +25,10 @@ use miden_objects::{
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
-use tonic::Response;
+use tonic::{
+    codec::{Codec, ProstCodec},
+    Response, Streaming,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -33,7 +36,6 @@ use crate::{
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
-            sync::StateSyncInfo,
         },
         generated::{
             merkle::MerklePath,
@@ -43,6 +45,7 @@ use crate::{
         NodeRpcClient, RpcError,
     },
     store::{sqlite_store::SqliteStore, StoreAuthenticator},
+    tonic_mock::MockBody,
     transaction::ForeignAccount,
     Client,
 };
@@ -174,7 +177,6 @@ impl MockRpcApi {
             .collect();
 
         SyncStateResponse {
-            chain_tip: self.get_chain_tip_block_num().as_u32(),
             block_header: Some(next_block.header().into()),
             mmr_delta,
             accounts: vec![],
@@ -229,11 +231,25 @@ impl NodeRpcClient for MockRpcApi {
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError> {
-        // Match request -> response through block_num
-        let response = self.get_sync_state_request(block_num);
+    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+        // Collect sync responses for each block until the chain tip
+        let mut sync_responses = vec![];
+        let mut next_block = block_num;
 
-        Ok(response.try_into().unwrap())
+        for block in &self.blocks {
+            let block_num = block.header().block_num();
+            if block_num == self.get_chain_tip_block_num() {
+                break;
+            } else if block_num == next_block {
+                let update = self.get_sync_state_request(block_num);
+                next_block = update.block_header.unwrap().block_num.into();
+                sync_responses.push(update);
+            }
+        }
+        let mut codec = ProstCodec::<SyncStateResponse, _>::default();
+        let body = MockBody::new(sync_responses);
+
+        Ok(Streaming::new_empty(codec.decoder(), body))
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].

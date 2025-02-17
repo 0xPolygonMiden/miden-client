@@ -17,7 +17,7 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::transport::Channel;
+use tonic::{transport::Channel, Streaming};
 use tracing::info;
 
 use super::{
@@ -31,10 +31,10 @@ use super::{
             CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
             GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
+        responses::SyncStateResponse,
         rpc::api_client::ApiClient,
     },
     AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
-    StateSyncInfo,
 };
 use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction::ForeignAccount};
 
@@ -196,15 +196,14 @@ impl NodeRpcClient for TonicRpcClient {
         Ok(response_notes)
     }
 
-    /// Sends a sync state request to the Miden node, validates and converts the response
-    /// into a [StateSyncInfo] struct.
+    /// Sends a sync state request to the Miden node and returns the stream of responses.
     async fn sync_state(
         &mut self,
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError> {
+    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 
         let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
@@ -222,7 +221,7 @@ impl NodeRpcClient for TonicRpcClient {
         let response = rpc_api.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
-        response.into_inner().try_into()
+        Ok(response.into_inner())
     }
 
     /// Sends a `GetAccountDetailsRequest` to the Miden node, and extracts an [AccountDetails] from
