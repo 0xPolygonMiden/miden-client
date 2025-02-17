@@ -55,20 +55,6 @@ format-check: ## Run format using nightly toolchain but only in check mode
 .PHONY: lint
 lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)
 
-# --- Documentation site --------------------------------------------------------------------------
-
-.PHONY: doc-deps
-doc-deps: ## Install dependencies to build and serve documentation site
-	pip3 install -r scripts/docs_requirements.txt
-
-.PHONY: doc-build
-doc-build: doc-deps ## Build documentation site
-	mkdocs build
-
-.PHONY: doc-serve
-doc-serve: doc-deps ## Serve documentation site
-	mkdocs serve
-
 # --- Rust documentation --------------------------------------------------------------------------
 
 .PHONY: doc
