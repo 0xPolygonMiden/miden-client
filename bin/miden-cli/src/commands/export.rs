@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    account::{Account, AccountData},
+    account::{Account, AccountFile},
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
     store::NoteExportType,
@@ -96,7 +96,7 @@ async fn export_account(
         .map_err(CliError::KeyStore)?
         .ok_or(CliError::Export("Auth not found for account".to_string()))?;
 
-    let account_data = AccountData::new(account, account_seed, auth);
+    let account_data = AccountFile::new(account, account_seed, auth);
 
     let file_path = if let Some(filename) = filename {
         filename

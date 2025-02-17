@@ -5,7 +5,7 @@ use std::{
 };
 
 use miden_client::{
-    account::{AccountData, AccountId},
+    account::{AccountFile, AccountId},
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
     note::NoteFile,
@@ -78,7 +78,7 @@ async fn import_account(
     account_data_file_contents: &[u8],
     overwrite: bool,
 ) -> Result<AccountId, CliError> {
-    let account_data = AccountData::read_from_bytes(account_data_file_contents)
+    let account_data = AccountFile::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
