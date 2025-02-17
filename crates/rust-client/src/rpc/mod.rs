@@ -47,8 +47,8 @@ use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
-    sync::StateSyncInfo,
 };
+use generated::responses::SyncStateResponse;
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
@@ -56,6 +56,7 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
+use tonic::Streaming;
 
 /// Contains domain types related to RPC requests and responses, as well as utility functions
 /// for dealing with them.
@@ -127,9 +128,9 @@ pub trait NodeRpcClient {
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint.
     ///
-    /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
-    ///   should contain data starting from the next block, until the first block which contains a
-    ///   note of matching the requested tag, or the chain tip if there are no notes.
+    /// - `block_num` is the last block number known by the client. The returned stream will receive
+    ///   updates starting from the next block, for blocks that contain a note matching the
+    ///   requested tag. Responses will be sent until the chain tip is reached.
     /// - `account_ids` is a list of account IDs and determines the accounts the client is
     ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
@@ -142,7 +143,7 @@ pub trait NodeRpcClient {
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError>;
+    ) -> Result<Streaming<SyncStateResponse>, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint.

@@ -1364,9 +1364,12 @@ version = "0.8.0"
 dependencies = [
  "async-trait",
  "base64",
+ "bytes",
  "chrono",
  "deadpool-sqlite",
  "hex",
+ "http",
+ "http-body",
  "miden-client",
  "miden-lib",
  "miden-objects",
@@ -1597,7 +1600,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ebef2151f5883f76f8c36c5c835634e94d0aa8bf"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomasarrachea-stream-sync-state#aa2dc07613ff8ccb735b98237d77c6767f26ffef"
 
 [[package]]
 name = "miden-stdlib"
@@ -2335,9 +2338,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.22"
+version = "0.23.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb9263ab4eb695e42321db096e3b8fbd715a59b154d5c88d82db2175b681ba7"
+checksum = "47796c98c480fce5406ef69d1c76378375492c3b0a0de587be0c1d9feb12f395"
 dependencies = [
  "log",
  "once_cell",
