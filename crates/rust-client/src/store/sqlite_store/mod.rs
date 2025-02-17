@@ -115,7 +115,7 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
-#[async_trait(?Send)]
+#[async_trait]
 impl Store for SqliteStore {
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();

@@ -205,7 +205,7 @@ impl MockRpcApi {
     }
 }
 use alloc::boxed::Box;
-#[async_trait(?Send)]
+#[async_trait]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,

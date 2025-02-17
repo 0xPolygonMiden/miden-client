@@ -30,7 +30,9 @@ impl ClientDataStore {
         Self { store }
     }
 }
-#[async_trait::async_trait(?Send)]
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl DataStore for ClientDataStore {
     async fn get_transaction_inputs(
         &self,
