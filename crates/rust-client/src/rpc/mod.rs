@@ -42,14 +42,13 @@
 
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
-use generated::responses::SyncStateResponse;
-use tonic::Streaming;
 
 use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
 };
+use generated::responses::SyncStateResponse;
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
@@ -57,6 +56,7 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
+use tonic::Streaming;
 
 /// Contains domain types related to RPC requests and responses, as well as utility functions
 /// for dealing with them.

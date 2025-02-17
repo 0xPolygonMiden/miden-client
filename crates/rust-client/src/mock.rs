@@ -3,6 +3,8 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
+use std::env::temp_dir;
+
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -23,8 +25,6 @@ use miden_objects::{
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
-use std::env::temp_dir;
-use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Response, Streaming};
 use uuid::Uuid;
 
@@ -228,6 +228,7 @@ impl NodeRpcClient for MockRpcApi {
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
     ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+        // TODO: implement sync_state
         unimplemented!("MockRpcApi::sync_state")
     }
 
