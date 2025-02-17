@@ -115,6 +115,8 @@ pub mod transaction;
 
 #[cfg(test)]
 pub mod mock;
+#[cfg(test)]
+mod tonic_mock;
 
 #[cfg(test)]
 pub mod tests;
