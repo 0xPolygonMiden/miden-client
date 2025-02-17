@@ -1,12 +1,8 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    account::AccountId,
-    block::{BlockHeader, BlockNumber},
-    crypto::merkle::MmrDelta,
-    note::NoteId,
-    transaction::TransactionId,
-    Digest,
+    account::AccountId, block::BlockHeader, crypto::merkle::MmrDelta, note::NoteId,
+    transaction::TransactionId, Digest,
 };
 
 use super::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate};
@@ -17,8 +13,6 @@ use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
 
 /// Represents a `SyncStateResponse` with fields converted into domain types.
 pub struct StateSyncInfo {
-    /// The block number of the chain tip at the moment of the response.
-    pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
     /// MMR delta that contains data for (`current_block.num`, `incoming_block_header.num-1`).
@@ -43,8 +37,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = RpcError;
 
     fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
         // Validate and convert block header
         let block_header: BlockHeader = value
             .block_header
@@ -145,7 +137,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
 
         Ok(Self {
-            chain_tip: chain_tip.into(),
             block_header,
             mmr_delta,
             account_hash_updates,
