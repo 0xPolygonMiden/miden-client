@@ -54,4 +54,14 @@ impl WebClient {
             Err(JsValue::from_str("Client not initialized"))
         }
     }
+
+    pub async fn import_store(&mut self, store_dump: JsValue) -> Result<JsValue, JsValue> {
+        let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
+        store
+            .import_store(store_dump)
+            .await
+            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+
+        Ok(JsValue::from_str("Store imported successfully"))
+    }
 }
