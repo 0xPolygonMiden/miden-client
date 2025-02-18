@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    account::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
+    account::AccountFile, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
 
@@ -38,8 +38,8 @@ pub enum ExportType {
     Partial,
 }
 
-impl From<ExportType> for NoteExportType {
-    fn from(export_type: ExportType) -> NoteExportType {
+impl From<&ExportType> for NoteExportType {
+    fn from(export_type: &ExportType) -> NoteExportType {
         match export_type {
             ExportType::Id => NoteExportType::NoteId,
             ExportType::Full => NoteExportType::NoteWithProof,
@@ -53,8 +53,7 @@ impl ExportCmd {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone()).await?;
         } else if let Some(export_type) = &self.export_type {
-            export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type.clone())
-                .await?;
+            export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type).await?;
         } else {
             return Err(CliError::Export(
                 "Export type is required when exporting a note".to_string(),
@@ -78,27 +77,27 @@ async fn export_account<R: FeltRng>(
         .get_account(account_id)
         .await?
         .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
-    let account_seed = account.seed().cloned();
+    let account_seed = account.seed().copied();
 
     let auth = client
         .get_account_auth(account_id)
         .await?
         .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
 
-    let account_data = AccountData::new(account.into(), account_seed, auth);
+    let account_data = AccountFile::new(account.into(), account_seed, auth);
 
     let file_path = if let Some(filename) = filename {
         filename
     } else {
         let current_dir = std::env::current_dir()?;
-        current_dir.join(format!("{}.mac", account_id))
+        current_dir.join(format!("{account_id}.mac"))
     };
 
     info!("Writing file to {}", file_path.to_string_lossy());
     let mut file = File::create(file_path)?;
     account_data.write_into(&mut file);
 
-    println!("Succesfully exported account {}", account_id);
+    println!("Succesfully exported account {account_id}");
     Ok(file)
 }
 
@@ -109,7 +108,7 @@ async fn export_note(
     client: &mut Client<impl FeltRng>,
     note_id: &str,
     filename: Option<PathBuf>,
-    export_type: ExportType,
+    export_type: &ExportType,
 ) -> Result<File, CliError> {
     let note_id = get_output_note_with_id_prefix(client, note_id)
         .await
@@ -123,7 +122,7 @@ async fn export_note(
         .expect("should have an output note");
 
     let note_file = output_note
-        .into_note_file(export_type.into())
+        .into_note_file(&export_type.into())
         .map_err(|err| CliError::Export(err.to_string()))?;
 
     let file_path = if let Some(filename) = filename {
@@ -137,6 +136,6 @@ async fn export_note(
     let mut file = File::create(file_path)?;
     file.write_all(&note_file.to_bytes()).map_err(CliError::IO)?;
 
-    println!("Succesfully exported note {}", note_id);
+    println!("Succesfully exported note {note_id}");
     Ok(file)
 }

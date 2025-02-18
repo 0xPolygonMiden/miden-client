@@ -66,16 +66,12 @@ impl NoteDetailsArray {
 
 impl From<NoteDetailsArray> for Vec<NativeNoteDetails> {
     fn from(note_details_array: NoteDetailsArray) -> Self {
-        note_details_array
-            .0
-            .into_iter()
-            .map(|note_details| note_details.into())
-            .collect()
+        note_details_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NoteDetailsArray> for Vec<NativeNoteDetails> {
     fn from(note_details_array: &NoteDetailsArray) -> Self {
-        note_details_array.0.iter().map(|note_details| note_details.into()).collect()
+        note_details_array.0.iter().map(Into::into).collect()
     }
 }

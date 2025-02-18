@@ -1477,9 +1477,8 @@ dependencies = [
 
 [[package]]
 name = "miden-lib"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee8babd17ea380c6c5b948761ca63208b633b7130379ee2a57c6d3732d2f8bc"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#66cf1bc8744cf739aa3ef726300c389796047394"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1533,9 +1532,8 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fe3f10d0e3787176f0803be2ecb4646f3a17fe10af45a50736c8d079a3c94d8"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#66cf1bc8744cf739aa3ef726300c389796047394"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -1580,9 +1578,8 @@ dependencies = [
 
 [[package]]
 name = "miden-proving-service-client"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f8bb57ec4864fe7b128a24fcf8872ba18c3229e6cea5aea6194c6b2e2d814a8"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#66cf1bc8744cf739aa3ef726300c389796047394"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1599,9 +1596,8 @@ dependencies = [
 
 [[package]]
 name = "miden-rpc-proto"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e68f00e0e97ba6bc65896e5ca2bb0995d59b14fd8f0389916dc2ee792f353f50"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ebef2151f5883f76f8c36c5c835634e94d0aa8bf"
 
 [[package]]
 name = "miden-stdlib"
@@ -1614,9 +1610,8 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4371509f1e4c25dfe26b7ffcffbb34aaa152c6eaad400f2624240a941baed2d0"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#66cf1bc8744cf739aa3ef726300c389796047394"
 dependencies = [
  "async-trait",
  "miden-lib",

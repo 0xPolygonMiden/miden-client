@@ -72,7 +72,7 @@ impl FaucetDetailsMap {
         self.get_token_symbol(faucet_id).unwrap_or("Unknown".to_string())
     }
 
-    /// Parses a string representing a [FungibleAsset]. There are two accepted formats for the
+    /// Parses a string representing a [`FungibleAsset`]. There are two accepted formats for the
     /// string:
     /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
     /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity
@@ -121,7 +121,7 @@ impl FaucetDetailsMap {
         FungibleAsset::new(faucet_id, amount).map_err(CliError::Asset)
     }
 
-    /// Formats a [FungibleAsset] into a tuple containing the faucet and the amount. The returned
+    /// Formats a [`FungibleAsset`] into a tuple containing the faucet and the amount. The returned
     /// values depend on whether the faucet is tracked by the token symbol map file or not:
     /// - If the faucet is tracked, the token symbol is returned along with the amount in the
     ///   token's decimals.
@@ -161,7 +161,7 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
         // Insert the decimal point at the correct position
         let integer_part = &units_str[..len - decimals as usize];
         let fractional_part = &units_str[len - decimals as usize..];
-        format!("{}.{}", integer_part, fractional_part)
+        format!("{integer_part}.{fractional_part}")
     }
 }
 
@@ -208,7 +208,7 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
     // Check if the fractional part has more than N decimals
     if fractional_part.len() > n_decimals.into() {
         return Err(CliError::Parse(
-            format!("Amount has more than {} decimal places", n_decimals).into(),
+            format!("Amount has more than {n_decimals} decimal places").into(),
             "Failed to parse fractional part".to_string(),
         ));
     }
@@ -233,12 +233,12 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, 
 #[test]
 fn test_parse_number_as_base_units() {
     assert_eq!(parse_number_as_base_units("18446744.073709551615", 12).unwrap(), u64::MAX);
-    assert_eq!(parse_number_as_base_units("7531.2468", 8).unwrap(), 753124680000);
-    assert_eq!(parse_number_as_base_units("7531.2468", 4).unwrap(), 75312468);
+    assert_eq!(parse_number_as_base_units("7531.2468", 8).unwrap(), 753_124_680_000);
+    assert_eq!(parse_number_as_base_units("7531.2468", 4).unwrap(), 75_312_468);
     assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
     assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
     assert_eq!(parse_number_as_base_units("0", 3).unwrap(), 0);
-    assert_eq!(parse_number_as_base_units("1234", 8).unwrap(), 123400000000);
+    assert_eq!(parse_number_as_base_units("1234", 8).unwrap(), 123_400_000_000);
     assert_eq!(parse_number_as_base_units("1", 0).unwrap(), 1);
     assert!(matches!(parse_number_as_base_units("1.1", 0), Err(CliError::Parse(_, _))),);
     assert!(matches!(
@@ -247,13 +247,13 @@ fn test_parse_number_as_base_units() {
     ),);
     assert!(matches!(parse_number_as_base_units("123u3.23", 4), Err(CliError::Parse(_, _))),);
     assert!(matches!(parse_number_as_base_units("2.k3", 4), Err(CliError::Parse(_, _))),);
-    assert_eq!(parse_number_as_base_units("12.345000", 4).unwrap(), 123450);
+    assert_eq!(parse_number_as_base_units("12.345000", 4).unwrap(), 123_450);
     assert!(parse_number_as_base_units("0.0001.00000001", 12).is_err());
 }
 
 #[test]
 fn test_format_amount_from_faucet_units() {
     assert_eq!(format_amount_from_faucet_units(u64::MAX, 12), "18446744.073709551615");
-    assert_eq!(format_amount_from_faucet_units(753124680000, 8), "7531.24680000");
-    assert_eq!(format_amount_from_faucet_units(75312468, 4), "7531.2468");
+    assert_eq!(format_amount_from_faucet_units(753_124_680_000, 8), "7531.24680000");
+    assert_eq!(format_amount_from_faucet_units(75_312_468, 4), "7531.2468");
 }

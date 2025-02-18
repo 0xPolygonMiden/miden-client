@@ -117,6 +117,12 @@ impl From<CliEndpoint> for Endpoint {
     }
 }
 
+impl From<&CliEndpoint> for Endpoint {
+    fn from(endpoint: &CliEndpoint) -> Self {
+        endpoint.0.clone()
+    }
+}
+
 impl Serialize for CliEndpoint {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

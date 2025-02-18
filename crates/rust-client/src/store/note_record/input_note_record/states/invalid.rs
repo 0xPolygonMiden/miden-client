@@ -13,7 +13,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::Invalid] state.
+/// Information related to notes in the [`InputNoteState::Invalid`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -31,7 +31,7 @@ impl NoteStateHandler for InvalidNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
-        Ok(Some(UnverifiedNoteState { inclusion_proof, metadata }.into()))
+        Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
     fn consumed_externally(
@@ -44,7 +44,7 @@ impl NoteStateHandler for InvalidNoteState {
     fn block_header_received(
         &self,
         note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self
             .invalid_inclusion_proof

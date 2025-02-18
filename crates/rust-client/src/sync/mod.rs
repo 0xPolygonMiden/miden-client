@@ -161,8 +161,7 @@ enum SyncStatus {
 impl SyncStatus {
     pub fn into_sync_summary(self) -> SyncSummary {
         match self {
-            SyncStatus::SyncedToLastBlock(summary) => summary,
-            SyncStatus::SyncedToBlock(summary) => summary,
+            SyncStatus::SyncedToBlock(summary) | SyncStatus::SyncedToLastBlock(summary) => summary,
         }
     }
 }
@@ -170,7 +169,7 @@ impl SyncStatus {
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
     /// The new block header, returned as part of the
-    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
+    /// [`StateSyncInfo`](crate::rpc::domain::sync::StateSyncInfo)
     pub block_header: BlockHeader,
     /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
@@ -205,7 +204,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Returns the block number of the last state sync block.
     pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
-        self.store.get_sync_height().await.map_err(|err| err.into())
+        self.store.get_sync_height().await.map_err(Into::into)
     }
 
     /// Syncs the client's state with the current state of the Miden network. Returns the block
@@ -221,7 +220,7 @@ impl<R: FeltRng> Client<R> {
     /// 3. Tracked notes are updated with their new states.
     /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
     ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::note::NoteScreener])
+    ///    [`crate::note::NoteScreener`])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
     ///    state.
@@ -271,7 +270,7 @@ impl<R: FeltRng> Client<R> {
             .collect();
 
         // Send request
-        let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
+        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
         let response = self
             .rpc_api
             .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
@@ -320,7 +319,7 @@ impl<R: FeltRng> Client<R> {
             apply_mmr_changes(
                 current_partial_mmr,
                 response.mmr_delta,
-                current_block,
+                &current_block,
                 has_relevant_notes,
             )?
         };
@@ -328,10 +327,10 @@ impl<R: FeltRng> Client<R> {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
+            note_updates.new_input_notes().iter().map(InputNoteRecord::id).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
-            updated_public_accounts.iter().map(|acc| acc.id()).collect(),
+            updated_public_accounts.iter().map(Account::id).collect(),
             mismatched_private_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
@@ -367,8 +366,8 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
-    /// list or note tag records to be removed from the store.
+    /// Returns the [`NoteUpdates`] containing new public note and committed input/output notes and
+    /// a list or note tag records to be removed from the store.
     async fn committed_note_updates(
         &mut self,
         committed_notes: Vec<CommittedNote>,
@@ -378,7 +377,7 @@ impl<R: FeltRng> Client<R> {
         // sync response contains notes matching either the provided accounts or the provided tag
         // we might get many notes when we only care about a few of those.
         let relevant_note_filter =
-            NoteFilter::List(committed_notes.iter().map(|note| note.note_id()).cloned().collect());
+            NoteFilter::List(committed_notes.iter().map(CommittedNote::note_id).copied().collect());
 
         let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
             .store
@@ -413,7 +412,7 @@ impl<R: FeltRng> Client<R> {
 
                 let inclusion_proof_received = note_record
                     .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
-                let block_header_received = note_record.block_header_received(*block_header)?;
+                let block_header_received = note_record.block_header_received(block_header)?;
 
                 removed_tags.push((&note_record).try_into()?);
 
@@ -453,7 +452,7 @@ impl<R: FeltRng> Client<R> {
         ))
     }
 
-    /// Returns the [NoteUpdates] containing consumed input/output notes and a list of IDs of the
+    /// Returns the [`NoteUpdates`] containing consumed input/output notes and a list of IDs of the
     /// transactions that were discarded.
     async fn consumed_note_updates(
         &mut self,
@@ -503,7 +502,7 @@ impl<R: FeltRng> Client<R> {
                         None
                     }
                 })
-                .cloned()
+                .copied()
                 .collect();
 
             for nullifier in transaction_nullifiers {
@@ -575,15 +574,15 @@ impl<R: FeltRng> Client<R> {
             .get_public_note_records(query_notes, self.store.get_current_timestamp())
             .await?;
 
-        for note in return_notes.iter_mut() {
-            note.block_header_received(*block_header)?;
+        for note in &mut return_notes {
+            note.block_header_received(block_header)?;
         }
 
         Ok(return_notes)
     }
 
     /// Extracts information about transactions for uncommitted transactions that the client is
-    /// tracking from the received [SyncStateResponse].
+    /// tracking from the received [`SyncStateResponse`].
     async fn get_transactions_to_commit(
         &self,
         mut transactions: Vec<TransactionUpdate>,

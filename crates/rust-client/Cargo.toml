@@ -15,6 +15,9 @@ edition.workspace = true
 [lib]
 crate-type = ["lib"]
 
+[lints]
+workspace = true
+
 [features]
 concurrent = ["miden-tx/concurrent", "std"]
 default = []
@@ -57,7 +60,7 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
 
 [build-dependencies]
-miden-rpc-proto = { version = "0.7" }
+miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
 miden-lib = { workspace = true }
 miette = { workspace = true }
 prost = { version = "0.13", default-features = false, features = ["derive"] }

@@ -105,7 +105,7 @@ async fn test_swap_fully_onchain() {
 
     println!("Running SWAP tx...");
     let tx_request = TransactionRequestBuilder::swap(
-        SwapTransactionData::new(
+        &SwapTransactionData::new(
             account_a.id(),
             Asset::Fungible(offered_asset),
             Asset::Fungible(requested_asset),
@@ -305,7 +305,7 @@ async fn test_swap_private() {
 
     println!("Running SWAP tx...");
     let tx_request = TransactionRequestBuilder::swap(
-        SwapTransactionData::new(
+        &SwapTransactionData::new(
             account_a.id(),
             Asset::Fungible(offered_asset),
             Asset::Fungible(requested_asset),

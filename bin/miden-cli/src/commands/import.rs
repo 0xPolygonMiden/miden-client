@@ -5,7 +5,7 @@ use std::{
 };
 
 use miden_client::{
-    account::{AccountData, AccountId},
+    account::{AccountFile, AccountId},
     crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
@@ -49,7 +49,7 @@ impl ImportCmd {
                     import_account(&mut client, &account_data_file_contents, self.overwrite)
                         .await?;
 
-                println!("Successfully imported account {}", account_id);
+                println!("Successfully imported account {account_id}");
 
                 if account_id.is_regular_account() {
                     maybe_set_default_account(&mut current_config, account_id)?;
@@ -68,7 +68,7 @@ async fn import_account(
     account_data_file_contents: &[u8],
     overwrite: bool,
 ) -> Result<AccountId, CliError> {
-    let account_data = AccountData::read_from_bytes(account_data_file_contents)
+    let account_data = AccountFile::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
