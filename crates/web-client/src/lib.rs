@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use console_error_panic_hook::set_once;
 use miden_client::{
     authenticator::{keystore::WebKeyStore, ClientAuthenticator},
-    rpc::WebTonicRpcClient,
+    rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
     Client,
 };
@@ -84,9 +84,12 @@ impl WebClient {
         let keystore = WebKeyStore {};
 
         let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
-        let web_rpc_client = Box::new(WebTonicRpcClient::new(
-            &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
-        ));
+
+        let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
+            Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
+        })?;
+
+        let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
