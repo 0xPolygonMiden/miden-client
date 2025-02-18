@@ -3,14 +3,14 @@
 //! stores and manages the account's secret keys.
 //!
 //! The [`KeyStore`] trait defines the interface for storing and retrieving secret keys. The
-//! [`FilesystemKeyStore`] and [`WebKeyStore`] types (for std and no-std respectively) are provided
+//! `FilesystemKeyStore` and `WebKeyStore` types (for std and no-std respectively) are provided
 //! as implementations of the trait. The keystore is used to retrieve the secret key for a given
 //! public key when signing transactions.
 //!
 //! //! # Example
 //!
 //! A reference to the keystore should be kept so that new keys can be added to it when new accounts
-//! are created. You might use the [`Keystore::add_key`] method as follows:
+//! are created. You might use the [`KeyStore::add_key`] method as follows:
 //!
 //! ```rust
 //! # use miden_client::{

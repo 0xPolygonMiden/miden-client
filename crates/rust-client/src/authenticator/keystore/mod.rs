@@ -20,12 +20,12 @@ pub trait KeyStore {
     fn get_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, KeyStoreError>;
 }
 
-#[cfg(target_arch = "wasm32")]
-mod web_keystore;
-#[cfg(target_arch = "wasm32")]
-pub use web_keystore::WebKeyStore;
-
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 mod fs_keystore;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 pub use fs_keystore::FilesystemKeyStore;
+
+#[cfg(not(feature = "std"))]
+mod web_keystore;
+#[cfg(not(feature = "std"))]
+pub use web_keystore::WebKeyStore;
