@@ -48,49 +48,24 @@
 //!
 //! ## Example
 //!
-//! Below is a brief example illustrating how to instantiate the client:
+//! Below is a brief example illustrating how to instantiate the client using the builder:
 //!
 //! ```rust
-//! use std::sync::Arc;
+//! use miden_client::Client;
 //!
-//! use miden_client::{
-//!     crypto::RpoRandomCoin,
-//!     rpc::{Endpoint, TonicRpcClient},
-//!     store::{sqlite_store::SqliteStore, Store, StoreAuthenticator},
-//!     Client, Felt,
-//! };
-//! use miden_objects::crypto::rand::FeltRng;
-//! use rand::Rng;
-//!
-//! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create the SQLite store from the client configuration.
-//! let sqlite_store = SqliteStore::new("path/to/store".try_into()?).await?;
-//! let store = Arc::new(sqlite_store);
-//!
-//! // Generate a random seed for the RpoRandomCoin.
-//! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.gen();
-//!
-//! // Initialize the random coin using the generated seed.
-//! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-//!
-//! // Create a store authenticator with the store and random coin.
-//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-//!
-//! // Instantiate the client using a Tonic RPC client
-//! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let client: Client<RpoRandomCoin> = Client::new(
-//!     Box::new(TonicRpcClient::new(endpoint, 10_000)),
-//!     rng,
-//!     store,
-//!     Arc::new(authenticator),
-//!     false, // Set to true for debug mode, if needed.
-//! );
-//!
+//! # async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
+//! let client = Client::initialize()
+//!     .with_rpc("https://rpc.testnet.miden.io:443")
+//!     .with_timeout(10_000)
+//!     .with_store_path("store.sqlite3")
+//!     .in_debug_mode(true)
+//!     .build()
+//!     .await?;
+//! 
 //! # Ok(())
 //! # }
 //! ```
-//!
+//! 
 //! For additional usage details, configuration options, and examples, consult the documentation for
 //! each module.
 
@@ -103,6 +78,10 @@ use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
 extern crate std;
+
+// ------------------------------------------------------------------------------------------------
+// MODULE DECLARATIONS
+// ------------------------------------------------------------------------------------------------
 
 pub mod account;
 pub mod note;
@@ -118,6 +97,9 @@ pub mod mock;
 pub mod tests;
 
 mod errors;
+
+mod builder;
+pub use builder::ClientBuilder;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -184,7 +166,7 @@ pub mod testing {
 
 use alloc::sync::Arc;
 
-use miden_objects::crypto::rand::FeltRng;
+use miden_objects::crypto::rand::{FeltRng, RpoRandomCoin};
 use miden_tx::{
     auth::TransactionAuthenticator, DataStore, LocalTransactionProver, TransactionExecutor,
 };
@@ -202,7 +184,7 @@ use tracing::info;
 ///   as notes and transactions.
 /// - Connects to a Miden node to periodically sync with the current state of the network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<R: FeltRng> {
+pub struct Client<R: FeltRng = RpoRandomCoin> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Arc<dyn Store>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
@@ -228,13 +210,10 @@ impl<R: FeltRng> Client<R> {
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
+    /// - `rpc_api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
     ///   the Miden node.
     /// - `store`: An instance of [Store], which provides a way to write and read entities to
     ///   provide persistence.
-    /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
-    ///   retrieve relevant inputs at the moment of transaction execution. It should be the same
-    ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
@@ -271,13 +250,15 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
+    // ACCESSORS
+    // --------------------------------------------------------------------------------------------
+
     /// Returns true if the client is in debug mode.
     pub fn is_in_debug_mode(&self) -> bool {
         self.in_debug_mode
     }
 
-    /// Returns a reference to the client's random number generator. This can be used to generate
-    /// randomness for various purposes such as serial numbers, keys, etc.
+    /// Returns a reference to the client's random number generator.
     pub fn rng(&mut self) -> &mut R {
         &mut self.rng
     }
@@ -293,5 +274,14 @@ impl<R: FeltRng> Client<R> {
     #[cfg(any(test, feature = "testing"))]
     pub fn test_store(&mut self) -> &mut Arc<dyn Store> {
         &mut self.store
+    }
+}
+
+// --------------------------------------------------------------------------------------------
+// BUILDER ENTRY POINT (OPTIONAL HELPER)
+impl Client<RpoRandomCoin> {
+
+    pub fn initialize() -> ClientBuilder {
+        ClientBuilder::new()
     }
 }
