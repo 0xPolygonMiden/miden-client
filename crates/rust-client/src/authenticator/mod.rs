@@ -1,3 +1,44 @@
+//! The `authenticator` module provides the [`ClientAuthenticator`] type, which is used to sign
+//! transactions with the account's secret key. The authenticator is based on a [`KeyStore`] that
+//! stores and manages the account's secret keys.
+//!
+//! The [`KeyStore`] trait defines the interface for storing and retrieving secret keys. The
+//! [`FilesystemKeyStore`] and [`WebKeyStore`] types (for std and no-std respectively) are provided
+//! as implementations of the trait. The keystore is used to retrieve the secret key for a given
+//! public key when signing transactions.
+//!
+//! //! # Example
+//!
+//! A reference to the keystore should be kept so that new keys can be added to it when new accounts
+//! are created. You might use the [`Keystore::add_key`] method as follows:
+//!
+//! ```rust
+//! # use miden_client::{
+//! #    account::{Account, AccountBuilder, AccountType, component::RpoFalcon512},
+//! #    authenticator::keystore::{KeyStore, FilesystemKeyStore},
+//! #    crypto::{FeltRng, SecretKey}
+//! # };
+//! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
+//! # async fn add_new_account_example(
+//! #     client: &mut miden_client::Client<impl FeltRng>,
+//! #     keystore: &mut FilesystemKeyStore,
+//! # ) {
+//! #   let random_seed = Default::default();
+//! let key_pair = SecretKey::with_rng(client.rng());
+//!
+//! let (account, seed) = AccountBuilder::new(random_seed)
+//!     .with_component(RpoFalcon512::new(key_pair.public_key()))
+//!     .build()
+//!     .unwrap();
+//!
+//! // Add the secret key to the keystore so the account can sign transactions
+//! keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
+//!
+//! // Add the account to the client. The account seed and authentication key are required
+//! // for new accounts.
+//! client.add_account(&account, Some(seed), false).await.unwrap();
+//! # }
+//! ```
 use alloc::{string::ToString, sync::Arc, vec::Vec};
 
 use miden_objects::{

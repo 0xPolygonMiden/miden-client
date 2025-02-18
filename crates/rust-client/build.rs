@@ -140,7 +140,7 @@ fn generate_known_procedure_roots() -> std::io::Result<()> {
         .expect("RpoFalcon512 component should have one procedure root");
 
     writeln!(f, "/// Procedure root of the `RpoFalcon512` authentication component.")?;
-    writeln!(f, "pub const RPO_FALCON_512_AUTH: &str = \"{rpo_auth_proc_root}\";")?;
+    writeln!(f, "pub const RPO_FALCON_512_AUTH: &str =\n    \"{rpo_auth_proc_root}\";")?;
 
     Ok(())
 }

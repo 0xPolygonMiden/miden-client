@@ -11,15 +11,15 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::account::{Account, AccountBuilder, AccountType, component::BasicWallet};
-//! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
-//! # use miden_client::crypto::{FeltRng, SecretKey};
+//! # use miden_client::{
+//! #   account::{Account, AccountBuilder, AccountType, component::BasicWallet},
+//! #   crypto::FeltRng
+//! # };
+//! # use miden_objects::account::AccountStorageMode;
 //! # async fn add_new_account_example(
 //! #     client: &mut miden_client::Client<impl FeltRng>
 //! # ) -> Result<(), miden_client::ClientError> {
 //! #   let random_seed = Default::default();
-//! let key_pair = SecretKey::with_rng(client.rng());
-//!
 //! let (account, seed) = AccountBuilder::new(random_seed)
 //!     .account_type(AccountType::RegularAccountImmutableCode)
 //!     .storage_mode(AccountStorageMode::Private)
@@ -28,10 +28,7 @@
 //!
 //! // Add the account to the client. The account seed and authentication key are required
 //! // for new accounts.
-//! client.add_account(&account,
-//!     Some(seed),
-//!     false
-//! ).await?;
+//! client.add_account(&account, Some(seed), false).await?;
 //! #   Ok(())
 //! # }
 //! ```
