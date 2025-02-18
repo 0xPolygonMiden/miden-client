@@ -60,7 +60,7 @@ impl WebClient {
         store
             .import_store(store_dump)
             .await
-            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+            .map_err(|err| JsValue::from_str(&format!("{err}")))?;
 
         Ok(JsValue::from_str("Store imported successfully"))
     }

@@ -72,12 +72,8 @@ impl WebClient {
 
     pub async fn export_store(&mut self) -> Result<JsValue, JsValue> {
         let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
-        let export = store
-            .export_store()
-            .await
-            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
-
-        web_sys::console::log_1(&JsValue::from_str(&format!("Exported store")));
+        let export =
+            store.export_store().await.map_err(|err| JsValue::from_str(&format!("{err}")))?;
 
         Ok(export)
     }
