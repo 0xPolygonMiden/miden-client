@@ -20,8 +20,10 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint.
     pub rpc: RpcConfig,
-    /// Path to the sqlite store file.
+    /// Path to the `SQLite` store file.
     pub store_filepath: PathBuf,
+    /// Path to the directory that contains the secret key files.
+    pub secret_keys_directory: PathBuf,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
@@ -49,6 +51,7 @@ impl Provider for CliConfig {
 impl Default for CliConfig {
     fn default() -> Self {
         const STORE_FILENAME: &str = "store.sqlite3";
+        const KEYSTORE_DIRECTORY: &str = "keystore";
 
         // Get current directory
         let exec_dir = PathBuf::new();
@@ -56,6 +59,7 @@ impl Default for CliConfig {
         Self {
             rpc: RpcConfig::default(),
             store_filepath: exec_dir.join(STORE_FILENAME),
+            secret_keys_directory: exec_dir.join(KEYSTORE_DIRECTORY),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,

@@ -54,9 +54,10 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
+//!     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
-//!     store::{sqlite_store::SqliteStore, Store, StoreAuthenticator},
+//!     store::{sqlite_store::SqliteStore, Store},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
@@ -74,8 +75,10 @@
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 //!
-//! // Create a store authenticator with the store and random coin.
-//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+//! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
+//!
+//! // Create a authenticator with the keystore and random coin.
+//! let authenticator = ClientAuthenticator::new(rng, keystore);
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
@@ -105,6 +108,7 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
+pub mod authenticator;
 pub mod note;
 pub mod rpc;
 pub mod store;

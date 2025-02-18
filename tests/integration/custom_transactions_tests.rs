@@ -52,16 +52,18 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
@@ -133,16 +135,18 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
