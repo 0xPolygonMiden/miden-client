@@ -73,7 +73,6 @@ db.on("populate", () => {
 const accountCodes = db.table(Table.AccountCode);
 const accountStorages = db.table(Table.AccountStorage);
 const accountVaults = db.table(Table.AccountVaults);
-const accountAuths = db.table(Table.AccountAuth);
 const accounts = db.table(Table.Accounts);
 const transactions = db.table(Table.Transactions);
 const transactionScripts = db.table(Table.TransactionScripts);
@@ -91,7 +90,6 @@ export {
   accountCodes,
   accountStorages,
   accountVaults,
-  accountAuths,
   accounts,
   transactions,
   transactionScripts,

@@ -67,7 +67,6 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
     );
     await client.sync_state();
 
-    await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
     let mint_transaction_result = await client.new_mint_transaction(
       senderAccount.id(),
       faucetAccount.id(),
@@ -80,7 +79,6 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
       mint_transaction_result.executed_transaction().id().to_hex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
     const senderConsumeTransactionResult = await client.new_consume_transaction(
       senderAccount.id(),
       created_note_ids
@@ -89,7 +87,6 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
       senderConsumeTransactionResult.executed_transaction().id().to_hex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
     let send_transaction_result = await client.new_send_transaction(
       senderAccount.id(),
       targetAccount.id(),
@@ -105,7 +102,6 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
       send_transaction_result.executed_transaction().id().to_hex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
     const targetConsumeTransactionResult = await client.new_consume_transaction(
       targetAccount.id(),
       send_created_note_ids
@@ -351,7 +347,6 @@ export const customTransaction = async (
         .build();
 
       // Execute and Submit Transaction
-      await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
       let transaction_result = await client.new_transaction(
         faucetAccount.id(),
         transaction_request
@@ -388,17 +383,7 @@ export const customTransaction = async (
 
       // Creating Second Custom Transaction Request to Consume Custom Note
       // with Invalid/Valid Transaction Script
-      let account_auth = await client.get_account_auth(walletAccount.id());
-      let public_key = account_auth.get_rpo_falcon_512_public_key_as_word();
-      let secret_key = account_auth.get_rpo_falcon_512_secret_key_as_felts();
-      let transcription_script_input_pair_array =
-        new window.TransactionScriptInputPairArray([
-          new window.TransactionScriptInputPair(public_key, secret_key),
-        ]);
-      let transaction_script = await client.compile_tx_script(
-        tx_script,
-        transcription_script_input_pair_array
-      );
+      let transaction_script = await client.compile_tx_script(tx_script);
       let note_id = note.id();
       let note_args_commitment = window.Rpo256.hash_elements(feltArray); // gets consumed by NoteIdAndArgs
       let note_id_and_args = new window.NoteIdAndArgs(
@@ -419,7 +404,6 @@ export const customTransaction = async (
         .build();
 
       // Execute and Submit Transaction
-      await client.fetch_and_cache_account_auth_by_pub_key(walletAccount.id());
       let transaction_result_2 = await client.new_transaction(
         walletAccount.id(),
         transaction_request_2
@@ -463,7 +447,6 @@ const customTxWithMultipleNotes = async (
       // Create custom note with multiple assets to send to target account
       // Error should happen if serial numbers are the same in each set of
       // note assets. Otherwise, the transaction should go through.
-      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
 
       let noteAssets_1 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
