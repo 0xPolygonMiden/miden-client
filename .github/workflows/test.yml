@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Test Rust 
+    name: Test Rust
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
@@ -28,7 +28,7 @@ jobs:
       - name: Install rust
         run: rustup update --no-self-update
       - name: Run doc-tests
-        run: make test-docs  
+        run: make test-docs
 
   integration-tests:
     name: Run integration tests on ubuntu-latest
@@ -47,8 +47,8 @@ jobs:
         run: make kill-node
 
   integration-tests-web-client:
-    name: Run integration tests for web client on ubuntu-22.04
-    runs-on: ubuntu-22.04
+    name: Run integration tests for web client on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -68,8 +68,8 @@ jobs:
         run: make kill-node
 
   integration-tests-remote-prover-web-client:
-    name: Run integration tests for remote prover on ubuntu-22.04
-    runs-on: ubuntu-22.04
+    name: Run integration tests for remote prover on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
