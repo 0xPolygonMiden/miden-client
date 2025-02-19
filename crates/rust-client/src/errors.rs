@@ -78,6 +78,8 @@ pub enum ClientError {
     TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
     #[error("transaction script error")]
     TransactionScriptError(#[source] TransactionScriptError),
+    #[error("client initialization error: {0}")]
+    ClientInitializationError(String),
 }
 
 // CONVERSIONS
