@@ -5,7 +5,7 @@ use miden_client::{
     account::{
         component::{
             AccountComponent, AccountComponentTemplate, BasicFungibleFaucet, BasicWallet,
-            InitStorageData, MapRepresentation, PlaceholderType, RpoFalcon512, StorageValue,
+            InitStorageData, RpoFalcon512,
         },
         AccountBuilder, AccountStorageMode, AccountType,
     },
@@ -14,9 +14,8 @@ use miden_client::{
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
-    Client, Felt, Word,
+    Client, Felt,
 };
-use miden_lib::utils::parse_hex_string_as_word;
 
 use crate::{
     commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
@@ -48,10 +47,11 @@ fn process_component_templates(
     for component_template in extra_components {
         let mut init_storage_data = BTreeMap::new();
         for (placeholder_key, placeholder_type) in
-            component_template.metadata().get_unique_storage_placeholders()
+            component_template.metadata().get_placeholder_requirements()
         {
             print!(
-                "Enter hex value for placeholder '{placeholder_key}' (type: {placeholder_type}): ",
+                "Enter hex value for placeholder '{placeholder_key}' (type: {}): ",
+                placeholder_type.r#type
             );
             std::io::stdout().flush()?;
 
@@ -59,43 +59,9 @@ fn process_component_templates(
             std::io::stdin().read_line(&mut input_value)?;
             let input_value = input_value.trim();
 
-            match placeholder_type {
-                PlaceholderType::Felt => {
-                    let value = input_value
-                        .strip_prefix("0x")
-                        .ok_or("error parsing input: Missing 0x prefix".to_string())
-                        .map(|hex| {
-                            u64::from_str_radix(hex, 16).map_err(|e| {
-                                CliError::Parse(e.into(), "failed to parse hex from input".into())
-                            })
-                        })
-                        .map_err(|e| {
-                            CliError::Parse(e.into(), "failed to parse hex from input".into())
-                        })??;
-
-                    init_storage_data
-                        .insert(placeholder_key.clone(), StorageValue::Felt(Felt::new(value)));
-                },
-                PlaceholderType::Map => {
-                    // TODO: Test this case further
-                    let map: MapRepresentation = toml::from_str(input_value).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse map from input".into())
-                    })?;
-                    let map = map.try_build_map(&InitStorageData::default()).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse map from input".into())
-                    })?;
-
-                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Map(map));
-                },
-                PlaceholderType::Word => {
-                    let word: Word = parse_hex_string_as_word(input_value).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse hex from input".into())
-                    })?;
-
-                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Word(word));
-                },
-            }
+            init_storage_data.insert(placeholder_key.clone(), input_value.to_string());
         }
+
         let component = AccountComponent::from_template(
             component_template,
             &InitStorageData::new(init_storage_data),

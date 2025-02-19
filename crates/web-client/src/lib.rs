@@ -9,7 +9,7 @@ use miden_client::{
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_proving_service_client::tx_prover::RemoteTransactionProver;
+use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -88,8 +88,8 @@ impl WebClient {
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 
-        self.remote_prover = prover_url
-            .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
+        self.remote_prover =
+            prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
         self.inner =
             Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
