@@ -68,30 +68,7 @@ impl ClientBuilder {
     /// It parses the provided URL to extract the scheme, host, and port, and creates a `TonicRpcClient`.
     #[cfg(feature = "tonic")]
     pub fn with_rpc(mut self, url: &str) -> Self {
-        // Determine the scheme and strip it from the URL.
-        let (scheme, rest) = if let Some(stripped) = url.strip_prefix("https://") {
-            ("https", stripped)
-        } else if let Some(stripped) = url.strip_prefix("http://") {
-            ("http", stripped)
-        } else {
-            ("https", url)
-        };
-
-        // Attempt to find a colon indicating a port.
-        let (host, port) = if let Some(colon_index) = rest.find(':') {
-            // Split the host and port.
-            let host = &rest[..colon_index];
-            let port_str = &rest[colon_index + 1..];
-            // Try parsing the port. If it fails, use None.
-            let port = port_str.parse::<u16>().ok();
-            (host.to_string(), port)
-        } else {
-            // No colon found, so use the entire string as the host and no port.
-            (rest.to_string(), None)
-        };
-
-        // Create the endpoint using the parsed scheme, host, and port.
-        let endpoint = Endpoint::new(scheme.to_string(), host, port);
+        let endpoint = Endpoint::try_from(url).unwrap();
         self.rpc_api = Some(Box::new(TonicRpcClient::new(endpoint, self.timeout_ms)));
         self
     }
