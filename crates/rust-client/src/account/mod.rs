@@ -60,8 +60,7 @@ pub mod component {
     };
     pub use miden_objects::account::{
         AccountComponent, AccountComponentMetadata, AccountComponentTemplate, FeltRepresentation,
-        InitStorageData, MapRepresentation, PlaceholderType, StorageEntry, StoragePlaceholder,
-        StorageSlotType, StorageValue, WordRepresentation,
+        InitStorageData, StorageEntry, StorageSlotType, WordRepresentation,
     };
 }
 

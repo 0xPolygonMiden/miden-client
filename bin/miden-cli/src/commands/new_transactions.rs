@@ -13,7 +13,7 @@ use miden_client::{
     },
     Client,
 };
-use miden_proving_service_client::tx_prover::RemoteTransactionProver;
+use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{

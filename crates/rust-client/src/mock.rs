@@ -10,7 +10,7 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     account::{AccountCode, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
@@ -57,7 +57,7 @@ pub type MockClient = Client<RpoRandomCoin>;
 #[derive(Clone)]
 pub struct MockRpcApi {
     pub notes: BTreeMap<NoteId, InputNote>,
-    pub blocks: Vec<Block>,
+    pub blocks: Vec<ProvenBlock>,
     pub mock_chain: MockChain,
 }
 impl Default for MockRpcApi {
@@ -120,7 +120,7 @@ impl MockRpcApi {
 
     /// Returns the current MMR of the blockchain.
     pub fn get_mmr(&self) -> Mmr {
-        self.blocks.iter().map(Block::hash).into()
+        self.blocks.iter().map(ProvenBlock::hash).into()
     }
 
     /// Retrieves the note at the specified position.
@@ -134,7 +134,7 @@ impl MockRpcApi {
     }
 
     /// Retrieves a block by its block number.
-    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&Block> {
+    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&ProvenBlock> {
         self.blocks.get(block_num.as_usize())
     }
 
@@ -166,7 +166,7 @@ impl MockRpcApi {
 
         // Collect nullifiers from the next block
         let nullifiers = next_block
-            .nullifiers()
+            .created_nullifiers()
             .iter()
             .map(|n| NullifierUpdate {
                 nullifier: Some(n.inner().into()),
