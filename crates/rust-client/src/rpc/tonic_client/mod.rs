@@ -1,23 +1,23 @@
 use alloc::{
     boxed::Box,
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
-use std::{collections::BTreeMap, time::Duration};
+#[allow(unused_imports)]
+use core::time::Duration;
 
 use async_trait::async_trait;
 use miden_objects::{
-    account::{Account, AccountCode, AccountId},
-    block::{BlockHeader, BlockNumber},
-    crypto::merkle::{MerklePath, MmrProof},
+    account::{Account, AccountCode, AccountDelta, AccountId},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
+    crypto::merkle::{MerklePath, MmrProof, SmtProof},
     note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
@@ -28,7 +28,8 @@ use super::{
     generated::{
         requests::{
             get_account_proofs_request::{self},
-            CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+            CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
+            GetAccountProofsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
             GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
         rpc::api_client::ApiClient,
@@ -41,12 +42,18 @@ use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction
 // TONIC RPC CLIENT
 // ================================================================================================
 
+#[cfg(target_arch = "wasm32")]
+type InnerClient = tonic_web_wasm_client::Client;
+#[cfg(not(target_arch = "wasm32"))]
+type InnerClient = tonic::transport::Channel;
+
 /// Client for the Node RPC API using tonic.
 ///
 /// Wraps the `ApiClient` which defers establishing a connection with a node until necessary.
 pub struct TonicRpcClient {
-    rpc_api: Option<ApiClient<Channel>>,
+    client: Option<ApiClient<InnerClient>>,
     endpoint: String,
+    #[allow(dead_code)]
     timeout_ms: u64,
 }
 
@@ -55,7 +62,7 @@ impl TonicRpcClient {
     /// with the given timeout in milliseconds.
     pub fn new(endpoint: &Endpoint, timeout_ms: u64) -> TonicRpcClient {
         TonicRpcClient {
-            rpc_api: None,
+            client: None,
             endpoint: endpoint.to_string(),
             timeout_ms,
         }
@@ -63,17 +70,29 @@ impl TonicRpcClient {
 
     /// Takes care of establishing the RPC connection if not connected yet and returns a reference
     /// to the inner `ApiClient`.
-    async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcError> {
-        if self.rpc_api.is_some() {
-            Ok(self.rpc_api.as_mut().unwrap())
+    #[allow(clippy::unused_async)]
+    async fn rpc_api(&mut self) -> Result<&mut ApiClient<InnerClient>, RpcError> {
+        if self.client.is_some() {
+            Ok(self.client.as_mut().unwrap())
         } else {
-            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))?
-                .timeout(Duration::from_millis(self.timeout_ms));
-            let rpc_api = ApiClient::connect(endpoint)
-                .await
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))?;
-            Ok(self.rpc_api.insert(rpc_api))
+            #[cfg(target_arch = "wasm32")]
+            let new_client = {
+                let wasm_client = tonic_web_wasm_client::Client::new(self.endpoint.clone());
+                ApiClient::new(wasm_client)
+            };
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let new_client = {
+                let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
+                    .map_err(|err| RpcError::ConnectionError(err.to_string()))?
+                    .timeout(Duration::from_millis(self.timeout_ms));
+
+                ApiClient::connect(endpoint)
+                    .await
+                    .map_err(|err| RpcError::ConnectionError(err.to_string()))?
+            };
+
+            Ok(self.client.insert(new_client))
         }
     }
 }
@@ -236,7 +255,7 @@ impl NodeRpcClient for TonicRpcClient {
     /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
     ///   details).
     /// - There is an error during [Account] deserialization.
-    async fn get_account_update(
+    async fn get_account_details(
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
@@ -374,6 +393,8 @@ impl NodeRpcClient for TonicRpcClient {
         Ok((block_num, account_proofs))
     }
 
+    /// Sends a `SyncNoteRequest` to the Miden node, and extracts a [NoteSyncInfo] from the
+    /// response.
     async fn sync_notes(
         &mut self,
         block_num: BlockNumber,
@@ -419,5 +440,78 @@ impl NodeRpcClient for TonicRpcClient {
             })
             .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
         Ok(nullifiers)
+    }
+
+    async fn check_nullifiers(
+        &mut self,
+        nullifiers: &[Nullifier],
+    ) -> Result<Vec<SmtProof>, RpcError> {
+        let request = CheckNullifiersRequest {
+            nullifiers: nullifiers.iter().map(|nul| nul.inner().into()).collect(),
+        };
+        let rpc_api = self.rpc_api().await?;
+
+        let response = rpc_api.check_nullifiers(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::CheckNullifiers.to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let response = response.into_inner();
+        let proofs = response.proofs.iter().map(TryInto::try_into).collect::<Result<_, _>>()?;
+
+        Ok(proofs)
+    }
+
+    async fn get_account_state_delta(
+        &mut self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<AccountDelta, RpcError> {
+        let request = GetAccountStateDeltaRequest {
+            account_id: Some(account_id.into()),
+            from_block_num: from_block.as_u32(),
+            to_block_num: to_block.as_u32(),
+        };
+
+        let rpc_api = self.rpc_api().await?;
+        let response = rpc_api.get_account_state_delta(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::GetAccountStateDelta.to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let response = response.into_inner();
+        let delta = AccountDelta::read_from_bytes(&response.delta.ok_or(
+            RpcError::ExpectedDataMissing("GetAccountStateDeltaResponse.delta".to_string()),
+        )?)?;
+
+        Ok(delta)
+    }
+
+    async fn get_block_by_number(
+        &mut self,
+        block_num: BlockNumber,
+    ) -> Result<ProvenBlock, RpcError> {
+        let request = GetBlockByNumberRequest { block_num: block_num.as_u32() };
+
+        let rpc_api = self.rpc_api().await?;
+        let response = rpc_api.get_block_by_number(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::GetBlockByNumber.to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let response = response.into_inner();
+        let block =
+            ProvenBlock::read_from_bytes(&response.block.ok_or(RpcError::ExpectedDataMissing(
+                "GetBlockByNumberResponse.block".to_string(),
+            ))?)?;
+
+        Ok(block)
     }
 }

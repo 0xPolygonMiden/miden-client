@@ -50,9 +50,9 @@ use domain::{
     sync::StateSyncInfo,
 };
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId},
-    block::{BlockHeader, BlockNumber},
-    crypto::merkle::MmrProof,
+    account::{Account, AccountCode, AccountDelta, AccountHeader, AccountId},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
+    crypto::merkle::{MmrProof, SmtProof},
     note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
@@ -72,19 +72,11 @@ mod generated;
 #[cfg(test)]
 pub mod generated;
 
-#[cfg(feature = "tonic")]
 mod tonic_client;
-#[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
-
-#[cfg(feature = "web-tonic")]
-mod web_tonic_client;
-#[cfg(feature = "web-tonic")]
-pub use web_tonic_client::WebTonicRpcClient;
 
 use crate::{
     store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
-    sync::get_nullifier_prefix,
     transaction::ForeignAccount,
 };
 
@@ -117,6 +109,13 @@ pub trait NodeRpcClient {
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
+    /// Given a block number, fetches the block corresponding to that height from the node using
+    /// the `/GetBlockByNumber` RPC endpoint.
+    async fn get_block_by_number(
+        &mut self,
+        block_num: BlockNumber,
+    ) -> Result<ProvenBlock, RpcError>;
+
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
     ///
     /// For any NoteType::Private note, the return data is only the
@@ -148,11 +147,15 @@ pub trait NodeRpcClient {
     /// endpoint.
     ///
     /// - `account_id` is the ID of the wanted account.
-    async fn get_account_update(
+    async fn get_account_details(
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError>;
 
+    /// Fetches the notes related to the specified tags using the `/SyncNote` RPC endpoint.
+    ///
+    /// - `block_num` is the last block number known by the client.
+    /// - `note_tags` is a list of tags used to filter the notes the client is interested in.
     async fn sync_notes(
         &mut self,
         block_num: BlockNumber,
@@ -166,6 +169,13 @@ pub trait NodeRpcClient {
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
+    /// Fetches the nullifier proofs corresponding to a list of nullifiers using the
+    /// `/CheckNullifiers` RPC endpoint.
+    async fn check_nullifiers(
+        &mut self,
+        nullifiers: &[Nullifier],
+    ) -> Result<Vec<SmtProof>, RpcError>;
+
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
     /// specified foreign accounts, using the `GetAccountProofs` endpoint.
     ///
@@ -178,6 +188,15 @@ pub trait NodeRpcClient {
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError>;
 
+    /// Fetches the account state delta for the specified account between the specified blocks
+    /// using the `/GetAccountStateDelta` RPC endpoint.
+    async fn get_account_state_delta(
+        &mut self,
+        account_id: AccountId,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> Result<AccountDelta, RpcError>;
+
     /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
     ///
@@ -186,8 +205,7 @@ pub trait NodeRpcClient {
         &mut self,
         nullifier: &Nullifier,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers =
-            self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
+        let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()]).await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
     }
@@ -227,7 +245,7 @@ pub trait NodeRpcClient {
     /// The `local_accounts` parameter is a list of account headers that the client has
     /// stored locally and that it wants to check for updates. If an account is private or didn't
     /// change, it is ignored and will not be included in the returned list.
-    /// The default implementation of this method uses [NodeRpcClient::get_account_update].
+    /// The default implementation of this method uses [NodeRpcClient::get_account_details].
     async fn get_updated_public_accounts(
         &mut self,
         local_accounts: &[&AccountHeader],
@@ -235,7 +253,7 @@ pub trait NodeRpcClient {
         let mut public_accounts = vec![];
 
         for local_account in local_accounts {
-            let response = self.get_account_update(local_account.id()).await?;
+            let response = self.get_account_details(local_account.id()).await?;
 
             if let AccountDetails::Public(account, _) = response {
                 // We should only return an account if it's newer, otherwise we ignore it
@@ -278,9 +296,12 @@ pub trait NodeRpcClient {
 /// RPC methods for the Miden protocol.
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    CheckNullifiers,
     CheckNullifiersByPrefix,
     GetAccountDetails,
+    GetAccountStateDelta,
     GetAccountProofs,
+    GetBlockByNumber,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
@@ -290,11 +311,14 @@ pub enum NodeRpcClientEndpoint {
 impl fmt::Display for NodeRpcClientEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::CheckNullifiers => write!(f, "check_nullifiers"),
             NodeRpcClientEndpoint::CheckNullifiersByPrefix => {
                 write!(f, "check_nullifiers_by_prefix")
             },
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
+            NodeRpcClientEndpoint::GetAccountStateDelta => write!(f, "get_account_state_delta"),
             NodeRpcClientEndpoint::GetAccountProofs => write!(f, "get_account_proofs"),
+            NodeRpcClientEndpoint::GetBlockByNumber => write!(f, "get_block_by_number"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },

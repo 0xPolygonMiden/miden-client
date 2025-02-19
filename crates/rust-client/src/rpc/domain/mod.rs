@@ -8,6 +8,7 @@ pub mod digest;
 pub mod merkle;
 pub mod note;
 pub mod nullifier;
+pub mod smt;
 pub mod sync;
 pub mod transaction;
 

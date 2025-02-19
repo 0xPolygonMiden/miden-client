@@ -146,7 +146,7 @@ impl<R: FeltRng> Client<R> {
                     // If the tracked account is locked, check that the account hash matches the one
                     // in the network
                     let network_account_hash =
-                        self.rpc_api.get_account_update(account.id()).await?.hash();
+                        self.rpc_api.get_account_details(account.id()).await?.hash();
                     if network_account_hash != account.hash() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }

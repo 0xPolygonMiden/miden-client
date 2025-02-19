@@ -2,6 +2,10 @@
 
 ## 0.8.0 (TBD)
 
+### Features
+
+* [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
+
 ### Changes
 
 * Add check for empty pay to id notes (#714).
