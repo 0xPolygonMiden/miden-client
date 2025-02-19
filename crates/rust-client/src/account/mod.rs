@@ -35,12 +35,18 @@
 //!
 //! For more details on accounts, refer to the [Account] documentation.
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
 
-use miden_objects::{crypto::rand::FeltRng, Word};
+use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
+use miden_objects::{
+    block::BlockHeader,
+    crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
+    AccountError, Word,
+};
 
 use super::Client;
 use crate::{
+    rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
     ClientError,
 };
@@ -158,6 +164,25 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
+    /// Imports a new account from the node to the client's store. The account needs to be public
+    /// and is fetched from the node by its ID. If the account was already being tracked, it's
+    /// state will be overwritten.
+    ///
+    /// # Errors
+    /// - If the account is private.
+    pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
+        let account_details = self.rpc_api.get_account_update(account_id).await?;
+
+        let account = match account_details {
+            AccountDetails::Private(..) => {
+                return Err(ClientError::AccountIsPrivate(account_id));
+            },
+            AccountDetails::Public(account, ..) => account,
+        };
+
+        self.add_account(&account, None, true).await
+    }
+
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -221,6 +246,40 @@ impl<R: FeltRng> Client<R> {
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
+}
+
+// UTILITY FUNCTIONS
+// ================================================================================================
+
+/// Builds an regular account ID from the provided parameters.
+pub fn build_wallet_id(
+    init_seed: [u8; 32],
+    public_key: PublicKey,
+    storage_mode: AccountStorageMode,
+    is_mutable: bool,
+    anchor_block: BlockHeader,
+) -> Result<AccountId, ClientError> {
+    let account_type = if is_mutable {
+        AccountType::RegularAccountUpdatableCode
+    } else {
+        AccountType::RegularAccountImmutableCode
+    };
+
+    let accound_id_anchor = (&anchor_block).try_into().map_err(|_| {
+        ClientError::AccountError(AccountError::AssumptionViolated(
+            "Provided block header is not an anchor block".to_string(),
+        ))
+    })?;
+
+    let (account, _) = AccountBuilder::new(init_seed)
+        .anchor(accound_id_anchor)
+        .account_type(account_type)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(public_key))
+        .with_component(BasicWallet)
+        .build()?;
+
+    Ok(account.id())
 }
 
 // TESTS
