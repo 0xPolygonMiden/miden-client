@@ -397,6 +397,10 @@ async fn test_import_account_by_id() {
     client_2.import_account_by_id(built_wallet_id).await.unwrap();
     keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
+    let original_account = client_1.get_account(first_regular_account.id()).await.unwrap().unwrap();
+    let imported_account = client_2.get_account(first_regular_account.id()).await.unwrap().unwrap();
+    assert_eq!(imported_account.account().hash(), original_account.account().hash());
+
     // Now use the wallet in the second client to consume the generated note
     println!("Second client consuming note");
     client_2.sync_state().await.unwrap();

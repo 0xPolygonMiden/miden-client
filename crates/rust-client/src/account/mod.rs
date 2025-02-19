@@ -164,12 +164,14 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Imports a new account from the node to the client's store. The account needs to be public
-    /// and is fetched from the node by its ID. If the account was already being tracked, it's
-    /// state will be overwritten.
+    /// Imports an account from the network to the client's store. The account needs to be public
+    /// and be tracked by the network, it will be fetched by its ID. If the account was already
+    /// being tracked by the client, it's state will be overwritten.
     ///
     /// # Errors
+    /// - If the account is not found on the network.
     /// - If the account is private.
+    /// - There was an error sending the request to the network.
     pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
         let account_details = self.rpc_api.get_account_update(account_id).await?;
 
@@ -251,7 +253,24 @@ impl<R: FeltRng> Client<R> {
 // UTILITY FUNCTIONS
 // ================================================================================================
 
-/// Builds an regular account ID from the provided parameters.
+/// Builds an regular account ID from the provided parameters. The ID may be used along
+/// `Client::import_account_by_id` to import a public account from the network (provided that the
+/// used seed is known).
+///
+/// This function will only work for accounts with the [`BasicWallet`] and [`RpoFalcon512`]
+/// components.
+///
+/// # Arguments
+/// - `init_seed`: Initial seed used to create the account. This is the seed passed to
+///   [`AccountBuilder::new`].
+/// - `public_key`: Public key of the account used in the [`RpoFalcon512`] component.
+/// - `storage_mode`: Storage mode of the account.
+/// - `is_mutable`: Whether the account is mutable or not.
+/// - `anchor_block`: Anchor block of the account.
+///
+/// # Errors
+/// - If the provided block header is not an anchor block.
+/// - If the account cannot be built.
 pub fn build_wallet_id(
     init_seed: [u8; 32],
     public_key: PublicKey,
