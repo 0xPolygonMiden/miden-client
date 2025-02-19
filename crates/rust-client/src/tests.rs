@@ -39,26 +39,6 @@ use crate::{
     Client, ClientError,
 };
 
-#[tokio::test]
-async fn test_client_builder_initializes_client_with_testnet() -> Result<(), ClientError> {
-    let mut client = Client::initialize()
-        .with_rpc("https://rpc.testnet.miden.io:443")
-        .with_timeout(10_000)
-        .with_store_path("store.sqlite3")
-        .in_debug_mode(true)
-        .build()
-        .await?;
-
-    // Verify that the client was initialized with debug mode.
-    assert!(client.is_in_debug_mode());
-
-    let sync_summary = client.sync_state().await.expect("Sync state failed");
-    // For example, we assert that the latest block number is greater than zero.
-    assert!(sync_summary.block_num.as_u32() > 0);
-
-    Ok(())
-}
-
 async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,

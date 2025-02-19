@@ -61,11 +61,11 @@
 //!     .in_debug_mode(true)
 //!     .build()
 //!     .await?;
-//! 
+//!
 //! # Ok(())
 //! # }
 //! ```
-//! 
+//!
 //! For additional usage details, configuration options, and examples, consult the documentation for
 //! each module.
 
@@ -78,10 +78,6 @@ use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
 extern crate std;
-
-// ------------------------------------------------------------------------------------------------
-// MODULE DECLARATIONS
-// ------------------------------------------------------------------------------------------------
 
 pub mod account;
 pub mod note;
@@ -96,10 +92,10 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
-mod errors;
-
 mod builder;
 pub use builder::ClientBuilder;
+
+mod errors;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -258,7 +254,8 @@ impl<R: FeltRng> Client<R> {
         self.in_debug_mode
     }
 
-    /// Returns a reference to the client's random number generator.
+    /// Returns a reference to the client's random number generator. This can be used to generate
+    /// randomness for various purposes such as serial numbers, keys, etc.
     pub fn rng(&mut self) -> &mut R {
         &mut self.rng
     }
@@ -277,10 +274,10 @@ impl<R: FeltRng> Client<R> {
     }
 }
 
-// --------------------------------------------------------------------------------------------
 // BUILDER ENTRY POINT (OPTIONAL HELPER)
-impl Client<RpoRandomCoin> {
+// --------------------------------------------------------------------------------------------
 
+impl Client<RpoRandomCoin> {
     pub fn initialize() -> ClientBuilder {
         ClientBuilder::new()
     }

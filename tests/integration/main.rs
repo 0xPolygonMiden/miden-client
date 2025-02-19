@@ -13,7 +13,7 @@ use miden_client::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
-    ClientError,
+    Client, ClientError,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -30,6 +30,25 @@ mod custom_transactions_tests;
 mod fpi_tests;
 mod onchain_tests;
 mod swap_transactions_tests;
+
+#[tokio::test]
+async fn test_client_builder_initializes_client_with_testnet() -> Result<(), ClientError> {
+    let mut client = Client::initialize()
+        .with_rpc("https://rpc.testnet.miden.io:443")
+        .with_timeout(10_000)
+        .with_store_path("store.sqlite3")
+        .in_debug_mode(true)
+        .build()
+        .await?;
+
+    assert!(client.is_in_debug_mode());
+
+    let sync_summary = client.sync_state().await.expect("Sync state failed");
+
+    assert!(sync_summary.block_num.as_u32() > 0);
+
+    Ok(())
+}
 
 #[tokio::test]
 async fn test_added_notes() {
