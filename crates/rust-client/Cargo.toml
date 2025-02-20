@@ -31,9 +31,12 @@ web-tonic = ["dep:tonic-web-wasm-client"]
 [dependencies]
 async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
+bytes = { version = "1" }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.9", features = ["rt_tokio_1"], optional = true }
 hex = { version = "0.4" }
+http = { version = "1" }
+http-body = { version = "1" }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }
