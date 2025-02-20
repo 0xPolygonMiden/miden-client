@@ -77,10 +77,10 @@ impl MintCmd {
             (&self.note_type).into(),
             client.rng(),
         )
+        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build mint transaction".to_string())
-        })?
-        .build();
+        })?;
 
         execute_transaction(
             &mut client,
@@ -150,10 +150,10 @@ impl SendCmd {
             (&self.note_type).into(),
             client.rng(),
         )
+        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build payment transaction".to_string())
-        })?
-        .build();
+        })?;
 
         execute_transaction(
             &mut client,
@@ -219,10 +219,10 @@ impl SwapCmd {
             (&self.note_type).into(),
             client.rng(),
         )
+        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build swap transaction".to_string())
-        })?
-        .build();
+        })?;
 
         execute_transaction(
             &mut client,
@@ -312,9 +312,16 @@ impl ConsumeNotesCmd {
             ));
         }
 
-        let transaction_request = TransactionRequestBuilder::consume_notes(authenticated_notes)
+        let transaction_request = TransactionRequestBuilder::new()
+            .with_authenticated_input_notes(authenticated_notes.into_iter().map(|id| (id, None)))
             .with_unauthenticated_input_notes(unauthenticated_notes)
-            .build();
+            .build()
+            .map_err(|err| {
+                CliError::Transaction(
+                    err.into(),
+                    "Failed to build consume notes transaction".to_string(),
+                )
+            })?;
 
         execute_transaction(
             &mut client,
