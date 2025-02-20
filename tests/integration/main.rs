@@ -3,7 +3,7 @@ use std::sync::Arc;
 use miden_client::{
     account::Account,
     note::NoteRelevance,
-    rpc::{domain::account::AccountDetails, NodeRpcClient, TonicRpcClient},
+    rpc::{domain::account::AccountDetails, Endpoint, NodeRpcClient, TonicRpcClient},
     store::{
         input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
         NoteFilter, OutputNoteState, TransactionFilter,
@@ -13,7 +13,7 @@ use miden_client::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
-    ClientError,
+    ClientBuilder, ClientError,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -30,6 +30,25 @@ mod custom_transactions_tests;
 mod fpi_tests;
 mod onchain_tests;
 mod swap_transactions_tests;
+
+#[tokio::test]
+async fn test_client_builder_initializes_client_with_testnet() -> Result<(), ClientError> {
+    let mut client = ClientBuilder::new()
+        .with_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
+        .with_timeout(10_000)
+        .with_store_path("store.sqlite3")
+        .in_debug_mode(true)
+        .build()
+        .await?;
+
+    assert!(client.is_in_debug_mode());
+
+    let sync_summary = client.sync_state().await.expect("Sync state failed");
+
+    assert!(sync_summary.block_num.as_u32() > 0);
+
+    Ok(())
+}
 
 #[tokio::test]
 async fn test_added_notes() {
