@@ -114,67 +114,76 @@ export class WebClient {
     this.rpcUrl = rpcUrl;
     this.seed = seed;
 
-    // Create the worker.
-    this.worker = new Worker(
-      new URL("./workers/web-client-methods-worker.js", import.meta.url),
-      { type: "module" }
-    );
+    // Check if Web Workers are available.
+    if (typeof Worker !== "undefined") {
+      console.log("WebClient: Web Workers are available.");
+      // Create the worker.
+      this.worker = new Worker(
+        new URL("./workers/web-client-methods-worker.js", import.meta.url),
+        { type: "module" }
+      );
 
-    // Map to track pending worker requests.
-    // Each key is a unique request ID and each value is an object
-    // containing the corresponding promise's resolve and reject functions.
-    this.pendingRequests = new Map();
+      // Map to track pending worker requests.
+      this.pendingRequests = new Map();
 
-    // Create a promise that resolves when the worker script has loaded.
-    this.loaded = new Promise((resolve) => {
-      this.loadedResolver = resolve;
-    });
-
-    // Create a promise that resolves when the worker signals that it is fully initialized.
-    this.ready = new Promise((resolve) => {
-      this.readyResolver = resolve;
-    });
-
-    // Listen for messages from the worker.
-    this.worker.addEventListener("message", (event) => {
-      const data = event.data;
-
-      // Worker script loaded message.
-      if (data.loaded) {
-        this.loadedResolver();
-        return;
-      }
-
-      // Worker initialization (ready) message.
-      if (data.ready) {
-        this.readyResolver();
-        return;
-      }
-
-      // Handle responses for method calls.
-      const { requestId, error, result, methodName } = data;
-      if (requestId && this.pendingRequests.has(requestId)) {
-        const { resolve, reject } = this.pendingRequests.get(requestId);
-        this.pendingRequests.delete(requestId);
-        if (error) {
-          console.error(
-            `WebClient: Error from worker in ${methodName}:`,
-            error
-          );
-          reject(new Error(error));
-        } else {
-          resolve(result);
-        }
-      }
-    });
-
-    // Once the worker script has fully loaded, initialize the worker.
-    this.loaded.then(() => {
-      this.worker.postMessage({
-        action: WorkerAction.INIT,
-        args: [this.rpcUrl, this.seed],
+      // Promises to track when the worker script is loaded and ready.
+      this.loaded = new Promise((resolve) => {
+        this.loadedResolver = resolve;
       });
-    });
+
+      // Create a promise that resolves when the worker signals that it is fully initialized.
+      this.ready = new Promise((resolve) => {
+        this.readyResolver = resolve;
+      });
+
+      // Listen for messages from the worker.
+      this.worker.addEventListener("message", (event) => {
+        const data = event.data;
+
+        // Worker script loaded.
+        if (data.loaded) {
+          this.loadedResolver();
+          return;
+        }
+
+        // Worker ready.
+        if (data.ready) {
+          this.readyResolver();
+          return;
+        }
+
+        // Handle responses for method calls.
+        const { requestId, error, result, methodName } = data;
+        if (requestId && this.pendingRequests.has(requestId)) {
+          const { resolve, reject } = this.pendingRequests.get(requestId);
+          this.pendingRequests.delete(requestId);
+          if (error) {
+            console.error(
+              `WebClient: Error from worker in ${methodName}:`,
+              error
+            );
+            reject(new Error(error));
+          } else {
+            resolve(result);
+          }
+        }
+      });
+
+      // Once the worker script has loaded, initialize the worker.
+      this.loaded.then(() => {
+        this.worker.postMessage({
+          action: WorkerAction.INIT,
+          args: [this.rpcUrl, this.seed],
+        });
+      });
+    } else {
+      console.log("WebClient: Web Workers are not available.");
+      // Worker not available; set up fallback values.
+      this.worker = null;
+      this.pendingRequests = null;
+      this.loaded = Promise.resolve();
+      this.ready = Promise.resolve();
+    }
 
     // Create the underlying WASM WebClient.
     this.wasmWebClient = new WasmWebClient();
@@ -245,6 +254,9 @@ export class WebClient {
 
   async new_wallet(storageMode, mutable) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_wallet(storageMode, mutable);
+      }
       const serializedStorageMode = storageMode.as_str();
       const serializedAccountBytes = await this.callMethodWithWorker(
         MethodName.NEW_WALLET,
@@ -260,6 +272,15 @@ export class WebClient {
 
   async new_faucet(storageMode, nonFungible, tokenSymbol, decimals, maxSupply) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_faucet(
+          storageMode,
+          nonFungible,
+          tokenSymbol,
+          decimals,
+          maxSupply
+        );
+      }
       const serializedStorageMode = storageMode.as_str();
       const serializedMaxSupply = maxSupply.toString();
       const serializedAccountBytes = await this.callMethodWithWorker(
@@ -280,6 +301,12 @@ export class WebClient {
 
   async new_transaction(accountId, transactionRequest) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_transaction(
+          accountId,
+          transactionRequest
+        );
+      }
       const serializedAccountId = accountId.to_string();
       const serializedTransactionRequest = transactionRequest.serialize();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
@@ -298,6 +325,14 @@ export class WebClient {
 
   async new_mint_transaction(targetAccountId, faucetId, noteType, amount) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_mint_transaction(
+          targetAccountId,
+          faucetId,
+          noteType,
+          amount
+        );
+      }
       const serializedTargetAccountId = targetAccountId.to_string();
       const serializedFaucetId = faucetId.to_string();
       const serializedNoteType = noteType.serialize();
@@ -320,6 +355,12 @@ export class WebClient {
 
   async new_consume_transaction(targetAccountId, noteId) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_consume_transaction(
+          targetAccountId,
+          noteId
+        );
+      }
       const serializedTargetAccountId = targetAccountId.to_string();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_CONSUME_TRANSACTION,
@@ -347,6 +388,16 @@ export class WebClient {
     recallHeight = null
   ) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.new_send_transaction(
+          senderAccountId,
+          receiverAccountId,
+          faucetId,
+          noteType,
+          amount,
+          recallHeight
+        );
+      }
       const serializedSenderAccountId = senderAccountId.to_string();
       const serializedReceiverAccountId = receiverAccountId.to_string();
       const serializedFaucetId = faucetId.to_string();
@@ -372,6 +423,12 @@ export class WebClient {
 
   async submit_transaction(transactionResult, prover = null) {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.submit_transaction(
+          transactionResult,
+          prover
+        );
+      }
       const serializedTransactionResult = transactionResult.serialize();
       const args = [serializedTransactionResult];
 
@@ -390,6 +447,9 @@ export class WebClient {
 
   async sync_state() {
     try {
+      if (!this.worker) {
+        return await this.wasmWebClient.sync_state();
+      }
       const serializedSyncSummaryBytes = await this.callMethodWithWorker(
         MethodName.SYNC_STATE
       );

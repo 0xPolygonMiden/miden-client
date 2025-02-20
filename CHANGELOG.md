@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1 (2025-02-19)
+
+* [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
+* Web Client Fix: Handled Case Where Web Workers are Not Available (#743).
+
 ## 0.7.0 (2025-01-28)
 
 ### Features
@@ -26,7 +31,6 @@
 * Added account creation from component templates (#680).
 * Added serialization for `TransactionResult` (#704).
 * Implemented serialization and deserialization for `SyncSummary` (#725).
-* [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
 
 ### Fixes
 
