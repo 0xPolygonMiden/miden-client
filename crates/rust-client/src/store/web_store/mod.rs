@@ -34,6 +34,8 @@ compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
 
 pub mod account;
 pub mod chain_data;
+pub mod export;
+pub mod import;
 pub mod note;
 pub mod sync;
 pub mod transaction;
