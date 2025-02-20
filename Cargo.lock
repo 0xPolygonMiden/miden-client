@@ -1602,7 +1602,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#fea7a5947fdd543c83f2fe5d4c468638fa97a131"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomasarrachea-stream-sync-state#eb2de00d00005206551b672093506b7ce24e386e"
 
 [[package]]
 name = "miden-stdlib"

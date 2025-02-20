@@ -10,6 +10,7 @@
 
 * Add check for empty pay to id notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+* Read Sync State response from stream (#734).
 
 ## 0.7.0 (2025-01-28)
 
