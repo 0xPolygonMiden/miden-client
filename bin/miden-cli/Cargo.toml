@@ -50,3 +50,8 @@ tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
+
+[build-dependencies]
+miden-client = { version = "0.8", path = "../../crates/rust-client", features = ["std"] }
+miden-objects = { workspace = true }
+miden-lib = { workspace = true }

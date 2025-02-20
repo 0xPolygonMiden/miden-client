@@ -5,7 +5,7 @@ use miden_client::{
 use crate::{create_dynamic_table, errors::CliError, Parser};
 
 #[derive(Default, Debug, Parser, Clone)]
-#[clap(about = "Manage and view transactions. Defaults to `list` command.")]
+#[clap(about = "Manage and view transactions. Defaults to `list` command")]
 pub struct TransactionCmd {
     /// List currently tracked transactions.
     #[clap(short, long, group = "action")]

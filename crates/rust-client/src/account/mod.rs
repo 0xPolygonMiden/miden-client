@@ -61,6 +61,8 @@ pub use miden_objects::account::{
 };
 
 pub mod component {
+    pub const COMPONENT_TEMPLATE_EXTENSION: &str = "mct";
+
     pub use miden_lib::account::{
         auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet,
     };

@@ -8,7 +8,8 @@
 
 ### Changes
 
-* Add check for empty pay to id notes (#714).
+* Added check for empty pay to ID notes (#714).
+* [BREAKING] Generalized `miden new-account` CLI command (#728).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
 
 ## 0.7.0 (2025-01-28)
