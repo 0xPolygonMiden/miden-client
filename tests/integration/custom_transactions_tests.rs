@@ -1,5 +1,4 @@
 use miden_client::{
-    authenticator::keystore,
     note::NoteExecutionHint,
     store::NoteFilter,
     transaction::{InputNote, TransactionRequest, TransactionRequestBuilder},
