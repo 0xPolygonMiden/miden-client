@@ -58,6 +58,7 @@
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
 //!     store::{sqlite_store::SqliteStore, Store},
+//!     sync::{on_note_received, StateSync},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
@@ -82,11 +83,24 @@
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, 10_000));
+//!
+//! let state_sync_component = StateSync::new(
+//!     rpc_api.clone(),
+//!     Box::new({
+//!         let store_clone = store.clone();
+//!         move |committed_note, public_note| {
+//!             Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+//!         }
+//!     }),
+//! );
+//!
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
+//!     rpc_api,
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
+//!     state_sync_component,
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!
@@ -194,6 +208,7 @@ use miden_tx::{
 };
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
+use sync::StateSync;
 use tracing::info;
 
 // MIDEN CLIENT
@@ -220,6 +235,9 @@ pub struct Client<R: FeltRng> {
     tx_prover: Arc<LocalTransactionProver>,
     /// An instance of a [`TransactionExecutor`] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
+    /// An instance of a [`StateSync`] component that will be used to synchronize the client's
+    /// state with the state of the Miden network.
+    state_sync_component: StateSync,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
 }
@@ -242,6 +260,8 @@ impl<R: FeltRng> Client<R> {
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
+    /// - `state_sync_component`: An instance of [`StateSync`] that will be used to synchronize the
+    ///   client's state with the state of the Miden network.
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
     ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
     ///   MASM debugging.
@@ -254,6 +274,7 @@ impl<R: FeltRng> Client<R> {
         rng: R,
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
+        state_sync_component: StateSync,
         in_debug_mode: bool,
     ) -> Self {
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
@@ -272,6 +293,7 @@ impl<R: FeltRng> Client<R> {
             rpc_api,
             tx_prover,
             tx_executor,
+            state_sync_component,
             in_debug_mode,
         }
     }

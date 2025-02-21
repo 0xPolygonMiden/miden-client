@@ -46,6 +46,7 @@ use crate::{
         NodeRpcClient, RpcError,
     },
     store::sqlite_store::SqliteStore,
+    sync::{on_note_received, StateSync},
     tonic_mock::MockBody,
     transaction::ForeignAccount,
     Client,
@@ -225,7 +226,7 @@ impl NodeRpcClient for MockRpcApi {
         let mut sync_responses = vec![];
         let mut next_block = block_num;
 
-        for block in &self.blocks {
+        for block in &self.blocks[block_num.as_usize()..] {
             let block_num = block.header().block_num();
             if block_num == self.get_chain_tip_block_num() {
                 break;
@@ -303,11 +304,19 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn check_nullifiers_by_prefix(
         &self,
-        _prefix: &[u16],
-        _block_num: BlockNumber,
+        prefix: &[u16],
+        block_num: BlockNumber,
     ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
-        // Always return an empty list for now since it's only used when importing
-        Ok(vec![])
+        let mut nullifiers = vec![];
+        for block in &self.blocks[block_num.as_usize()..] {
+            let new_nullifiers = block
+                .created_nullifiers()
+                .iter()
+                .filter(|n| prefix.contains(&n.prefix()))
+                .map(|n| (*n, block.header().block_num().as_u32()));
+            nullifiers.extend(new_nullifiers);
+        }
+        Ok(nullifiers)
     }
 }
 
@@ -325,11 +334,22 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+    let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
     let rpc_api = MockRpcApi::new();
     let arc_rpc_api = Arc::new(rpc_api.clone());
 
-    let client = MockClient::new(arc_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    let state_sync_component = StateSync::new(
+        arc_rpc_api.clone(),
+        Box::new({
+            let store_clone = store.clone();
+            move |committed_note, public_note| {
+                Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+            }
+        }),
+    );
+
+    let client =
+        MockClient::new(arc_rpc_api, rng, store, authenticator, state_sync_component, true);
     (client, rpc_api, keystore)
 }
 

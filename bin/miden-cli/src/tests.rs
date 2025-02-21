@@ -22,6 +22,7 @@ use miden_client::{
     },
     rpc::{Endpoint, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter},
+    sync::{on_note_received, StateSync},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
@@ -748,16 +749,22 @@ async fn create_test_client_with_store_path(store_path: &Path) -> (TestClient, F
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
-
     let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+
+    let rpc_api = Arc::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms));
+
+    let state_sync_component = StateSync::new(
+        rpc_api.clone(),
+        Box::new({
+            let store_clone = store.clone();
+            move |committed_note, public_note| {
+                Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+            }
+        }),
+    );
+
     (
-        TestClient::new(
-            Arc::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
-            rng,
-            store,
-            Arc::new(authenticator),
-            true,
-        ),
+        TestClient::new(rpc_api, rng, store, Arc::new(authenticator), state_sync_component, true),
         keystore,
     )
 }

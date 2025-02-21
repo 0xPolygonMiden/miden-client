@@ -21,12 +21,12 @@ miden-client = { path = "../crates/rust-client", features = [
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 rand = { workspace = true }
 toml = { version = "0.8" }
+tokio = { workspace = true }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [dev-dependencies]
 async-trait = { version = "0.1" }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
-tokio = { workspace = true }
 winter-maybe-async = { version = "0.11" }
 
 [[test]]

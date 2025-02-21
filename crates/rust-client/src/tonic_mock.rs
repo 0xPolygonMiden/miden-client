@@ -1,42 +1,34 @@
-// The following code is adapted from the `mock-tonic` crate:
-// https://github.com/tyrchen/tonic-mock
+// The following code is adapted from the `tonic` crate:
+// https://github.com/hyperium/tonic/blob/master/tonic/benches/decode.rs
 use std::{
-    collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
     vec::Vec,
 };
 
-use bytes::{BufMut, Bytes, BytesMut};
-use http_body::{Body, Frame};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use http_body::{Body, Frame, SizeHint};
 use prost::Message;
 use tonic::Status;
 
 #[derive(Clone)]
 pub struct MockBody {
-    data: VecDeque<Bytes>,
+    data: Bytes,
+    chunk_size: usize,
 }
 
 impl MockBody {
     pub fn new(data: Vec<impl Message>) -> Self {
-        let mut queue: VecDeque<Bytes> = VecDeque::with_capacity(16);
+        let mut queue: Vec<Bytes> = Vec::with_capacity(16);
         for msg in data {
-            let buf = Self::encode(&msg);
-            queue.push_back(buf);
+            queue.push(Self::encode(&msg));
         }
-
-        MockBody { data: queue }
+        MockBody {
+            data: Bytes::from(queue.concat()),
+            chunk_size: queue.len(),
+        }
     }
 
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    // see: https://github.com/hyperium/tonic/blob/1b03ece2a81cb7e8b1922b3c3c1f496bd402d76c/tonic/src/codec/encode.rs#L52
     fn encode(msg: &impl Message) -> Bytes {
         let mut buf = BytesMut::with_capacity(256);
 
@@ -61,21 +53,21 @@ impl Body for MockBody {
 
     fn poll_frame(
         mut self: Pin<&mut Self>,
-        _: &mut Context<'_>,
+        _cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        if self.is_end_stream() {
-            Poll::Ready(None)
+        if self.data.has_remaining() {
+            let split = std::cmp::min(self.chunk_size, self.data.remaining());
+            Poll::Ready(Some(Ok(Frame::data(self.data.split_to(split)))))
         } else {
-            let msg = self.data.pop_front().unwrap();
-            Poll::Ready(Some(Ok(Frame::data(msg))))
+            Poll::Ready(None)
         }
     }
 
     fn is_end_stream(&self) -> bool {
-        self.is_empty()
+        !self.data.is_empty()
     }
 
-    fn size_hint(&self) -> http_body::SizeHint {
-        http_body::SizeHint::with_exact(self.len() as u64)
+    fn size_hint(&self) -> SizeHint {
+        SizeHint::with_exact(self.data.len() as u64)
     }
 }

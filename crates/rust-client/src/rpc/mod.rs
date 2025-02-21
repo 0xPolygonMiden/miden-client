@@ -85,7 +85,6 @@ pub use web_tonic_client::WebTonicRpcClient;
 
 use crate::{
     store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
-    sync::get_nullifier_prefix,
     transaction::ForeignAccount,
 };
 
@@ -190,9 +189,7 @@ pub trait NodeRpcClient {
         nullifier: &Nullifier,
         block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers = self
-            .check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)], block_num)
-            .await?;
+        let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()], block_num).await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
     }
