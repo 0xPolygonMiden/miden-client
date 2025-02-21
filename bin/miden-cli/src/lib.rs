@@ -112,8 +112,8 @@ impl Cli {
         let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
         let client = Client::new(
-            Box::new(TonicRpcClient::new(
-                &(cli_config.rpc.endpoint.clone().into()),
+            Arc::new(TonicRpcClient::new(
+                &cli_config.rpc.endpoint.clone().into(),
                 cli_config.rpc.timeout_ms,
             )),
             rng,
