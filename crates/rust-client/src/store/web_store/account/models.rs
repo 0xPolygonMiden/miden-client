@@ -11,13 +11,6 @@ pub struct AccountCodeIdxdbObject {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AccountAuthIdxdbObject {
-    pub id: String,
-    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub auth_info: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct AccountStorageIdxdbObject {
     pub root: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]

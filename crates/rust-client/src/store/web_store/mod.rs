@@ -10,7 +10,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
@@ -168,9 +168,8 @@ impl Store for WebStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        self.insert_account(account, account_seed, auth_info).await
+        self.insert_account(account, account_seed).await
     }
 
     async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
@@ -179,13 +178,6 @@ impl Store for WebStore {
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids().await
-    }
-
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth_by_pub_key(pub_key)
     }
 
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
@@ -211,13 +203,6 @@ impl Store for WebStore {
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, StoreError> {
         self.get_account(account_id).await
-    }
-
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth(account_id).await
     }
 
     async fn upsert_foreign_account_code(

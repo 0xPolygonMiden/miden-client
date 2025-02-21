@@ -3,12 +3,13 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
+    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
     rpc::WebTonicRpcClient,
-    store::{web_store::WebStore, StoreAuthenticator},
+    store::web_store::WebStore,
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_proving_service_client::RemoteTransactionProver;
+use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -27,6 +28,7 @@ pub mod transactions;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     remote_prover: Option<Arc<RemoteTransactionProver>>,
+    keystore: Option<WebKeyStore>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -45,6 +47,7 @@ impl WebClient {
             inner: None,
             remote_prover: None,
             store: None,
+            keystore: None,
         }
     }
 
@@ -77,16 +80,20 @@ impl WebClient {
             .await
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
-        let authenticator = Arc::new(StoreAuthenticator::new_with_rng(web_store.clone(), rng));
+
+        let keystore = WebKeyStore {};
+
+        let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
         let web_rpc_client = Arc::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 
-        self.remote_prover = prover_url
-            .map(|prover_url| Arc::new(RemoteTransactionProver::new(&prover_url.to_string())));
+        self.remote_prover =
+            prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
         self.inner =
             Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
+        self.keystore = Some(keystore);
 
         Ok(JsValue::from_str("Client created successfully"))
     }
