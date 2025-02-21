@@ -291,7 +291,7 @@ impl<R: FeltRng> Client<R> {
         let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
 
         let (consumed_note_updates, transactions_to_discard) =
-            self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
+            self.consumed_note_updates(vec![], &transactions_to_commit).await?;
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
