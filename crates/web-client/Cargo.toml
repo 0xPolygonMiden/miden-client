@@ -25,7 +25,6 @@ testing = ["miden-client/testing"]
 miden-client = { version = "0.8", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-proving-service-client = { workspace = true }
 miden-tx = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
