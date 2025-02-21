@@ -225,7 +225,7 @@ impl NodeRpcClient for MockRpcApi {
         let mut sync_responses = vec![];
         let mut next_block = block_num;
 
-        for block in &self.blocks {
+        for block in &self.blocks[block_num.as_usize()..] {
             let block_num = block.header().block_num();
             if block_num == self.get_chain_tip_block_num() {
                 break;
@@ -304,10 +304,17 @@ impl NodeRpcClient for MockRpcApi {
     async fn check_nullifiers_by_prefix(
         &self,
         _prefix: &[u16],
-        _block_num: BlockNumber,
+        block_num: BlockNumber,
     ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
-        // Always return an empty list for now since it's only used when importing
-        Ok(vec![])
+        let mut nullifiers = vec![];
+        for block in &self.blocks[block_num.as_usize()..] {
+            let new_nullifiers = block
+                .created_nullifiers()
+                .iter()
+                .map(|nullifier| (*nullifier, block.header().block_num().as_u32()));
+            nullifiers.extend(new_nullifiers);
+        }
+        Ok(nullifiers)
     }
 }
 
