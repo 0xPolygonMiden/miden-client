@@ -161,9 +161,14 @@ pub trait NodeRpcClient {
 
     /// Fetches the nullifiers corresponding to a list of prefixes using the
     /// `/CheckNullifiersByPrefix` RPC endpoint.
+    ///
+    /// - `prefix` is a list of nullifiers prefixes to search for.
+    /// - `block_num` is the block number to start the search from. Nullifiers created in this block
+    ///   or the following blocks will be included.
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefix: &[u16],
+        block_num: BlockNumber,
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
@@ -180,14 +185,17 @@ pub trait NodeRpcClient {
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
+    /// The `block_num` parameter is the block number to start the search from.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
         &mut self,
         nullifier: &Nullifier,
+        block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers =
-            self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
+        let nullifiers = self
+            .check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)], block_num)
+            .await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
     }
