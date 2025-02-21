@@ -1,7 +1,12 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    account::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
+    account::{Account, AccountFile},
+    authenticator::keystore::{FilesystemKeyStore, KeyStore},
+    crypto::FeltRng,
+    store::NoteExportType,
+    utils::Serializable,
+    Client, Word,
 };
 use tracing::info;
 
@@ -49,9 +54,13 @@ impl From<&ExportType> for NoteExportType {
 }
 
 impl ExportCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        keystore: FilesystemKeyStore,
+    ) -> Result<(), CliError> {
         if self.account {
-            export_account(&client, self.id.as_str(), self.filename.clone()).await?;
+            export_account(&client, &keystore, self.id.as_str(), self.filename.clone()).await?;
         } else if let Some(export_type) = &self.export_type {
             export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type).await?;
         } else {
@@ -66,8 +75,9 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-async fn export_account<R: FeltRng>(
-    client: &Client<R>,
+async fn export_account(
+    client: &Client<impl FeltRng>,
+    keystore: &FilesystemKeyStore,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, CliError> {
@@ -79,12 +89,14 @@ async fn export_account<R: FeltRng>(
         .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
     let account_seed = account.seed().copied();
 
-    let auth = client
-        .get_account_auth(account_id)
-        .await?
-        .ok_or(CliError::Export(format!("Account with ID {account_id} not found")))?;
+    let account: Account = account.into();
 
-    let account_data = AccountData::new(account.into(), account_seed, auth);
+    let auth = keystore
+        .get_key(get_public_key_from_account(&account))
+        .map_err(CliError::KeyStore)?
+        .ok_or(CliError::Export("Auth not found for account".to_string()))?;
+
+    let account_data = AccountFile::new(account, account_seed, auth);
 
     let file_path = if let Some(filename) = filename {
         filename
@@ -138,4 +150,16 @@ async fn export_note(
 
     println!("Succesfully exported note {note_id}");
     Ok(file)
+}
+
+/// Gets the public key from the storage of an account. This will only work if the account is
+/// created by the CLI as it expects the public key to be stored in index 0 of the account storage
+/// if it is a regular account, and in index 1 if it is a faucet account.
+pub fn get_public_key_from_account(account: &Account) -> Word {
+    Word::from(
+        account
+            .storage()
+            .get_item(u8::from(account.is_faucet()))
+            .expect("Account should have the public key in storage"),
+    )
 }

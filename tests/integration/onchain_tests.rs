@@ -1,4 +1,7 @@
 use miden_client::{
+    account::build_wallet_id,
+    auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
@@ -14,26 +17,30 @@ use super::common::*;
 #[tokio::test]
 async fn test_onchain_notes_flow() {
     // Client 1 is an private faucet which will mint an onchain note for client 2
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client().await;
     // Client 2 is an private account which will consume the note that it will sync from the node
-    let mut client_2 = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
     // Client 3 will be transferred part of the assets by client 2's account
-    let mut client_3 = create_test_client().await;
+    let (mut client_3, keystore_3) = create_test_client().await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
-    let (faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
+    let (faucet_account, ..) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &keystore_1)
             .await
             .unwrap();
 
     // Create regular accounts
-    let (basic_wallet_1, _) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (basic_wallet_1, ..) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
+            .await
+            .unwrap();
 
     // Create regular accounts
-    let (basic_wallet_2, _) =
-        insert_new_wallet(&mut client_3, AccountStorageMode::Private).await.unwrap();
+    let (basic_wallet_2, ..) =
+        insert_new_wallet(&mut client_3, AccountStorageMode::Private, &keystore_3)
+            .await
+            .unwrap();
 
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
@@ -132,18 +139,24 @@ async fn test_onchain_notes_flow() {
 
 #[tokio::test]
 async fn test_onchain_accounts() {
-    let mut client_1 = create_test_client().await;
-    let mut client_2 = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
     wait_for_node(&mut client_2).await;
 
-    let (first_regular_account, _second_regular_account, faucet_account_header) =
-        setup(&mut client_1, AccountStorageMode::Public).await;
+    let (faucet_account_header, _, secret_key) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
+            .await
+            .unwrap();
 
-    let (
-        second_client_first_regular_account,
-        _other_second_regular_account,
-        _other_faucet_account_header,
-    ) = setup(&mut client_2, AccountStorageMode::Private).await;
+    let (first_regular_account, ..) =
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &keystore_1)
+            .await
+            .unwrap();
+
+    let (second_client_first_regular_account, ..) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
+            .await
+            .unwrap();
 
     let target_account_id = first_regular_account.id();
     let second_client_target_account_id = second_client_first_regular_account.id();
@@ -151,11 +164,9 @@ async fn test_onchain_accounts() {
 
     let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
-    let auth_info = client_1.get_account_auth(faucet_account_id).await.unwrap().unwrap();
-    client_2
-        .add_account(&faucet_account_header, faucet_seed, &auth_info, false)
-        .await
-        .unwrap();
+
+    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    client_2.add_account(&faucet_account_header, faucet_seed, false).await.unwrap();
 
     // First Mint necesary token
     println!("First client consuming note");

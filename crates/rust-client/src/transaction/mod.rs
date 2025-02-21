@@ -73,13 +73,13 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{Account, AccountCode, AccountDelta, AccountId, AccountType},
+    account::{Account, AccountCode, AccountDelta, AccountId, AccountType, AuthSecretKey},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
-    crypto::merkle::MerklePath,
+    crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, Word, ZERO,
+    AccountError, AssetError, Digest, Felt, Word, ZERO,
 };
 use miden_tx::{
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -93,6 +93,7 @@ use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
+    account::procedure_roots::RPO_FALCON_512_AUTH,
     note::{NoteScreener, NoteUpdates},
     rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
@@ -824,14 +825,13 @@ impl<R: FeltRng> Client<R> {
 
     /// Retrieves the account capabilities for the specified account.
     async fn get_account_capabilities(
-        &self,
+        &mut self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
         let account: Account = self.try_get_account(account_id).await?.into();
-        let account_auth = self.try_get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
-        let account_capabilities = match account.account_type() {
+        let interfaces = match account.account_type() {
             AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
             AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
             AccountType::RegularAccountImmutableCode | AccountType::RegularAccountUpdatableCode => {
@@ -839,11 +839,19 @@ impl<R: FeltRng> Client<R> {
             },
         };
 
-        Ok(AccountCapabilities {
-            account_id,
-            auth: account_auth,
-            interfaces: account_capabilities,
-        })
+        let auth = if account
+            .code()
+            .procedure_roots()
+            .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
+        {
+            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(self.rng()))
+        } else {
+            return Err(ClientError::AccountError(AccountError::AssumptionViolated(
+                "Account doesn't have authentication procedure".to_string(),
+            )));
+        };
+
+        Ok(AccountCapabilities { account_id, auth, interfaces })
     }
 
     /// Injects foreign account data inputs into `tx_args` (account proof, code commitment and
@@ -1054,7 +1062,7 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{account::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        account::{AccountBuilder, AccountComponent, StorageMap, StorageSlot},
+        account::{AccountBuilder, AccountComponent, AuthSecretKey, StorageMap, StorageSlot},
         asset::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
         note::NoteType,
@@ -1071,13 +1079,14 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
+        authenticator::keystore::KeyStore,
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let (mut client, _) = create_test_client().await;
+        let (mut client, _, keystore) = create_test_client().await;
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()
@@ -1088,6 +1097,8 @@ mod test {
                 .into();
 
         let secret_key = SecretKey::new();
+        let pub_key = secret_key.public_key();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,
@@ -1102,20 +1113,12 @@ mod test {
         let account = AccountBuilder::new(Default::default())
             .anchor((&anchor_block).try_into().unwrap())
             .with_component(wallet_component)
-            .with_component(RpoFalcon512::new(secret_key.public_key()))
+            .with_component(RpoFalcon512::new(pub_key))
             .with_assets([asset_1, asset_2])
             .build_existing()
             .unwrap();
 
-        client
-            .add_account(
-                &account,
-                None,
-                &miden_objects::account::AuthSecretKey::RpoFalcon512(secret_key.clone()),
-                false,
-            )
-            .await
-            .unwrap();
+        client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequestBuilder::pay_to_id(
             PaymentTransactionData::new(

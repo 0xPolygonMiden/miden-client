@@ -33,10 +33,11 @@ mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_added_notes() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let (_, _, faucet_account_header) = setup(&mut client, AccountStorageMode::Private).await;
+    let (_, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
@@ -60,11 +61,11 @@ async fn test_added_notes() {
 
 #[tokio::test]
 async fn test_multiple_tx_on_same_block() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -151,11 +152,11 @@ async fn test_multiple_tx_on_same_block() {
 
 #[tokio::test]
 async fn test_p2id_transfer() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -244,11 +245,11 @@ async fn test_p2id_transfer() {
 
 #[tokio::test]
 async fn test_p2id_transfer_failing_not_enough_balance() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -284,11 +285,11 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
 
 #[tokio::test]
 async fn test_p2idr_transfer_consumed_by_target() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -393,11 +394,11 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
 #[tokio::test]
 async fn test_p2idr_transfer_consumed_by_sender() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -485,10 +486,10 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
 #[tokio::test]
 async fn test_get_consumable_notes() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -550,10 +551,10 @@ async fn test_get_consumable_notes() {
 
 #[tokio::test]
 async fn test_get_output_notes() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
 
     let (first_regular_account, _, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
@@ -604,13 +605,15 @@ async fn test_get_output_notes() {
 
 #[tokio::test]
 async fn test_import_expected_notes() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator_1).await;
 
-    let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (client_2_account, _seed, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -687,13 +690,15 @@ async fn test_import_expected_notes() {
 
 #[tokio::test]
 async fn test_import_expected_note_uncommitted() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator) = create_test_client().await;
     let (_, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator).await;
 
-    let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (mut client_2, _) = create_test_client().await;
+    let (client_2_account, _seed, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -726,13 +731,15 @@ async fn test_import_expected_note_uncommitted() {
 
 #[tokio::test]
 async fn test_import_expected_notes_from_the_past_as_committed() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator_1).await;
 
-    let mut client_2 = create_test_client().await;
-    let (_client_2_account, _seed) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (_client_2_account, _seed, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -775,12 +782,15 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
 #[tokio::test]
 async fn test_get_account_update() {
     // Create a client with both public and private accounts.
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
 
-    let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Private).await;
+    let (basic_wallet_1, _, faucet_account) =
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
-    let (basic_wallet_2, _) =
-        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
+    let (basic_wallet_2, ..) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public, &authenticator)
+            .await
+            .unwrap();
 
     // Mint and consume notes with both accounts so they are included in the node.
     let note1 =
@@ -799,7 +809,7 @@ async fn test_get_account_update() {
     // Request updates from node for both accounts. The request should not fail and both types of
     // [`AccountDetails`] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
-    let (endpoint, timeout, _) = get_client_config();
+    let (endpoint, timeout, ..) = get_client_config();
     let rpc_api = TonicRpcClient::new(&endpoint, timeout);
     let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
@@ -810,16 +820,18 @@ async fn test_get_account_update() {
 
 #[tokio::test]
 async fn test_sync_detail_values() {
-    let mut client1 = create_test_client().await;
-    let mut client2 = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client().await;
     wait_for_node(&mut client1).await;
     wait_for_node(&mut client2).await;
 
     let (first_regular_account, _, faucet_account_header) =
-        setup(&mut client1, AccountStorageMode::Private).await;
+        setup(&mut client1, AccountStorageMode::Private, &authenticator_1).await;
 
-    let (second_regular_account, _) =
-        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
+    let (second_regular_account, ..) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -868,10 +880,10 @@ async fn test_sync_detail_values() {
 /// we can check that each transaction gets marked as committed in the corresponding block.
 #[tokio::test]
 async fn test_multiple_transactions_can_be_committed_in_different_blocks_without_sync() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
 
     let (first_regular_account, _second_regular_account, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
@@ -1020,16 +1032,16 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 /// - Consuming unauthenticated notes.
 #[tokio::test]
 async fn test_consume_multiple_expected_notes() {
-    let mut client = create_test_client().await;
-    let mut unauth_client = create_test_client().await;
+    let (mut client, authenticator_1) = create_test_client().await;
+    let (mut unauth_client, authenticator_2) = create_test_client().await;
 
     wait_for_node(&mut client).await;
 
     // Setup accounts
     let (target_basic_account_1, _, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
-    let (target_basic_account_2, _) =
-        insert_new_wallet(&mut unauth_client, AccountStorageMode::Private)
+        setup(&mut client, AccountStorageMode::Private, &authenticator_1).await;
+    let (target_basic_account_2, ..) =
+        insert_new_wallet(&mut unauth_client, AccountStorageMode::Private, &authenticator_2)
             .await
             .unwrap();
     unauth_client.sync_state().await.unwrap();
@@ -1109,13 +1121,15 @@ async fn test_consume_multiple_expected_notes() {
 
 #[tokio::test]
 async fn test_import_consumed_note_with_proof() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_regular_account, _, faucet_account_header) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator_1).await;
 
-    let mut client_2 = create_test_client().await;
-    let (client_2_account, _seed) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (client_2_account, _seed, _) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1170,11 +1184,11 @@ async fn test_import_consumed_note_with_proof() {
 
 #[tokio::test]
 async fn test_import_consumed_note_with_id() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator) = create_test_client().await;
     let (first_regular_account, second_regular_account, faucet_account_header) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator).await;
 
-    let mut client_2 = create_test_client().await;
+    let (mut client_2, _) = create_test_client().await;
 
     wait_for_node(&mut client_2).await;
 
@@ -1224,13 +1238,15 @@ async fn test_import_consumed_note_with_id() {
 
 #[tokio::test]
 async fn test_discarded_transaction() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_regular_account, _, faucet_account_header) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
+        setup(&mut client_1, AccountStorageMode::Private, &authenticator_1).await;
 
-    let mut client_2 = create_test_client().await;
-    let (second_regular_account, _) =
-        insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    let (mut client_2, authenticator_2) = create_test_client().await;
+    let (second_regular_account, ..) =
+        insert_new_wallet(&mut client_2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1319,9 +1335,9 @@ async fn test_custom_transaction_prover() {
         }
     }
 
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     let (first_regular_account, _, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private).await;
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let from_account_id = first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
@@ -1358,16 +1374,17 @@ async fn test_custom_transaction_prover() {
 
 #[tokio::test]
 async fn test_locked_account() {
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, authenticator) = create_test_client().await;
 
-    let (faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private)
+    let (faucet_account, ..) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
-    let (private_account, seed) =
-        insert_new_wallet(&mut client_1, AccountStorageMode::Private).await.unwrap();
-    let auth = client_1.get_account_auth(private_account.id()).await.unwrap().unwrap();
+    let (private_account, seed, _) =
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
     let from_account_id = private_account.id();
     let faucet_account_id = faucet_account.id();
@@ -1382,8 +1399,8 @@ async fn test_locked_account() {
     let private_account = client_1.get_account(from_account_id).await.unwrap().unwrap().into();
 
     // Import private account in client 2
-    let mut client_2 = create_test_client().await;
-    client_2.add_account(&private_account, seed.into(), &auth, false).await.unwrap();
+    let (mut client_2, _) = create_test_client().await;
+    client_2.add_account(&private_account, seed.into(), false).await.unwrap();
 
     wait_for_node(&mut client_2).await;
 
@@ -1406,7 +1423,7 @@ async fn test_locked_account() {
     // Get updated account from client 1 and import it in client 2 with `overwrite` flag
     let updated_private_account =
         client_1.get_account(from_account_id).await.unwrap().unwrap().into();
-    client_2.add_account(&updated_private_account, None, &auth, true).await.unwrap();
+    client_2.add_account(&updated_private_account, None, true).await.unwrap();
 
     // After sync the private account shouldn't be locked in client 2
     client_2.sync_state().await.unwrap();
@@ -1416,13 +1433,16 @@ async fn test_locked_account() {
 
 #[tokio::test]
 async fn test_expired_transaction_fails() {
-    let mut client = create_test_client().await;
-    let (faucet_account, _) = insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
-        .await
-        .unwrap();
+    let (mut client, authenticator) = create_test_client().await;
+    let (faucet_account, ..) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (private_account, _) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (private_account, ..) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
     let from_account_id = private_account.id();
     let faucet_account_id = faucet_account.id();

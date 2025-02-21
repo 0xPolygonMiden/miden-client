@@ -1,4 +1,5 @@
 use miden_client::{
+    authenticator::keystore,
     note::NoteExecutionHint,
     store::NoteFilter,
     transaction::{InputNote, TransactionRequest, TransactionRequestBuilder},
@@ -53,16 +54,18 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
@@ -134,16 +137,18 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
@@ -224,20 +229,24 @@ async fn test_merkle_store() {
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
     // Client 1 has an private faucet which will mint an onchain note for client 2
-    let mut client_1 = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client().await;
     // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
     // whose tag doesn't necessarily match any of its accounts
-    let mut client_2 = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
     // Client 3 will be the control client. We won't add any tags and expect the note not to be
     // fetched
-    let mut client_3 = create_test_client().await;
+    let (mut client_3, ..) = create_test_client().await;
     wait_for_node(&mut client_3).await;
 
     // Create accounts
-    let (basic_account_1, _) =
-        insert_new_wallet(&mut client_1, AccountStorageMode::Private).await.unwrap();
+    let (basic_account_1, ..) =
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &keystore_1)
+            .await
+            .unwrap();
 
-    insert_new_wallet(&mut client_2, AccountStorageMode::Private).await.unwrap();
+    insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
+        .await
+        .unwrap();
 
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
