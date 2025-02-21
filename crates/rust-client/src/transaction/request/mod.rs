@@ -426,8 +426,8 @@ mod tests {
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),
             ])
-            .unwrap()
-            .build();
+            .build()
+            .unwrap();
 
         let mut buffer = Vec::new();
         tx_request.write_into(&mut buffer);

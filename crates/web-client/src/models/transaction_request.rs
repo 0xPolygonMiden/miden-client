@@ -248,13 +248,13 @@ impl TransactionRequestBuilder {
 
     pub fn with_own_output_notes(mut self, notes: &OutputNotesArray) -> Self {
         let native_output_notes: Vec<NativeOutputNote> = notes.into();
-        self.0 = self.0.clone().with_own_output_notes(native_output_notes).unwrap();
+        self.0 = self.0.clone().with_own_output_notes(native_output_notes);
         self
     }
 
     pub fn with_custom_script(mut self, script: &TransactionScript) -> Self {
         let native_script: NativeTransactionScript = script.into();
-        self.0 = self.0.clone().with_custom_script(native_script).unwrap();
+        self.0 = self.0.clone().with_custom_script(native_script);
         self
     }
 
@@ -281,7 +281,7 @@ impl TransactionRequestBuilder {
     }
 
     pub fn build(self) -> TransactionRequest {
-        TransactionRequest(self.0.build())
+        TransactionRequest(self.0.build().unwrap())
     }
 }
 
