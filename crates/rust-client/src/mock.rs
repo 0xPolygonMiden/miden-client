@@ -220,7 +220,6 @@ impl NodeRpcClient for MockRpcApi {
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
-        _nullifiers_tags: &[u16],
     ) -> Result<Streaming<SyncStateResponse>, RpcError> {
         // Collect sync responses for each block until the chain tip
         let mut sync_responses = vec![];
