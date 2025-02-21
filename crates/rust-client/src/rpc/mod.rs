@@ -47,8 +47,8 @@ use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
-    sync::StateSyncInfo,
 };
+use generated::responses::SyncStateResponse;
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
@@ -56,6 +56,7 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
+use tonic::Streaming;
 
 /// Contains domain types related to RPC requests and responses, as well as utility functions
 /// for dealing with them.
@@ -127,9 +128,9 @@ pub trait NodeRpcClient {
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint.
     ///
-    /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
-    ///   should contain data starting from the next block, until the first block which contains a
-    ///   note of matching the requested tag, or the chain tip if there are no notes.
+    /// - `block_num` is the last block number known by the client. The returned stream will receive
+    ///   updates starting from the next block, for blocks that contain a note matching the
+    ///   requested tag. Responses will be sent until the chain tip is reached.
     /// - `account_ids` is a list of account IDs and determines the accounts the client is
     ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
@@ -141,8 +142,7 @@ pub trait NodeRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError>;
+    ) -> Result<Streaming<SyncStateResponse>, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint.
@@ -158,9 +158,14 @@ pub trait NodeRpcClient {
 
     /// Fetches the nullifiers corresponding to a list of prefixes using the
     /// `/CheckNullifiersByPrefix` RPC endpoint.
+    ///
+    /// - `prefix` is a list of nullifiers prefixes to search for.
+    /// - `block_num` is the block number to start the search from. Nullifiers created in this block
+    ///   or the following blocks will be included.
     async fn check_nullifiers_by_prefix(
         &self,
         prefix: &[u16],
+        block_num: BlockNumber,
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
@@ -177,14 +182,17 @@ pub trait NodeRpcClient {
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
+    /// The `block_num` parameter is the block number to start the search from.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
         &self,
         nullifier: &Nullifier,
+        block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers =
-            self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
+        let nullifiers = self
+            .check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)], block_num)
+            .await?;
 
         Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
     }

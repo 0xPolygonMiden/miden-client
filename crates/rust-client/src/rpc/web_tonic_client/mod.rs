@@ -16,13 +16,13 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
+use tonic::Streaming;
 use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
         account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
         note::{NetworkNote, NoteSyncInfo},
-        sync::StateSyncInfo,
     },
     generated::{
         requests::{
@@ -30,6 +30,7 @@ use super::{
             GetAccountProofsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
             SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
+        responses::SyncStateResponse,
         rpc::api_client::ApiClient,
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
@@ -181,25 +182,22 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcError> {
+    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
             block_num: block_num.as_u32(),
             account_ids,
             note_tags,
-            nullifiers,
         };
 
         let response = query_client.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
-        response.into_inner().try_into()
+        Ok(response.into_inner())
     }
 
     async fn sync_notes(
@@ -370,12 +368,14 @@ impl NodeRpcClient for WebTonicRpcClient {
     async fn check_nullifiers_by_prefix(
         &self,
         prefixes: &[u16],
+        block_num: BlockNumber,
     ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
+            block_num: block_num.as_u32(),
         };
 
         let response = query_client.check_nullifiers_by_prefix(request).await.map_err(|err| {

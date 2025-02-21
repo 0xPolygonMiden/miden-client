@@ -153,8 +153,13 @@ impl<R: FeltRng> Client<R> {
             .into(),
         ));
 
-        if let Some(block_height) =
-            self.rpc_api.get_nullifier_commit_height(&note_record.nullifier()).await?
+        if let Some(block_height) = self
+            .rpc_api
+            .get_nullifier_commit_height(
+                &note_record.nullifier(),
+                inclusion_proof.location().block_num(),
+            )
+            .await?
         {
             if note_record.consumed_externally(note_record.nullifier(), block_height)? {
                 return Ok(Some(note_record));

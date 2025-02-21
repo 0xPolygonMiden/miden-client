@@ -13,10 +13,12 @@ use tracing::info;
 use super::{block_header::BlockUpdates, get_nullifier_prefix, StateSyncUpdate};
 use crate::{
     account::AccountUpdates,
+    alloc::string::ToString,
     note::{NoteScreener, NoteUpdates},
     rpc::{
-        domain::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate},
+        domain::{note::CommittedNote, nullifier::NullifierUpdate, sync::StateSyncInfo},
         NodeRpcClient,
+        RpcError::ConnectionError,
     },
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     transaction::TransactionUpdates,
@@ -142,30 +144,58 @@ impl StateSync {
             ..Default::default()
         };
 
-        while self
-            .sync_state_step(
+        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
+            .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
+        .into();
+        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
+
+        let mut stream =
+            self.rpc_api.sync_state(current_block_num, &account_ids, &note_tags).await?;
+
+        while let Some(res) = stream
+            .message()
+            .await
+            .map_err(|e| ClientError::RpcError(ConnectionError(e.message().to_string())))?
+        {
+            self.sync_state_step(
+                res.try_into().map_err(ClientError::RpcError)?,
                 &mut state_sync_update,
                 &mut current_partial_mmr,
                 &accounts,
-                &note_tags,
-                &nullifiers_tags,
             )
-            .await?
-        {
-            // New nullfiers should be added for new untracked notes that were added in previous
-            // steps
-            nullifiers_tags.append(
-                &mut state_sync_update
-                    .note_updates
-                    .updated_input_notes()
-                    .filter(|note| {
-                        note.is_committed()
-                            && !nullifiers_tags.contains(&get_nullifier_prefix(&note.nullifier()))
-                    })
-                    .map(|note| get_nullifier_prefix(&note.nullifier()))
-                    .collect::<Vec<_>>(),
-            );
+            .await?;
         }
+
+        // New nullfiers should be added for new untracked notes
+        nullifiers_tags.append(
+            &mut state_sync_update
+                .note_updates
+                .updated_input_notes()
+                .map(|note| get_nullifier_prefix(&note.nullifier()))
+                .collect::<Vec<_>>(),
+        );
+        let new_nullifiers = self
+            .rpc_api
+            .check_nullifiers_by_prefix(&nullifiers_tags, current_block_num)
+            .await?;
+
+        // Process nullifiers
+        let transactions = vec![];
+        let mut discarded_transactions = vec![];
+        for (nullifier, block_num) in new_nullifiers {
+            let nullifier_update = NullifierUpdate { nullifier, block_num };
+            if (self.on_nullifier_received)(nullifier_update.clone()).await? {
+                let discarded_transaction = state_sync_update
+                    .note_updates
+                    .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
+
+                if let Some(transaction_id) = discarded_transaction {
+                    discarded_transactions.push(transaction_id);
+                }
+            }
+        }
+        let transaction_updates = TransactionUpdates::new(transactions, discarded_transactions);
+        state_sync_update.transaction_updates.extend(transaction_updates);
 
         Ok(state_sync_update)
     }
@@ -181,45 +211,28 @@ impl StateSync {
     /// step.
     async fn sync_state_step(
         &mut self,
+        response: StateSyncInfo,
         state_sync_update: &mut StateSyncUpdate,
         current_partial_mmr: &mut PartialMmr,
         accounts: &[AccountHeader],
-        note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
-    ) -> Result<bool, ClientError> {
-        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
-            .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
-        .into();
-        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
-
-        let response = self
-            .rpc_api
-            .sync_state(current_block_num, &account_ids, note_tags, nullifiers_tags)
-            .await?;
-
+    ) -> Result<(), ClientError> {
         state_sync_update.block_num = response.block_header.block_num();
-
-        // We don't need to continue if the chain has not advanced, there are no new changes
-        if response.block_header.block_num() == current_block_num {
-            return Ok(false);
-        }
 
         let account_updates =
             self.account_state_sync(accounts, &response.account_hash_updates).await?;
 
         state_sync_update.account_updates = account_updates;
+        state_sync_update
+            .transaction_updates
+            .extend(TransactionUpdates::new(response.transactions, vec![]));
 
-        let (found_relevant_note, transaction_updates) = self
+        let found_relevant_note = self
             .note_state_sync(
                 &mut state_sync_update.note_updates,
                 response.note_inclusions,
-                response.transactions,
-                response.nullifiers,
                 &response.block_header,
             )
             .await?;
-
-        state_sync_update.transaction_updates.extend(transaction_updates);
 
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
             &response.block_header,
@@ -233,11 +246,7 @@ impl StateSync {
             new_authentication_nodes,
         ));
 
-        if response.chain_tip == response.block_header.block_num() {
-            Ok(false)
-        } else {
-            Ok(true)
-        }
+        Ok(())
     }
 
     // HELPERS
@@ -302,7 +311,7 @@ impl StateSync {
     }
 
     /// Applies the changes received from the sync response to the notes and transactions tracked
-    /// by the client and updates the `state_sync_update` accordingly.
+    /// by the client and updates the `note_updates` accordingly.
     ///
     /// This method uses the callbacks provided to the [`StateSync`] component to check if the
     /// updates received are relevant to the client.
@@ -322,17 +331,14 @@ impl StateSync {
         &mut self,
         note_updates: &mut NoteUpdates,
         note_inclusions: Vec<CommittedNote>,
-        transactions: Vec<TransactionUpdate>,
-        nullifiers: Vec<NullifierUpdate>,
         block_header: &BlockHeader,
-    ) -> Result<(bool, TransactionUpdates), ClientError> {
+    ) -> Result<bool, ClientError> {
         let public_note_ids: Vec<NoteId> = note_inclusions
             .iter()
             .filter_map(|note| (!note.metadata().is_private()).then_some(*note.note_id()))
             .collect();
 
         let mut found_relevant_note = false;
-        let mut discarded_transactions = vec![];
 
         // Process note inclusions
         let new_public_notes =
@@ -354,22 +360,7 @@ impl StateSync {
             }
         }
 
-        // Process nullifiers
-        for nullifier_update in nullifiers {
-            if (self.on_nullifier_received)(nullifier_update.clone()).await? {
-                let discarded_transaction = note_updates
-                    .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
-
-                if let Some(transaction_id) = discarded_transaction {
-                    discarded_transactions.push(transaction_id);
-                }
-            }
-        }
-
-        Ok((
-            found_relevant_note,
-            TransactionUpdates::new(transactions, discarded_transactions),
-        ))
+        Ok(found_relevant_note)
     }
 
     /// Queries the node for all received notes that aren't being locally tracked in the client.
