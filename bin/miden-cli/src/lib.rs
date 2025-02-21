@@ -9,6 +9,7 @@ use miden_client::{
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    sync::{on_note_received, StateSync},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -111,14 +112,28 @@ impl Cli {
             .map_err(CliError::KeyStore)?;
         let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
+        let rpc_api = Arc::new(TonicRpcClient::new(
+            &cli_config.rpc.endpoint.clone().into(),
+            cli_config.rpc.timeout_ms,
+        ));
+
+        let state_sync_component = StateSync::new(
+            rpc_api.clone(),
+            Box::new({
+                let store_clone = store.clone();
+                move |committed_note, public_note| {
+                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+                }
+            }),
+            Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
+        );
+
         let client = Client::new(
-            Arc::new(TonicRpcClient::new(
-                &cli_config.rpc.endpoint.clone().into(),
-                cli_config.rpc.timeout_ms,
-            )),
+            rpc_api,
             rng,
             store as Arc<dyn Store>,
             Arc::new(authenticator),
+            state_sync_component,
             in_debug_mode,
         );
 

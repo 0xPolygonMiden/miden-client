@@ -54,7 +54,7 @@
 //! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
 //! processed and applied to the local store.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use core::cmp::max;
 
 use miden_objects::{
@@ -64,7 +64,6 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::TransactionId,
 };
-use state_sync::on_note_received;
 
 use crate::{store::NoteFilter, Client, ClientError};
 
@@ -74,7 +73,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{OnNoteReceived, OnNullifierReceived, StateSync};
+pub use state_sync::{on_note_received, OnNoteReceived, OnNullifierReceived, StateSync};
 
 mod state_sync_update;
 pub use state_sync_update::StateSyncUpdate;
@@ -117,17 +116,6 @@ impl<R: FeltRng> Client<R> {
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         _ = self.ensure_genesis_in_place().await?;
 
-        let state_sync = StateSync::new(
-            self.rpc_api.clone(),
-            Box::new({
-                let store_clone = self.store.clone();
-                move |committed_note, public_note| {
-                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
-                }
-            }),
-            Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
-        );
-
         // Get current state of the client
         let accounts = self
             .store
@@ -144,7 +132,8 @@ impl<R: FeltRng> Client<R> {
         let unspent_output_notes = self.store.get_output_notes(NoteFilter::Unspent).await?;
 
         // Get the sync update from the network
-        let state_sync_update = state_sync
+        let state_sync_update = self
+            .state_sync_component
             .sync_state(
                 self.build_current_partial_mmr().await?,
                 accounts,

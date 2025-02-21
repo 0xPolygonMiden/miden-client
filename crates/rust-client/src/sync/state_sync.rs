@@ -118,7 +118,7 @@ impl StateSync {
     /// * `unspent_input_notes` - The current state of unspent input notes tracked by the client.
     /// * `unspent_output_notes` - The current state of unspent output notes tracked by the client.
     pub async fn sync_state(
-        mut self,
+        &self,
         mut current_partial_mmr: PartialMmr,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
@@ -180,7 +180,7 @@ impl StateSync {
     /// The `sync_state_update` field of the struct will be updated with the new changes from this
     /// step.
     async fn sync_state_step(
-        &mut self,
+        &self,
         state_sync_update: &mut StateSyncUpdate,
         current_partial_mmr: &mut PartialMmr,
         accounts: &[AccountHeader],
@@ -253,7 +253,7 @@ impl StateSync {
     ///   match the one received from the node. The client will need to handle these cases as they
     ///   could be a stale account state or a reason to lock the account.
     async fn account_state_sync(
-        &mut self,
+        &self,
         accounts: &[AccountHeader],
         account_hash_updates: &[(AccountId, Digest)],
     ) -> Result<AccountUpdates, ClientError> {
@@ -319,7 +319,7 @@ impl StateSync {
     /// * Local tracked transactions that were discarded because the notes that they were processing
     ///   were nullified by an another transaction.
     async fn note_state_sync(
-        &mut self,
+        &self,
         note_updates: &mut NoteUpdates,
         note_inclusions: Vec<CommittedNote>,
         transactions: Vec<TransactionUpdate>,
