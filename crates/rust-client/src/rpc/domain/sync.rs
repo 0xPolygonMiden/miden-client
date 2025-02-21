@@ -5,7 +5,7 @@ use miden_objects::{
     transaction::TransactionId, Digest,
 };
 
-use super::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate};
+use super::{note::CommittedNote, transaction::TransactionUpdate};
 use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
 
 // STATE SYNC INFO
@@ -21,9 +21,6 @@ pub struct StateSyncInfo {
     pub account_hash_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes.
     pub note_inclusions: Vec<CommittedNote>,
-    /// List of nullifiers that identify spent notes along with the block number at which they were
-    /// consumed.
-    pub nullifiers: Vec<NullifierUpdate>,
     /// List of transaction IDs of transaction that were included in (`request.block_num`,
     /// `response.block_num-1`) along with the account the tx was executed against and the block
     /// number the transaction was included in.
@@ -93,25 +90,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             note_inclusions.push(committed_note);
         }
 
-        let nullifiers = value
-            .nullifiers
-            .iter()
-            .map(|nul_update| {
-                let nullifier_digest = nul_update
-                    .nullifier
-                    .ok_or(RpcError::ExpectedDataMissing("Nullifier".into()))?;
-
-                let nullifier_digest = Digest::try_from(nullifier_digest)?;
-
-                let nullifier_block_num = nul_update.block_num;
-
-                Ok(NullifierUpdate {
-                    nullifier: nullifier_digest.into(),
-                    block_num: nullifier_block_num,
-                })
-            })
-            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
-
         let transactions = value
             .transactions
             .iter()
@@ -141,7 +119,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             mmr_delta,
             account_hash_updates,
             note_inclusions,
-            nullifiers,
             transactions,
         })
     }

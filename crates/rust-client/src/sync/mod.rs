@@ -54,7 +54,7 @@
 //! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
 //! processed and applied to the local store.
 
-use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::cmp::max;
 
 use miden_objects::{

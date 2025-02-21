@@ -41,7 +41,7 @@ use crate::{
         generated::{
             merkle::MerklePath,
             note::NoteSyncRecord,
-            responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
+            responses::{SyncNoteResponse, SyncStateResponse},
         },
         NodeRpcClient, RpcError,
     },
@@ -167,23 +167,12 @@ impl MockRpcApi {
         // Collect notes that are in the next block
         let notes = self.get_notes_in_block(next_block_num).collect();
 
-        // Collect nullifiers from the next block
-        let nullifiers = next_block
-            .created_nullifiers()
-            .iter()
-            .map(|n| NullifierUpdate {
-                nullifier: Some(n.inner().into()),
-                block_num: next_block_num.as_u32(),
-            })
-            .collect();
-
         SyncStateResponse {
             block_header: Some(next_block.header().into()),
             mmr_delta,
             accounts: vec![],
             transactions: vec![],
             notes,
-            nullifiers,
         }
     }
 
@@ -316,6 +305,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn check_nullifiers_by_prefix(
         &self,
         _prefix: &[u16],
+        _block_num: BlockNumber,
     ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
