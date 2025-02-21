@@ -10,14 +10,13 @@ use config::RpcConfig;
 use miden_client::{
     self,
     account::{
-        component::{BasicWallet, RpoFalcon512},
-        AccountBuilder, AccountId, AccountStorageMode, AccountType,
+        AccountId, AccountStorageMode,
     },
     authenticator::{
-        keystore::{self, FilesystemKeyStore},
+        keystore::{FilesystemKeyStore},
         ClientAuthenticator,
     },
-    crypto::{FeltRng, RpoRandomCoin, SecretKey},
+    crypto::{FeltRng, RpoRandomCoin},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
@@ -268,15 +267,8 @@ async fn test_cli_export_import_note() {
     sync_cli(&temp_dir_1);
 
     // Let's try and mint
-    mint_cli(&temp_dir_1, &first_basic_account_id, &fungible_faucet_account_id);
-
-    // Create a Client to get notes
-    let note_to_export_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await.0;
-        let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
-
-        output_notes.first().unwrap().id().to_hex()
-    };
+    let note_to_export_id =
+        mint_cli(&temp_dir_1, &first_basic_account_id, &fungible_faucet_account_id);
 
     // Export without type fails
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
@@ -462,13 +454,7 @@ async fn test_consume_unauthenticated_note() {
     sync_cli(&temp_dir);
 
     // Mint
-    mint_cli(&temp_dir, &wallet_account_id, &fungible_faucet_account_id);
-
-    // Get consumable note to consume without authentication
-    let client = create_test_client_with_store_path(&store_path).await.0;
-    let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
-
-    let note_id = output_notes.first().unwrap().id().to_hex();
+    let note_id = mint_cli(&temp_dir, &wallet_account_id, &fungible_faucet_account_id);
 
     // Consume the note, internally this checks that the note was consumed correctly
     consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
@@ -623,7 +609,7 @@ fn sync_cli(cli_path: &Path) {
 
 /// Mints 100 units of the corresponding faucet using the cli and checks that the command runs
 /// successfully given account using the CLI given by `cli_path`.
-fn mint_cli(cli_path: &Path, target_account_id: &str, faucet_id: &str) {
+fn mint_cli(cli_path: &Path, target_account_id: &str, faucet_id: &str) -> String {
     let mut mint_cmd = Command::cargo_bin("miden").unwrap();
     mint_cmd.args([
         "mint",
@@ -635,7 +621,17 @@ fn mint_cli(cli_path: &Path, target_account_id: &str, faucet_id: &str) {
         "private",
         "--force",
     ]);
-    mint_cmd.current_dir(cli_path).assert().success();
+
+    let output = mint_cmd.current_dir(cli_path).output().unwrap();
+    assert!(output.status.success());
+
+    String::from_utf8(output.stdout)
+        .unwrap()
+        .split_whitespace()
+        .skip_while(|&word| word != "Output")
+        .find(|word| word.starts_with("0x"))
+        .unwrap()
+        .to_string()
 }
 
 /// Shows note details using the cli and checks that the command runs
