@@ -40,7 +40,6 @@ comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { version = "0.8", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
 miden-lib = { workspace = true }
-miden-proving-service-client = { workspace = true , features = ["std", "tx-prover"]}
 miden-objects = { workspace = true }
 miette = { workspace = true }
 rand = { workspace = true }
