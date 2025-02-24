@@ -438,7 +438,8 @@ async fn test_mint_transaction() {
         client.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -465,7 +466,8 @@ async fn test_get_output_notes() {
         client.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
@@ -528,8 +530,8 @@ async fn test_transaction_request_expiration() {
     )
     .unwrap()
     .with_expiration_delta(5)
-    .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -562,7 +564,8 @@ async fn test_import_processing_note_returns_error() {
         client.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     let transaction =
         client.new_transaction(faucet.id(), transaction_request.clone()).await.unwrap();
@@ -572,8 +575,10 @@ async fn test_import_processing_note_returns_error() {
     let note = client.get_input_note(note_id).await.unwrap().unwrap();
 
     let input = [(note.try_into().unwrap(), None)];
-    let consume_note_request =
-        TransactionRequestBuilder::new().with_unauthenticated_input_notes(input).build();
+    let consume_note_request = TransactionRequestBuilder::new()
+        .with_unauthenticated_input_notes(input)
+        .build()
+        .unwrap();
     let transaction = client
         .new_transaction(account.id(), consume_note_request.clone())
         .await
@@ -618,7 +623,7 @@ async fn test_no_nonce_change_transaction_request() {
     let tx_script = client.compile_tx_script(vec![], code).unwrap();
 
     let transaction_request =
-        TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap().build();
+        TransactionRequestBuilder::new().with_custom_script(tx_script).build().unwrap();
 
     let transaction_execution_result =
         client.new_transaction(regular_account.id(), transaction_request).await.unwrap();
@@ -660,8 +665,8 @@ async fn test_note_without_asset() {
     // Create and execute transaction
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note)])
-        .unwrap()
-        .build();
+        .build()
+        .unwrap();
 
     let transaction = client.new_transaction(wallet.id(), transaction_request.clone()).await;
 
@@ -675,8 +680,8 @@ async fn test_note_without_asset() {
 
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note)])
-        .unwrap()
-        .build();
+        .build()
+        .unwrap();
 
     let error = client.new_transaction(faucet.id(), transaction_request).await.unwrap_err();
 
