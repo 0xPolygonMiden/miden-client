@@ -11,7 +11,7 @@ use miden_objects::{
     account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
@@ -23,7 +23,8 @@ use tracing::info;
 use super::{
     domain::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
-        note::NetworkNote, nullifier::NullifierUpdate,
+        note::NetworkNote,
+        nullifier::NullifierUpdate,
     },
     generated::{
         requests::{
@@ -414,7 +415,7 @@ impl NodeRpcClient for TonicRpcClient {
                 let nullifier =
                     nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
                 let nullifier = nullifier.try_into()?;
-                Ok(NullifierUpdate {nullifier,block_num: nul.block_num})
+                Ok(NullifierUpdate { nullifier, block_num: nul.block_num })
             })
             .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
         Ok(nullifiers)

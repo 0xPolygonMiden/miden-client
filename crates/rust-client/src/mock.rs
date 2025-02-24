@@ -32,7 +32,10 @@ use crate::{
     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     rpc::{
         domain::{
-            account::{AccountDetails, AccountProofs}, note::{NetworkNote, NoteSyncInfo}, nullifier::NullifierUpdate, sync::StateSyncInfo
+            account::{AccountDetails, AccountProofs},
+            note::{NetworkNote, NoteSyncInfo},
+            nullifier::NullifierUpdate,
+            sync::StateSyncInfo,
         },
         generated::{
             merkle::MerklePath,

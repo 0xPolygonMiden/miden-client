@@ -56,7 +56,7 @@
 //! processed and applied to the local store.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use core::{cmp::max, ptr::null};
+use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
@@ -194,9 +194,6 @@ pub struct StateSyncUpdate {
 // CONSTANTS
 // ================================================================================================
 
-/// The number of bits to shift identifiers for in use of filters.
-pub(crate) const FILTER_ID_SHIFT: u8 = 48;
-
 /// Client syncronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
@@ -229,7 +226,6 @@ impl<R: FeltRng> Client<R> {
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0.into());
-        let current_height = self.get_sync_height().await?;
         loop {
             let response = self.sync_state_once().await?;
             let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
@@ -270,7 +266,10 @@ impl<R: FeltRng> Client<R> {
             .map(Nullifier::prefix)
             .collect();
 
-        let nullifiers = self.rpc_api.check_nullifiers_by_prefix(&nullifiers_tags, current_block_num).await?;
+        let nullifiers = self
+            .rpc_api
+            .check_nullifiers_by_prefix(&nullifiers_tags, current_block_num)
+            .await?;
 
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();

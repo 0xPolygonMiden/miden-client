@@ -45,7 +45,10 @@ use core::fmt;
 
 use async_trait::async_trait;
 use domain::{
-    account::{AccountDetails, AccountProofs}, note::{NetworkNote, NoteSyncInfo}, nullifier::NullifierUpdate, sync::StateSyncInfo
+    account::{AccountDetails, AccountProofs},
+    note::{NetworkNote, NoteSyncInfo},
+    nullifier::NullifierUpdate,
+    sync::StateSyncInfo,
 };
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
@@ -190,11 +193,12 @@ pub trait NodeRpcClient {
         nullifier: &Nullifier,
         block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers = self
-            .check_nullifiers_by_prefix(&[nullifier.prefix()], block_num)
-            .await?;
+        let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()], block_num).await?;
 
-        Ok(nullifiers.iter().find(|update| update.nullifier == *nullifier).map(|update| update.block_num))
+        Ok(nullifiers
+            .iter()
+            .find(|update| update.nullifier == *nullifier)
+            .map(|update| update.block_num))
     }
 
     /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with
