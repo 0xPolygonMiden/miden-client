@@ -152,7 +152,7 @@ pub trait NodeRpcClient {
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError>;
 
-    /// Fetches the notes related to the specified tags using the `/SyncNote` RPC endpoint.
+    /// Fetches the notes related to the specified tags using the `/SyncNotes` RPC endpoint.
     ///
     /// - `block_num` is the last block number known by the client.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in.
