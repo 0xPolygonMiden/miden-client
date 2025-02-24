@@ -73,7 +73,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{on_note_received, OnNoteReceived, OnNullifierReceived, StateSync};
+pub use state_sync::{on_note_received, OnNoteReceived, StateSync};
 
 mod state_sync_update;
 pub use state_sync_update::StateSyncUpdate;

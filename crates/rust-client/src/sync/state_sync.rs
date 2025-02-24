@@ -41,15 +41,6 @@ pub type OnNoteReceived = Box<
     ) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>,
 >;
 
-/// Callback to be executed when a nullifier is received as part of the the sync response. It
-/// receives the nullifier update received from the network.
-///
-/// It returns a boolean indicating if the received note update is relevant
-/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to
-/// the client's store.
-pub type OnNullifierReceived =
-    Box<dyn Fn(NullifierUpdate) -> Pin<Box<dyn Future<Output = Result<bool, ClientError>>>>>;
-
 // STATE SYNC
 // ================================================================================================
 
@@ -67,8 +58,6 @@ pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// Callback to be executed when a new note inclusion is received.
     on_note_received: OnNoteReceived,
-    /// Callback to be executed when a nullifier is received.
-    on_nullifier_received: OnNullifierReceived,
 }
 
 impl StateSync {
@@ -79,16 +68,8 @@ impl StateSync {
     /// * `rpc_api` - The RPC client used to communicate with the node.
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
     /// * `on_nullifier_received` - A callback to be executed when a nullifier is received.
-    pub fn new(
-        rpc_api: Arc<dyn NodeRpcClient + Send>,
-        on_note_received: OnNoteReceived,
-        on_nullifier_received: OnNullifierReceived,
-    ) -> Self {
-        Self {
-            rpc_api,
-            on_note_received,
-            on_nullifier_received,
-        }
+    pub fn new(rpc_api: Arc<dyn NodeRpcClient + Send>, on_note_received: OnNoteReceived) -> Self {
+        Self { rpc_api, on_note_received }
     }
 
     /// Syncs the state of the client with the chain tip of the node, returning the updates that
@@ -358,13 +339,11 @@ impl StateSync {
 
         // Process nullifiers
         for nullifier_update in nullifiers {
-            if (self.on_nullifier_received)(nullifier_update.clone()).await? {
-                let discarded_transaction = note_updates
-                    .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
+            let discarded_transaction = note_updates
+                .apply_nullifiers_state_transitions(&nullifier_update, &transactions)?;
 
-                if let Some(transaction_id) = discarded_transaction {
-                    discarded_transactions.push(transaction_id);
-                }
+            if let Some(transaction_id) = discarded_transaction {
+                discarded_transactions.push(transaction_id);
             }
         }
 

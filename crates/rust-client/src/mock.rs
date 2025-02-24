@@ -333,7 +333,6 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
                 Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
             }
         }),
-        Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
     );
 
     let client =
