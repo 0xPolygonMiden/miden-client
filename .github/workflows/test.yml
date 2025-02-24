@@ -60,7 +60,7 @@ jobs:
         with:
           node-version: "20"
       - name: Configure setuid sandbox
-        run: sudo bash ./scripts/configure-sandbox.sh
+        run: . ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
@@ -83,7 +83,7 @@ jobs:
         with:
           node-version: "20"
       - name: Configure setuid sandbox
-        run: sudo bash ./scripts/configure-sandbox.sh
+        run: . ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
