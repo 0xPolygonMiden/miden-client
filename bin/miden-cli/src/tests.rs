@@ -95,7 +95,7 @@ fn test_init_with_params() {
 /// This test tries to run a mint TX using the CLI for an account that isn't tracked.
 #[tokio::test]
 async fn test_mint_with_untracked_account() {
-    let (store_path, temp_dir) = init_cli("localhost");
+    let temp_dir = init_cli("localhost").1;
 
     // Create faucet account
     let fungible_faucet_account_id = new_faucet_cli(&temp_dir, AccountStorageMode::Private);
@@ -110,7 +110,7 @@ async fn test_mint_with_untracked_account() {
     );
 
     // Sleep for a while to ensure the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected).await;
+    sync_until_committed_tx(&temp_dir);
 }
 
 // IMPORT TESTS
@@ -179,7 +179,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     );
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected).await;
+    sync_until_committed_tx(&temp_dir);
 }
 
 // This tests that it's possible to export and import notes into other CLIs. To do so it:
@@ -193,7 +193,7 @@ async fn test_cli_export_import_note() {
     const NOTE_FILENAME: &str = "test_note.mno";
 
     let temp_dir_1 = init_cli("localhost").1;
-    let (store_path_2, temp_dir_2) = init_cli("localhost");
+    let temp_dir_2 = init_cli("localhost").1;
 
     // Create wallet account
     let first_basic_account_id = new_wallet_cli(&temp_dir_2, AccountStorageMode::Private);
@@ -237,7 +237,7 @@ async fn test_cli_export_import_note() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected).await;
+    sync_until_committed_tx(&temp_dir_2);
 
     show_note_cli(&temp_dir_2, &note_to_export_id, false);
     // Consume the note
@@ -302,7 +302,7 @@ async fn test_cli_export_import_account() {
     mint_cli(&temp_dir_2, &wallet_id, &faucet_id);
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected).await;
+    sync_until_committed_tx(&temp_dir_2);
 
     // Get consumable note
     let client = create_test_client_with_store_path(&store_path_2).await.0;
@@ -316,7 +316,7 @@ async fn test_cli_export_import_account() {
 
 #[test]
 fn test_cli_empty_commands() {
-    let (_, temp_dir) = init_cli("localhost");
+    let temp_dir = init_cli("localhost").1;
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
     assert_command_fails_but_does_not_panic(
@@ -488,13 +488,25 @@ fn init_cli_with_store_path(network: &str, store_path: &Path) -> PathBuf {
 
 // Syncs CLI on directory. It'll try syncing until the command executes successfully. If it never
 // executes successfully, eventually the test will time out (provided the nextest config has a
-// timeout set).
-fn sync_cli(cli_path: &Path) {
+// timeout set). It returns the number of committed transactions after the sync.
+fn sync_cli(cli_path: &Path) -> u64 {
     loop {
         let mut sync_cmd = Command::cargo_bin("miden").unwrap();
         sync_cmd.args(["sync"]);
-        if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
-            break;
+
+        let output = sync_cmd.current_dir(cli_path).output().unwrap();
+
+        if output.status.success() {
+            let committed_transactions = String::from_utf8(output.stdout)
+                .unwrap()
+                .split_whitespace()
+                .skip_while(|&word| word != "transactions:")
+                .find(|word| word.parse::<u64>().is_ok())
+                .unwrap()
+                .parse()
+                .unwrap();
+
+            return committed_transactions;
         }
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
@@ -559,12 +571,9 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
     send_cmd.current_dir(cli_path).assert().success();
 }
 
-/// Syncs until there are no input notes satisfying the provided filter.
-async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
-    let client = create_test_client_with_store_path(store_path).await.0;
-
-    while !client.get_input_notes(filter.clone()).await.unwrap().is_empty() {
-        sync_cli(cli_path);
+/// Syncs until a transaction is committed.
+fn sync_until_committed_tx(cli_path: &Path) {
+    while sync_cli(cli_path) == 0 {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
