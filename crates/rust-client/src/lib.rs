@@ -58,6 +58,7 @@
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
 //!     store::{sqlite_store::SqliteStore, Store},
+//!     sync::{on_note_received, StateSync},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
@@ -82,11 +83,25 @@
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
+//! let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, 10_000));
+//!
+//! let state_sync_component = StateSync::new(
+//!     rpc_api.clone(),
+//!     Box::new({
+//!         let store_clone = store.clone();
+//!         move |committed_note, public_note| {
+//!             Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+//!         }
+//!     }),
+//!     Box::new(move |_committed_note| Box::pin(async { Ok(true) })),
+//! );
+//!
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
+//!     rpc_api,
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
+//!     state_sync_component,
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!

@@ -138,6 +138,10 @@ impl StateSync {
             unspent_nullifiers.map(|nullifier| nullifier.prefix()).collect();
 
         let mut state_sync_update = StateSyncUpdate {
+            block_num: (u32::try_from(current_partial_mmr.num_leaves() - 1).expect(
+                "The number of leaves in the MMR should be greater than 0 and less than 2^32",
+            ))
+            .into(),
             note_updates: NoteUpdates::new(unspent_input_notes, unspent_output_notes),
             ..Default::default()
         };
@@ -186,9 +190,8 @@ impl StateSync {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<bool, ClientError> {
-        let current_block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
-            .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
-        .into();
+        let current_block_num = state_sync_update.block_num;
+
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
 
         let response = self
@@ -196,17 +199,17 @@ impl StateSync {
             .sync_state(current_block_num, &account_ids, note_tags, nullifiers_tags)
             .await?;
 
-        state_sync_update.block_num = response.block_header.block_num();
-
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
             return Ok(false);
         }
 
+        state_sync_update.block_num = response.block_header.block_num();
+
         let account_updates =
             self.account_state_sync(accounts, &response.account_hash_updates).await?;
 
-        state_sync_update.account_updates = account_updates;
+        state_sync_update.account_updates.extend(account_updates);
 
         let (found_relevant_note, transaction_updates) = self
             .note_state_sync(
