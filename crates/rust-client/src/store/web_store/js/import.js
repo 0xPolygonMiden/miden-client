@@ -22,7 +22,7 @@ async function recursivelyTransformForImport(obj) {
   return obj; // Return unchanged if it's neither Blob, Array, nor Object
 }
 
-export async function importStore(jsonStr) {
+export async function forceImportStore(jsonStr) {
   try {
     if (!db.isOpen) {
       await openDatabase();

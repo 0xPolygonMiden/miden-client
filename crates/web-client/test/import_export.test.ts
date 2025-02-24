@@ -9,7 +9,6 @@ const exportDb = async () => {
     const client = window.client;
     const db = await client.export_store();
     const serialized = JSON.stringify(db);
-    console.log("lenth: ", serialized.length);
     return serialized;
   });
 };
@@ -17,7 +16,7 @@ const exportDb = async () => {
 const importDb = async (db: any) => {
   return await testingPage.evaluate(async (_db) => {
     const client = window.client;
-    await client.import_store(_db);
+    await client.force_import_store(_db);
   }, db);
 };
 
@@ -28,13 +27,14 @@ const getAccount = async (accountId: string) => {
     const account = await client.get_account(accountId);
     return {
       accountId: account?.id().to_string(),
+      accountHash: account?.hash().to_hex(),
     };
   }, accountId);
 };
 
 describe("export and import the db", () => {
   it("export db with an account, find the account when re-importing", async () => {
-    const { accountId: initialAccountId, faucetId } =
+    const { accountHash: initialAccountHash, accountId } =
       await setupWalletAndFaucet();
     const dbDump = await exportDb();
 
@@ -42,8 +42,8 @@ describe("export and import the db", () => {
 
     await importDb(dbDump);
 
-    const { accountId } = await getAccount(initialAccountId);
+    const { accountHash } = await getAccount(accountId);
 
-    expect(accountId).to.equal(initialAccountId);
+    expect(accountHash).to.equal(initialAccountHash);
   });
 });

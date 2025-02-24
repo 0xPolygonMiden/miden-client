@@ -176,6 +176,7 @@ export const consumeTransaction = async (
 interface SetupWalletFaucetResult {
   accountId: string;
   faucetId: string;
+  accountHash: string;
 }
 
 export const setupWalletAndFaucet =
@@ -197,6 +198,7 @@ export const setupWalletAndFaucet =
 
       return {
         accountId: account.id().to_string(),
+        accountHash: account.hash().to_hex(),
         faucetId: faucetAccount.id().to_string(),
       };
     });
