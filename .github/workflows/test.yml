@@ -60,11 +60,7 @@ jobs:
         with:
           node-version: "20"
       - name: Configure setuid sandbox
-        run: |
-          CHROME_DEVEL_SANDBOX=/opt/google/chrome/chrome-sandbox
-          echo "CHROME_DEVEL_SANDBOX=$CHROME_DEVEL_SANDBOX" >> $GITHUB_ENV
-          sudo chown root:root $CHROME_DEVEL_SANDBOX
-          sudo chmod 4755 $CHROME_DEVEL_SANDBOX
+        run: sudo bash ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
@@ -87,11 +83,7 @@ jobs:
         with:
           node-version: "20"
       - name: Configure setuid sandbox
-        run: |
-          CHROME_DEVEL_SANDBOX=/opt/google/chrome/chrome-sandbox
-          echo "CHROME_DEVEL_SANDBOX=$CHROME_DEVEL_SANDBOX" >> $GITHUB_ENV
-          sudo chown root:root $CHROME_DEVEL_SANDBOX
-          sudo chmod 4755 $CHROME_DEVEL_SANDBOX
+        run: sudo bash ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &

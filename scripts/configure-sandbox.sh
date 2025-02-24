@@ -1,0 +1,4 @@
+CHROME_DEVEL_SANDBOX=/opt/google/chrome/chrome-sandbox
+echo "CHROME_DEVEL_SANDBOX=$CHROME_DEVEL_SANDBOX" >> $GITHUB_ENV
+sudo chown root:root $CHROME_DEVEL_SANDBOX
+sudo chmod 4755 $CHROME_DEVEL_SANDBOX
