@@ -52,16 +52,18 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
@@ -99,9 +101,9 @@ async fn test_transaction_request() {
     let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map.clone())
         .with_custom_script(tx_script)
-        .unwrap()
         .extend_advice_map(advice_map.clone())
-        .build();
+        .build()
+        .unwrap();
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(regular_account.id(), transaction_request).await.is_err());
@@ -115,9 +117,9 @@ async fn test_transaction_request() {
     let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
-        .unwrap()
         .extend_advice_map(advice_map)
-        .build();
+        .build()
+        .unwrap();
 
     // TEST CUSTOM SCRIPT SERIALIZATION
     let mut buffer = Vec::new();
@@ -133,16 +135,18 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let mut client = create_test_client().await;
+    let (mut client, authenticator) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (regular_account, _seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap();
 
-    let (fungible_faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private)
+    let (fungible_faucet, _seed, _) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
             .await
             .unwrap();
 
@@ -210,10 +214,10 @@ async fn test_merkle_store() {
     let transaction_request = TransactionRequestBuilder::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
-        .unwrap()
         .extend_advice_map(advice_map)
         .extend_merkle_store(merkle_store.inner_nodes())
-        .build();
+        .build()
+        .unwrap();
 
     execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
@@ -231,8 +235,8 @@ async fn mint_custom_note(
 
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
-        .unwrap()
-        .build();
+        .build()
+        .unwrap();
 
     execute_tx_and_sync(client, faucet_account_id, transaction_request).await;
     note

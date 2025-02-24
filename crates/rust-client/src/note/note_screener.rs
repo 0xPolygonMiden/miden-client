@@ -31,7 +31,7 @@ impl fmt::Display for NoteRelevance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteRelevance::Always => write!(f, "Always"),
-            NoteRelevance::After(height) => write!(f, "After block {}", height),
+            NoteRelevance::After(height) => write!(f, "After block {height}"),
         }
     }
 }
@@ -68,7 +68,7 @@ impl NoteScreener {
             P2ID => Self::check_p2id_relevance(note, &account_ids)?,
             P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
             SWAP => self.check_swap_relevance(note, &account_ids).await?,
-            _ => self.check_script_relevance(note, &account_ids)?,
+            _ => NoteScreener::check_script_relevance(note, &account_ids),
         };
 
         Ok(note_relevance)
@@ -182,7 +182,7 @@ impl NoteScreener {
                         "Should be able to query has_non_fungible_asset for an Asset::NonFungible",
                     ) =>
                 {
-                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                    accounts_with_relevance.push((*account_id, NoteRelevance::Always));
                 },
                 Asset::Fungible(fungible_asset) => {
                     let asset_faucet_id = fungible_asset.faucet_id();
@@ -192,10 +192,10 @@ impl NoteScreener {
                         .expect("Should be able to query get_balance for an Asset::Fungible")
                         >= fungible_asset.amount()
                     {
-                        accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                        accounts_with_relevance.push((*account_id, NoteRelevance::Always));
                     }
                 },
-                _ => {},
+                Asset::NonFungible(_) => {},
             }
         }
 
@@ -203,16 +203,15 @@ impl NoteScreener {
     }
 
     fn check_script_relevance(
-        &self,
         _note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
+    ) -> Vec<NoteConsumability> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
-        Ok(account_ids
+        account_ids
             .iter()
             .map(|account_id| (*account_id, NoteRelevance::Always))
-            .collect())
+            .collect()
     }
 }
 

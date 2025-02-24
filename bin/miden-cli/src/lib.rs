@@ -5,12 +5,10 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use errors::CliError;
 use miden_client::{
     account::AccountHeader,
+    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
-    store::{
-        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
-        StoreAuthenticator,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -87,7 +85,7 @@ impl Cli {
         // the first time we won't have a config file and thus creating the store would not be
         // possible.
         if let Command::Init(init_cmd) = &self.action {
-            init_cmd.execute(current_dir.clone())?;
+            init_cmd.execute(&current_dir)?;
             return Ok(());
         }
 
@@ -109,11 +107,13 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
+        let keystore = FilesystemKeyStore::new(cli_config.secret_keys_directory.clone())
+            .map_err(CliError::KeyStore)?;
+        let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
-                cli_config.rpc.endpoint.clone().into(),
+                &(cli_config.rpc.endpoint.clone().into()),
                 cli_config.rpc.timeout_ms,
             )),
             rng,
@@ -125,16 +125,16 @@ impl Cli {
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client).await,
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client).await,
-            Command::NewWallet(new_wallet) => new_wallet.execute(client).await,
-            Command::Import(import) => import.execute(client).await,
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client, keystore).await,
+            Command::NewWallet(new_wallet) => new_wallet.execute(client, keystore).await,
+            Command::Import(import) => import.execute(client, keystore).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &cli_config).await,
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            Command::Export(cmd) => cmd.execute(client).await,
+            Command::Export(cmd) => cmd.execute(client, keystore).await,
             Command::Mint(mint) => mint.execute(client).await,
             Command::Send(send) => send.execute(client).await,
             Command::Swap(swap) => swap.execute(client).await,
@@ -162,9 +162,9 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any note where
 ///   `note_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
 pub(crate) async fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
@@ -187,10 +187,8 @@ pub(crate) async fn get_output_note_with_id_prefix(
         ));
     }
     if output_note_records.len() > 1 {
-        let output_note_record_ids = output_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
+        let output_note_record_ids =
+            output_note_records.iter().map(OutputNoteRecord::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple notes found for the prefix {}: {:?}",
             note_id_prefix,
@@ -210,10 +208,10 @@ pub(crate) async fn get_output_note_with_id_prefix(
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any account where
 ///   `account_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
-///   `account_id_prefix` is a prefix of its ID.
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one account found
+///   where `account_id_prefix` is a prefix of its ID.
 async fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,
@@ -238,8 +236,7 @@ async fn get_account_with_id_prefix(
         ));
     }
     if accounts.len() > 1 {
-        let account_ids =
-            accounts.iter().map(|account_header| account_header.id()).collect::<Vec<_>>();
+        let account_ids = accounts.iter().map(AccountHeader::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,

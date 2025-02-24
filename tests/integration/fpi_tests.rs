@@ -1,5 +1,7 @@
 use miden_client::{
     account::{Account, StorageSlot},
+    auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,
@@ -10,7 +12,7 @@ use miden_client::{
 };
 use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
-    account::{AccountBuilder, AccountComponent, AccountStorageMode, AuthSecretKey, StorageMap},
+    account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
     Digest,
@@ -41,23 +43,16 @@ async fn test_standard_fpi_private() {
 /// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
 /// foreign account's code is correctly cached after the transaction.
 async fn test_standard_fpi(storage_mode: AccountStorageMode) {
-    let mut client = create_test_client().await;
+    let (mut client, keystore) = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
-    let (foreign_account, foreign_seed, secret_key, proc_root) =
+    let (foreign_account, foreign_seed, proc_root, secret_key) =
         foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    client
-        .add_account(
-            &foreign_account,
-            Some(foreign_seed),
-            &AuthSecretKey::RpoFalcon512(secret_key.clone()),
-            false,
-        )
-        .await
-        .unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
         "begin 
@@ -75,8 +70,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             foreign_account_id,
             TransactionRequestBuilder::new()
                 .with_custom_script(deployment_tx_script)
-                .unwrap()
-                .build(),
+                .build()
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -86,8 +81,10 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 
     println!("Calling FPI functions with new account");
 
-    let (native_account, _native_seed) =
-        insert_new_wallet(&mut client, AccountStorageMode::Public).await.unwrap();
+    let (native_account, _native_seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public, &keystore)
+            .await
+            .unwrap();
 
     let tx_script = format!(
         "
@@ -128,7 +125,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     assert!(foreign_accounts.is_empty());
 
     // Create transaction request with FPI
-    let builder = TransactionRequestBuilder::new().with_custom_script(tx_script).unwrap();
+    let builder = TransactionRequestBuilder::new().with_custom_script(tx_script);
 
     // We will require slot 0, key `MAP_KEY` as well as account proof
     let storage_requirements =
@@ -141,11 +138,11 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         let foreign_account: Account =
             client.get_account(foreign_account_id).await.unwrap().unwrap().into();
         ForeignAccount::private(
-            ForeignAccountInputs::from_account(foreign_account, storage_requirements).unwrap(),
+            ForeignAccountInputs::from_account(foreign_account, &storage_requirements).unwrap(),
         )
     };
 
-    let tx_request = builder.with_foreign_accounts([foreign_account.unwrap()]).build();
+    let tx_request = builder.with_foreign_accounts([foreign_account.unwrap()]).build().unwrap();
     let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
 
     client.submit_transaction(tx_result).await.unwrap();
@@ -168,12 +165,11 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 /// A tuple containing:
 /// - `Account` - The constructed foreign account.
 /// - `Word` - The seed used to initialize the account.
-/// - `SecretKey` - The secret key associated with the account's authentication component.
 /// - `Digest` - The procedure root of the custom component's procedure.
 pub fn foreign_account(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
-) -> (Account, Word, SecretKey, Digest) {
+) -> (Account, Word, Digest, SecretKey) {
     // store our expected value on map from slot 0 (map key 15)
     let mut storage_map = StorageMap::new();
     storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
@@ -210,5 +206,5 @@ pub fn foreign_account(
         .unwrap();
 
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
-    (account, seed, secret_key, proc_root)
+    (account, seed, proc_root, secret_key)
 }

@@ -13,14 +13,14 @@ use miden_client::{
         component::{BasicWallet, RpoFalcon512},
         AccountBuilder, AccountId, AccountStorageMode, AccountType,
     },
-    auth::AuthSecretKey,
+    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin, SecretKey},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
-    rpc::TonicRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter, StoreAuthenticator},
+    rpc::{Endpoint, TonicRpcClient},
+    store::{sqlite_store::SqliteStore, NoteFilter},
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
@@ -112,7 +112,7 @@ async fn test_mint_with_untracked_account() {
 
     let target_account_id = {
         let other_store_path = create_test_store_path();
-        let mut client = create_test_client_with_store_path(&other_store_path).await;
+        let (mut client, _) = create_test_client_with_store_path(&other_store_path).await;
         let key_pair = SecretKey::with_rng(client.rng());
 
         let mut init_seed = [0u8; 32];
@@ -129,10 +129,7 @@ async fn test_mint_with_untracked_account() {
             .build()
             .unwrap();
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await
-            .unwrap();
+        client.add_account(&new_account, Some(seed), false).await.unwrap();
 
         new_account.id().to_hex()
     };
@@ -158,7 +155,7 @@ async fn test_mint_with_untracked_account() {
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -199,10 +196,8 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
         let cargo_workspace_dir =
             env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let source_path = format!(
-            "{}/../../miden-node/accounts/{}",
-            cargo_workspace_dir, genesis_account_filename
-        );
+        let source_path =
+            format!("{cargo_workspace_dir}/../../miden-node/accounts/{genesis_account_filename}",);
 
         std::fs::copy(source_path, new_file_path).unwrap();
     }
@@ -223,7 +218,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     sync_cli(&temp_dir);
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let (client, _) = create_test_client_with_store_path(&store_path).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
@@ -293,7 +288,7 @@ async fn test_cli_export_import_note() {
     create_wallet_cmd.current_dir(&temp_dir_2).assert().success();
 
     let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_2).await;
+        let client = create_test_client_with_store_path(&store_path_2).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -326,7 +321,7 @@ async fn test_cli_export_import_note() {
     create_faucet_cmd.current_dir(&temp_dir_1).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -339,7 +334,7 @@ async fn test_cli_export_import_note() {
 
     // Create a Client to get notes
     let note_to_export_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
         output_notes.first().unwrap().id().to_hex()
@@ -393,7 +388,8 @@ async fn test_cli_export_import_note() {
 
 #[tokio::test]
 async fn test_cli_export_import_account() {
-    const ACCOUNT_FILENAME: &str = "test_account.acc";
+    const FAUCET_FILENAME: &str = "test_faucet.mac";
+    const WALLET_FILENAME: &str = "test_wallet.wal";
 
     let store_path_1 = create_test_store_path();
     let mut temp_dir_1 = temp_dir();
@@ -427,47 +423,88 @@ async fn test_cli_export_import_account() {
     ]);
     init_cmd.current_dir(&temp_dir_2).assert().success();
 
+    // Create faucet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args([
+        "new-faucet",
+        "-s",
+        "private",
+        "-t",
+        "BTC",
+        "-d",
+        "8",
+        "-m",
+        "100000000000",
+    ]);
+    create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
+
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
     create_wallet_cmd.args(["new-wallet", "-s", "private"]);
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
-    let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1).await;
+    let (faucet_id, wallet_id) = {
+        let client = create_test_client_with_store_path(&store_path_1).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
-        accounts.first().unwrap().0.id().to_hex()
+        let faucet_id =
+            accounts.iter().find(|(acc, _)| acc.id().is_faucet()).unwrap().0.id().to_hex();
+        let wallet_id = accounts
+            .iter()
+            .find(|(acc, _)| acc.id().is_regular_account())
+            .unwrap()
+            .0
+            .id()
+            .to_hex();
+
+        (faucet_id, wallet_id)
     };
 
-    // Export the account
+    // Export the accounts
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args([
-        "export",
-        &first_basic_account_id,
-        "--account",
-        "--filename",
-        ACCOUNT_FILENAME,
-    ]);
+    export_cmd.args(["export", &faucet_id, "--account", "--filename", FAUCET_FILENAME]);
+    export_cmd.current_dir(&temp_dir_1).assert().success();
+    let mut export_cmd = Command::cargo_bin("miden").unwrap();
+    export_cmd.args(["export", &wallet_id, "--account", "--filename", WALLET_FILENAME]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
-    // Copy the account file
-    let mut client_1_account_file_path = temp_dir_1.clone();
-    client_1_account_file_path.push(ACCOUNT_FILENAME);
-    let mut client_2_account_file_path = temp_dir_2.clone();
-    client_2_account_file_path.push(ACCOUNT_FILENAME);
-    std::fs::copy(client_1_account_file_path, client_2_account_file_path).unwrap();
+    // Copy the account files
+    for filename in &[FAUCET_FILENAME, WALLET_FILENAME] {
+        let mut client_1_file_path = temp_dir_1.clone();
+        client_1_file_path.push(filename);
+        let mut client_2_file_path = temp_dir_2.clone();
+        client_2_file_path.push(filename);
+        std::fs::copy(client_1_file_path, client_2_file_path).unwrap();
+    }
 
     // Import the account from the second client
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
-    import_cmd.args(["import", ACCOUNT_FILENAME]);
+    import_cmd.args(["import", FAUCET_FILENAME]);
+    import_cmd.current_dir(&temp_dir_2).assert().success();
+    let mut import_cmd = Command::cargo_bin("miden").unwrap();
+    import_cmd.args(["import", WALLET_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Ensure the account was imported
-    let client_2 = create_test_client_with_store_path(&store_path_2).await;
-    assert!(client_2
-        .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
-        .await
-        .is_ok());
+    let client_2 = create_test_client_with_store_path(&store_path_2).await.0;
+    assert!(client_2.get_account(AccountId::from_hex(&faucet_id).unwrap()).await.is_ok());
+    assert!(client_2.get_account(AccountId::from_hex(&wallet_id).unwrap()).await.is_ok());
+
+    sync_cli(&temp_dir_2);
+
+    mint_cli(&temp_dir_2, &wallet_id, &faucet_id);
+
+    // Wait until the note is committed on the node
+    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected).await;
+
+    // Get consumable note
+    let client = create_test_client_with_store_path(&store_path_2).await.0;
+    let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
+
+    let note_id = output_notes.first().unwrap().id().to_hex();
+
+    // Consume the note
+    consume_note_cli(&temp_dir_2, &wallet_id, &[&note_id]);
 }
 
 #[test]
@@ -515,7 +552,7 @@ async fn test_consume_unauthenticated_note() {
     create_wallet_cmd.current_dir(&temp_dir).assert().success();
 
     let wallet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts[0].0.id().to_hex()
@@ -537,7 +574,7 @@ async fn test_consume_unauthenticated_note() {
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path).await;
+        let client = create_test_client_with_store_path(&store_path).await.0;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts[1].0.id().to_hex()
@@ -549,13 +586,58 @@ async fn test_consume_unauthenticated_note() {
     mint_cli(&temp_dir, &wallet_account_id, &fungible_faucet_account_id);
 
     // Get consumable note to consume without authentication
-    let client = create_test_client_with_store_path(&store_path).await;
+    let client = create_test_client_with_store_path(&store_path).await.0;
     let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
     let note_id = output_notes.first().unwrap().id().to_hex();
 
     // Consume the note, internally this checks that the note was consumed correctly
     consume_note_cli(&temp_dir, &wallet_account_id, &[&note_id]);
+}
+
+// DEVNET & TESTNET TESTS
+// ================================================================================================
+
+#[tokio::test]
+async fn test_init_with_devnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "devnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Check in the config file that the network is devnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(&Endpoint::devnet().to_string()));
+}
+
+#[tokio::test]
+async fn test_init_with_testnet() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--network", "testnet", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Check in the config file that the network is testnet
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(&Endpoint::testnet().to_string()));
 }
 
 // HELPERS
@@ -626,7 +708,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
 
 /// Syncs until there are no input notes satisfying the provided filter.
 async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
-    let client = create_test_client_with_store_path(store_path).await;
+    let client = create_test_client_with_store_path(store_path).await.0;
 
     while !client.get_input_notes(filter.clone()).await.unwrap().is_empty() {
         sync_cli(cli_path);
@@ -651,7 +733,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
+async fn create_test_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -664,13 +746,18 @@ async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(
-        Box::new(TonicRpcClient::new(rpc_config.endpoint.into(), rpc_config.timeout_ms)),
-        rng,
-        store,
-        std::sync::Arc::new(authenticator),
-        true,
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+    (
+        TestClient::new(
+            Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+            rng,
+            store,
+            std::sync::Arc::new(authenticator),
+            true,
+        ),
+        keystore,
     )
 }
 
@@ -688,8 +775,10 @@ async fn debug_mode_outputs_logs() {
 
     // Create a Client and a custom note
     let store_path = create_test_store_path();
-    let mut client = create_test_client_with_store_path(&store_path).await;
-    let (account, _) = insert_new_wallet(&mut client, AccountStorageMode::Private).await.unwrap();
+    let (mut client, authenticator) = create_test_client_with_store_path(&store_path).await;
+    let (account, ..) = insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
+        .await
+        .unwrap();
 
     // Create the custom note
     let note_script = "       
@@ -706,7 +795,7 @@ async fn debug_mode_outputs_logs() {
         NoteType::Private,
         NoteTag::from_account_id(account.id(), NoteExecutionMode::Local).unwrap(),
         NoteExecutionHint::None,
-        Default::default(),
+        Felt::default(),
     )
     .unwrap();
     let note_assets = NoteAssets::new(vec![]).unwrap();
@@ -716,8 +805,8 @@ async fn debug_mode_outputs_logs() {
     // Send transaction and wait for it to be committed
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
-        .unwrap()
-        .build();
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client, account.id(), transaction_request).await;
 
     // Export the note
@@ -748,11 +837,22 @@ async fn debug_mode_outputs_logs() {
 
     sync_cli(&temp_dir);
 
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "public"]);
+    create_wallet_cmd.current_dir(&temp_dir).assert().success();
+
+    let wallet_account_id = {
+        let client = create_test_client_with_store_path(&store_path).await.0;
+        let accounts = client.get_account_headers().await.unwrap();
+
+        accounts[1].0.id().to_hex()
+    };
+
     // Consume the note and check the output
     let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    let account_id = account.id().to_hex();
     let note_id = note.id().to_hex();
-    let mut cli_args = vec!["consume-notes", "--account", &account_id[0..8], "--force"];
+    let mut cli_args = vec!["consume-notes", "--account", &wallet_account_id[0..8], "--force"];
     cli_args.extend_from_slice(vec![note_id.as_str()].as_slice());
     consume_note_cmd.args(&cli_args);
     consume_note_cmd

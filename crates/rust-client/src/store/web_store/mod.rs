@@ -2,7 +2,7 @@
 //!
 //! This module enables persistence of client data (accounts, transactions, notes, block headers,
 //! etc.) when running in a browser. It uses wasm-bindgen to interface with JavaScript and
-//! IndexedDB, allowing the Miden client to store and retrieve data asynchronously.
+//! `IndexedDB`, allowing the Miden client to store and retrieve data asynchronously.
 //!
 //! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
 //! feature enabled.
@@ -10,7 +10,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
@@ -18,7 +18,7 @@ use miden_objects::{
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen, JsFuture};
 
 use super::{
     AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
@@ -58,7 +58,7 @@ impl WebStore {
 impl Store for WebStore {
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
-        Some(now.timestamp() as u64)
+        Some(u64::try_from(now.timestamp()).expect("timestamp is always after epoch"))
     }
 
     // SYNC
@@ -126,7 +126,7 @@ impl Store for WebStore {
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes).await
+        self.insert_block_header(&block_header, chain_mmr_peaks, has_client_notes).await
     }
 
     async fn get_block_headers(
@@ -168,9 +168,8 @@ impl Store for WebStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        self.insert_account(account, account_seed, auth_info).await
+        self.insert_account(account, account_seed).await
     }
 
     async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
@@ -179,13 +178,6 @@ impl Store for WebStore {
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids().await
-    }
-
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth_by_pub_key(pub_key)
     }
 
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
@@ -211,13 +203,6 @@ impl Store for WebStore {
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, StoreError> {
         self.get_account(account_id).await
-    }
-
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth(account_id).await
     }
 
     async fn upsert_foreign_account_code(

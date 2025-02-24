@@ -19,6 +19,7 @@ use crate::{
 
 #[derive(Default, Debug, Clone, Parser)]
 /// View and manage accounts. Defaults to `list` command.
+#[allow(clippy::option_option)]
 pub struct AccountCmd {
     /// List all accounts monitored by this client (default action).
     #[clap(short, long, group = "action")]
@@ -99,7 +100,7 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
 
     let mut table =
         create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce", "Status"]);
-    for (acc, _acc_seed) in accounts.iter() {
+    for (acc, _acc_seed) in &accounts {
         let status = client
             .get_account(acc.id())
             .await?
@@ -192,7 +193,7 @@ pub async fn show_account<R: FeltRng>(
 
         for (idx, entry) in account_storage.slots().iter().enumerate() {
             let item = account_storage
-                .get_item(idx as u8)
+                .get_item(u8::try_from(idx).expect("there are no more than 256 slots"))
                 .map_err(|err| CliError::Account(err, "Index out of bounds".to_string()))?;
 
             // Last entry is reserved so I don't think the user cares about it. Also, to keep the
@@ -252,9 +253,9 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), C
     let (mut current_config, config_path) = load_config_file()?;
 
     // set default account
-    current_config.default_account_id = account_id.map(|id| id.to_hex());
+    current_config.default_account_id = account_id.map(AccountId::to_hex);
 
-    update_config(&config_path, current_config)
+    update_config(&config_path, &current_config)
 }
 
 /// Sets the provided account ID as the default account and updates the config file, if not set

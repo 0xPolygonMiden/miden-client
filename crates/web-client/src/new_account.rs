@@ -1,6 +1,7 @@
 use miden_client::{
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
+    authenticator::keystore::KeyStore,
     crypto::SecretKey,
     Felt,
 };
@@ -19,6 +20,7 @@ impl WebClient {
         mutable: bool,
         init_seed: Option<Vec<u8>>,
     ) -> Result<Account, JsValue> {
+        let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let (new_account, account_seed, key_pair) =
                 generate_account(client, storage_mode, mutable, init_seed).await?;
@@ -33,7 +35,7 @@ impl WebClient {
             {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to insert new wallet: {:?}", err);
+                    let error_message = format!("Failed to insert new wallet: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }
@@ -54,8 +56,10 @@ impl WebClient {
             return Err(JsValue::from_str("Non-fungible faucets are not supported yet"));
         }
 
+        let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let key_pair = SecretKey::with_rng(client.rng());
+            let pub_key = key_pair.public_key();
 
             let mut init_seed = [0u8; 32];
             client.rng().fill_bytes(&mut init_seed);
@@ -71,33 +75,28 @@ impl WebClient {
                 .anchor((&anchor_block).try_into().unwrap())
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512::new(key_pair.public_key()))
+                .with_component(RpoFalcon512::new(pub_key))
                 .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
-                    |err| {
-                        JsValue::from_str(format!("Failed to create new faucet: {}", err).as_str())
-                    },
+                    |err| JsValue::from_str(format!("Failed to create new faucet: {err}").as_str()),
                 )?)
                 .build()
             {
                 Ok(result) => result,
                 Err(err) => {
-                    let error_message = format!("Failed to create new faucet: {:?}", err);
+                    let error_message = format!("Failed to create new faucet: {err:?}");
                     return Err(JsValue::from_str(&error_message));
                 },
             };
 
-            match client
-                .add_account(
-                    &new_account,
-                    Some(seed),
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                    false,
-                )
-                .await
-            {
+            keystore
+                .expect("KeyStore should be initialized")
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .map_err(|err| err.to_string())?;
+
+            match client.add_account(&new_account, Some(seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
-                    let error_message = format!("Failed to insert new faucet: {:?}", err);
+                    let error_message = format!("Failed to insert new faucet: {err:?}");
                     Err(JsValue::from_str(&error_message))
                 },
             }

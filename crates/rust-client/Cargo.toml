@@ -15,6 +15,9 @@ edition.workspace = true
 [lib]
 crate-type = ["lib"]
 
+[lints]
+workspace = true
+
 [features]
 concurrent = ["miden-tx/concurrent", "std"]
 default = []
@@ -34,7 +37,6 @@ hex = { version = "0.4" }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }
-pollster = { version = "0.4" }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
@@ -48,6 +50,9 @@ tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["console", "Window", "Storage"] }
+
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
 miden-lib = { workspace = true, features = ["testing"] }
@@ -57,8 +62,9 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
 
 [build-dependencies]
-miden-rpc-proto = { version = "0.7" }
+miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
 miden-lib = { workspace = true }
+miden-objects = { workspace = true }
 miette = { workspace = true }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
 prost-build = { version = "0.13", default-features = false }

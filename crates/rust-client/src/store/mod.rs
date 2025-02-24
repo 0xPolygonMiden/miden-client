@@ -29,7 +29,7 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteTag, Nullifier},
@@ -41,15 +41,13 @@ use crate::{
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
 
-/// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
-/// [Store]. This isn't public because it's an implementation detail to instantiate the executor.
+/// Contains [`ClientDataStore`] to automatically implement [`DataStore`] for anything that
+/// implements [`Store`]. This isn't public because it's an implementation detail to instantiate the
+/// executor.
 ///
-/// The user is tasked with creating a [Store] which the client will wrap into a [ClientDataStore]
-/// at creation time.
+/// The user is tasked with creating a [`Store`] which the client will wrap into a
+/// [`ClientDataStore`] at creation time.
 pub(crate) mod data_store;
-
-mod authenticator;
-pub use authenticator::StoreAuthenticator;
 
 mod errors;
 pub use errors::*;
@@ -74,14 +72,14 @@ pub use note_record::{
 // STORE TRAIT
 // ================================================================================================
 
-/// The [Store] trait exposes all methods that the client store needs in order to track the current
-/// state.
+/// The [`Store`] trait exposes all methods that the client store needs in order to track the
+/// current state.
 ///
 /// All update functions are implied to be atomic. That is, if multiple entities are meant to be
 /// updated as part of any single function and an error is returned during its execution, any
 /// changes that might have happened up to that point need to be rolled back and discarded.
 ///
-/// Because the [Store]'s ownership is shared between the executor and the client, interior
+/// Because the [`Store`]'s ownership is shared between the executor and the client, interior
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
 #[async_trait(?Send)]
@@ -98,14 +96,14 @@ pub trait Store: Send + Sync {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
-    /// Retrieves stored transactions, filtered by [TransactionFilter].
+    /// Retrieves stored transactions, filtered by [`TransactionFilter`].
     async fn get_transactions(
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Applies a transaction, atomically updating the current state based on the
-    /// [TransactionStoreUpdate].
+    /// [`TransactionStoreUpdate`].
     ///
     /// An update involves:
     /// - Updating the stored account which is being modified by the transaction.
@@ -150,7 +148,7 @@ pub trait Store: Send + Sync {
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
 
-    /// Retrieves a vector of [BlockHeader]s filtered by the provided block numbers.
+    /// Retrieves a vector of [`BlockHeader`]s filtered by the provided block numbers.
     ///
     /// The returned vector may not contain some or all of the requested block headers. It's up to
     /// the callee to check whether all requested block headers were found.
@@ -162,7 +160,7 @@ pub trait Store: Send + Sync {
         block_numbers: &[BlockNumber],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
-    /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
+    /// Retrieves a [`BlockHeader`] corresponding to the provided block number and a boolean value
     /// that represents whether the block contains notes relevant to the client. Returns `None` if
     /// the block is not found.
     ///
@@ -173,10 +171,10 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(&[block_number])
             .await
-            .map(|block_headers_list| block_headers_list.first().cloned())
+            .map(|block_headers_list| block_headers_list.first().copied())
     }
 
-    /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
+    /// Retrieves a list of [`BlockHeader`] that include relevant notes to the client.
     async fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError>;
 
     /// Retrieves all MMR authentication nodes based on [ChainMmrNodeFilter].
@@ -187,7 +185,8 @@ pub trait Store: Send + Sync {
 
     /// Inserts MMR authentication nodes.
     ///
-    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored.
+    /// In the case where the [`InOrderIndex`] already exists on the table, the insertion is
+    /// ignored.
     async fn insert_chain_mmr_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
@@ -195,7 +194,7 @@ pub trait Store: Send + Sync {
 
     /// Returns peaks information from the blockchain by a specific block number.
     ///
-    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks].
+    /// If there is no chain MMR info stored for the provided block returns an empty [`MmrPeaks`].
     async fn get_chain_mmr_peaks_by_block_num(
         &self,
         block_num: BlockNumber,
@@ -220,13 +219,13 @@ pub trait Store: Send + Sync {
     /// Returns the account IDs of all accounts stored in the database.
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// Returns a list of [`AccountHeader`] of all accounts stored in the database along with their
     /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError>;
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
+    /// Retrieves an [`AccountHeader`] object for the specified [`AccountId`] along with its status.
     /// Returns `None` if the account is not found.
     ///
     /// Said account's state is the state according to the last sync performed.
@@ -235,39 +234,23 @@ pub trait Store: Send + Sync {
         account_id: AccountId,
     ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError>;
 
-    /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
-    /// hash. If no account state matches the provided hash, `None` is returned.
+    /// Returns an [`AccountHeader`] corresponding to the stored account state that matches the
+    /// given hash. If no account state matches the provided hash, `None` is returned.
     async fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError>;
 
-    /// Retrieves a full [AccountRecord] object, this contains the account's latest state along with
-    /// its status. Returns `None` if the account is not found.
+    /// Retrieves a full [`AccountRecord`] object, this contains the account's latest state along
+    /// with its status. Returns `None` if the account is not found.
     async fn get_account(&self, account_id: AccountId)
         -> Result<Option<AccountRecord>, StoreError>;
 
-    /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
-    /// This is mainly used for authentication in transactions. Returns `None` if the account is not
-    /// found.
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError>;
-
-    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account. Returns `None`
-    /// if the account is not found.
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError>;
-
-    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey].
+    /// Inserts an [`Account`] along with the seed used to create it.
     async fn insert_account(
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
 
     /// Upserts the account code for a foreign account. This value will be used as a cache of known
@@ -284,7 +267,7 @@ pub trait Store: Send + Sync {
         account_ids: Vec<AccountId>,
     ) -> Result<BTreeMap<AccountId, AccountCode>, StoreError>;
 
-    /// Updates an existing [Account] with a new state.
+    /// Updates an existing [`Account`] with a new state.
     ///
     /// # Errors
     ///
@@ -358,26 +341,26 @@ pub enum TransactionFilter {
 /// Filters for narrowing the set of notes returned by the client's store.
 #[derive(Debug, Clone)]
 pub enum NoteFilter {
-    /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
+    /// Return a list of all notes ([`InputNoteRecord`] or [`OutputNoteRecord`]).
     All,
-    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
-    /// notes that the blockchain has included in a block, and for which we are storing anchor
-    /// data.
+    /// Return a list of committed notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). These
+    /// represent notes that the blockchain has included in a block, and for which we are
+    /// storing anchor data.
     Committed,
-    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been
-    /// used as inputs in transactions.
+    /// Filter by consumed notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). notes that have
+    /// been used as inputs in transactions.
     Consumed,
-    /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
-    /// notes for which the store doesn't have anchor data.
+    /// Return a list of expected notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). These
+    /// represent notes for which the store doesn't have anchor data.
     Expected,
-    /// Return a list containing any notes that match with the provided [NoteId] vector.
+    /// Return a list containing any notes that match with the provided [`NoteId`] vector.
     List(Vec<NoteId>),
-    /// Return a list containing any notes that match the provided [Nullifier] vector.
+    /// Return a list containing any notes that match the provided [`Nullifier`] vector.
     Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that are currently being processed. This filter doesn't apply to
     /// output notes.
     Processing,
-    /// Return a list containing the note that matches with the provided [NoteId]. The query will
+    /// Return a list containing the note that matches with the provided [`NoteId`]. The query will
     /// return an error if the note isn't found.
     Unique(NoteId),
     /// Return a list containing notes that haven't been nullified yet, this includes expected,

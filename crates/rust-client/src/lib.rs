@@ -54,9 +54,10 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
+//!     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
-//!     store::{sqlite_store::SqliteStore, Store, StoreAuthenticator},
+//!     store::{sqlite_store::SqliteStore, Store},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
@@ -74,13 +75,15 @@
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 //!
-//! // Create a store authenticator with the store and random coin.
-//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+//! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
+//!
+//! // Create a authenticator with the keystore and random coin.
+//! let authenticator = ClientAuthenticator::new(rng, keystore);
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     Box::new(TonicRpcClient::new(endpoint, 10_000)),
+//!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
@@ -105,6 +108,7 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
+pub mod authenticator;
 pub mod note;
 pub mod rpc;
 pub mod store;
@@ -205,15 +209,16 @@ use tracing::info;
 pub struct Client<R: FeltRng> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Arc<dyn Store>,
-    /// An instance of [FeltRng] which provides randomness tools for generating new keys,
+    /// An instance of [`FeltRng`] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
     rng: R,
-    /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
+    /// An instance of [`NodeRpcClient`] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
-    /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
+    /// An instance of a [`LocalTransactionProver`] which will be the default prover for the
+    /// client.
     tx_prover: Arc<LocalTransactionProver>,
-    /// An instance of a [TransactionExecutor] that will be used to execute transactions.
+    /// An instance of a [`TransactionExecutor`] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
@@ -224,16 +229,16 @@ impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new instance of [Client].
+    /// Returns a new instance of [`Client`].
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
+    /// - `api`: An instance of [`NodeRpcClient`] which provides a way for the client to connect to
     ///   the Miden node.
-    /// - `store`: An instance of [Store], which provides a way to write and read entities to
+    /// - `store`: An instance of [`Store`], which provides a way to write and read entities to
     ///   provide persistence.
-    /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
-    ///   retrieve relevant inputs at the moment of transaction execution. It should be the same
+    /// - `executor_store`: An instance of [`Store`] that provides a way for [`TransactionExecutor`]
+    ///   to retrieve relevant inputs at the moment of transaction execution. It should be the same
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
@@ -265,8 +270,8 @@ impl<R: FeltRng> Client<R> {
             store,
             rng,
             rpc_api,
-            tx_executor,
             tx_prover,
+            tx_executor,
             in_debug_mode,
         }
     }

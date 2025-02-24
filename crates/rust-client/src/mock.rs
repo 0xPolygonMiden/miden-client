@@ -10,12 +10,12 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     account::{AccountCode, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
         merkle::{Mmr, MmrProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
         note::NoteBuilder,
@@ -29,6 +29,7 @@ use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
+    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     rpc::{
         domain::{
             account::{AccountDetails, AccountProofs},
@@ -36,12 +37,13 @@ use crate::{
             sync::StateSyncInfo,
         },
         generated::{
+            merkle::MerklePath,
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
         NodeRpcClient, RpcError,
     },
-    store::{sqlite_store::SqliteStore, StoreAuthenticator},
+    store::sqlite_store::SqliteStore,
     transaction::ForeignAccount,
     Client,
 };
@@ -55,7 +57,7 @@ pub type MockClient = Client<RpoRandomCoin>;
 #[derive(Clone)]
 pub struct MockRpcApi {
     pub notes: BTreeMap<NoteId, InputNote>,
-    pub blocks: Vec<Block>,
+    pub blocks: Vec<ProvenBlock>,
     pub mock_chain: MockChain,
 }
 impl Default for MockRpcApi {
@@ -118,7 +120,7 @@ impl MockRpcApi {
 
     /// Returns the current MMR of the blockchain.
     pub fn get_mmr(&self) -> Mmr {
-        self.blocks.iter().map(Block::hash).into()
+        self.blocks.iter().map(ProvenBlock::hash).into()
     }
 
     /// Retrieves the note at the specified position.
@@ -132,7 +134,7 @@ impl MockRpcApi {
     }
 
     /// Retrieves a block by its block number.
-    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&Block> {
+    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&ProvenBlock> {
         self.blocks.get(block_num.as_usize())
     }
 
@@ -142,15 +144,14 @@ impl MockRpcApi {
         let next_block_num = self
             .notes
             .values()
-            .filter_map(|n| n.location().map(|loc| loc.block_num()))
+            .filter_map(|n| n.location().map(NoteLocation::block_num))
             .filter(|&n| n > request_block_num)
             .min()
             .unwrap_or_else(|| self.get_chain_tip_block_num());
 
         // Retrieve the next block
-        let next_block = match self.get_block_by_num(next_block_num) {
-            Some(block) => block,
-            None => return SyncStateResponse::default(), // Return default if block not found
+        let Some(next_block) = self.get_block_by_num(next_block_num) else {
+            return SyncStateResponse::default();
         };
 
         // Prepare the MMR delta
@@ -165,7 +166,7 @@ impl MockRpcApi {
 
         // Collect nullifiers from the next block
         let nullifiers = next_block
-            .nullifiers()
+            .created_nullifiers()
             .iter()
             .map(|n| NullifierUpdate {
                 nullifier: Some(n.inner().into()),
@@ -213,10 +214,10 @@ impl NodeRpcClient for MockRpcApi {
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
-            chain_tip: self.blocks.len() as u32,
+            chain_tip: u32::try_from(self.blocks.len()).expect("block number overflow"),
             notes: vec![],
             block_header: Some(self.blocks.last().unwrap().header().into()),
-            mmr_path: Some(Default::default()),
+            mmr_path: Some(MerklePath::default()),
         };
         let response = Response::new(response.clone());
         response.into_inner().try_into()
@@ -311,7 +312,7 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-pub async fn create_test_client() -> (MockClient, MockRpcApi) {
+pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore) {
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
@@ -320,12 +321,14 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi) {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
-    (client, rpc_api)
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    (client, rpc_api, keystore)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

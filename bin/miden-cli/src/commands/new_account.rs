@@ -5,17 +5,17 @@ use miden_client::{
     account::{
         component::{
             AccountComponent, AccountComponentTemplate, BasicFungibleFaucet, BasicWallet,
-            InitStorageData, MapRepresentation, PlaceholderType, RpoFalcon512, StorageValue,
+            InitStorageData, RpoFalcon512,
         },
         AccountBuilder, AccountStorageMode, AccountType,
     },
     asset::TokenSymbol,
     auth::AuthSecretKey,
+    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
-    Client, Felt, Word,
+    Client, Felt,
 };
-use miden_lib::utils::parse_hex_string_as_word;
 
 use crate::{
     commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
@@ -47,11 +47,11 @@ fn process_component_templates(
     for component_template in extra_components {
         let mut init_storage_data = BTreeMap::new();
         for (placeholder_key, placeholder_type) in
-            component_template.metadata().get_unique_storage_placeholders()
+            component_template.metadata().get_placeholder_requirements()
         {
             print!(
-                "Enter hex value for placeholder '{}' (type: {}): ",
-                placeholder_key, placeholder_type
+                "Enter hex value for placeholder '{placeholder_key}' (type: {}): ",
+                placeholder_type.r#type
             );
             std::io::stdout().flush()?;
 
@@ -59,43 +59,9 @@ fn process_component_templates(
             std::io::stdin().read_line(&mut input_value)?;
             let input_value = input_value.trim();
 
-            match placeholder_type {
-                PlaceholderType::Felt => {
-                    let value = input_value
-                        .strip_prefix("0x")
-                        .ok_or("error parsing input: Missing 0x prefix".to_string())
-                        .map(|hex| {
-                            u64::from_str_radix(hex, 16).map_err(|e| {
-                                CliError::Parse(e.into(), "failed to parse hex from input".into())
-                            })
-                        })
-                        .map_err(|e| {
-                            CliError::Parse(e.into(), "failed to parse hex from input".into())
-                        })??;
-
-                    init_storage_data
-                        .insert(placeholder_key.clone(), StorageValue::Felt(Felt::new(value)));
-                },
-                PlaceholderType::Map => {
-                    // TODO: Test this case further
-                    let map: MapRepresentation = toml::from_str(input_value).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse map from input".into())
-                    })?;
-                    let map = map.try_build_map(&Default::default()).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse map from input".into())
-                    })?;
-
-                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Map(map));
-                },
-                PlaceholderType::Word => {
-                    let word: Word = parse_hex_string_as_word(input_value).map_err(|e| {
-                        CliError::Parse(e.into(), "failed to parse hex from input".into())
-                    })?;
-
-                    init_storage_data.insert(placeholder_key.clone(), StorageValue::Word(word));
-                },
-            }
+            init_storage_data.insert(placeholder_key.clone(), input_value.to_string());
         }
+
         let component = AccountComponent::from_template(
             component_template,
             &InitStorageData::new(init_storage_data),
@@ -136,7 +102,11 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        keystore: FilesystemKeyStore,
+    ) -> Result<(), CliError> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
         }
@@ -194,9 +164,10 @@ impl NewFaucetCmd {
             .build()
             .map_err(|err| CliError::Account(err, "error building account".into()))?;
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await?;
+        keystore
+            .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .map_err(CliError::KeyStore)?;
+        client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new faucet.");
         println!(
@@ -226,7 +197,11 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(
+        &self,
+        mut client: Client<impl FeltRng>,
+        keystore: FilesystemKeyStore,
+    ) -> Result<(), CliError> {
         let mut extra_components = Vec::new();
         for path in &self.extra_components {
             let bytes = fs::read(path)?;
@@ -268,9 +243,10 @@ impl NewWalletCmd {
             .build()
             .map_err(|err| CliError::Account(err, "failed to create a wallet".to_string()))?;
 
-        client
-            .add_account(&new_account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair), false)
-            .await?;
+        keystore
+            .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .map_err(CliError::KeyStore)?;
+        client.add_account(&new_account, Some(seed), false).await?;
 
         println!("Succesfully created new wallet.");
         println!(

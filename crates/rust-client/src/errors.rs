@@ -34,6 +34,8 @@ pub enum ClientError {
     AccountLocked(AccountId),
     #[error("network account hash {0} doesn't match the imported account hash")]
     AccountHashMismatch(Digest),
+    #[error("account with id {0} is private")]
+    AccountIsPrivate(AccountId),
     #[error("account nonce is too low to import")]
     AccountNonceTooLow,
     #[error("asset error")]
@@ -44,14 +46,12 @@ pub enum ClientError {
     DataDeserializationError(#[from] DeserializationError),
     #[error("note with id {0} not found on chain")]
     NoteNotFoundOnChain(NoteId),
-    #[error("error parsing hex: {0}")]
-    //TODO: use source in this error when possible
-    HexParseError(HexParseError),
+    #[error("error parsing hex")]
+    HexParseError(#[from] HexParseError),
     #[error("can't add new account without seed")]
     AddNewAccountWithoutSeed,
-    #[error("error with merkle path: {0}")]
-    //TODO: use source in this error when possible
-    MerkleError(MerkleError),
+    #[error("error with merkle path")]
+    MerkleError(#[from] MerkleError),
     #[error("the transaction didn't produce the expected notes corresponding to note ids")]
     MissingOutputNotes(Vec<NoteId>),
     #[error("note error")]
@@ -82,18 +82,6 @@ pub enum ClientError {
 
 // CONVERSIONS
 // ================================================================================================
-
-impl From<HexParseError> for ClientError {
-    fn from(err: HexParseError) -> Self {
-        Self::HexParseError(err)
-    }
-}
-
-impl From<MerkleError> for ClientError {
-    fn from(err: MerkleError) -> Self {
-        Self::MerkleError(err)
-    }
-}
 
 impl From<ClientError> for String {
     fn from(err: ClientError) -> String {

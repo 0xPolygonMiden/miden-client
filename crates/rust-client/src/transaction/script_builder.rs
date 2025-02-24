@@ -1,7 +1,4 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::string::{String, ToString};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -34,11 +31,11 @@ impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
     ///
     /// Errors:
-    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note isn't the
-    ///   account for which the script is being built.
-    /// - [TransactionScriptBuilderError::FaucetNoteWithoutAsset] if the note created by the faucet
-    ///   doesn't contain exactly one asset.
-    /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
+    /// - [`TransactionScriptBuilderError::InvalidSenderAccount`] if the sender of the note isn't
+    ///   the account for which the script is being built.
+    /// - [`TransactionScriptBuilderError::FaucetNoteWithoutAsset`] if the note created by the
+    ///   faucet doesn't contain exactly one asset.
+    /// - [`TransactionScriptBuilderError::InvalidAsset`] if a faucet tries to distribute an asset
     ///   with a different faucet ID.
     fn send_note_procedure(
         &self,
@@ -47,7 +44,7 @@ impl AccountInterface {
     ) -> Result<String, TransactionScriptBuilderError> {
         let mut body = String::new();
 
-        for partial_note in notes.iter() {
+        for partial_note in notes {
             if partial_note.metadata().sender() != account_id {
                 return Err(TransactionScriptBuilderError::InvalidSenderAccount(
                     partial_note.metadata().sender(),
@@ -104,7 +101,7 @@ impl AccountInterface {
                             "push.{asset}
                             call.wallet::move_asset_to_note dropw\n",
                             asset = prepare_word(&asset.into())
-                        ))
+                        ));
                     }
 
                     body.push_str("dropw dropw dropw drop");
@@ -162,12 +159,12 @@ impl TransactionScriptBuilder {
             .interfaces
             .send_note_procedure(self.account_capabilities.account_id, output_notes)?;
 
-        self.build_script_with_sections(vec![send_note_procedure])
+        self.build_script_with_sections(&[send_note_procedure])
     }
 
     /// Builds a simple authentication script for the transaction that doesn't send any notes.
     pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
-        self.build_script_with_sections(vec![])
+        self.build_script_with_sections(&[])
     }
 
     /// Builds a transaction script with the specified sections.
@@ -177,7 +174,7 @@ impl TransactionScriptBuilder {
     /// automatically added to the script.
     fn build_script_with_sections(
         &self,
-        sections: Vec<String>,
+        sections: &[String],
     ) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let script = format!(
             "{} begin {} {} {} end",
@@ -223,7 +220,7 @@ impl TransactionScriptBuilder {
     /// Returns a string with the expiration delta update procedure call for the script.
     fn script_expiration(&self) -> String {
         if let Some(expiration_delta) = self.expiration_delta {
-            format!("push.{} exec.tx::update_expiration_block_delta\n", expiration_delta)
+            format!("push.{expiration_delta} exec.tx::update_expiration_block_delta\n")
         } else {
             String::new()
         }
@@ -238,6 +235,8 @@ impl TransactionScriptBuilder {
 pub enum TransactionScriptBuilderError {
     #[error("invalid asset: {0}")]
     InvalidAsset(AccountIdPrefix),
+    #[error("pay to id note doesn't contain at least one asset")]
+    P2IDNoteWithoutAsset,
     #[error("note created by the faucet doesn't contain exactly one asset")]
     FaucetNoteWithoutAsset,
     #[error("invalid transaction script")]

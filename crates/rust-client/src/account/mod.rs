@@ -11,15 +11,15 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::account::{Account, AccountBuilder, AccountType, component::BasicWallet};
-//! # use miden_objects::account::{AuthSecretKey, AccountStorageMode};
-//! # use miden_client::crypto::{FeltRng, SecretKey};
+//! # use miden_client::{
+//! #   account::{Account, AccountBuilder, AccountType, component::BasicWallet},
+//! #   crypto::FeltRng
+//! # };
+//! # use miden_objects::account::AccountStorageMode;
 //! # async fn add_new_account_example(
 //! #     client: &mut miden_client::Client<impl FeltRng>
 //! # ) -> Result<(), miden_client::ClientError> {
 //! #   let random_seed = Default::default();
-//! let key_pair = SecretKey::with_rng(client.rng());
-//!
 //! let (account, seed) = AccountBuilder::new(random_seed)
 //!     .account_type(AccountType::RegularAccountImmutableCode)
 //!     .storage_mode(AccountStorageMode::Private)
@@ -28,24 +28,21 @@
 //!
 //! // Add the account to the client. The account seed and authentication key are required
 //! // for new accounts.
-//! client.add_account(&account,
-//!     Some(seed),
-//!     &AuthSecretKey::RpoFalcon512(key_pair),
-//!     false
-//! ).await?;
+//! client.add_account(&account, Some(seed), false).await?;
 //! #   Ok(())
 //! # }
 //! ```
 //!
 //! For more details on accounts, refer to the [Account] documentation.
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
 
-pub use miden_objects::account::{
-    Account, AccountBuilder, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot,
+use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
+use miden_objects::{
+    block::BlockHeader,
+    crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
+    AccountError, Word,
 };
-use miden_objects::{account::AuthSecretKey, crypto::rand::FeltRng, Word};
 
 use super::Client;
 use crate::{
@@ -56,6 +53,12 @@ use crate::{
 
 // RE-EXPORTS
 // ================================================================================================
+pub mod procedure_roots;
+
+pub use miden_objects::account::{
+    Account, AccountBuilder, AccountCode, AccountFile, AccountHeader, AccountId, AccountStorage,
+    AccountStorageMode, AccountType, StorageSlot,
+};
 
 pub mod component {
     pub use miden_lib::account::{
@@ -63,8 +66,7 @@ pub mod component {
     };
     pub use miden_objects::account::{
         AccountComponent, AccountComponentMetadata, AccountComponentTemplate, FeltRepresentation,
-        InitStorageData, MapRepresentation, PlaceholderType, StorageEntry, StoragePlaceholder,
-        StorageSlotType, StorageValue, WordRepresentation,
+        InitStorageData, StorageEntry, StorageSlotType, WordRepresentation,
     };
 }
 
@@ -90,9 +92,6 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If the account is already being tracked and `overwrite` is set to `true`, the account will
     /// be overwritten. The `account_seed` should be provided if the account is newly created.
-    /// The `auth_secret_key` is stored in client but it is never exposed. It is used to
-    /// authenticate transactions against the account. The seed is used when notifying the
-    /// network about a new account and is not used for any other purpose.
     ///
     /// # Errors
     ///
@@ -106,7 +105,6 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_secret_key: &AuthSecretKey,
         overwrite: bool,
     ) -> Result<(), ClientError> {
         let account_seed = if account.is_new() {
@@ -135,7 +133,7 @@ impl<R: FeltRng> Client<R> {
                 self.store.add_note_tag(account.try_into()?).await?;
 
                 self.store
-                    .insert_account(account, account_seed, auth_secret_key)
+                    .insert_account(account, account_seed)
                     .await
                     .map_err(ClientError::StoreError)
             },
@@ -165,30 +163,51 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
+    /// Imports an account from the network to the client's store. The account needs to be public
+    /// and be tracked by the network, it will be fetched by its ID. If the account was already
+    /// being tracked by the client, it's state will be overwritten.
+    ///
+    /// # Errors
+    /// - If the account is not found on the network.
+    /// - If the account is private.
+    /// - There was an error sending the request to the network.
+    pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
+        let account_details = self.rpc_api.get_account_update(account_id).await?;
+
+        let account = match account_details {
+            AccountDetails::Private(..) => {
+                return Err(ClientError::AccountIsPrivate(account_id));
+            },
+            AccountDetails::Public(account, ..) => account,
+        };
+
+        self.add_account(&account, None, true).await
+    }
+
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a list of [AccountHeader] of all accounts stored in the database along with their
+    /// Returns a list of [`AccountHeader`] of all accounts stored in the database along with their
     /// statuses.
     ///
     /// Said accounts' state is the state after the last performed sync.
     pub async fn get_account_headers(
         &self,
     ) -> Result<Vec<(AccountHeader, AccountStatus)>, ClientError> {
-        self.store.get_account_headers().await.map_err(|err| err.into())
+        self.store.get_account_headers().await.map_err(Into::into)
     }
 
-    /// Retrieves a full [AccountRecord] object for the specified `account_id`. This result
+    /// Retrieves a full [`AccountRecord`] object for the specified `account_id`. This result
     /// represents data for the latest state known to the client, alongside its status. Returns
     /// `None` if the account ID is not found.
     pub async fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, ClientError> {
-        self.store.get_account(account_id).await.map_err(|err| err.into())
+        self.store.get_account(account_id).await.map_err(Into::into)
     }
 
-    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with its status.
+    /// Retrieves an [`AccountHeader`] object for the specified [`AccountId`] along with its status.
     /// Returns `None` if the account ID is not found.
     ///
     /// Said account's state is the state according to the last sync performed.
@@ -196,19 +215,10 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<Option<(AccountHeader, AccountStatus)>, ClientError> {
-        self.store.get_account_header(account_id).await.map_err(|err| err.into())
+        self.store.get_account_header(account_id).await.map_err(Into::into)
     }
 
-    /// Returns an [AuthSecretKey] object utilized to authenticate an account. Returns `None`
-    /// if the account ID is not found.
-    pub async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, ClientError> {
-        self.store.get_account_auth(account_id).await.map_err(|err| err.into())
-    }
-
-    /// Attempts to retrieve an [AccountRecord] by its [AccountId].
+    /// Attempts to retrieve an [`AccountRecord`] by its [`AccountId`].
     ///
     /// # Errors
     ///
@@ -223,7 +233,7 @@ impl<R: FeltRng> Client<R> {
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
 
-    /// Attempts to retrieve an [AccountHeader] by its [AccountId].
+    /// Attempts to retrieve an [`AccountHeader`] by its [`AccountId`].
     ///
     /// # Errors
     ///
@@ -237,35 +247,57 @@ impl<R: FeltRng> Client<R> {
             .await?
             .ok_or(ClientError::AccountDataNotFound(account_id))
     }
+}
 
-    /// Attempts to retrieve an [AuthSecretKey] by the [AccountId] associated with the account.
-    ///
-    /// # Errors
-    ///
-    /// - If the key is not found for the passed `account_id`.
-    /// - If the underlying store operation fails.
-    pub async fn try_get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthSecretKey, ClientError> {
-        self.get_account_auth(account_id)
-            .await?
-            .ok_or(ClientError::AccountDataNotFound(account_id))
-    }
+// UTILITY FUNCTIONS
+// ================================================================================================
 
-    /// Attempts to retrieve an [AccountDetails] by the [AccountId] associated with the account from
-    /// the rpc.
-    ///
-    /// # Errors
-    ///
-    /// - If the key is not found on the rpc from passed `account_id`.
-    /// - If the underlying rpc operation fails
-    pub async fn get_account_details(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<AccountDetails, ClientError> {
-        self.rpc_api.get_account_update(account_id).await.map_err(ClientError::RpcError)
-    }
+/// Builds an regular account ID from the provided parameters. The ID may be used along
+/// `Client::import_account_by_id` to import a public account from the network (provided that the
+/// used seed is known).
+///
+/// This function will only work for accounts with the [`BasicWallet`] and [`RpoFalcon512`]
+/// components.
+///
+/// # Arguments
+/// - `init_seed`: Initial seed used to create the account. This is the seed passed to
+///   [`AccountBuilder::new`].
+/// - `public_key`: Public key of the account used in the [`RpoFalcon512`] component.
+/// - `storage_mode`: Storage mode of the account.
+/// - `is_mutable`: Whether the account is mutable or not.
+/// - `anchor_block`: Anchor block of the account.
+///
+/// # Errors
+/// - If the provided block header is not an anchor block.
+/// - If the account cannot be built.
+pub fn build_wallet_id(
+    init_seed: [u8; 32],
+    public_key: PublicKey,
+    storage_mode: AccountStorageMode,
+    is_mutable: bool,
+    anchor_block: BlockHeader,
+) -> Result<AccountId, ClientError> {
+    let account_type = if is_mutable {
+        AccountType::RegularAccountUpdatableCode
+    } else {
+        AccountType::RegularAccountImmutableCode
+    };
+
+    let accound_id_anchor = (&anchor_block).try_into().map_err(|_| {
+        ClientError::AccountError(AccountError::AssumptionViolated(
+            "Provided block header is not an anchor block".to_string(),
+        ))
+    })?;
+
+    let (account, _) = AccountBuilder::new(init_seed)
+        .anchor(accound_id_anchor)
+        .account_type(account_type)
+        .storage_mode(storage_mode)
+        .with_component(RpoFalcon512::new(public_key))
+        .with_component(BasicWallet)
+        .build()?;
+
+    Ok(account.id())
 }
 
 // TESTS
@@ -277,7 +309,7 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        account::{Account, AccountData, AuthSecretKey},
+        account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
@@ -287,18 +319,18 @@ pub mod tests {
 
     use crate::mock::create_test_client;
 
-    fn create_account_data(account_id: u128) -> AccountData {
+    fn create_account_data(account_id: u128) -> AccountFile {
         let account =
             Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 
-        AccountData::new(
+        AccountFile::new(
             account.clone(),
             Some(Word::default()),
             AuthSecretKey::RpoFalcon512(SecretKey::new()),
         )
     }
 
-    pub fn create_initial_accounts_data() -> Vec<AccountData> {
+    pub fn create_initial_accounts_data() -> Vec<AccountFile> {
         let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
 
         let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
@@ -312,7 +344,7 @@ pub mod tests {
     #[tokio::test]
     pub async fn try_add_account() {
         // generate test client
-        let (mut client, _rpc_api) = create_test_client().await;
+        let (mut client, _rpc_api, _) = create_test_client().await;
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -320,38 +352,20 @@ pub mod tests {
             TransactionKernel::testing_assembler(),
         );
 
-        let key_pair = SecretKey::new();
-
-        assert!(client
-            .add_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()), false)
-            .await
-            .is_err());
-        assert!(client
-            .add_account(
-                &account,
-                Some(Word::default()),
-                &AuthSecretKey::RpoFalcon512(key_pair),
-                false
-            )
-            .await
-            .is_ok());
+        assert!(client.add_account(&account, None, false).await.is_err());
+        assert!(client.add_account(&account, Some(Word::default()), false).await.is_ok());
     }
 
     #[tokio::test]
     async fn load_accounts_test() {
         // generate test client
-        let (mut client, _) = create_test_client().await;
+        let (mut client, ..) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
             client
-                .add_account(
-                    &account_data.account,
-                    account_data.account_seed,
-                    &account_data.auth_secret_key,
-                    false,
-                )
+                .add_account(&account_data.account, account_data.account_seed, false)
                 .await
                 .unwrap();
         }

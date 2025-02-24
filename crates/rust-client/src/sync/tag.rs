@@ -30,7 +30,7 @@ impl<R: FeltRng> Client<R> {
     /// the client and don't need to be added here. That is, notes for managed accounts will be
     /// retrieved automatically by the client when syncing.
     pub async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
-        self.store.get_note_tags().await.map_err(|err| err.into())
+        self.store.get_note_tags().await.map_err(Into::into)
     }
 
     /// Adds a note tag for the client to track. This tag's source will be marked as `User`.
@@ -39,7 +39,7 @@ impl<R: FeltRng> Client<R> {
             .store
             .add_note_tag(NoteTagRecord { tag, source: NoteTagSource::User })
             .await
-            .map_err(|err| err.into())
+            .map_err(Into::into)
         {
             Ok(true) => Ok(()),
             Ok(false) => {
@@ -122,7 +122,7 @@ impl Deserializable for NoteTagSource {
             0 => Ok(NoteTagSource::Account(AccountId::read_from(source)?)),
             1 => Ok(NoteTagSource::Note(NoteId::read_from(source)?)),
             2 => Ok(NoteTagSource::User),
-            val => Err(DeserializationError::InvalidValue(format!("Invalid tag source: {}", val))),
+            val => Err(DeserializationError::InvalidValue(format!("Invalid tag source: {val}"))),
         }
     }
 }

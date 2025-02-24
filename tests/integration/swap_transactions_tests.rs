@@ -20,34 +20,44 @@ async fn test_swap_fully_onchain() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client().await;
-    let mut client_with_faucets = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client().await;
+    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) =
-        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
+    let (account_a, ..) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private, &authenticator_1)
+            .await
+            .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) =
-        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
+    let (account_b, ..) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (btc_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (eth_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
@@ -80,7 +90,9 @@ async fn test_swap_fully_onchain() {
 
     println!("Consuming mint note on first client...");
 
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_a_mint_note_id]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_a_mint_note_id])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Sync and consume note for accountB
@@ -93,7 +105,9 @@ async fn test_swap_fully_onchain() {
 
     println!("Consuming mint note on second client...");
 
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_b_mint_note_id]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_b_mint_note_id])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client2, account_b.id(), tx_request).await;
 
     // Create ONCHAIN swap note (clientA offers 1 BTC in exchange of 25 ETH)
@@ -105,7 +119,7 @@ async fn test_swap_fully_onchain() {
 
     println!("Running SWAP tx...");
     let tx_request = TransactionRequestBuilder::swap(
-        SwapTransactionData::new(
+        &SwapTransactionData::new(
             account_a.id(),
             Asset::Fungible(offered_asset),
             Asset::Fungible(requested_asset),
@@ -114,7 +128,8 @@ async fn test_swap_fully_onchain() {
         client1.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
     let expected_payback_note_details: Vec<NoteDetails> =
@@ -124,27 +139,27 @@ async fn test_swap_fully_onchain() {
 
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
-    let payback_note_tag = build_swap_tag(
+    let swap_note_tag = build_swap_tag(
         NoteType::Public,
         &Asset::Fungible(offered_asset),
         &Asset::Fungible(requested_asset),
     )
     .unwrap();
 
-    // add swap note's tag to both client 1 and client 2 (TODO: check if it's needed for both)
+    // add swap note's tag to client2
     // we could technically avoid this step, but for the first iteration of swap notes we'll
     // require to manually add tags
-    println!("Adding swap tags");
-    client1.add_note_tag(payback_note_tag).await.unwrap();
-    client2.add_note_tag(payback_note_tag).await.unwrap();
+    println!("Adding swap tag");
+    client2.add_note_tag(swap_note_tag).await.unwrap();
 
     // sync on client 2, we should get the swap note
     // consume swap note with accountB, and check that the vault changed appropiately
     client2.sync_state().await.unwrap();
     println!("Consuming swap note on second client...");
 
-    let tx_request =
-        TransactionRequestBuilder::consume_notes(vec![expected_output_notes[0].id()]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![expected_output_notes[0].id()])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client2, account_b.id(), tx_request).await;
 
     // sync on client 1, we should get the missing payback note details.
@@ -154,7 +169,8 @@ async fn test_swap_fully_onchain() {
 
     let tx_request =
         TransactionRequestBuilder::consume_notes(vec![expected_payback_note_details[0].id()])
-            .build();
+            .build()
+            .unwrap();
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // At the end we should end up with
@@ -222,33 +238,43 @@ async fn test_swap_private() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client().await;
-    let mut client_with_faucets = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client().await;
+    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) =
-        insert_new_wallet(&mut client1, AccountStorageMode::Private).await.unwrap();
+    let (account_a, ..) =
+        insert_new_wallet(&mut client1, AccountStorageMode::Private, &authenticator_1)
+            .await
+            .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) =
-        insert_new_wallet(&mut client2, AccountStorageMode::Private).await.unwrap();
+    let (account_b, ..) =
+        insert_new_wallet(&mut client2, AccountStorageMode::Private, &authenticator_2)
+            .await
+            .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (btc_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) =
-        insert_new_fungible_faucet(&mut client_with_faucets, AccountStorageMode::Private)
-            .await
-            .unwrap();
+    let (eth_faucet_account, ..) = insert_new_fungible_faucet(
+        &mut client_with_faucets,
+        AccountStorageMode::Private,
+        &authenticator_3,
+    )
+    .await
+    .unwrap();
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
@@ -281,7 +307,9 @@ async fn test_swap_private() {
 
     println!("Consuming mint note on first client...");
 
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_a_mint_note_id]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_a_mint_note_id])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Sync and consume note for accountB
@@ -294,7 +322,9 @@ async fn test_swap_private() {
 
     println!("Consuming mint note on second client...");
 
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_b_mint_note_id]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![account_b_mint_note_id])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client2, account_b.id(), tx_request).await;
 
     // Create ONCHAIN swap note (clientA offers 1 BTC in exchange of 25 ETH)
@@ -306,7 +336,7 @@ async fn test_swap_private() {
 
     println!("Running SWAP tx...");
     let tx_request = TransactionRequestBuilder::swap(
-        SwapTransactionData::new(
+        &SwapTransactionData::new(
             account_a.id(),
             Asset::Fungible(offered_asset),
             Asset::Fungible(requested_asset),
@@ -315,7 +345,8 @@ async fn test_swap_private() {
         client1.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
 
     let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
     let expected_payback_note_details =
@@ -351,8 +382,9 @@ async fn test_swap_private() {
     // consume swap note with accountB, and check that the vault changed appropiately
     println!("Consuming swap note on second client...");
 
-    let tx_request =
-        TransactionRequestBuilder::consume_notes(vec![expected_output_notes[0].id()]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![expected_output_notes[0].id()])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client2, account_b.id(), tx_request).await;
 
     // sync on client 1, we should get the missing payback note details.
@@ -362,7 +394,8 @@ async fn test_swap_private() {
 
     let tx_request =
         TransactionRequestBuilder::consume_notes(vec![expected_payback_note_details[0].id()])
-            .build();
+            .build()
+            .unwrap();
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // At the end we should end up with
@@ -446,7 +479,8 @@ async fn mint(
         client.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     let id = tx_request.expected_output_notes().next().unwrap().id();
     execute_tx_and_sync(client, faucet_account_id, tx_request.clone()).await;
 

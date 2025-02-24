@@ -10,7 +10,7 @@ pub struct TransactionId(NativeTransactionId);
 #[wasm_bindgen]
 impl TransactionId {
     pub fn as_elements(&self) -> Vec<Felt> {
-        self.0.as_elements().iter().map(|e| e.into()).collect()
+        self.0.as_elements().iter().map(Into::into).collect()
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
