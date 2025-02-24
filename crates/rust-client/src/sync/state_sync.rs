@@ -10,7 +10,7 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{block_header::BlockUpdates, get_nullifier_prefix, StateSyncUpdate};
+use super::{block_header::BlockUpdates, StateSyncUpdate};
 use crate::{
     account::AccountUpdates,
     note::{NoteScreener, NoteUpdates},
@@ -135,7 +135,7 @@ impl StateSync {
         // (it only returns nullifiers from current_block_num until
         // response.block_header.block_num())
         let mut nullifiers_tags: Vec<u16> =
-            unspent_nullifiers.map(|nullifier| get_nullifier_prefix(&nullifier)).collect();
+            unspent_nullifiers.map(|nullifier| nullifier.prefix()).collect();
 
         let mut state_sync_update = StateSyncUpdate {
             note_updates: NoteUpdates::new(unspent_input_notes, unspent_output_notes),
@@ -159,10 +159,9 @@ impl StateSync {
                     .note_updates
                     .updated_input_notes()
                     .filter(|note| {
-                        note.is_committed()
-                            && !nullifiers_tags.contains(&get_nullifier_prefix(&note.nullifier()))
+                        note.is_committed() && !nullifiers_tags.contains(&note.nullifier().prefix())
                     })
-                    .map(|note| get_nullifier_prefix(&note.nullifier()))
+                    .map(|note| note.nullifier().prefix())
                     .collect::<Vec<_>>(),
             );
         }

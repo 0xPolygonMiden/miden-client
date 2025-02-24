@@ -61,7 +61,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     crypto::rand::FeltRng,
-    note::{NoteId, NoteTag, Nullifier},
+    note::{NoteId, NoteTag},
     transaction::TransactionId,
 };
 
@@ -81,10 +81,7 @@ pub use state_sync_update::StateSyncUpdate;
 // CONSTANTS
 // ================================================================================================
 
-/// The number of bits to shift identifiers for in use of filters.
-pub(crate) const FILTER_ID_SHIFT: u8 = 48;
-
-/// Client syncronization methods.
+// Client syncronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
@@ -155,10 +152,6 @@ impl<R: FeltRng> Client<R> {
 
         Ok(sync_summary)
     }
-}
-
-pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
-    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }
 
 // SYNC SUMMARY
