@@ -10,7 +10,8 @@
 
 * Add check for empty pay to id notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
-* [BREAKING] `CheckNullifiersByPrefix` now uses a starting block number (#749).
+* [BREAKING] Added `block_number` parameter to `CheckNullifiersByPrefix` calls (#749).
+* Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 
 ## 0.7.0 (2025-01-28)
 
