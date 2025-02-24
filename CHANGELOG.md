@@ -4,12 +4,14 @@
 
 ### Features
 
+* Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
 
 ### Changes
 
 * Add check for empty pay to id notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+* Move error handling to the `TransactionRequestBuilder::build()` (#750).
 
 ## 0.7.0 (2025-01-28)
 

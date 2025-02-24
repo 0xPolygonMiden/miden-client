@@ -34,6 +34,8 @@ pub enum ClientError {
     AccountLocked(AccountId),
     #[error("network account hash {0} doesn't match the imported account hash")]
     AccountHashMismatch(Digest),
+    #[error("account with id {0} is private")]
+    AccountIsPrivate(AccountId),
     #[error("account nonce is too low to import")]
     AccountNonceTooLow,
     #[error("asset error")]
