@@ -411,13 +411,10 @@ impl NodeRpcClient for TonicRpcClient {
         let nullifiers = response
             .nullifiers
             .iter()
-            .map(|nul| {
-                let nullifier =
-                    nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
-                let nullifier = nullifier.try_into()?;
-                Ok(NullifierUpdate { nullifier, block_num: nul.block_num })
-            })
-            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
+            .map(TryFrom::try_from)
+            .collect::<Result<Vec<NullifierUpdate>, _>>()
+            .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+
         Ok(nullifiers)
     }
 }
