@@ -23,7 +23,7 @@ use tracing::info;
 use super::{
     domain::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
-        note::NetworkNote,
+        note::NetworkNote, nullifier::NullifierUpdate,
     },
     generated::{
         requests::{
@@ -393,7 +393,7 @@ impl NodeRpcClient for TonicRpcClient {
         &mut self,
         prefixes: &[u16],
         block_num: BlockNumber,
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
@@ -414,9 +414,9 @@ impl NodeRpcClient for TonicRpcClient {
                 let nullifier =
                     nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
                 let nullifier = nullifier.try_into()?;
-                Ok((nullifier, nul.block_num))
+                Ok(NullifierUpdate {nullifier,block_num: nul.block_num})
             })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
         Ok(nullifiers)
     }
 }

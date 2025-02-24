@@ -32,9 +32,7 @@ use crate::{
     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     rpc::{
         domain::{
-            account::{AccountDetails, AccountProofs},
-            note::{NetworkNote, NoteSyncInfo},
-            sync::StateSyncInfo,
+            account::{AccountDetails, AccountProofs}, note::{NetworkNote, NoteSyncInfo}, nullifier::NullifierUpdate, sync::StateSyncInfo
         },
         generated::{
             merkle::MerklePath,
@@ -293,7 +291,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         _prefix: &[u16],
         _block_num: BlockNumber,
-    ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
     }

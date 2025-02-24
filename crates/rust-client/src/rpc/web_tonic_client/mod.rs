@@ -20,9 +20,7 @@ use tonic_web_wasm_client::Client;
 
 use super::{
     domain::{
-        account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
-        note::{NetworkNote, NoteSyncInfo},
-        sync::StateSyncInfo,
+        account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary}, note::{NetworkNote, NoteSyncInfo}, nullifier::NullifierUpdate, sync::StateSyncInfo
     },
     generated::{
         requests::{
@@ -372,7 +370,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         &mut self,
         prefixes: &[u16],
         block_num: BlockNumber,
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = CheckNullifiersByPrefixRequest {
@@ -397,9 +395,9 @@ impl NodeRpcClient for WebTonicRpcClient {
                     "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
                 ))?;
                 let nullifier = nullifier.try_into()?;
-                Ok((nullifier, nul.block_num))
+                Ok(NullifierUpdate {nullifier, block_num: nul.block_num})
             })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
         Ok(nullifiers)
     }
 }

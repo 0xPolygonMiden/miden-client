@@ -56,7 +56,7 @@
 //! processed and applied to the local store.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use core::cmp::max;
+use core::{cmp::max, ptr::null};
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
@@ -229,6 +229,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0.into());
+        let current_height = self.get_sync_height().await?;
         loop {
             let response = self.sync_state_once().await?;
             let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
@@ -266,8 +267,10 @@ impl<R: FeltRng> Client<R> {
             .get_unspent_input_note_nullifiers()
             .await?
             .iter()
-            .map(get_nullifier_prefix)
+            .map(Nullifier::prefix)
             .collect();
+
+        let nullifiers = self.rpc_api.check_nullifiers_by_prefix(&nullifiers_tags, current_block_num).await?;
 
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
@@ -291,7 +294,7 @@ impl<R: FeltRng> Client<R> {
         let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
 
         let (consumed_note_updates, transactions_to_discard) =
-            self.consumed_note_updates(vec![], &transactions_to_commit).await?;
+            self.consumed_note_updates(&nullifiers, &transactions_to_commit).await?;
 
         let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
@@ -456,7 +459,7 @@ impl<R: FeltRng> Client<R> {
     /// transactions that were discarded.
     async fn consumed_note_updates(
         &mut self,
-        nullifiers: Vec<NullifierUpdate>,
+        nullifiers: &[NullifierUpdate],
         committed_transactions: &[TransactionUpdate],
     ) -> Result<(NoteUpdates, Vec<TransactionId>), ClientError> {
         let nullifier_filter = NoteFilter::Nullifiers(
@@ -661,8 +664,4 @@ impl<R: FeltRng> Client<R> {
         }
         Ok(mismatched_accounts)
     }
-}
-
-pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
-    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }
