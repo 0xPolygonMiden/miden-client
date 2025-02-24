@@ -182,7 +182,6 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         let mut query_client = self.build_api_client();
 

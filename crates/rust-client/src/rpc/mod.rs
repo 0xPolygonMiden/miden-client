@@ -141,7 +141,6 @@ pub trait NodeRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC

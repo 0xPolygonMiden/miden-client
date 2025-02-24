@@ -33,10 +33,12 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteTag, Nullifier},
+    transaction::TransactionId,
     Digest, Word,
 };
 
 use crate::{
+    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -309,6 +311,12 @@ pub trait Store: Send + Sync {
     /// - Storing new MMR authentication nodes.
     /// - Updating the tracked on-chain accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
+
+    async fn apply_nullifiers(
+        &self,
+        note_updates: NoteUpdates,
+        transactions_to_discard: Vec<TransactionId>,
+    ) -> Result<(), StoreError>;
 }
 
 // CHAIN MMR NODE FILTER

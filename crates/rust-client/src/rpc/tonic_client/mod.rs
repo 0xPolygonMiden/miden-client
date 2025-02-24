@@ -204,7 +204,6 @@ impl NodeRpcClient for TonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 

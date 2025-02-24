@@ -219,7 +219,6 @@ impl NodeRpcClient for MockRpcApi {
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
-        _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         // Match request -> response through block_num
         let response = self.get_sync_state_request(block_num);
