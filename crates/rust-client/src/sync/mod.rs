@@ -150,6 +150,7 @@ impl SyncSummary {
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
+        self.committed_transactions.append(&mut other.committed_transactions);
     }
 }
 
