@@ -11,9 +11,8 @@ use miden_client::{
         InputNote, OutputNote, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionRequestBuilder, TransactionResult,
     },
-    Client,
+    Client, RemoteTransactionProver,
 };
-use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 use tracing::info;
 
 use crate::{
