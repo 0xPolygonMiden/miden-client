@@ -11,6 +11,29 @@ use crate::{
     alloc::string::ToString,
     rpc::{generated::responses::SyncStateResponse, RpcError},
 };
+
+// STATE SYNC STREAM
+// ================================================================================================
+
+/// Represents a stream of sync updates returned by the `sync_state` RPC method.
+pub struct SyncStateStream(Streaming<SyncStateResponse>);
+
+impl SyncStateStream {
+    /// Creates a new `SyncStateStream` from the provided `Streaming` instance.
+    pub fn new(stream: Streaming<SyncStateResponse>) -> Self {
+        SyncStateStream(stream)
+    }
+
+    /// Attempts to read the next `StateSyncInfo` from the stream.
+    pub async fn next(&mut self) -> Result<Option<StateSyncInfo>, RpcError> {
+        match self.0.message().await {
+            Ok(Some(response)) => Ok(Some(response.try_into()?)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(RpcError::ConnectionError(e.message().to_string())),
+        }
+    }
+}
+
 // STATE SYNC INFO
 // ================================================================================================
 
@@ -124,21 +147,5 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             note_inclusions,
             transactions,
         })
-    }
-}
-
-pub struct SyncStateStream(Streaming<SyncStateResponse>);
-
-impl SyncStateStream {
-    pub fn new(stream: Streaming<SyncStateResponse>) -> Self {
-        SyncStateStream(stream)
-    }
-
-    pub async fn next(&mut self) -> Result<Option<StateSyncInfo>, RpcError> {
-        match self.0.message().await {
-            Ok(Some(response)) => Ok(Some(response.try_into()?)),
-            Ok(None) => Ok(None),
-            Err(e) => Err(RpcError::ConnectionError(e.message().to_string())),
-        }
     }
 }
