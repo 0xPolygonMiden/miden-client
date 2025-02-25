@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Import client objects. It is capable of importing notes and accounts")]
+#[clap(about = "Import notes or accounts")]
 pub struct ImportCmd {
     /// Paths to the files that contains the account/note data.
     #[arg()]

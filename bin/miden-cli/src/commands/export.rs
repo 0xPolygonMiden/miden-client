@@ -13,7 +13,7 @@ use tracing::info;
 use crate::{errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client output notes, or account-related data")]
+#[clap(about = "Export client output notes, or account data")]
 pub struct ExportCmd {
     /// ID (or a valid prefix) of the output note or account to export.
     #[clap()]

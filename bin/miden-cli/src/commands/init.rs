@@ -18,12 +18,12 @@ use crate::{
 /// Contains the account component template file generated on build.rs, corresponding to the
 /// fungible faucet component.
 const FAUCET_TEMPLATE_FILE: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/templates/basic-fungible-faucet.mct"));
+    include_bytes!(concat!(env!("OUT_DIR"), "/templates/", "basic-fungible-faucet.mct"));
 
 /// Contains the account component template file generated on build.rs, corresponding to the basic
 /// auth component.
 const BASIC_AUTH_TEMPLATE_FILE: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/templates/basic-auth.mct"));
+    include_bytes!(concat!(env!("OUT_DIR"), "/templates/", "basic-auth.mct"));
 
 // INIT COMMAND
 // ================================================================================================
@@ -145,8 +145,8 @@ impl InitCmd {
 fn write_template_files(cli_config: &CliConfig) -> Result<(), CliError> {
     fs::create_dir_all(&cli_config.component_template_directory).map_err(|err| {
         CliError::Config(
-            "failed to create account component templates directory".to_string().into(),
-            err.to_string(),
+            Box::new(err),
+            "failed to create account component templates directory".into(),
         )
     })?;
 

@@ -30,7 +30,7 @@ use crate::{
 // CLI TYPES
 // ================================================================================================
 
-/// Mirror enum for [`AccountStorageMode`] that enables parsing for CLI commands.
+/// Mirror enum for [AccountStorageMode] that enables parsing for CLI commands.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum CliAccountStorageMode {
     Private,
@@ -46,7 +46,7 @@ impl From<CliAccountStorageMode> for AccountStorageMode {
     }
 }
 
-/// Mirror enum for [`AccountType`] that enables parsing for CLI commands.
+/// Mirror enum for [AccountType] that enables parsing for CLI commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum CliAccountType {
     FungibleFaucet,
@@ -130,7 +130,7 @@ impl NewWalletCmd {
 
         println!("Succesfully created new wallet.");
         println!(
-            "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
+            "To view account details execute {CLIENT_BINARY_NAME} account -s {}",
             new_account.id()
         );
 
@@ -205,7 +205,7 @@ impl NewAccountCmd {
 
         println!("Succesfully created new account.");
         println!(
-            "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
+            "To view account details execute {CLIENT_BINARY_NAME} account -s {}",
             new_account.id()
         );
 
@@ -242,7 +242,7 @@ fn load_component_templates(paths: &[PathBuf]) -> Result<Vec<AccountComponentTem
 }
 
 /// Loads the initialization storage data from an optional TOML file.
-/// If `None` is passed, an empty object is returned.
+/// If None is passed, an empty object is returned.
 fn load_init_storage_data(path: Option<PathBuf>) -> Result<InitStorageData, CliError> {
     if let Some(path) = path {
         let mut contents = String::new();
@@ -272,7 +272,7 @@ async fn build_account(
         .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
         .account_type(account_type)
         .storage_mode(storage_mode)
-        // TODO: Forcing a auth component for simplicity for now
+        // TODO: Forcing an auth component for simplicity for now
         .with_component(RpoFalcon512::new(key_pair.public_key()));
 
     // Add each processed component template
@@ -287,7 +287,6 @@ async fn build_account(
 
 /// Helper function to process extra component templates.
 /// It reads user input for each placeholder in a component template.
-// TODO: this could take a TOML file with key-values
 fn process_component_templates(
     extra_components: &[AccountComponentTemplate],
     file_init_storage_data: &InitStorageData,
