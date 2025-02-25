@@ -5,6 +5,7 @@ import {
   createNewFaucet,
   createNewWallet,
   fundAccountFromFaucet,
+  getAccount,
   getAccountBalance,
   StorageMode,
 } from "./webClientTestUtils";
@@ -19,7 +20,14 @@ const importWalletFromSeed = async (
       const client = window.client;
       const _walletSeed = new Uint8Array(_serializedWalletSeed);
 
-      await client.import_public_account_from_seed(_walletSeed, _mutable);
+      const account = await client.import_public_account_from_seed(
+        _walletSeed,
+        _mutable
+      );
+      return {
+        accountId: account.id().to_string(),
+        accountHash: account.hash().to_hex(),
+      };
     },
     serializedWalletSeed,
     mutable
@@ -39,15 +47,25 @@ describe("import from seed", () => {
       mutable,
       walletSeed,
     });
+
     const faucet = await createNewFaucet();
 
     const result = await fundAccountFromFaucet(initialWallet.id, faucet.id);
     const initialBalance = result.targetAccountBalanace;
 
+    const { hash: initialHash } = await getAccount(initialWallet.id);
+
     // Deleting the account
     await clearStore();
 
-    await importWalletFromSeed(walletSeed, mutable);
+    const { accountId: restoredAccountId } = await importWalletFromSeed(
+      walletSeed,
+      mutable
+    );
+
+    expect(restoredAccountId).to.equal(initialWallet.id);
+
+    const { hash: restoredAccountHash } = await getAccount(initialWallet.id);
 
     const restoredBalance = await getAccountBalance(
       initialWallet.id,
@@ -55,5 +73,6 @@ describe("import from seed", () => {
     );
 
     expect(restoredBalance.toString()).to.equal(initialBalance);
+    expect(restoredAccountHash).to.equal(initialHash);
   });
 });

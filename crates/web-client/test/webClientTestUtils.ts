@@ -368,6 +368,22 @@ export const setupWalletAndFaucet =
     });
   };
 
+export const getAccount = async (accountId: string) => {
+  return await testingPage.evaluate(async (_accountId) => {
+    const client = window.client;
+    const accountId = window.AccountId.from_hex(_accountId);
+    const account = await client.get_account(accountId);
+    return {
+      id: account?.id().to_string(),
+      hash: account?.hash().to_hex(),
+      nonce: account?.nonce().to_string(),
+      vaultCommitment: account?.vault().commitment().to_hex(),
+      storageCommitment: account?.storage().commitment().to_hex(),
+      codeCommitment: account?.code().commitment().to_hex(),
+    };
+  }, accountId);
+};
+
 export const syncState = async () => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
