@@ -73,7 +73,12 @@ mod generated;
 #[cfg(test)]
 pub mod generated;
 
+#[cfg(all(feature = "tonic", feature = "web-tonic"))]
+compile_error!("features `tonic` and `web-tonic` are mutually exclusive");
+
+#[cfg(any(feature = "tonic", feature = "web-tonic"))]
 mod tonic_client;
+#[cfg(any(feature = "tonic", feature = "web-tonic"))]
 pub use tonic_client::TonicRpcClient;
 
 use crate::{
