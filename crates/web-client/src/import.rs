@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use super::models::account::Account;
 use crate::{
-    helpers::generate_account, models::account_storage_mode::AccountStorageMode, WebClient,
+    helpers::generate_wallet, models::account_storage_mode::AccountStorageMode, WebClient,
 };
 
 #[wasm_bindgen]
@@ -48,7 +48,7 @@ impl WebClient {
         let client = self.get_mut_inner().ok_or(JsValue::from_str("Client not initialized"))?;
 
         let (generated_acct, ..) =
-            generate_account(client, &AccountStorageMode::public(), mutable, Some(init_seed))
+            generate_wallet(client, &AccountStorageMode::public(), mutable, Some(init_seed))
                 .await?;
 
         let account_id = generated_acct.id();

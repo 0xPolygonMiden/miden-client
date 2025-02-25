@@ -10,7 +10,19 @@ use wasm_bindgen::JsValue;
 
 use crate::models::account_storage_mode::AccountStorageMode;
 
-pub async fn generate_account(
+// HELPERS
+// ================================================================================================
+// These methods should not be exposed to the wasm interface
+
+/// Serves as a way to manage the logic of seed generation and retrieval of the anchor block
+/// for creating a wallet account
+///
+/// We currently use the genesis block as the anchor block to ensure deterministic outcomes
+///
+/// # Errors:
+/// - If rust client calls fail
+/// - If the seed is passed in and is not exactly 32 bytes
+pub(crate) async fn generate_wallet(
     client: &mut Client<RpoRandomCoin>,
     storage_mode: &AccountStorageMode,
     mutable: bool,
@@ -18,15 +30,13 @@ pub async fn generate_account(
 ) -> Result<(Account, [Felt; 4], SecretKey), JsValue> {
     let mut rng = match seed {
         Some(seed_bytes) => {
-            if seed_bytes.len() == 32 {
-                let mut seed_array = [0u8; 32];
-                seed_array.copy_from_slice(&seed_bytes);
-                let mut std_rng = StdRng::from_seed(seed_array);
-                let coin_seed: [u64; 4] = std_rng.gen();
-                &mut RpoRandomCoin::new(coin_seed.map(Felt::new))
-            } else {
-                Err(JsValue::from_str("Seed must be exactly 32 bytes"))?
-            }
+            // Attempt to convert the seed slice into a 32-byte array.
+            let seed_array: [u8; 32] = seed_bytes
+                .try_into()
+                .map_err(|_| JsValue::from_str("Seed must be exactly 32 bytes"))?;
+            let mut std_rng = StdRng::from_seed(seed_array);
+            let coin_seed: [u64; 4] = std_rng.gen();
+            &mut RpoRandomCoin::new(coin_seed.map(Felt::new))
         },
         None => client.rng(),
     };
@@ -41,7 +51,6 @@ pub async fn generate_account(
         AccountType::RegularAccountImmutableCode
     };
 
-    // Using the genesis block as the anchor for now to ensure deterministic outcomes
     let anchor_block = client
         .ensure_genesis_in_place()
         .await

@@ -10,7 +10,7 @@ use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::{helpers::generate_account, WebClient};
+use crate::{helpers::generate_wallet, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -23,7 +23,7 @@ impl WebClient {
         let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
             let (new_account, account_seed, key_pair) =
-                generate_account(client, storage_mode, mutable, init_seed).await?;
+                generate_wallet(client, storage_mode, mutable, init_seed).await?;
 
             keystore
                 .expect("KeyStore should be initialized")
