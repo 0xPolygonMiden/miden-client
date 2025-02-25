@@ -73,7 +73,7 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
-    transaction::TransactionUpdates,
+    transaction::{TransactionStatus, TransactionUpdates},
     Client, ClientError,
 };
 
@@ -164,9 +164,6 @@ impl SyncStatus {
 // CONSTANTS
 // ================================================================================================
 
-/// The number of bits to shift identifiers for in use of filters.
-pub(crate) const FILTER_ID_SHIFT: u8 = 48;
-
 /// Client syncronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
@@ -197,6 +194,8 @@ impl<R: FeltRng> Client<R> {
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
+        let starting_block_num = self.get_sync_height().await?;
+
         _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0.into());
         loop {
@@ -209,6 +208,8 @@ impl<R: FeltRng> Client<R> {
             }
         }
         self.update_mmr_data().await?;
+        // Sync and apply nullifiers
+        total_sync_summary.combine_with(self.sync_nullifiers(starting_block_num).await?);
 
         Ok(total_sync_summary)
     }
@@ -227,45 +228,22 @@ impl<R: FeltRng> Client<R> {
         let note_tags: Vec<NoteTag> =
             self.store.get_unique_note_tags().await?.into_iter().collect();
 
-        // To receive information about added nullifiers, we reduce them to the higher 16 bits
-        // Note that besides filtering by nullifier prefixes, the node also filters by block number
-        // (it only returns nullifiers from current_block_num until
-        // response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = self
-            .store
-            .get_unspent_input_note_nullifiers()
-            .await?
-            .iter()
-            .map(get_nullifier_prefix)
-            .collect();
-
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
-        let response = self
-            .rpc_api
-            .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
-            .await?;
+        let response = self.rpc_api.sync_state(current_block_num, &account_ids, &note_tags).await?;
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
-        let (committed_note_updates, tags_to_remove) = self
+        let (note_updates, tags_to_remove) = self
             .committed_note_updates(response.note_inclusions, &response.block_header)
             .await?;
 
-        let incoming_block_has_relevant_notes =
-            self.check_block_relevance(&committed_note_updates).await?;
+        let incoming_block_has_relevant_notes = self.check_block_relevance(&note_updates).await?;
 
         let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
-
-        let (consumed_note_updates, transactions_to_discard) =
-            self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
-
-        let mut note_updates = NoteUpdates::new(vec![], vec![]);
-        note_updates.extend(committed_note_updates);
-        note_updates.extend(consumed_note_updates);
 
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
@@ -312,10 +290,7 @@ impl<R: FeltRng> Client<R> {
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             note_updates,
-            transaction_updates: TransactionUpdates::new(
-                transactions_to_commit,
-                transactions_to_discard,
-            ),
+            transaction_updates: TransactionUpdates::new(transactions_to_commit, vec![]),
             account_updates: AccountUpdates::new(
                 updated_public_accounts,
                 mismatched_private_accounts,
@@ -338,6 +313,68 @@ impl<R: FeltRng> Client<R> {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+
+    async fn sync_nullifiers(
+        &mut self,
+        starting_block_num: BlockNumber,
+    ) -> Result<SyncSummary, ClientError> {
+        // To receive information about added nullifiers, we reduce them to the higher 16 bits
+        // Note that besides filtering by nullifier prefixes, the node also filters by block number
+        // (it only returns nullifiers from current_block_num until
+        // response.block_header.block_num())
+        let nullifiers_tags: Vec<u16> = self
+            .store
+            .get_unspent_input_note_nullifiers()
+            .await?
+            .iter()
+            .map(Nullifier::prefix)
+            .collect();
+
+        let nullifiers = self
+            .rpc_api
+            .check_nullifiers_by_prefix(&nullifiers_tags, starting_block_num)
+            .await?;
+
+        // Committed transactions
+        let committed_transactions = self
+            .store
+            .get_transactions(TransactionFilter::All)
+            .await?
+            .into_iter()
+            .filter_map(|tx| {
+                if let TransactionStatus::Committed(block_num) = tx.transaction_status {
+                    Some(TransactionUpdate {
+                        transaction_id: tx.id,
+                        account_id: tx.account_id,
+                        block_num: block_num.as_u32(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let (consumed_note_updates, transactions_to_discard) =
+            self.consumed_note_updates(&nullifiers, &committed_transactions).await?;
+
+        // Store summary to return later
+        let sync_summary = SyncSummary::new(
+            0.into(),
+            consumed_note_updates.committed_note_ids().into_iter().collect(),
+            consumed_note_updates.consumed_note_ids().into_iter().collect(),
+            vec![],
+            vec![],
+            committed_transactions.iter().map(|tx| tx.transaction_id).collect(),
+        );
+
+        // Apply received and computed updates to the store
+        self.store
+            .apply_nullifiers(consumed_note_updates, transactions_to_discard)
+            .await
+            .map_err(ClientError::StoreError)?;
+
+        Ok(sync_summary)
+    }
 
     /// Returns the [`NoteUpdates`] containing new public note and committed input/output notes and
     /// a list or note tag records to be removed from the store.
@@ -427,7 +464,7 @@ impl<R: FeltRng> Client<R> {
     /// transactions that were discarded.
     async fn consumed_note_updates(
         &mut self,
-        nullifiers: Vec<NullifierUpdate>,
+        nullifiers: &[NullifierUpdate],
         committed_transactions: &[TransactionUpdate],
     ) -> Result<(NoteUpdates, Vec<TransactionId>), ClientError> {
         let nullifier_filter = NoteFilter::Nullifiers(
@@ -459,7 +496,6 @@ impl<R: FeltRng> Client<R> {
         let mut consumed_tracked_input_notes = vec![];
         let mut consumed_tracked_output_notes = vec![];
 
-        // Committed transactions
         for transaction_update in committed_transactions {
             let transaction_nullifiers: Vec<Nullifier> = consumed_input_notes
                 .iter()
@@ -627,8 +663,4 @@ impl<R: FeltRng> Client<R> {
         }
         Ok(mismatched_accounts)
     }
-}
-
-pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
-    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }

@@ -2,12 +2,13 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag};
+use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::{
+    note::NoteUpdates,
     store::{
         sqlite_store::{
             account::{lock_account, update_account},
@@ -147,6 +148,22 @@ impl SqliteStore {
         }
 
         // Commit the updates
+        tx.commit()?;
+
+        Ok(())
+    }
+
+    pub(super) fn apply_nullifiers(
+        conn: &mut Connection,
+        note_updates: &NoteUpdates,
+        transactions_to_discard: &[TransactionId],
+    ) -> Result<(), StoreError> {
+        let tx = conn.transaction()?;
+
+        apply_note_updates_tx(&tx, note_updates)?;
+
+        Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
+
         tx.commit()?;
 
         Ok(())

@@ -119,6 +119,12 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
+#[cfg(feature = "std")]
+pub mod builder;
+
+#[cfg(feature = "std")]
+pub use builder::ClientBuilder;
+
 mod errors;
 
 // RE-EXPORTS
@@ -166,6 +172,7 @@ pub mod crypto {
 
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
+pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.

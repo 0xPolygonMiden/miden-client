@@ -332,7 +332,8 @@ pub async fn mint_note(
         client.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
@@ -352,7 +353,8 @@ pub async fn consume_notes(
     println!("Consuming Note...");
     let tx_request =
         TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
-            .build();
+            .build()
+            .unwrap();
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
@@ -384,7 +386,9 @@ pub async fn assert_note_cannot_be_consumed_twice(
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id])
+        .build()
+        .unwrap();
     match client.new_transaction(consuming_account_id, tx_request).await {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
@@ -419,5 +423,5 @@ pub fn mint_multiple_fungible_asset(
         })
         .collect::<Vec<OutputNote>>();
 
-    TransactionRequestBuilder::new().with_own_output_notes(notes).unwrap().build()
+    TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
 }
