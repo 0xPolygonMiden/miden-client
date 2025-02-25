@@ -199,7 +199,7 @@ use alloc::boxed::Box;
 #[async_trait(?Send)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
-        &mut self,
+        &self,
         _block_num: BlockNumber,
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
@@ -215,7 +215,7 @@ impl NodeRpcClient for MockRpcApi {
 
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
@@ -229,7 +229,7 @@ impl NodeRpcClient for MockRpcApi {
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
@@ -251,7 +251,7 @@ impl NodeRpcClient for MockRpcApi {
         Ok((block.header(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         // assume all private notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
@@ -266,23 +266,20 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         _proven_transaction: ProvenTransaction,
     ) -> std::result::Result<(), RpcError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
 
-    async fn get_account_update(
-        &mut self,
-        _account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError> {
+    async fn get_account_update(&self, _account_id: AccountId) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 
     async fn get_account_proofs(
-        &mut self,
-        _account_ids: &BTreeSet<ForeignAccount>,
+        &self,
+        _: &BTreeSet<ForeignAccount>,
         _code_commitments: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully
@@ -290,7 +287,7 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         _prefix: &[u16],
         _block_num: BlockNumber,
     ) -> Result<Vec<NullifierUpdate>, RpcError> {
@@ -315,9 +312,9 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     let rpc_api = MockRpcApi::new();
-    let boxed_rpc_api = Box::new(rpc_api.clone());
+    let arc_rpc_api = Arc::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    let client = MockClient::new(arc_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
     (client, rpc_api, keystore)
 }
 

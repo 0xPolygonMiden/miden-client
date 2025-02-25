@@ -83,7 +83,7 @@ impl WebClient {
         let keystore = WebKeyStore {};
 
         let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
-        let web_rpc_client = Box::new(WebTonicRpcClient::new(
+        let web_rpc_client = Arc::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
         ));
 

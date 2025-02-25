@@ -214,7 +214,7 @@ impl ClientBuilder {
         let authenticator = ClientAuthenticator::new(rng, keystore);
 
         Ok(Client::new(
-            rpc_api,
+            rpc_api.into(),
             rng,
             arc_store,
             Arc::new(authenticator),

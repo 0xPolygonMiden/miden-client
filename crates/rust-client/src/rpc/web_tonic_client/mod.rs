@@ -55,7 +55,7 @@ impl WebTonicRpcClient {
 #[async_trait(?Send)]
 impl NodeRpcClient for WebTonicRpcClient {
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError> {
         let mut query_client = self.build_api_client();
@@ -75,7 +75,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     }
 
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
@@ -124,7 +124,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         Ok((block_header, mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
@@ -178,7 +178,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// Sends a sync state request to the Miden node, validates and converts the response
     /// into a [StateSyncInfo] struct.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
@@ -201,7 +201,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     }
 
     async fn sync_notes(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
@@ -229,7 +229,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
@@ -324,10 +324,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - The answer had a `None` for its account, or the account had a `None` at the `details`
     ///   field.
     /// - There is an error during [Account] deserialization.
-    async fn get_account_update(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError> {
+    async fn get_account_update(&self, account_id: AccountId) -> Result<AccountDetails, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
@@ -369,7 +366,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     }
 
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         prefixes: &[u16],
         block_num: BlockNumber,
     ) -> Result<Vec<NullifierUpdate>, RpcError> {
