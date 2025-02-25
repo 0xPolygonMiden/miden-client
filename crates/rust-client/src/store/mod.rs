@@ -312,6 +312,10 @@ pub trait Store: Send + Sync {
     /// - Updating the tracked on-chain accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 
+    /// Applies nullifier updates to database.
+    /// Nullifiers are retrieved after completing a `StateSync`.
+    ///
+    /// This operation is temporary, to be removed as part of miden-client/650.
     async fn apply_nullifiers(
         &self,
         note_updates: NoteUpdates,

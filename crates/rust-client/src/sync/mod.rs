@@ -239,7 +239,8 @@ impl<R: FeltRng> Client<R> {
             }
         }
         self.update_mmr_data().await?;
-        total_sync_summary.combine_with(self.apply_nullifiers(starting_block_num).await?);
+        // Sync and apply nullifiers
+        total_sync_summary.combine_with(self.sync_nullifiers(starting_block_num).await?);
 
         Ok(total_sync_summary)
     }
@@ -346,7 +347,7 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    async fn apply_nullifiers(
+    async fn sync_nullifiers(
         &mut self,
         starting_block_num: BlockNumber,
     ) -> Result<SyncSummary, ClientError> {

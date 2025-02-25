@@ -33,10 +33,8 @@ impl TryFrom<&rpc::generated::responses::NullifierUpdate> for NullifierUpdate {
         Ok(Self {
             nullifier: value
                 .nullifier
-                .ok_or(rpc::generated::responses::NullifierUpdate::missing_field("nullifier"))
-                .unwrap()
-                .try_into()
-                .unwrap(),
+                .ok_or(rpc::generated::responses::NullifierUpdate::missing_field("nullifier"))?
+                .try_into()?,
             block_num: value.block_num,
         })
     }
