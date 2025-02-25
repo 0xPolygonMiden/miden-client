@@ -47,6 +47,7 @@ use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
+    nullifier::NullifierUpdate,
     sync::StateSyncInfo,
 };
 use miden_objects::{
@@ -140,7 +141,6 @@ pub trait NodeRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
@@ -164,10 +164,15 @@ pub trait NodeRpcClient {
 
     /// Fetches the nullifiers corresponding to a list of prefixes using the
     /// `/CheckNullifiersByPrefix` RPC endpoint.
+    ///
+    /// - `prefix` is a list of nullifiers prefixes to search for.
+    /// - `block_num` is the block number to start the search from. Nullifiers created in this block
+    ///   or the following blocks will be included.
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefix: &[u16],
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+        block_num: BlockNumber,
+    ) -> Result<Vec<NullifierUpdate>, RpcError>;
 
     /// Fetches the nullifier proofs corresponding to a list of nullifiers using the
     /// `/CheckNullifiers` RPC endpoint.
@@ -199,15 +204,20 @@ pub trait NodeRpcClient {
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier isn't found,
     /// then `None` is returned.
+    /// The `block_num` parameter is the block number to start the search from.
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
         &mut self,
         nullifier: &Nullifier,
+        block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
-        let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()]).await?;
+        let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()], block_num).await?;
 
-        Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+        Ok(nullifiers
+            .iter()
+            .find(|update| update.nullifier == *nullifier)
+            .map(|update| update.block_num))
     }
 
     /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with

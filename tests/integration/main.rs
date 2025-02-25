@@ -1538,7 +1538,7 @@ async fn test_unused_rpc_api() {
 
     let node_nullifier = client
         .test_rpc_api()
-        .check_nullifiers_by_prefix(&[nullifier.prefix()])
+        .check_nullifiers_by_prefix(&[nullifier.prefix()], 0.into())
         .await
         .unwrap()
         .pop()
@@ -1551,7 +1551,7 @@ async fn test_unused_rpc_api() {
         .pop()
         .unwrap();
 
-    assert_eq!(node_nullifier.0, nullifier);
+    assert_eq!(node_nullifier.nullifier, nullifier);
     assert_eq!(node_nullifier_proof.leaf().entries().pop().unwrap().0, nullifier.inner());
 
     let account_delta = client
