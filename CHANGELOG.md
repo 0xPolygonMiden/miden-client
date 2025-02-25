@@ -14,7 +14,7 @@
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
-* Read Sync State response from stream (#751).
+* Updated Sync State to read the updates from a stream (#751).
 
 ## 0.7.0 (2025-01-28)
 

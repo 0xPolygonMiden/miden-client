@@ -48,8 +48,8 @@ use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
     nullifier::NullifierUpdate,
+    sync::SyncStateStream,
 };
-use generated::responses::SyncStateResponse;
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
@@ -57,7 +57,6 @@ use miden_objects::{
     note::{NoteId, NoteTag, Nullifier},
     transaction::ProvenTransaction,
 };
-use tonic::Streaming;
 
 /// Contains domain types related to RPC requests and responses, as well as utility functions
 /// for dealing with them.
@@ -142,7 +141,7 @@ pub trait NodeRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-    ) -> Result<Streaming<SyncStateResponse>, RpcError>;
+    ) -> Result<SyncStateStream, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint.

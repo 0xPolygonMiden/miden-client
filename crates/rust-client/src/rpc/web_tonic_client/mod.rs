@@ -16,7 +16,6 @@ use miden_objects::{
     Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::Streaming;
 use tonic_web_wasm_client::Client;
 
 use super::{
@@ -24,6 +23,7 @@ use super::{
         account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
         note::{NetworkNote, NoteSyncInfo},
         nullifier::NullifierUpdate,
+        sync::SyncStateStream,
     },
     generated::{
         requests::{
@@ -31,7 +31,6 @@ use super::{
             GetAccountProofsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
             SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
-        responses::SyncStateResponse,
         rpc::api_client::ApiClient,
     },
     NodeRpcClient, NodeRpcClientEndpoint, RpcError,
@@ -183,7 +182,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+    ) -> Result<SyncStateStream, RpcError> {
         let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
@@ -198,7 +197,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let response = query_client.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
-        Ok(response.into_inner())
+        Ok(SyncStateStream::new(response.into_inner()))
     }
 
     async fn sync_notes(

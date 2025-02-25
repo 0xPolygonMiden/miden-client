@@ -18,7 +18,7 @@ use miden_objects::{
 };
 use miden_tx::utils::Serializable;
 use tokio::sync::{RwLock, RwLockWriteGuard};
-use tonic::{transport::Channel, Streaming};
+use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
@@ -26,6 +26,7 @@ use super::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
         note::NetworkNote,
         nullifier::NullifierUpdate,
+        sync::SyncStateStream,
     },
     generated::{
         requests::{
@@ -33,7 +34,6 @@ use super::{
             CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
             GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
         },
-        responses::SyncStateResponse,
         rpc::api_client::ApiClient,
     },
     AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
@@ -215,7 +215,7 @@ impl NodeRpcClient for TonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+    ) -> Result<SyncStateStream, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
@@ -232,7 +232,7 @@ impl NodeRpcClient for TonicRpcClient {
         let response = rpc_api.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
-        Ok(response.into_inner())
+        Ok(SyncStateStream::new(response.into_inner()))
     }
 
     /// Sends a `GetAccountDetailsRequest` to the Miden node, and extracts an [AccountDetails] from

@@ -4,10 +4,13 @@ use miden_objects::{
     account::AccountId, block::BlockHeader, crypto::merkle::MmrDelta, note::NoteId,
     transaction::TransactionId, Digest,
 };
+use tonic::Streaming;
 
 use super::{note::CommittedNote, transaction::TransactionUpdate};
-use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
-
+use crate::{
+    alloc::string::ToString,
+    rpc::{generated::responses::SyncStateResponse, RpcError},
+};
 // STATE SYNC INFO
 // ================================================================================================
 
@@ -121,5 +124,21 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             note_inclusions,
             transactions,
         })
+    }
+}
+
+pub struct SyncStateStream(Streaming<SyncStateResponse>);
+
+impl SyncStateStream {
+    pub fn new(stream: Streaming<SyncStateResponse>) -> Self {
+        SyncStateStream(stream)
+    }
+
+    pub async fn next(&mut self) -> Result<Option<StateSyncInfo>, RpcError> {
+        match self.0.message().await {
+            Ok(Some(response)) => Ok(Some(response.try_into()?)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(RpcError::ConnectionError(e.message().to_string())),
+        }
     }
 }

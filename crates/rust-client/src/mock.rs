@@ -38,6 +38,7 @@ use crate::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
             nullifier::NullifierUpdate,
+            sync::SyncStateStream,
         },
         generated::{
             merkle::MerklePath,
@@ -222,7 +223,7 @@ impl NodeRpcClient for MockRpcApi {
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
-    ) -> Result<Streaming<SyncStateResponse>, RpcError> {
+    ) -> Result<SyncStateStream, RpcError> {
         // Collect sync responses for each block until the chain tip
         let mut sync_responses = vec![];
         let mut next_block = block_num;
@@ -240,7 +241,7 @@ impl NodeRpcClient for MockRpcApi {
         let mut codec = ProstCodec::<SyncStateResponse, _>::default();
         let body = MockBody::new(sync_responses);
 
-        Ok(Streaming::new_empty(codec.decoder(), body))
+        Ok(SyncStateStream::new(Streaming::new_empty(codec.decoder(), body)))
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
