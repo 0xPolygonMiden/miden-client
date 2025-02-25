@@ -17,7 +17,7 @@ use miden_client::{
         NoteRecipient, NoteTag, NoteType,
     },
     rpc::{Endpoint, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, NoteFilter},
+    store::sqlite_store::SqliteStore,
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
@@ -110,7 +110,7 @@ async fn test_mint_with_untracked_account() {
     );
 
     // Sleep for a while to ensure the note is committed on the node
-    sync_until_committed_tx(&temp_dir);
+    sync_until_committed_note(&temp_dir);
 }
 
 // IMPORT TESTS
@@ -179,7 +179,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     );
 
     // Wait until the note is committed on the node
-    sync_until_committed_tx(&temp_dir);
+    sync_until_committed_note(&temp_dir);
 }
 
 // This tests that it's possible to export and import notes into other CLIs. To do so it:
@@ -237,7 +237,7 @@ async fn test_cli_export_import_note() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node
-    sync_until_committed_tx(&temp_dir_2);
+    sync_until_committed_note(&temp_dir_2);
 
     show_note_cli(&temp_dir_2, &note_to_export_id, false);
     // Consume the note
@@ -299,16 +299,10 @@ async fn test_cli_export_import_account() {
 
     sync_cli(&temp_dir_2);
 
-    mint_cli(&temp_dir_2, &wallet_id, &faucet_id);
+    let note_id = mint_cli(&temp_dir_2, &wallet_id, &faucet_id);
 
     // Wait until the note is committed on the node
-    sync_until_committed_tx(&temp_dir_2);
-
-    // Get consumable note
-    let client = create_test_client_with_store_path(&store_path_2).await.0;
-    let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
-
-    let note_id = output_notes.first().unwrap().id().to_hex();
+    sync_until_committed_note(&temp_dir_2);
 
     // Consume the note
     consume_note_cli(&temp_dir_2, &wallet_id, &[&note_id]);
@@ -488,7 +482,7 @@ fn init_cli_with_store_path(network: &str, store_path: &Path) -> PathBuf {
 
 // Syncs CLI on directory. It'll try syncing until the command executes successfully. If it never
 // executes successfully, eventually the test will time out (provided the nextest config has a
-// timeout set). It returns the number of committed transactions after the sync.
+// timeout set). It returns the number of updated notes after the sync.
 fn sync_cli(cli_path: &Path) -> u64 {
     loop {
         let mut sync_cmd = Command::cargo_bin("miden").unwrap();
@@ -497,16 +491,16 @@ fn sync_cli(cli_path: &Path) -> u64 {
         let output = sync_cmd.current_dir(cli_path).output().unwrap();
 
         if output.status.success() {
-            let committed_transactions = String::from_utf8(output.stdout)
+            let updated_notes = String::from_utf8(output.stdout)
                 .unwrap()
                 .split_whitespace()
-                .skip_while(|&word| word != "transactions:")
+                .skip_while(|&word| word != "updated:")
                 .find(|word| word.parse::<u64>().is_ok())
                 .unwrap()
                 .parse()
                 .unwrap();
 
-            return committed_transactions;
+            return updated_notes;
         }
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
@@ -571,8 +565,8 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
     send_cmd.current_dir(cli_path).assert().success();
 }
 
-/// Syncs until a transaction is committed.
-fn sync_until_committed_tx(cli_path: &Path) {
+/// Syncs until a tracked note gets committed.
+fn sync_until_committed_note(cli_path: &Path) {
     while sync_cli(cli_path) == 0 {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
