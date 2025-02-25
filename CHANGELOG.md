@@ -1,13 +1,11 @@
 # Changelog
 
-## 0.7.2 (TBD)
-
-* Web Client: Exposed `InputNotes` iterator and `Note` `assets` property
-
-## 0.7.1 (2025-02-19)
+## 0.7.1 (TBD)
 
 * [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
 * Web Client Fix: Handled Case Where Web Workers are Not Available (#743).
+* Web Client: Exposed `InputNotes` iterator and `Note` `assets` property (#757).
+* Web Client Submit Transaction Fix: Typescript Typings Now Match Underlying Client Call (#760).
 
 ## 0.7.0 (2025-01-28)
 

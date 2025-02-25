@@ -421,7 +421,7 @@ export class WebClient {
     }
   }
 
-  async submit_transaction(transactionResult, prover = null) {
+  async submit_transaction(transactionResult, prover = undefined) {
     try {
       if (!this.worker) {
         return await this.wasmWebClient.submit_transaction(
