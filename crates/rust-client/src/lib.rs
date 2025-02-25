@@ -121,6 +121,12 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
+#[cfg(feature = "std")]
+pub mod builder;
+
+#[cfg(feature = "std")]
+pub use builder::ClientBuilder;
+
 mod errors;
 
 // RE-EXPORTS
