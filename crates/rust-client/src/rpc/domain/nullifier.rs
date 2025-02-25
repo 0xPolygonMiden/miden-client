@@ -7,6 +7,7 @@ use crate::rpc::{self, errors::RpcConversionError, generated::digest::Digest};
 // ================================================================================================
 
 /// Represents a note that was consumed in the node at a certain block.
+#[derive(Debug, Clone)]
 pub struct NullifierUpdate {
     /// The nullifier of the consumed note.
     pub nullifier: Nullifier,

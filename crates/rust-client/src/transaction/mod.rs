@@ -406,11 +406,6 @@ impl TransactionUpdates {
     pub fn discarded_transactions(&self) -> &[TransactionId] {
         &self.discarded_transactions
     }
-
-    /// Inserts a discarded transaction into the transaction updates.
-    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
-        self.discarded_transactions.push(transaction_id);
-    }
 }
 
 /// Transaction management methods
@@ -934,7 +929,7 @@ impl<R: FeltRng> Client<R> {
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
-                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
                 self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                     .await?;
             }

@@ -1,44 +1,34 @@
-use alloc::vec::Vec;
+use miden_objects::block::BlockNumber;
 
-use miden_objects::{
-    account::Account,
-    block::BlockHeader,
-    crypto::merkle::{InOrderIndex, MmrPeaks},
-    Digest,
+use super::{block_header::BlockUpdates, SyncSummary};
+use crate::{
+    account::{Account, AccountUpdates},
+    note::NoteUpdates,
+    transaction::TransactionUpdates,
 };
-
-use super::{NoteTagRecord, SyncSummary};
-use crate::{note::NoteUpdates, store::AccountUpdates, transaction::TransactionUpdates};
 
 // STATE SYNC UPDATE
 // ================================================================================================
 
 /// Contains all information needed to apply the update in the store after syncing with the node.
+#[derive(Default)]
 pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the
-    /// [`StateSyncInfo`](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_header: BlockHeader,
-    /// Whether the block header has notes relevant to the client.
-    pub block_has_relevant_notes: bool,
-    /// New MMR peaks for the locally tracked MMR of the blockchain.
-    pub new_mmr_peaks: MmrPeaks,
-    /// New authentications nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+    /// The block number of the last block that was synced.
+    pub block_num: BlockNumber,
+    /// New blocks and authentication nodes.
+    pub block_updates: BlockUpdates,
     /// New and updated notes to be upserted in the store.
     pub note_updates: NoteUpdates,
     /// Committed and discarded transactions after the sync.
     pub transaction_updates: TransactionUpdates,
     /// Public account updates and mismatched private accounts after the sync.
     pub account_updates: AccountUpdates,
-    /// Tag records that are no longer relevant.
-    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
         SyncSummary::new(
-            value.block_header.block_num(),
+            value.block_num,
             value.note_updates.committed_note_ids().into_iter().collect(),
             value.note_updates.consumed_note_ids().into_iter().collect(),
             value

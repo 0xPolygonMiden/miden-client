@@ -14,7 +14,7 @@ use miden_client::{
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
-    sync::SyncSummary,
+    sync::{on_note_received, StateSync, SyncSummary},
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transaction::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
@@ -61,16 +61,22 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
-
     let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+
+    let rpc_api = Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout));
+
+    let state_sync_component = StateSync::new(
+        rpc_api.clone(),
+        Box::new({
+            let store_clone = store.clone();
+            move |committed_note, public_note| {
+                Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
+            }
+        }),
+    );
+
     (
-        TestClient::new(
-            Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
-            rng,
-            store,
-            Arc::new(authenticator),
-            true,
-        ),
+        TestClient::new(rpc_api, rng, store, Arc::new(authenticator), state_sync_component, true),
         keystore,
     )
 }
@@ -271,7 +277,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {
-                panic!("Unexpected error: {other_error}");
+                panic!("Unexpected error: {other_error:?}");
             },
             _ => return,
         }
