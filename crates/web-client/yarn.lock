@@ -649,11 +649,6 @@ devtools-protocol@0.0.1330662:
   resolved "https://registry.npmjs.org/devtools-protocol/-/devtools-protocol-0.0.1330662.tgz"
   integrity sha512-pzh6YQ8zZfz3iKlCvgzVCu22NdpZ8hNmwU6WnQjNVquh0A9iVosPtNLWDwaWVGyrntQlltPFztTMK5Cg6lfCuw==
 
-dexie-export-import@^4.1.4:
-  version "4.1.4"
-  resolved "https://registry.yarnpkg.com/dexie-export-import/-/dexie-export-import-4.1.4.tgz#b08da915521e0fdcbe6a66f381323a271fd02ff4"
-  integrity sha512-3bw171qUuOTWSYLXI7C/0M6p1X65Rho3tu1IvD9By8jn0+3t3dLSkDlZ1BC6MbABl3kRlhtGigzC+SF+qcS5Og==
-
 dexie@^4.0.1:
   version "4.0.8"
   resolved "https://registry.npmjs.org/dexie/-/dexie-4.0.8.tgz"

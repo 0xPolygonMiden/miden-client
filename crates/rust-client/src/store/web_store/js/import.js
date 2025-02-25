@@ -33,18 +33,44 @@ export async function forceImportStore(jsonStr) {
       db_json = JSON.parse(db_json);
     }
 
-    db.tables.forEach((t) => console.log(t.name));
+    const jsonTableNames = Object.keys(db_json);
+    const dbTableNames = db.tables.map((t) => t.name);
 
-    for (const tableName in db_json) {
-      const table = db[tableName];
-      const records = db_json[tableName];
-
-      const transformedRecords = await Promise.all(
-        records.map(recursivelyTransformForImport)
-      );
-
-      await table.bulkPut(transformedRecords);
+    if (jsonTableNames.length === 0) {
+      throw new Error("No tables found in the provided JSON.");
     }
+
+    // Wrap everything in a transaction
+    await db.transaction(
+      "rw",
+      ...dbTableNames.map((name) => db.table(name)),
+      async () => {
+        // Clear all tables in the database
+        await Promise.all(db.tables.map((t) => t.clear()));
+
+        // Import data from JSON into matching tables
+        for (const tableName of jsonTableNames) {
+          const table = db.table(tableName);
+
+          if (!dbTableNames.includes(tableName)) {
+            console.warn(
+              `Table "${tableName}" does not exist in the database schema. Skipping.`
+            );
+            continue; // Skip tables not in the Dexie schema
+          }
+
+          const records = db_json[tableName];
+
+          const transformedRecords = await Promise.all(
+            records.map(recursivelyTransformForImport)
+          );
+
+          await table.bulkPut(transformedRecords);
+        }
+      }
+    );
+
+    console.log("Store imported successfully.");
   } catch (err) {
     console.error("Failed to import store: ", err);
     throw err;
