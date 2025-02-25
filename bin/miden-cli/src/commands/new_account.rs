@@ -247,8 +247,7 @@ fn load_init_storage_data(path: Option<PathBuf>) -> Result<InitStorageData, CliE
     if let Some(path) = path {
         let mut contents = String::new();
         let _ = File::open(path).and_then(|mut f| f.read_to_string(&mut contents))?;
-        // TODO: Remove unwrap
-        Ok(InitStorageData::from_toml(&contents).unwrap())
+        InitStorageData::from_toml(&contents).map_err(|err| CliError::Internal(Box::new(err)))
     } else {
         Ok(InitStorageData::default())
     }

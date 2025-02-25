@@ -1,11 +1,11 @@
-use std::error::Error as StdError;
+use std::error::Error;
 
 use miden_client::{authenticator::keystore::KeyStoreError, ClientError};
 use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
 use thiserror::Error;
 
-type SourceError = Box<dyn StdError + Send + Sync>;
+type SourceError = Box<dyn Error + Send + Sync>;
 
 #[derive(Debug, Diagnostic, Error)]
 pub enum CliError {
@@ -45,6 +45,8 @@ pub enum CliError {
     #[error("io error")]
     #[diagnostic(code(cli::io_error))]
     IO(#[from] std::io::Error),
+    #[error("internal error")]
+    Internal(#[source] SourceError),
     #[error("keystore error")]
     #[diagnostic(code(cli::keystore_error))]
     KeyStore(#[source] KeyStoreError),
@@ -59,10 +61,4 @@ pub enum CliError {
     #[error("transaction error: {1}")]
     #[diagnostic(code(cli::transaction_error))]
     Transaction(#[source] SourceError, String),
-}
-
-impl From<CliError> for String {
-    fn from(err: CliError) -> String {
-        err.to_string()
-    }
 }
