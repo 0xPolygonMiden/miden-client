@@ -40,46 +40,24 @@ impl WebClient {
         }
     }
 
-    pub async fn import_account_from_seed(
+    pub async fn import_public_account_from_seed(
         &mut self,
         init_seed: Vec<u8>,
-        storage_mode: &AccountStorageMode,
         mutable: bool,
     ) -> Result<Account, JsValue> {
         let client = self.get_mut_inner().ok_or(JsValue::from_str("Client not initialized"))?;
 
-        let (generated_acct, account_seed, key_pair) =
-            generate_account(client, storage_mode, mutable, Some(init_seed)).await?;
+        let (generated_acct, _, _) =
+            generate_account(client, &AccountStorageMode::public(), mutable, Some(init_seed))
+                .await?;
 
-        if storage_mode.is_public() {
-            // If public, fetch the data from chain
-            let account_details =
-                client.get_account_details(generated_acct.id()).await.map_err(|err| {
-                    JsValue::from_str(&format!("Failed to get account details: {}", err))
-                })?;
+        let account_id = generated_acct.id();
+        client.import_account_by_id(account_id).await.map_err(|err| {
+            let error_message = format!("Failed to import account: {err:?}");
+            JsValue::from_str(&error_message)
+        })?;
 
-            let on_chain_account = account_details
-                .account()
-                .ok_or(JsValue::from_str("Account not found on chain"))?;
-
-            client
-                .add_account(on_chain_account, None, &AuthSecretKey::RpoFalcon512(key_pair), false)
-                .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to import account: {:?}", err)))
-                .map(|_| on_chain_account.into())
-        } else {
-            // Simply re-generate the account and insert it, without fetching any data
-            client
-                .add_account(
-                    &generated_acct,
-                    Some(account_seed),
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                    false,
-                )
-                .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to import account: {:?}", err)))
-                .map(|_| generated_acct.into())
-        }
+        Ok(Account::from(generated_acct))
     }
     pub async fn import_note(&mut self, note_bytes: JsValue) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {

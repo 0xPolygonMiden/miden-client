@@ -24,15 +24,13 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let (new_account, account_seed, key_pair) =
                 generate_account(client, storage_mode, mutable, init_seed).await?;
-            match client
-                .add_account(
-                    &new_account,
-                    Some(account_seed),
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                    false,
-                )
-                .await
-            {
+
+            keystore
+                .expect("KeyStore should be initialized")
+                .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .map_err(|err| err.to_string())?;
+
+            match client.add_account(&new_account, Some(account_seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
                     let error_message = format!("Failed to insert new wallet: {err:?}");

@@ -11,28 +11,17 @@ import {
 
 const importWalletFromSeed = async (
   walletSeed: Uint8Array,
-  storageMode: StorageMode,
   mutable: boolean
 ) => {
   const serializedWalletSeed = Array.from(walletSeed);
   return await testingPage.evaluate(
-    async (_serializedWalletSeed, _storageMode, _mutable) => {
+    async (_serializedWalletSeed, _mutable) => {
       const client = window.client;
       const _walletSeed = new Uint8Array(_serializedWalletSeed);
 
-      const accountStorageMode =
-        _storageMode === "private"
-          ? window.AccountStorageMode.private()
-          : window.AccountStorageMode.public();
-
-      await client.import_account_from_seed(
-        _walletSeed,
-        accountStorageMode,
-        _mutable
-      );
+      await client.import_public_account_from_seed(_walletSeed, _mutable);
     },
     serializedWalletSeed,
-    storageMode,
     mutable
   );
 };
@@ -58,7 +47,7 @@ describe("import from seed", () => {
     // Deleting the account
     await clearStore();
 
-    await importWalletFromSeed(walletSeed, storageMode, mutable);
+    await importWalletFromSeed(walletSeed, mutable);
 
     const restoredBalance = await getAccountBalance(
       initialWallet.id,

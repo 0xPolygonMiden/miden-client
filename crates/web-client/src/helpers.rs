@@ -41,7 +41,11 @@ pub async fn generate_account(
         AccountType::RegularAccountImmutableCode
     };
 
-    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+    // Using the genesis block as the anchor for now to ensure deterministic outcomes
+    let anchor_block = client
+        .ensure_genesis_in_place()
+        .await
+        .map_err(|err| JsValue::from_str(&format!("Failed to create new wallet: {:?}", err)))?;
 
     let (new_account, account_seed) = match AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().unwrap())
