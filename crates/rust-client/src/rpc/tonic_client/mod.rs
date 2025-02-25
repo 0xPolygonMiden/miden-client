@@ -11,7 +11,7 @@ use miden_objects::{
     account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
@@ -25,6 +25,7 @@ use super::{
     domain::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
         note::NetworkNote,
+        nullifier::NullifierUpdate,
     },
     generated::{
         requests::{
@@ -406,7 +407,7 @@ impl NodeRpcClient for TonicRpcClient {
         &self,
         prefixes: &[u16],
         block_num: BlockNumber,
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
@@ -426,13 +427,10 @@ impl NodeRpcClient for TonicRpcClient {
         let nullifiers = response
             .nullifiers
             .iter()
-            .map(|nul| {
-                let nullifier =
-                    nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
-                let nullifier = nullifier.try_into()?;
-                Ok((nullifier, nul.block_num))
-            })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .map(TryFrom::try_from)
+            .collect::<Result<Vec<NullifierUpdate>, _>>()
+            .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+
         Ok(nullifiers)
     }
 }

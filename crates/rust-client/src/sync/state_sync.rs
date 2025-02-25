@@ -16,7 +16,7 @@ use crate::{
     alloc::string::ToString,
     note::{NoteScreener, NoteUpdates},
     rpc::{
-        domain::{note::CommittedNote, nullifier::NullifierUpdate, sync::StateSyncInfo},
+        domain::{note::CommittedNote, sync::StateSyncInfo},
         NodeRpcClient,
         RpcError::ConnectionError,
     },
@@ -156,9 +156,7 @@ impl StateSync {
         // another transaction.
         let mut discarded_transactions = vec![];
 
-        for (nullifier, block_num) in new_nullifiers {
-            let nullifier_update = NullifierUpdate { nullifier, block_num };
-
+        for nullifier_update in new_nullifiers {
             let discarded_transaction =
                 state_sync_update.note_updates.apply_nullifiers_state_transitions(
                     &nullifier_update,

@@ -37,6 +37,7 @@ use crate::{
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
+            nullifier::NullifierUpdate,
         },
         generated::{
             merkle::MerklePath,
@@ -306,15 +307,15 @@ impl NodeRpcClient for MockRpcApi {
         &self,
         prefix: &[u16],
         block_num: BlockNumber,
-    ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let mut nullifiers = vec![];
         for block in &self.blocks[block_num.as_usize()..] {
-            let new_nullifiers = block
-                .created_nullifiers()
-                .iter()
-                .filter(|n| prefix.contains(&n.prefix()))
-                .map(|n| (*n, block.header().block_num().as_u32()));
-            nullifiers.extend(new_nullifiers);
+            let new_nullifiers =
+                block.created_nullifiers().iter().filter(|n| prefix.contains(&n.prefix()));
+            nullifiers.extend(new_nullifiers.map(|n| NullifierUpdate {
+                nullifier: *n,
+                block_num: block.header().block_num().as_u32(),
+            }));
         }
         Ok(nullifiers)
     }

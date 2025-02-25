@@ -1,6 +1,7 @@
 use miden_objects::{crypto::hash::rpo::RpoDigest, note::Nullifier};
 
-use crate::rpc::{errors::RpcConversionError, generated::digest::Digest};
+use super::MissingFieldHelper;
+use crate::rpc::{self, errors::RpcConversionError, generated::digest::Digest};
 
 // NULLIFIER UPDATE
 // ================================================================================================
@@ -23,5 +24,19 @@ impl TryFrom<Digest> for Nullifier {
     fn try_from(value: Digest) -> Result<Self, Self::Error> {
         let digest: RpoDigest = value.try_into()?;
         Ok(digest.into())
+    }
+}
+
+impl TryFrom<&rpc::generated::responses::NullifierUpdate> for NullifierUpdate {
+    type Error = RpcConversionError;
+
+    fn try_from(value: &rpc::generated::responses::NullifierUpdate) -> Result<Self, Self::Error> {
+        Ok(Self {
+            nullifier: value
+                .nullifier
+                .ok_or(rpc::generated::responses::NullifierUpdate::missing_field("nullifier"))?
+                .try_into()?,
+            block_num: value.block_num,
+        })
     }
 }

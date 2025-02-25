@@ -110,10 +110,10 @@ impl WebClient {
                 note_type.into(),
                 client.rng(),
             )
+            .and_then(NativeTransactionRequestBuilder::build)
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {err}"))
-            })?
-            .build();
+            })?;
 
             let mint_transaction_execution_result = client
                 .new_transaction(faucet_id.into(), mint_transaction_request)
@@ -164,12 +164,12 @@ impl WebClient {
                     note_type.into(),
                     client.rng(),
                 )
+                .and_then(NativeTransactionRequestBuilder::build)
                 .map_err(|err| {
                     JsValue::from_str(&format!(
                         "Failed to create Send Transaction Request with Recall Height: {err}"
                     ))
                 })?
-                .build()
             } else {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
@@ -177,10 +177,10 @@ impl WebClient {
                     note_type.into(),
                     client.rng(),
                 )
+                .and_then(NativeTransactionRequestBuilder::build)
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to create Send Transaction Request: {err}"))
                 })?
-                .build()
             };
 
             let send_transaction_execution_result = client
@@ -221,7 +221,11 @@ impl WebClient {
             }
 
             let consume_transaction_request =
-                NativeTransactionRequestBuilder::consume_notes(result).build();
+                NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to create Consume Transaction Request: {err}"
+                    ))
+                })?;
 
             let consume_transaction_execution_result = client
                 .new_transaction(account_id.into(), consume_transaction_request)
@@ -284,7 +288,8 @@ impl WebClient {
                 client.rng(),
             )
             .unwrap()
-            .build();
+            .build()
+            .unwrap();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())
                 .await

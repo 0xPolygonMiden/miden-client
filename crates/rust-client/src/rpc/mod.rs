@@ -47,6 +47,7 @@ use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
+    nullifier::NullifierUpdate,
 };
 use generated::responses::SyncStateResponse;
 use miden_objects::{
@@ -165,7 +166,7 @@ pub trait NodeRpcClient {
         &self,
         prefix: &[u16],
         block_num: BlockNumber,
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+    ) -> Result<Vec<NullifierUpdate>, RpcError>;
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
     /// specified foreign accounts, using the `GetAccountProofs` endpoint.
@@ -191,7 +192,10 @@ pub trait NodeRpcClient {
     ) -> Result<Option<u32>, RpcError> {
         let nullifiers = self.check_nullifiers_by_prefix(&[nullifier.prefix()], block_num).await?;
 
-        Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+        Ok(nullifiers
+            .iter()
+            .find(|update| update.nullifier == *nullifier)
+            .map(|update| update.block_num))
     }
 
     /// Fetches public note-related data for a list of [NoteId] and builds [InputNoteRecord]s with
