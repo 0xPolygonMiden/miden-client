@@ -24,7 +24,6 @@ use super::{
         account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
         note::{NetworkNote, NoteSyncInfo},
         nullifier::NullifierUpdate,
-        sync::StateSyncInfo,
     },
     generated::{
         requests::{
