@@ -288,7 +288,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         _account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
-        panic!("shouldn't be used for now")
+        unimplemented!("shouldn't be used for now")
     }
 
     async fn get_account_proofs(
@@ -312,7 +312,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         _nullifiers: &[Nullifier],
     ) -> Result<Vec<SmtProof>, RpcError> {
-        panic!("shouldn't be used for now")
+        unimplemented!("shouldn't be used for now")
     }
 
     async fn get_account_state_delta(
@@ -321,7 +321,7 @@ impl NodeRpcClient for MockRpcApi {
         _from_block: BlockNumber,
         _to_block: BlockNumber,
     ) -> Result<AccountDelta, RpcError> {
-        panic!("shouldn't be used for now")
+        unimplemented!("shouldn't be used for now")
     }
 
     async fn get_block_by_number(
