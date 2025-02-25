@@ -146,7 +146,7 @@ impl NewWalletCmd {
 
 /// Creates a new account and saves it locally.
 ///
-/// An account may comprise one or components, each with its own storage and distinct
+/// An account may comprise one or more components, each with its own storage and distinct
 /// functionality.
 #[derive(Debug, Parser, Clone)]
 pub struct NewAccountCmd {
