@@ -12,6 +12,7 @@
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
 * Re-exported RemoteTransactionProver in `rust-client` (#752).
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
+* [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 
 ## 0.7.0 (2025-01-28)
 

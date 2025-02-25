@@ -11,7 +11,7 @@ use miden_objects::{
     account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
@@ -24,6 +24,7 @@ use super::{
     domain::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
         note::NetworkNote,
+        nullifier::NullifierUpdate,
     },
     generated::{
         requests::{
@@ -203,11 +204,8 @@ impl NodeRpcClient for TonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
@@ -215,7 +213,6 @@ impl NodeRpcClient for TonicRpcClient {
             block_num: block_num.as_u32(),
             account_ids,
             note_tags,
-            nullifiers,
         };
 
         let rpc_api = self.rpc_api().await?;
@@ -395,10 +392,12 @@ impl NodeRpcClient for TonicRpcClient {
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefixes: &[u16],
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+        block_num: BlockNumber,
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
+            block_num: block_num.as_u32(),
         };
         let rpc_api = self.rpc_api().await?;
         let response = rpc_api.check_nullifiers_by_prefix(request).await.map_err(|err| {
@@ -411,13 +410,10 @@ impl NodeRpcClient for TonicRpcClient {
         let nullifiers = response
             .nullifiers
             .iter()
-            .map(|nul| {
-                let nullifier =
-                    nul.nullifier.ok_or(RpcError::ExpectedDataMissing("Nullifier".to_string()))?;
-                let nullifier = nullifier.try_into()?;
-                Ok((nullifier, nul.block_num))
-            })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .map(TryFrom::try_from)
+            .collect::<Result<Vec<NullifierUpdate>, _>>()
+            .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+
         Ok(nullifiers)
     }
 }

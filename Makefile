@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="cf87d340f394d03bf376abff06a4b36149d63b24"
+NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
