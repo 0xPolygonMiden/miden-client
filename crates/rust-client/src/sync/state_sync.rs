@@ -115,10 +115,7 @@ impl StateSync {
         .into();
 
         let mut state_sync_update = StateSyncUpdate {
-            note_updates: NoteUpdates::new(
-                unspent_input_notes.clone(),
-                unspent_output_notes.clone(),
-            ),
+            note_updates: NoteUpdates::new(unspent_input_notes, unspent_output_notes),
             block_num: current_block_num,
             ..Default::default()
         };
@@ -142,20 +139,11 @@ impl StateSync {
             .await?;
         }
 
-        // Check for new nullifiers for input notes that were updated and unspent notes
-        let updated_input_notes_nullifiers = state_sync_update
+        // Check for new nullifiers for input notes that were updated
+        let nullifiers_tags: Vec<u16> = state_sync_update
             .note_updates
             .updated_input_notes()
-            .map(InputNoteRecord::nullifier);
-
-        let unspent_nullifiers = unspent_input_notes
-            .iter()
-            .map(InputNoteRecord::nullifier)
-            .chain(unspent_output_notes.iter().filter_map(OutputNoteRecord::nullifier));
-
-        let nullifiers_tags: Vec<u16> = unspent_nullifiers
-            .chain(updated_input_notes_nullifiers)
-            .map(|nullifier| nullifier.prefix())
+            .map(|note| note.nullifier().prefix())
             .collect();
 
         let new_nullifiers = self
@@ -163,11 +151,9 @@ impl StateSync {
             .check_nullifiers_by_prefix(&nullifiers_tags, current_block_num)
             .await?;
 
-        // Process nullifiers and track the transaction updates:
-        // * Transactions that were committed. Some of these might be tracked by the client and need
-        //   to be marked as committed.
-        // * Local tracked transactions that were discarded because the notes that they were
-        //   processing were nullified by an another transaction.
+        // Process nullifiers and track the updates of local tracked transactions that were
+        // discarded because the notes that they were processing were nullified by an
+        // another transaction.
         let mut discarded_transactions = vec![];
 
         for (nullifier, block_num) in new_nullifiers {
@@ -211,6 +197,8 @@ impl StateSync {
             self.account_state_sync(accounts, &response.account_hash_updates).await?;
 
         state_sync_update.account_updates.extend(account_updates);
+        // Track the transaction updates for transactions that were committed. Some of these might
+        // be tracked by the client and need to be marked as committed.
         state_sync_update
             .transaction_updates
             .extend(TransactionUpdates::new(response.transactions, vec![]));
@@ -338,7 +326,6 @@ impl StateSync {
                     note_updates.insert_updates(Some(public_note), None);
                 }
 
-                //
                 note_updates
                     .apply_committed_note_state_transitions(&committed_note, block_header)?;
             }
