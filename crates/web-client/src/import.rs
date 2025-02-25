@@ -47,7 +47,7 @@ impl WebClient {
     ) -> Result<Account, JsValue> {
         let client = self.get_mut_inner().ok_or(JsValue::from_str("Client not initialized"))?;
 
-        let (generated_acct, _, _) =
+        let (generated_acct, ..) =
             generate_account(client, &AccountStorageMode::public(), mutable, Some(init_seed))
                 .await?;
 

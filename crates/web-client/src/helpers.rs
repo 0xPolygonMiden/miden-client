@@ -45,7 +45,7 @@ pub async fn generate_account(
     let anchor_block = client
         .ensure_genesis_in_place()
         .await
-        .map_err(|err| JsValue::from_str(&format!("Failed to create new wallet: {:?}", err)))?;
+        .map_err(|err| JsValue::from_str(&format!("Failed to create new wallet: {err:?}")))?;
 
     let (new_account, account_seed) = match AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().unwrap())
@@ -57,7 +57,7 @@ pub async fn generate_account(
     {
         Ok(result) => result,
         Err(err) => {
-            let error_message = format!("Failed to create new wallet: {:?}", err);
+            let error_message = format!("Failed to create new wallet: {err:?}");
             return Err(JsValue::from_str(&error_message));
         },
     };
