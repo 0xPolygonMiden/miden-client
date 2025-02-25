@@ -33,11 +33,12 @@ mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
+    let store = create_test_store_path();
     let mut client = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
+        .with_tonic_rpc(Endpoint::localhost())
         .with_timeout(10_000)
         .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_sqlite_store(store.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -53,16 +54,16 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientError> {
-    let endpoint =
-        Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
+    let endpoint = Endpoint::localhost();
     let timeout_ms = 10_000;
     let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, timeout_ms));
+    let store = create_test_store_path();
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
         .with_timeout(10_000)
         .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_sqlite_store(store.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -78,10 +79,11 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 
 #[tokio::test]
 async fn test_client_builder_fails_without_keystore() {
+    let store = create_test_store_path();
     let result = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
+        .with_tonic_rpc(Endpoint::localhost())
         .with_timeout(10_000)
-        .with_sqlite_store("store.sqlite3")
+        .with_sqlite_store(store.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await;

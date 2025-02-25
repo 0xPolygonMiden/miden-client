@@ -7,7 +7,7 @@ use miden_client::{
     rpc::WebTonicRpcClient,
     store::web_store::WebStore,
     sync::{on_note_received, StateSync},
-    Client,
+    Client, RemoteTransactionProver,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
 use rand::{rngs::StdRng, Rng, SeedableRng};

@@ -126,7 +126,7 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(NoteFilter::Unverified).await.unwrap();
+    let retrieved_notes = client.get_input_notes(NoteFilter::All).await.unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
@@ -311,11 +311,10 @@ async fn test_sync_state() {
     // verify that the client is synced to the latest block
     assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
-    // verify that we now have one committed note after syncing state
-    // TODO: Review these next 3 asserts (see PR 758)
-    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 2);
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
-    assert_eq!(sync_details.consumed_notes.len(), 0);
+    // verify that we now have one committed note and one consumed note after syncing state
+    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
+    assert_eq!(sync_details.consumed_notes.len(), 1);
 
     // verify that the latest block number has been updated
     assert_eq!(

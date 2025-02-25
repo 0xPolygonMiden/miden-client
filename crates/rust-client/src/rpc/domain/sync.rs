@@ -1,24 +1,44 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    account::AccountId,
-    block::{BlockHeader, BlockNumber},
-    crypto::merkle::MmrDelta,
-    note::NoteId,
-    transaction::TransactionId,
-    Digest,
+    account::AccountId, block::BlockHeader, crypto::merkle::MmrDelta, note::NoteId,
+    transaction::TransactionId, Digest,
 };
+use tonic::Streaming;
 
 use super::{note::CommittedNote, transaction::TransactionUpdate};
-use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
+use crate::{
+    alloc::string::ToString,
+    rpc::{generated::responses::SyncStateResponse, RpcError},
+};
+
+// STATE SYNC STREAM
+// ================================================================================================
+
+/// Represents a stream of sync updates returned by the `sync_state` RPC method.
+pub struct SyncStateStream(Streaming<SyncStateResponse>);
+
+impl SyncStateStream {
+    /// Creates a new `SyncStateStream` from the provided `Streaming` instance.
+    pub fn new(stream: Streaming<SyncStateResponse>) -> Self {
+        SyncStateStream(stream)
+    }
+
+    /// Attempts to read the next `StateSyncInfo` from the stream.
+    pub async fn next(&mut self) -> Result<Option<StateSyncInfo>, RpcError> {
+        match self.0.message().await {
+            Ok(Some(response)) => Ok(Some(response.try_into()?)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(RpcError::ConnectionError(e.message().to_string())),
+        }
+    }
+}
 
 // STATE SYNC INFO
 // ================================================================================================
 
 /// Represents a `SyncStateResponse` with fields converted into domain types.
 pub struct StateSyncInfo {
-    /// The block number of the chain tip at the moment of the response.
-    pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
     /// MMR delta that contains data for (`current_block.num`, `incoming_block_header.num-1`).
@@ -40,8 +60,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = RpcError;
 
     fn try_from(value: SyncStateResponse) -> Result<Self, Self::Error> {
-        let chain_tip = value.chain_tip;
-
         // Validate and convert block header
         let block_header: BlockHeader = value
             .block_header
@@ -123,7 +141,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
 
         Ok(Self {
-            chain_tip: chain_tip.into(),
             block_header,
             mmr_delta,
             account_hash_updates,

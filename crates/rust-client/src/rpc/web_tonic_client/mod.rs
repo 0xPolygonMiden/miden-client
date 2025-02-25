@@ -23,7 +23,7 @@ use super::{
         account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
         note::{NetworkNote, NoteSyncInfo},
         nullifier::NullifierUpdate,
-        sync::StateSyncInfo,
+        sync::SyncStateStream,
     },
     generated::{
         requests::{
@@ -182,7 +182,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-    ) -> Result<StateSyncInfo, RpcError> {
+    ) -> Result<SyncStateStream, RpcError> {
         let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
@@ -197,7 +197,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let response = query_client.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
-        response.into_inner().try_into()
+        Ok(SyncStateStream::new(response.into_inner()))
     }
 
     async fn sync_notes(

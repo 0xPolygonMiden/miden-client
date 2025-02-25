@@ -25,7 +25,10 @@ use miden_objects::{
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
-use tonic::Response;
+use tonic::{
+    codec::{Codec, ProstCodec},
+    Response, Streaming,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -35,7 +38,7 @@ use crate::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
             nullifier::NullifierUpdate,
-            sync::StateSyncInfo,
+            sync::SyncStateStream,
         },
         generated::{
             merkle::MerklePath,
@@ -46,6 +49,7 @@ use crate::{
     },
     store::sqlite_store::SqliteStore,
     sync::{on_note_received, StateSync},
+    tonic_mock::MockBody,
     transaction::ForeignAccount,
     Client,
 };
@@ -167,7 +171,6 @@ impl MockRpcApi {
         let notes = self.get_notes_in_block(next_block_num).collect();
 
         SyncStateResponse {
-            chain_tip: self.get_chain_tip_block_num().as_u32(),
             block_header: Some(next_block.header().into()),
             mmr_delta,
             accounts: vec![],
@@ -220,11 +223,25 @@ impl NodeRpcClient for MockRpcApi {
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
-    ) -> Result<StateSyncInfo, RpcError> {
-        // Match request -> response through block_num
-        let response = self.get_sync_state_request(block_num);
+    ) -> Result<SyncStateStream, RpcError> {
+        // Collect sync responses for each block until the chain tip
+        let mut sync_responses = vec![];
+        let mut next_block = block_num;
 
-        Ok(response.try_into().unwrap())
+        for block in &self.blocks[block_num.as_usize()..] {
+            let block_num = block.header().block_num();
+            if block_num == self.get_chain_tip_block_num() {
+                break;
+            } else if block_num == next_block {
+                let update = self.get_sync_state_request(block_num);
+                next_block = update.block_header.unwrap().block_num.into();
+                sync_responses.push(update);
+            }
+        }
+        let mut codec = ProstCodec::<SyncStateResponse, _>::default();
+        let body = MockBody::new(sync_responses);
+
+        Ok(SyncStateStream::new(Streaming::new_empty(codec.decoder(), body)))
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
@@ -289,11 +306,19 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn check_nullifiers_by_prefix(
         &self,
-        _prefix: &[u16],
-        _block_num: BlockNumber,
+        prefix: &[u16],
+        block_num: BlockNumber,
     ) -> Result<Vec<NullifierUpdate>, RpcError> {
-        // Always return an empty list for now since it's only used when importing
-        Ok(vec![])
+        let mut nullifiers = vec![];
+        for block in &self.blocks[block_num.as_usize()..] {
+            let new_nullifiers =
+                block.created_nullifiers().iter().filter(|n| prefix.contains(&n.prefix()));
+            nullifiers.extend(new_nullifiers.map(|n| NullifierUpdate {
+                nullifier: *n,
+                block_num: block.header().block_num().as_u32(),
+            }));
+        }
+        Ok(nullifiers)
     }
 }
 

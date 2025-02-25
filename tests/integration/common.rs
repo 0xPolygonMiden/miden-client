@@ -222,22 +222,15 @@ pub async fn execute_tx_and_sync(
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     loop {
-        println!("Syncing State...");
-        client.sync_state().await.unwrap();
+        let summary = client.sync_state().await.unwrap();
+        println!("Syncing State {}...", summary.block_num.as_u32());
 
-        // Check if executed transaction got committed by the node
-        let uncommited_transactions =
-            client.get_transactions(TransactionFilter::Uncomitted).await.unwrap();
-        let is_tx_committed = uncommited_transactions
-            .iter()
-            .all(|uncommited_tx| uncommited_tx.id != transaction_id);
-
-        if is_tx_committed {
+        if summary.committed_transactions.contains(&transaction_id) {
             break;
         }
 
         // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+        tokio::time::sleep(std::time::Duration::new(0, 500_000_000)).await;
     }
 }
 

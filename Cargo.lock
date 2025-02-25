@@ -1368,9 +1368,12 @@ version = "0.8.0"
 dependencies = [
  "async-trait",
  "base64",
+ "bytes",
  "chrono",
  "deadpool-sqlite",
  "hex",
+ "http",
+ "http-body",
  "miden-client",
  "miden-lib",
  "miden-objects",
@@ -1601,7 +1604,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#bea3138187a6fe7d0810c2ecd7cf5e06c29f7ab1"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomasarrachea-stream-sync-state#77b6d986e3734bb93fcb8c5b5047b000173d647e"
 
 [[package]]
 name = "miden-stdlib"
