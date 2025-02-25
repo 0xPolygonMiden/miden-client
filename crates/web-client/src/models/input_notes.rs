@@ -25,9 +25,9 @@ impl InputNotes {
         self.0.get_note(index as usize).into()
     }
 
-    // TODO: iter() ?
-
-    // TODO: into_vec() ?
+    pub fn notes(&self) -> Vec<InputNote> {
+        self.0.iter().cloned().map(Into::into).collect()
+    }
 }
 
 // CONVERSIONS

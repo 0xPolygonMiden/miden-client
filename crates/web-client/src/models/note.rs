@@ -39,6 +39,10 @@ impl Note {
         self.0.recipient().clone().into()
     }
 
+    pub fn assets(&self) -> NoteAssets {
+        self.0.assets().clone().into()
+    }
+
     pub fn create_p2id_note(
         sender: &AccountId,
         target: &AccountId,

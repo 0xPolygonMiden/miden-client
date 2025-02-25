@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2 (TBD)
+
+* Web Client: Exposed `InputNotes` iterator and `Note` `assets` property
+
 ## 0.7.1 (2025-02-19)
 
 * [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
