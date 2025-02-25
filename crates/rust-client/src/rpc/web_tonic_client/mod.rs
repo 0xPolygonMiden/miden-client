@@ -10,7 +10,7 @@ use miden_objects::{
     account::{Account, AccountCode, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{MerklePath, MmrProof},
-    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteId, NoteInclusionProof, NoteTag},
     transaction::ProvenTransaction,
     utils::Deserializable,
     Digest,
@@ -22,6 +22,7 @@ use super::{
     domain::{
         account::{AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary},
         note::{NetworkNote, NoteSyncInfo},
+        nullifier::NullifierUpdate,
         sync::StateSyncInfo,
     },
     generated::{
@@ -181,19 +182,16 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
-        nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-        let nullifiers = nullifiers_tags.iter().map(|&nullifier| u32::from(nullifier)).collect();
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
             block_num: block_num.as_u32(),
             account_ids,
             note_tags,
-            nullifiers,
         };
 
         let response = query_client.sync_state(request).await.map_err(|err| {
@@ -370,12 +368,14 @@ impl NodeRpcClient for WebTonicRpcClient {
     async fn check_nullifiers_by_prefix(
         &self,
         prefixes: &[u16],
-    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+        block_num: BlockNumber,
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         let mut query_client = self.build_api_client();
 
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| u32::from(x)).collect(),
             prefix_len: 16,
+            block_num: block_num.as_u32(),
         };
 
         let response = query_client.check_nullifiers_by_prefix(request).await.map_err(|err| {
@@ -394,9 +394,9 @@ impl NodeRpcClient for WebTonicRpcClient {
                     "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
                 ))?;
                 let nullifier = nullifier.try_into()?;
-                Ok((nullifier, nul.block_num))
+                Ok(NullifierUpdate { nullifier, block_num: nul.block_num })
             })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
         Ok(nullifiers)
     }
 }

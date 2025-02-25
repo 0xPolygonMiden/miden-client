@@ -23,7 +23,7 @@ concurrent = ["miden-tx/concurrent", "std"]
 default = []
 idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
-std = ["miden-objects/std"]
+std = ["miden-objects/std","miden-proving-service-client/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
 tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots", "dep:tokio"]
 web-tonic = ["dep:tonic-web-wasm-client"]
@@ -34,6 +34,7 @@ base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.9", features = ["rt_tokio_1"], optional = true }
 hex = { version = "0.4" }
+miden-proving-service-client = { workspace = true , features = ["tx-prover"]}
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }

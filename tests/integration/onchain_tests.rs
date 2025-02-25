@@ -51,7 +51,8 @@ async fn test_onchain_notes_flow() {
         client_1.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
@@ -86,7 +87,8 @@ async fn test_onchain_notes_flow() {
         client_2.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
     // Create a note for client 3 that is already consumed before syncing
@@ -101,11 +103,12 @@ async fn test_onchain_notes_flow() {
         client_2.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build().unwrap();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
     // sync client 3 (basic account 2)
@@ -263,7 +266,8 @@ async fn test_onchain_accounts() {
         client_1.rng(),
     )
     .unwrap()
-    .build();
+    .build()
+    .unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
 
     // sync on second client until we receive the note
@@ -276,7 +280,7 @@ async fn test_onchain_accounts() {
 
     // Consume the note
     println!("Consuming note on second client...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
     execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
 
     // sync on first client

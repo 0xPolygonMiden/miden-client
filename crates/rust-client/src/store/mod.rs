@@ -33,10 +33,12 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteTag, Nullifier},
+    transaction::TransactionId,
     Digest, Word,
 };
 
 use crate::{
+    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -311,6 +313,16 @@ pub trait Store: Send + Sync {
     /// - Storing new MMR authentication nodes.
     /// - Updating the tracked public accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
+
+    /// Applies nullifier updates to database.
+    /// Nullifiers are retrieved after completing a `StateSync`.
+    ///
+    /// This operation is temporary, to be removed as part of miden-client/650.
+    async fn apply_nullifiers(
+        &self,
+        note_updates: NoteUpdates,
+        transactions_to_discard: Vec<TransactionId>,
+    ) -> Result<(), StoreError>;
 }
 
 // CHAIN MMR NODE FILTER
