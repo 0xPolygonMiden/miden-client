@@ -51,13 +51,7 @@ mod config;
 
 #[test]
 fn test_init_without_params() {
-    let mut temp_dir = temp_dir();
-    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir(temp_dir.clone()).unwrap();
-
-    let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--network", "localhost"]);
-    init_cmd.current_dir(&temp_dir).assert().success();
+    let temp_dir = init_cli("localhost").1;
 
     sync_cli(&temp_dir);
 
@@ -154,7 +148,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     sync_cli(&temp_dir);
 
     let fungible_faucet_account_id = {
-        let (client, _) = create_test_client_with_store_path(&store_path).await;
+        let (client, _) = create_rust_client_with_store_path(&store_path).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
@@ -293,7 +287,7 @@ async fn test_cli_export_import_account() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Ensure the account was imported
-    let client_2 = create_test_client_with_store_path(&store_path_2).await.0;
+    let client_2 = create_rust_client_with_store_path(&store_path_2).await.0;
     assert!(client_2.get_account(AccountId::from_hex(&faucet_id).unwrap()).await.is_ok());
     assert!(client_2.get_account(AccountId::from_hex(&wallet_id).unwrap()).await.is_ok());
 
@@ -382,17 +376,23 @@ async fn test_init_with_testnet() {
 
 #[tokio::test]
 async fn debug_mode_outputs_logs() {
+    // This test tries to execute a transaction with debug mode enabled and checks that the stack
+    // state is printed. We need to use the CLI for this because the debug logs are always printed
+    // to stdout and we can't capture them in a [`Client`] only test.
+    // We use the [`Client`] to create a custom note that will print the stack state and consume it
+    // using the CLI to check the stdout.
+
     const NOTE_FILENAME: &str = "test_note.mno";
     env::set_var("MIDEN_DEBUG", "true");
 
     // Create a Client and a custom note
     let store_path = create_test_store_path();
-    let (mut client, authenticator) = create_test_client_with_store_path(&store_path).await;
+    let (mut client, authenticator) = create_rust_client_with_store_path(&store_path).await;
     let (account, ..) = insert_new_wallet(&mut client, AccountStorageMode::Private, &authenticator)
         .await
         .unwrap();
 
-    // Create the custom note
+    // Create the custom note with a script that will print the stack state
     let note_script = "
             begin
                 debug.stack
@@ -428,13 +428,12 @@ async fn debug_mode_outputs_logs() {
         tag: Some(note.metadata().tag()),
     };
 
-    // Serialize the note
+    // Import the note into the CLI
     let temp_dir = init_cli_with_store_path("localhost", &store_path);
     let note_path = temp_dir.join(NOTE_FILENAME);
     let mut file = File::create(note_path.clone()).unwrap();
     file.write_all(&note_file.to_bytes()).unwrap();
 
-    // Import the note
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
     import_cmd.args(["import", note_path.to_str().unwrap()]);
     import_cmd.current_dir(&temp_dir).assert().success();
@@ -460,6 +459,8 @@ async fn debug_mode_outputs_logs() {
 // HELPERS
 // ================================================================================================
 
+/// Initializes a CLI with the given network and returns the store path and the temp directory
+/// where the CLI is running.
 fn init_cli(network: &str) -> (PathBuf, PathBuf) {
     let store_path = create_test_store_path();
     let temp_dir = init_cli_with_store_path(network, &store_path);
@@ -467,6 +468,8 @@ fn init_cli(network: &str) -> (PathBuf, PathBuf) {
     (store_path, temp_dir)
 }
 
+/// Initializes a CLI with the given network and store path and returns the temp directory where
+/// the CLI is running.
 fn init_cli_with_store_path(network: &str, store_path: &Path) -> PathBuf {
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -581,6 +584,7 @@ fn consume_note_cli(cli_path: &Path, account_id: &str, note_ids: &[&str]) {
     consume_note_cmd.current_dir(cli_path).assert().success();
 }
 
+/// Creates a new faucet account using the CLI given by `cli_path`.
 fn new_faucet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
     create_faucet_cmd.args([
@@ -608,6 +612,7 @@ fn new_faucet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
         .to_string()
 }
 
+/// Creates a new wallet account using the CLI given by `cli_path`.
 fn new_wallet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
     create_wallet_cmd.args(["new-wallet", "-s", storage_mode.to_string().as_str()]);
@@ -624,6 +629,7 @@ fn new_wallet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
         .to_string()
 }
 
+/// Creates a temporary sqlite store file.
 pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
@@ -632,7 +638,8 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-async fn create_test_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
+/// Creates a new [`Client`] with a given store. Also returns the keystore associated with it.
+async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -660,6 +667,7 @@ async fn create_test_client_with_store_path(store_path: &Path) -> (TestClient, F
     )
 }
 
+/// Executes a command and asserts that it fails but does not panic.
 fn assert_command_fails_but_does_not_panic(command: &mut Command) {
     let output_error = command.ok().unwrap_err();
     let exit_code = output_error.as_output().unwrap().status.code().unwrap();

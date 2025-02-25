@@ -141,6 +141,7 @@ impl SyncSummary {
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
+            && self.committed_transactions.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
