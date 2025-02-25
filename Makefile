@@ -22,7 +22,7 @@ NODE_BRANCH="cf87d340f394d03bf376abff06a4b36149d63b24"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="igamigo-template-followups"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
