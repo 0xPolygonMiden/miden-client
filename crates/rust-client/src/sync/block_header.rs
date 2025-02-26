@@ -66,7 +66,7 @@ impl<R: FeltRng> Client<R> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // We specify that we want to store the MMR data from the genesis block as we might use it
         // as an anchor for created accounts.
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
+        self.store.insert_block_header(&genesis_block, blank_mmr_peaks, true).await?;
         Ok(genesis_block)
     }
 
@@ -183,7 +183,7 @@ impl<R: FeltRng> Client<R> {
 
         // Insert header and MMR nodes
         self.store
-            .insert_block_header(block_header, current_partial_mmr.peaks(), true)
+            .insert_block_header(&block_header, current_partial_mmr.peaks(), true)
             .await?;
         self.store.insert_chain_mmr_nodes(&path_nodes).await?;
 

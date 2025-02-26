@@ -192,10 +192,11 @@ impl Store for SqliteStore {
 
     async fn insert_block_header(
         &self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
+        let block_header = block_header.clone();
         self.interact_with_connection(move |conn| {
             SqliteStore::insert_block_header(
                 conn,

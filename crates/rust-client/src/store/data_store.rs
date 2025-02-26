@@ -109,8 +109,8 @@ impl DataStore for ClientDataStore {
             .store
             .get_block_headers(&block_nums)
             .await?
-            .iter()
-            .map(|(header, _has_notes)| *header)
+            .into_iter()
+            .map(|(header, _has_notes)| header)
             .collect();
 
         let partial_mmr =
