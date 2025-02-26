@@ -2,7 +2,7 @@ use alloc::string::{String, ToString};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{AccountId, AccountIdPrefix, AuthSecretKey},
+    account::{AccountId, AccountIdPrefix},
     note::PartialNote,
     transaction::TransactionScript,
     Felt, TransactionScriptError,
@@ -12,11 +12,15 @@ use thiserror::Error;
 
 use super::prepare_word;
 
+pub enum AuthTypes {
+    RpoFalcon512,
+}
+
 // ACCOUNT CAPABILITIES
 // ============================================================================================
 pub(crate) struct AccountCapabilities {
     pub account_id: AccountId,
-    pub auth: AuthSecretKey,
+    pub auth: AuthTypes,
     pub interfaces: AccountInterface,
 }
 
@@ -198,7 +202,7 @@ impl TransactionScriptBuilder {
         includes.push_str(self.account_capabilities.interfaces.script_includes());
 
         match self.account_capabilities.auth {
-            AuthSecretKey::RpoFalcon512(_) => {
+            AuthTypes::RpoFalcon512 => {
                 includes.push_str("use.miden::contracts::auth::basic->auth_tx\n");
             },
         }
@@ -213,7 +217,7 @@ impl TransactionScriptBuilder {
     /// Returns a string with the authentication procedure call for the script.
     fn script_authentication(&self) -> String {
         match self.account_capabilities.auth {
-            AuthSecretKey::RpoFalcon512(_) => "call.auth_tx::auth_tx_rpo_falcon512\n".to_string(),
+            AuthTypes::RpoFalcon512 => "call.auth_tx::auth_tx_rpo_falcon512\n".to_string(),
         }
     }
 
