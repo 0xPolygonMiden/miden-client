@@ -1,6 +1,6 @@
 use miden_client::{
-    account::Account,
-    note::{build_swap_tag, Note},
+    account::{Account, AccountId},
+    note::{build_swap_tag, Note, NoteId},
     transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
@@ -236,6 +236,8 @@ async fn test_swap_fully_onchain() {
 async fn test_swap_private() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
+    const BTC_MINT_AMOUNT: u64 = 1000;
+    const ETH_MINT_AMOUNT: u64 = 1000;
     let (mut client1, authenticator_1) = create_test_client().await;
     wait_for_node(&mut client1).await;
     let (mut client2, authenticator_2) = create_test_client().await;

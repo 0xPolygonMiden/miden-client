@@ -306,7 +306,7 @@ pub const MINT_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
 
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account).
-pub async fn setup(
+pub async fn setup_two_wallets_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
@@ -334,6 +334,27 @@ pub async fn setup(
     // Get Faucet and regular accounts
     println!("Fetching Accounts...");
     (first_basic_account, second_basic_account, faucet_account)
+}
+
+/// Sets up a basic client and returns (basic_account, faucet_account).
+pub async fn setup_wallet_and_faucet(
+    client: &mut TestClient,
+    accounts_storage_mode: AccountStorageMode,
+    keystore: &FilesystemKeyStore,
+) -> (Account, Account) {
+    // Enusre clean state
+    assert!(client.get_account_headers().await.unwrap().is_empty());
+    assert!(client.get_transactions(TransactionFilter::All).await.unwrap().is_empty());
+    assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    let (faucet_account, ..) = insert_new_fungible_faucet(client, accounts_storage_mode, keystore)
+        .await
+        .unwrap();
+
+    let (basic_account, ..) =
+        insert_new_wallet(client, accounts_storage_mode, keystore).await.unwrap();
+
+    (basic_account, faucet_account)
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
