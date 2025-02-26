@@ -1,6 +1,6 @@
 use std::{
     env::{self, temp_dir},
-    fs::File,
+    fs::{self, File},
     io::{Read, Write},
     path::{Path, PathBuf},
 };
@@ -596,7 +596,7 @@ fn new_faucet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
         token_metadata.ticker="BTC"
         "#;
     let file_path = cli_path.join(INIT_DATA_FILENAME);
-    fs::write(&file_path, init_storage_data_toml)?;
+    fs::write(&file_path, init_storage_data_toml).unwrap();
 
     create_faucet_cmd.args([
         "new-account",

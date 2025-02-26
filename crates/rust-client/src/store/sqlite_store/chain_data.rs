@@ -322,6 +322,9 @@ mod test {
                 .into_iter()
                 .map(|(block_header, _has_notes)| block_header)
                 .collect();
-        assert_eq!(&[mock_block_headers[1], mock_block_headers[3]], &block_headers[..]);
+        assert_eq!(
+            &[mock_block_headers[1].clone(), mock_block_headers[3].clone()],
+            &block_headers[..]
+        );
     }
 }
