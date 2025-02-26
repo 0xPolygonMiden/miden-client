@@ -51,6 +51,8 @@ pub enum RpcConversionError {
     NotAValidFelt,
     #[error("invalid note type value")]
     NoteTypeError(#[from] NoteError),
+    #[error("failed to convert rpc data: {0}")]
+    InvalidField(String),
     #[error("field `{field_name}` expected to be present in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,
