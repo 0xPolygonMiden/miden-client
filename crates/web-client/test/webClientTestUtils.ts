@@ -418,16 +418,3 @@ export const isValidAddress = (address: string) => {
 
 export const badHexId =
   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-
-export const clearStore = async () => {
-  await testingPage.evaluate(async () => {
-    // Open a connection to the list of databases
-    const databases = await indexedDB.databases();
-    for (const db of databases) {
-      // Delete each database by name
-      if (db.name) {
-        indexedDB.deleteDatabase(db.name);
-      }
-    }
-  });
-};
