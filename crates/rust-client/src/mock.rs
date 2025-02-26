@@ -45,7 +45,6 @@ use crate::{
         NodeRpcClient, RpcError,
     },
     store::sqlite_store::SqliteStore,
-    sync::{on_note_received, StateSync},
     transaction::ForeignAccount,
     Client,
 };
@@ -311,22 +310,11 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     let rpc_api = MockRpcApi::new();
     let arc_rpc_api = Arc::new(rpc_api.clone());
 
-    let state_sync_component = StateSync::new(
-        arc_rpc_api.clone(),
-        Box::new({
-            let store_clone = store.clone();
-            move |committed_note, public_note| {
-                Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
-            }
-        }),
-    );
-
-    let client =
-        MockClient::new(arc_rpc_api, rng, store, authenticator, state_sync_component, true);
+    let client = MockClient::new(arc_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
     (client, rpc_api, keystore)
 }
 

@@ -6,8 +6,7 @@ use miden_client::{
     authenticator::{keystore::WebKeyStore, ClientAuthenticator},
     rpc::WebTonicRpcClient,
     store::web_store::WebStore,
-    sync::{on_note_received, StateSync},
-    Client,
+    Client, RemoteTransactionProver,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -90,25 +89,8 @@ impl WebClient {
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
-
-        let state_sync_component = StateSync::new(
-            web_rpc_client.clone(),
-            Box::new({
-                let store_clone = web_store.clone();
-                move |committed_note, public_note| {
-                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
-                }
-            }),
-        );
-
-        self.inner = Some(Client::new(
-            web_rpc_client,
-            rng,
-            web_store.clone(),
-            authenticator,
-            state_sync_component,
-            false,
-        ));
+        self.inner =
+            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
         self.keystore = Some(keystore);
 

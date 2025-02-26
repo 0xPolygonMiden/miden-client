@@ -1,5 +1,4 @@
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     sync::Arc,
 };
@@ -11,7 +10,6 @@ use crate::{
     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
     store::{sqlite_store::SqliteStore, Store},
-    sync::{on_note_received, StateSync},
     Client, ClientError, Felt,
 };
 
@@ -214,22 +212,11 @@ impl ClientBuilder {
 
         let authenticator = ClientAuthenticator::new(rng, keystore);
 
-        let state_sync_component = StateSync::new(
-            rpc_api.clone(),
-            Box::new({
-                let store_clone = arc_store.clone();
-                move |committed_note, public_note| {
-                    Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
-                }
-            }),
-        );
-
         Ok(Client::new(
             rpc_api,
             rng,
             arc_store,
             Arc::new(authenticator),
-            state_sync_component,
             self.in_debug_mode,
         ))
     }
