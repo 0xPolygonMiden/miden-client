@@ -53,10 +53,10 @@ type InnerClient = tonic::transport::Channel;
 
 /// Client for the Node RPC API using tonic.
 ///
-/// If the `tonic` feature is enabled, this client will use a [`tonic::transport::Channel`] to
+/// If the `tonic` feature is enabled, this client will use a `tonic::transport::Channel` to
 /// communicate with the node. In this case the connection will be established lazily when the
 /// first request is made.
-/// If the `web-tonic` feature is enabled, this client will use a [`tonic_web_wasm_client::Client`]
+/// If the `web-tonic` feature is enabled, this client will use a `tonic_web_wasm_client::Client`
 /// to communicate with the node.
 ///
 /// In both cases, the [`TonicRpcClient`] depends on the types inside the `generated` module, which

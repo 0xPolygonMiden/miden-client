@@ -17,11 +17,11 @@ miden-client = { version = "0.8" }
 | `concurrent` | Used to enable concurrency during execution and proof generation. **Disabled by default.**                                                               |
 | `idxdb`      | Includes `WebStore`, an IndexedDB implementation of the `Store` trait. **Disabled by default.**                                                          |
 | `sqlite`     | Includes `SqliteStore`, a SQLite implementation of the `Store` trait. This relies on the standard library. **Disabled by default.**                                                           |
-| `tonic`      | Includes `TonicRpcClient`, a Tonic client to communicate with Miden node. This relies on the standard library. **Disabled by default.**                                                        |
-| `web-tonic`  | Includes a modified version of `TonicRpcClient`, a Tonic client to communicate with the Miden node updated so that it works in the browser. **Disabled by default.**                                   |
+| `tonic`      | Includes `TonicRpcClient`, a `std`-compatible Tonic client to communicate with Miden node. This relies on the `tonic` for the inner transport.  **Disabled by default.**                                                        |
+| `web-tonic`  | Includes `TonicRpcClient`, a `wasm`-compatible Tonic client to communicate with the Miden node. This relies on `tonic-web-wasm-client` for the inner transport. **Disabled by default.**                                   |
 | `testing`    | Enables functions meant to be used in testing environments. **Disabled by default.**             |
 
-Features `sqlite` and `idxdb` are mutually exclusive.
+Features `sqlite` and `idxdb` are mutually exclusive, the same goes for `tonic` and `web-tonic`.
 
 ### Store and RpcClient implementations
 
