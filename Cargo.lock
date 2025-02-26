@@ -1481,7 +1481,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#462053596adf6b0ea8d8b9f26e4d0dd719ac13e9"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#fdeacdf170dce4f91c706a504ef92e872d9d5fee"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1536,7 +1536,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#462053596adf6b0ea8d8b9f26e4d0dd719ac13e9"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#fdeacdf170dce4f91c706a504ef92e872d9d5fee"
 dependencies = [
  "getrandom 0.2.15",
  "miden-assembly",
@@ -1582,7 +1582,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#462053596adf6b0ea8d8b9f26e4d0dd719ac13e9"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#fdeacdf170dce4f91c706a504ef92e872d9d5fee"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1615,7 +1615,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#462053596adf6b0ea8d8b9f26e4d0dd719ac13e9"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=igamigo-template-followups#fdeacdf170dce4f91c706a504ef92e872d9d5fee"
 dependencies = [
  "async-trait",
  "miden-lib",
