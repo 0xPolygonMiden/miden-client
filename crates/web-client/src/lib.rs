@@ -14,6 +14,7 @@ use wasm_bindgen::prelude::*;
 
 pub mod account;
 pub mod export;
+pub mod helpers;
 pub mod import;
 pub mod models;
 pub mod new_account;

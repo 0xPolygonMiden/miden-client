@@ -142,6 +142,7 @@ impl SyncSummary {
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
+            && self.committed_transactions.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
@@ -151,6 +152,7 @@ impl SyncSummary {
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
+        self.committed_transactions.append(&mut other.committed_transactions);
     }
 }
 
@@ -315,7 +317,7 @@ impl<R: FeltRng> Client<R> {
             mismatched_private_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
-
+        let response_block_num = response.block_header.block_num();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             note_updates,
@@ -337,7 +339,7 @@ impl<R: FeltRng> Client<R> {
             .await
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == response.block_header.block_num() {
+        if response.chain_tip == response_block_num {
             Ok(SyncStatus::SyncedToLastBlock(sync_summary))
         } else {
             Ok(SyncStatus::SyncedToBlock(sync_summary))
