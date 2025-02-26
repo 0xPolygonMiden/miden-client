@@ -56,7 +56,7 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
     let endpoint =
         Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
-    let rpc_api = Box::new(TonicRpcClient::new(&endpoint, timeout_ms));
+    let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, timeout_ms));
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
