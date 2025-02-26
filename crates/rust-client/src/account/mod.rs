@@ -275,7 +275,7 @@ pub fn build_wallet_id(
     public_key: PublicKey,
     storage_mode: AccountStorageMode,
     is_mutable: bool,
-    anchor_block: BlockHeader,
+    anchor_block: &BlockHeader,
 ) -> Result<AccountId, ClientError> {
     let account_type = if is_mutable {
         AccountType::RegularAccountUpdatableCode
@@ -283,7 +283,7 @@ pub fn build_wallet_id(
         AccountType::RegularAccountImmutableCode
     };
 
-    let accound_id_anchor = (&anchor_block).try_into().map_err(|_| {
+    let accound_id_anchor = anchor_block.try_into().map_err(|_| {
         ClientError::AccountError(AccountError::AssumptionViolated(
             "Provided block header is not an anchor block".to_string(),
         ))
