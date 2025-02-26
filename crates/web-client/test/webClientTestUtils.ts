@@ -342,6 +342,7 @@ export const consumeTransaction = async (
 interface SetupWalletFaucetResult {
   accountId: string;
   faucetId: string;
+  accountHash: string;
 }
 
 export const setupWalletAndFaucet =
@@ -363,6 +364,7 @@ export const setupWalletAndFaucet =
 
       return {
         accountId: account.id().to_string(),
+        accountHash: account.hash().to_hex(),
         faucetId: faucetAccount.id().to_string(),
       };
     });
@@ -416,3 +418,16 @@ export const isValidAddress = (address: string) => {
 
 export const badHexId =
   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+
+export const clearStore = async () => {
+  await testingPage.evaluate(async () => {
+    // Open a connection to the list of databases
+    const databases = await indexedDB.databases();
+    for (const db of databases) {
+      // Delete each database by name
+      if (db.name) {
+        indexedDB.deleteDatabase(db.name);
+      }
+    }
+  });
+};
