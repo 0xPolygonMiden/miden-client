@@ -5,12 +5,17 @@
 ### Features
 
 * Added support to import public accounts to `Client` (#733).
+* [BREAKING] Generalized `miden new-account` CLI command (#728).
+* Added `ClientBuilder` for client initialization (#741).
 
 ### Changes
 
-* Added check for empty pay to ID notes (#714).
-* [BREAKING] Generalized `miden new-account` CLI command (#728).
+* Added wallet generation from seed & import from seed on web SDK (#710).
+* Add check for empty pay to ID notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+* Re-exported RemoteTransactionProver in `rust-client` (#752).
+* Moved error handling to the `TransactionRequestBuilder::build()` (#750).
+* [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 
 ## 0.7.0 (2025-01-28)
 

@@ -6,15 +6,15 @@ use miden_client::{
     authenticator::{keystore::WebKeyStore, ClientAuthenticator},
     rpc::WebTonicRpcClient,
     store::web_store::WebStore,
-    Client,
+    Client, RemoteTransactionProver,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
 pub mod account;
 pub mod export;
+pub mod helpers;
 pub mod import;
 pub mod models;
 pub mod new_account;
