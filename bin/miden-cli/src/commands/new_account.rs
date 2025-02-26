@@ -30,7 +30,7 @@ use crate::{
 // CLI TYPES
 // ================================================================================================
 
-/// Mirror enum for [AccountStorageMode] that enables parsing for CLI commands.
+/// Mirror enum for [`AccountStorageMode`] that enables parsing for CLI commands.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum CliAccountStorageMode {
     Private,
@@ -46,7 +46,7 @@ impl From<CliAccountStorageMode> for AccountStorageMode {
     }
 }
 
-/// Mirror enum for [AccountType] that enables parsing for CLI commands.
+/// Mirror enum for [`AccountType`] that enables parsing for CLI commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum CliAccountType {
     FungibleFaucet,
