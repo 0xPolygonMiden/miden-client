@@ -148,9 +148,8 @@ const methodHandlers = {
       new Uint8Array(serializedTransactionResult)
     );
 
+    let prover = undefined;
     if (serializedProver) {
-      // A prover was provided, so determine which one it is.
-      let prover;
       if (serializedProver.startsWith("remote:")) {
         // For a remote prover, extract the endpoint.
         // For example, "remote:https://my-custom-endpoint.com" becomes "https://my-custom-endpoint.com"
@@ -161,14 +160,10 @@ const methodHandlers = {
       } else {
         throw new Error("Invalid prover tag received in worker");
       }
-      await wasmWebClient.submit_transaction_with_prover(
-        transactionResult,
-        prover
-      );
-    } else {
-      // No prover was passed, so submit the transaction without one.
-      await wasmWebClient.submit_transaction(transactionResult);
     }
+
+    // Call the unified submit_transaction method with an optional prover.
+    await wasmWebClient.submit_transaction(transactionResult, prover);
     return;
   },
   [MethodName.SYNC_STATE]: async () => {
