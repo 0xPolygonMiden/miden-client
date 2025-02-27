@@ -523,6 +523,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
     while client.get_sync_height().await.unwrap() < current_block_num + 5 {
         client.sync_state().await.unwrap();
+        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
     }
 
     // Consume the note with the sender account
