@@ -490,7 +490,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
-        Some(current_block_num + 5),
+        Some(current_block_num + 50),
         NoteType::Private,
         client.rng(),
     )
@@ -521,7 +521,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     println!("Waiting for note to be consumable by sender");
     let current_block_num = client.get_sync_height().await.unwrap();
 
-    while client.get_sync_height().await.unwrap() < current_block_num + 5 {
+    while client.get_sync_height().await.unwrap() < current_block_num + 50 {
         client.sync_state().await.unwrap();
         std::thread::sleep(std::time::Duration::new(0, 100_000_000));
     }

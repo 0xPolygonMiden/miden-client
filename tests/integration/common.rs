@@ -239,8 +239,8 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             break;
         }
 
-        // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+        // 100_000_000 ns = 0.1s
+        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
     }
     if std::env::var("LOG_WAIT_TIMES").unwrap_or_else(|_| "false".to_string()) == "true" {
         let elapsed = now.elapsed();
@@ -271,8 +271,8 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
             return summary;
         }
 
-        // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+        // 100_000_000 ns = 0.1s
+        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
     }
 }
 
