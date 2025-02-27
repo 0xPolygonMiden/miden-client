@@ -18,13 +18,14 @@ use miden_client::{
         ClientAuthenticator,
     },
     crypto::FeltRng,
-    note::create_p2id_note,
+    note::{create_p2id_note, Note},
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transaction::{
-        DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
+        DataStoreError, NoteArgs, TransactionExecutorError, TransactionRequest,
+        TransactionRequestBuilder,
     },
     Client, ClientError, Word,
 };
@@ -467,4 +468,46 @@ pub fn mint_multiple_fungible_asset(
         .collect::<Vec<OutputNote>>();
 
     TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
+}
+
+pub async fn execute_tx_and_consume_output_notes(
+    tx_request: TransactionRequest,
+    client: &mut TestClient,
+    executor: AccountId,
+    consumer: AccountId,
+) {
+    let output_notes = tx_request
+        .expected_output_notes()
+        .cloned()
+        .map(|note| (note, None::<NoteArgs>))
+        .collect::<Vec<(Note, Option<NoteArgs>)>>();
+
+    execute_tx(client, executor, tx_request).await;
+
+    let tx_request = TransactionRequestBuilder::new()
+        .with_unauthenticated_input_notes(output_notes)
+        .build()
+        .unwrap();
+    let transaction_id = execute_tx(client, consumer, tx_request).await;
+    wait_for_tx(client, transaction_id).await;
+}
+
+pub async fn mint_and_consume(
+    client: &mut TestClient,
+    basic_account_id: AccountId,
+    faucet_account_id: AccountId,
+    note_type: NoteType,
+) {
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap(),
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    execute_tx_and_consume_output_notes(tx_request, client, faucet_account_id, basic_account_id)
+        .await;
 }
