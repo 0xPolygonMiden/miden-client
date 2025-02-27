@@ -17,7 +17,7 @@ use miden_client::{
     utils::Deserializable,
     Client, Word,
 };
-use miden_lib::account::auth::RpoFalcon512;
+use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::account::{
     AccountComponent, AccountComponentTemplate, InitStorageData, StorageValueName,
 };
@@ -101,6 +101,7 @@ impl NewWalletCmd {
     ) -> Result<(), CliError> {
         // Load extra component templates using the helper.
         let extra_components = load_component_templates(&self.extra_components)?;
+
         let init_storage_data = load_init_storage_data(self.init_storage_data_path.clone())?;
 
         let key_pair = SecretKey::with_rng(client.rng());
@@ -111,12 +112,12 @@ impl NewWalletCmd {
         } else {
             AccountType::RegularAccountImmutableCode
         };
-
+        
         let (new_account, seed) = build_account(
             &mut client,
             account_type,
             self.storage_mode.into(),
-            &key_pair,
+            &[RpoFalcon512::new(key_pair.public_key()).into(), BasicWallet.into()],
             &extra_components,
             &init_storage_data,
         )
@@ -191,7 +192,8 @@ impl NewAccountCmd {
             &mut client,
             self.account_type.into(),
             self.storage_mode.into(),
-            &key_pair,
+            // TODO: Forcing an auth component for simplicity for now
+            &[RpoFalcon512::new(key_pair.public_key()).into()],
             &component_templates,
             &init_storage_data,
         )
@@ -259,7 +261,7 @@ async fn build_account(
     client: &mut Client<impl FeltRng>,
     account_type: AccountType,
     storage_mode: AccountStorageMode,
-    key_pair: &SecretKey,
+    account_components: &[AccountComponent],
     component_templates: &[AccountComponentTemplate],
     init_storage_data: &InitStorageData,
 ) -> Result<(Account, Word), CliError> {
@@ -270,13 +272,12 @@ async fn build_account(
     let mut builder = AccountBuilder::new(init_seed)
         .anchor((&anchor_block).try_into().expect("anchor block should be valid"))
         .account_type(account_type)
-        .storage_mode(storage_mode)
-        // TODO: Forcing an auth component for simplicity for now
-        .with_component(RpoFalcon512::new(key_pair.public_key()));
+        .storage_mode(storage_mode);
 
-    // Add each processed component template
-    for component in process_component_templates(component_templates, init_storage_data)? {
-        builder = builder.with_component(component);
+    // Process component templates and add all components together
+    let extra_components = process_component_templates(component_templates, init_storage_data)?;
+    for component in account_components.iter().chain(extra_components.iter()) {
+        builder = builder.with_component(component.clone());
     }
 
     builder
