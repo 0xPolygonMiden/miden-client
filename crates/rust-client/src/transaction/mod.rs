@@ -463,6 +463,7 @@ impl<R: FeltRng> Client<R> {
             self.store.get_sync_height().await?
         };
 
+        std::println!("about to execute");
         // Execute the transaction and get the witness
         let executed_transaction = self
             .tx_executor

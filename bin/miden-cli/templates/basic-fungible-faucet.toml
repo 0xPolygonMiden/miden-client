@@ -9,7 +9,7 @@ description = "Contains metadata about the token associated to the faucet accoun
 slot = 0
 value = [
     { name = "max_supply", type = "felt", description = "Maximum supply of the token in base units" },
-    { name = "ticker", type = "tokensymbol", description = "Token symbol of the faucet's asset, limited to 4 characters." }, 
     { name = "decimals",type = "u8", description = "Number of decimal places" },
+    { name = "ticker", type = "tokensymbol", description = "Token symbol of the faucet's asset, limited to 4 characters." }, 
     { value = "0" },
 ]
