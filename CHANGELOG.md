@@ -11,6 +11,7 @@
 * Added wallet generation from seed & import from seed on web SDK (#710)
 * Add check for empty pay to id notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+* Added import/export for web client db (#740).
 * Re-exported RemoteTransactionProver in `rust-client` (#752).
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).

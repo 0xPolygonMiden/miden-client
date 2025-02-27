@@ -77,4 +77,17 @@ impl WebClient {
             Err(JsValue::from_str("Client not initialized"))
         }
     }
+
+    // Destructive operation, will fully overwrite the current web store
+    //
+    // The input to this function should be the result of a call to `export_store`
+    pub async fn force_import_store(&mut self, store_dump: JsValue) -> Result<JsValue, JsValue> {
+        let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
+        store
+            .force_import_store(store_dump)
+            .await
+            .map_err(|err| JsValue::from_str(&format!("{err}")))?;
+
+        Ok(JsValue::from_str("Store imported successfully"))
+    }
 }
