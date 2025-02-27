@@ -204,6 +204,17 @@ impl SqliteStore {
             })
             .collect::<Result<BTreeMap<AccountId, AccountCode>, _>>()
     }
+
+    pub fn delete_accounts(
+        tx: &Transaction<'_>,
+        account_ids: &[AccountId],
+    ) -> Result<(), StoreError> {
+        const QUERY: &str = "DELETE FROM accounts WHERE id = ?";
+        for account_id in account_ids {
+            tx.execute(QUERY, params![account_id.to_hex()])?;
+        }
+        Ok(())
+    }
 }
 
 // HELPERS

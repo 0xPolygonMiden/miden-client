@@ -11,6 +11,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
+    testing::account_id,
     transaction::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
@@ -47,6 +48,14 @@ impl TransactionFilter {
         match self {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
+            TransactionFilter::Ids(ids) => {
+                let ids = ids
+                    .iter()
+                    .map(|id| format!("'{}'", id.to_string()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{QUERY} WHERE tx.id IN ({})", ids)
+            },
         }
     }
 }
