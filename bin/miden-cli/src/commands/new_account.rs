@@ -112,7 +112,7 @@ impl NewWalletCmd {
         } else {
             AccountType::RegularAccountImmutableCode
         };
-        
+
         let (new_account, seed) = build_account(
             &mut client,
             account_type,
