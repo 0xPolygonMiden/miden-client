@@ -50,6 +50,13 @@ impl OutputNote {
     pub fn shrink(&self) -> OutputNote {
         self.0.shrink().into()
     }
+
+    pub fn into_full(self) -> Option<Note> {
+        match self.0 {
+            NativeOutputNote::Full(note) => Some(note.into()),
+            _ => None,
+        }
+    }
 }
 
 // CONVERSIONS

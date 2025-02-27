@@ -63,6 +63,8 @@ before(async () => {
         FeltArray,
         FungibleAsset,
         Note,
+        NoteAndArgs,
+        NoteAndArgsArray,
         NoteAssets,
         NoteConsumability,
         NoteExecutionHint,
@@ -110,6 +112,8 @@ before(async () => {
       window.FeltArray = FeltArray;
       window.FungibleAsset = FungibleAsset;
       window.Note = Note;
+      window.NoteAndArgs = NoteAndArgs;
+      window.NoteAndArgsArray = NoteAndArgsArray;
       window.NoteAssets = NoteAssets;
       window.NoteConsumability = NoteConsumability;
       window.NoteExecutionHint = NoteExecutionHint;

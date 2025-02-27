@@ -83,27 +83,35 @@ export const sendTransaction = async (
       const targetAccountId = window.AccountId.from_hex(_targetAccountId);
       const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
 
-      let mint_transaction_result = await client.new_mint_transaction(
+      let mintTransactionResult = await client.new_mint_transaction(
         senderAccountId,
         window.AccountId.from_hex(_faucetAccountId),
         window.NoteType.private(),
         BigInt(_amount)
       );
-      let created_notes = mint_transaction_result.created_notes().notes();
-      let created_note_ids = created_notes.map((note) => note.id().to_string());
-      await window.helpers.waitForTransaction(
-        mint_transaction_result.executed_transaction().id().to_hex()
-      );
+      let createdNote = mintTransactionResult
+        .created_notes()
+        .notes()[0]
+        .into_full();
 
-      const consume_transaction_result = await client.new_consume_transaction(
+      if (!createdNote) {
+        throw new Error("Created note is undefined");
+      }
+
+      let noteAndArgs = new window.NoteAndArgs(createdNote, null);
+      let noteAndArgsArray = new window.NoteAndArgsArray([noteAndArgs]);
+
+      let txRequest = new window.TransactionRequestBuilder()
+        .with_unauthenticated_input_notes(noteAndArgsArray)
+        .build();
+
+      let transaction_result = await client.new_transaction(
         senderAccountId,
-        created_note_ids
+        txRequest
       );
-      await window.helpers.waitForTransaction(
-        consume_transaction_result.executed_transaction().id().to_hex()
-      );
+      await client.submit_transaction(transaction_result);
 
-      let send_transaction_result = await client.new_send_transaction(
+      let sendTransactionResult = await client.new_send_transaction(
         senderAccountId,
         targetAccountId,
         faucetAccountId,
@@ -111,16 +119,16 @@ export const sendTransaction = async (
         BigInt(_amount),
         _recallHeight
       );
-      let send_created_notes = send_transaction_result.created_notes().notes();
-      let send_created_note_ids = send_created_notes.map((note) =>
+      let sendCreatedNotes = sendTransactionResult.created_notes().notes();
+      let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
         note.id().to_string()
       );
 
       await window.helpers.waitForTransaction(
-        send_transaction_result.executed_transaction().id().to_hex()
+        sendTransactionResult.executed_transaction().id().to_hex()
       );
 
-      return send_created_note_ids;
+      return sendCreatedNoteIds;
     },
     senderAccountId,
     targetAccountId,
@@ -339,6 +347,92 @@ export const consumeTransaction = async (
   );
 };
 
+interface MintAndConsumeTransactionResult {
+  mintResult: MintTransactionResult;
+  consumeResult: ConsumeTransactionResult;
+}
+
+export const mintAndConsumeTransaction = async (
+  targetAccountId: string,
+  faucetAccountId: string
+): Promise<MintAndConsumeTransactionResult> => {
+  return await testingPage.evaluate(
+    async (_targetAccountId, _faucetAccountId) => {
+      const client = window.client;
+
+      const targetAccountId = window.AccountId.from_hex(_targetAccountId);
+      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+
+      let mintTransactionResult = await client.new_mint_transaction(
+        targetAccountId,
+        window.AccountId.from_hex(_faucetAccountId),
+        window.NoteType.private(),
+        BigInt(1000)
+      );
+      let createdNote = mintTransactionResult
+        .created_notes()
+        .notes()[0]
+        .into_full();
+
+      if (!createdNote) {
+        throw new Error("Created note is undefined");
+      }
+
+      let noteAndArgs = new window.NoteAndArgs(createdNote, null);
+      let noteAndArgsArray = new window.NoteAndArgsArray([noteAndArgs]);
+
+      let txRequest = new window.TransactionRequestBuilder()
+        .with_unauthenticated_input_notes(noteAndArgsArray)
+        .build();
+
+      let consumeTransactionResult = await client.new_transaction(
+        targetAccountId,
+        txRequest
+      );
+      await client.submit_transaction(consumeTransactionResult);
+      await window.helpers.waitForTransaction(
+        consumeTransactionResult.executed_transaction().id().to_hex()
+      );
+
+      const changedTargetAccount = await client.get_account(targetAccountId);
+
+      return {
+        mintResult: {
+          transactionId: mintTransactionResult
+            .executed_transaction()
+            .id()
+            .to_hex(),
+          numOutputNotesCreated: mintTransactionResult
+            .created_notes()
+            .num_notes(),
+          nonce: mintTransactionResult.account_delta().nonce()?.to_string(),
+          createdNoteId: mintTransactionResult
+            .created_notes()
+            .notes()[0]
+            .id()
+            .to_string(),
+        },
+        consumeResult: {
+          transactionId: consumeTransactionResult
+            .executed_transaction()
+            .id()
+            .to_hex(),
+          nonce: consumeTransactionResult.account_delta().nonce()?.to_string(),
+          numConsumedNotes: consumeTransactionResult
+            .consumed_notes()
+            .num_notes(),
+          targetAccountBalanace: changedTargetAccount
+            .vault()
+            .get_balance(faucetAccountId)
+            .toString(),
+        },
+      };
+    },
+    targetAccountId,
+    faucetAccountId
+  );
+};
+
 interface SetupWalletFaucetResult {
   accountId: string;
   faucetId: string;
@@ -360,7 +454,7 @@ export const setupWalletAndFaucet =
         8,
         BigInt(10000000)
       );
-      await client.sync_state();
+      // await client.sync_state();
 
       return {
         accountId: account.id().to_string(),
