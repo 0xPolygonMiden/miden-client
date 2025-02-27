@@ -1,4 +1,11 @@
-use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    env::temp_dir,
+    fs::OpenOptions,
+    io::Write,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use miden_client::{
     account::{
@@ -215,6 +222,7 @@ pub async fn execute_tx_and_sync(
 
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
+    let now = Instant::now();
     loop {
         println!("Syncing State...");
         client.sync_state().await.unwrap();
@@ -232,6 +240,20 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
 
         // 500_000_000 ns = 0.5s
         std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+    }
+    if std::env::var("LOG_WAIT_TIMES").unwrap_or_else(|_| "false".to_string()) == "true" {
+        let elapsed = now.elapsed();
+        let wait_times_dir = std::path::PathBuf::from("wait_times");
+        std::fs::create_dir_all(&wait_times_dir).unwrap();
+
+        let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(elapsed_time_file)
+            .unwrap();
+        writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
     }
 }
 
