@@ -50,77 +50,77 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
 
-    const senderAccount = await client.new_wallet(
+    const senderAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
-    const targetAccount = await client.new_wallet(
+    const targetAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
-    const faucetAccount = await client.new_faucet(
+    const faucetAccount = await client.newFaucet(
       window.AccountStorageMode.private(),
       false,
       "DAG",
       8,
       BigInt(10000000)
     );
-    await client.sync_state();
+    await client.syncState();
 
-    let mint_transaction_result = await client.new_mint_transaction(
+    let mintTransactionResult = await client.newMintTransaction(
       senderAccount.id(),
       faucetAccount.id(),
       window.NoteType.private(),
       BigInt(1000)
     );
-    let created_notes = mint_transaction_result.created_notes().notes();
-    let created_note_ids = created_notes.map((note) => note.id().to_string());
+    let createdNotes = mintTransactionResult.createdNotes().notes();
+    let createdNoteIds = createdNotes.map((note) => note.id().toString());
     await window.helpers.waitForTransaction(
-      mint_transaction_result.executed_transaction().id().to_hex()
+      mintTransactionResult.executedTransaction().id().toHex()
     );
 
-    const senderConsumeTransactionResult = await client.new_consume_transaction(
+    const senderConsumeTransactionResult = await client.newConsumeTransaction(
       senderAccount.id(),
-      created_note_ids
+      createdNoteIds
     );
     await window.helpers.waitForTransaction(
-      senderConsumeTransactionResult.executed_transaction().id().to_hex()
+      senderConsumeTransactionResult.executedTransaction().id().toHex()
     );
 
-    let send_transaction_result = await client.new_send_transaction(
+    let sendTransactionResult = await client.newSendTransaction(
       senderAccount.id(),
       targetAccount.id(),
       faucetAccount.id(),
       window.NoteType.private(),
       BigInt(100)
     );
-    let send_created_notes = send_transaction_result.created_notes().notes();
-    let send_created_note_ids = send_created_notes.map((note) =>
-      note.id().to_string()
+    let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
+    let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
+      note.id().toString()
     );
     await window.helpers.waitForTransaction(
-      send_transaction_result.executed_transaction().id().to_hex()
+      sendTransactionResult.executedTransaction().id().toHex()
     );
 
-    const targetConsumeTransactionResult = await client.new_consume_transaction(
+    const targetConsumeTransactionResult = await client.newConsumeTransaction(
       targetAccount.id(),
-      send_created_note_ids
+      sendCreatedNoteIds
     );
     await window.helpers.waitForTransaction(
-      targetConsumeTransactionResult.executed_transaction().id().to_hex()
+      targetConsumeTransactionResult.executedTransaction().id().toHex()
     );
 
-    const changedSenderAccount = await client.get_account(senderAccount.id());
-    const changedTargetAccount = await client.get_account(targetAccount.id());
+    const changedSenderAccount = await client.getAccount(senderAccount.id());
+    const changedTargetAccount = await client.getAccount(targetAccount.id());
 
     return {
       senderAccountBalance: changedSenderAccount
         .vault()
-        .get_balance(faucetAccount.id())
+        .getBalance(faucetAccount.id())
         .toString(),
       changedTargetBalance: changedTargetAccount
         .vault()
-        .get_balance(faucetAccount.id())
+        .getBalance(faucetAccount.id())
         .toString(),
     };
   });
@@ -139,25 +139,25 @@ describe("new_send_transaction tests", () => {
 // =======================================================================================================
 
 export const customTransaction = async (
-  asserted_value: string,
-  with_custom_prover: boolean
+  assertedValue: string,
+  withCustomProver: boolean
 ): Promise<void> => {
   return await testingPage.evaluate(
-    async (_asserted_value: string, _with_custom_prover: boolean) => {
+    async (_assertedValue: string, _withCustomProver: boolean) => {
       const client = window.client;
 
-      const walletAccount = await client.new_wallet(
+      const walletAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         false
       );
-      const faucetAccount = await client.new_faucet(
+      const faucetAccount = await client.newFaucet(
         window.AccountStorageMode.private(),
         false,
         "DAG",
         8,
         BigInt(10000000)
       );
-      await client.sync_state();
+      await client.syncState();
 
       // Creating Custom Note which needs the following:
       // - Note Assets
@@ -185,20 +185,20 @@ export const customTransaction = async (
       let noteMetadata = new window.NoteMetadata(
         faucetAccount.id(),
         window.NoteType.private(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           walletAccount.id(),
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
       );
 
-      let expectedNoteArgs = noteArgs.map((felt) => felt.as_int());
+      let expectedNoteArgs = noteArgs.map((felt) => felt.asInt());
       let memAddress = "1000";
       let memAddress2 = "1004";
       let expectedNoteArg1 = expectedNoteArgs.slice(0, 4).join(".");
       let expectedNoteArg2 = expectedNoteArgs.slice(4, 8).join(".");
-      let note_script = `
+      let noteScript = `
             # Custom P2ID note script
             #
             # This note script asserts that the note args are exactly the same as passed 
@@ -320,7 +320,7 @@ export const customTransaction = async (
             end
         `;
 
-      let compiledNoteScript = await client.compile_note_script(note_script);
+      let compiledNoteScript = await client.compileNoteScript(noteScript);
       let noteInputs = new window.NoteInputs(
         new window.FeltArray([
           walletAccount.id().prefix(),
@@ -340,41 +340,41 @@ export const customTransaction = async (
       let note = new window.Note(noteAssets, noteMetadata, noteRecipient);
 
       // Creating First Custom Transaction Request to Mint the Custom Note
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([window.OutputNote.full(note)])
         )
         .build();
 
       // Execute and Submit Transaction
-      let transaction_result = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         faucetAccount.id(),
-        transaction_request
+        transactionRequest
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
-          transaction_result,
+      if (_withCustomProver) {
+        await client.submitTransactionWithProver(
+          transactionResult,
           await selectProver()
         );
       } else {
-        await client.submit_transaction(transaction_result);
+        await client.submitTransaction(transactionResult);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
 
       // Just like in the miden test, you can modify this script to get the execution to fail
       // by modifying the assert
-      let tx_script = `
+      let txScript = `
             use.miden::contracts::auth::basic->auth_tx
             use.miden::kernels::tx::prologue
             use.miden::kernels::tx::memory
 
             begin
-                push.0 push.${_asserted_value}
-                # => [0, ${_asserted_value}]
+                push.0 push.${_assertedValue}
+                # => [0, ${_assertedValue}]
                 assert_eq
 
                 call.auth_tx::auth_tx_rpo_falcon512
@@ -383,47 +383,45 @@ export const customTransaction = async (
 
       // Creating Second Custom Transaction Request to Consume Custom Note
       // with Invalid/Valid Transaction Script
-      let transaction_script = await client.compile_tx_script(tx_script);
-      let note_id = note.id();
-      let note_args_commitment = window.Rpo256.hash_elements(feltArray); // gets consumed by NoteIdAndArgs
-      let note_id_and_args = new window.NoteIdAndArgs(
-        note_id,
-        note_args_commitment.to_word()
+      let transactionScript = await client.compileTxScript(txScript);
+      let noteId = note.id();
+      let noteArgsCommitment = window.Rpo256.hashElements(feltArray); // gets consumed by NoteIdAndArgs
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        noteId,
+        noteArgsCommitment.toWord()
       );
-      let note_id_and_args_array = new window.NoteIdAndArgsArray([
-        note_id_and_args,
-      ]);
-      let advice_map = new window.AdviceMap();
-      let note_args_commitment_2 = window.Rpo256.hash_elements(feltArray);
-      advice_map.insert(note_args_commitment_2, feltArray);
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      let adviceMap = new window.AdviceMap();
+      let noteArgsCommitment2 = window.Rpo256.hashElements(feltArray);
+      adviceMap.insert(noteArgsCommitment2, feltArray);
 
-      let transaction_request_2 = new window.TransactionRequestBuilder()
-        .with_authenticated_input_notes(note_id_and_args_array)
-        .with_custom_script(transaction_script)
-        .extend_advice_map(advice_map)
+      let transactionRequest2 = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .withCustomScript(transactionScript)
+        .extendAdviceMap(adviceMap)
         .build();
 
       // Execute and Submit Transaction
-      let transaction_result_2 = await client.new_transaction(
+      let transactionResult2 = await client.newTransaction(
         walletAccount.id(),
-        transaction_request_2
+        transactionRequest2
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
-          transaction_result_2,
+      if (_withCustomProver) {
+        await client.submitTransactionWithProver(
+          transactionResult2,
           await selectProver()
         );
       } else {
-        await client.submit_transaction(transaction_result_2);
+        await client.submitTransaction(transactionResult2);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result_2.executed_transaction().id().to_hex()
+        transactionResult2.executedTransaction().id().toHex()
       );
     },
-    asserted_value,
-    with_custom_prover
+    assertedValue,
+    withCustomProver
   );
 };
 
@@ -436,13 +434,13 @@ const customTxWithMultipleNotes = async (
     async (_isSerialNumSame, _senderAccountId, _faucetAccountId) => {
       const client = window.client;
       const amount = BigInt(10);
-      const targetAccount = await client.new_wallet(
+      const targetAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
       const targetAccountId = targetAccount.id();
-      const senderAccountId = window.AccountId.from_hex(_senderAccountId);
-      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+      const senderAccountId = window.AccountId.fromHex(_senderAccountId);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccountId);
 
       // Create custom note with multiple assets to send to target account
       // Error should happen if serial numbers are the same in each set of
@@ -458,9 +456,9 @@ const customTxWithMultipleNotes = async (
       let noteMetadata = new window.NoteMetadata(
         senderAccountId,
         window.NoteType.public(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           targetAccountId,
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
@@ -496,8 +494,8 @@ const customTxWithMultipleNotes = async (
       let note1 = new window.Note(noteAssets_1, noteMetadata, noteRecipient1);
       let note2 = new window.Note(noteAssets_2, noteMetadata, noteRecipient2);
 
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([
             window.OutputNote.full(note1),
             window.OutputNote.full(note2),
@@ -505,15 +503,15 @@ const customTxWithMultipleNotes = async (
         )
         .build();
 
-      let transactionResult = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         senderAccountId,
-        transaction_request
+        transactionRequest
       );
 
-      await client.submit_transaction(transactionResult);
+      await client.submitTransaction(transactionResult);
 
       await window.helpers.waitForTransaction(
-        transactionResult.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
     },
     isSerialNumSame,
@@ -562,10 +560,10 @@ describe("custom transaction with multiple output notes", () => {
 // ================================================================================================
 
 export const selectProver = async (): Promise<TransactionProver> => {
-  if (window.remote_prover_url != null) {
-    return window.TransactionProver.new_remote_prover(window.remote_prover_url);
+  if (window.remoteProverUrl != null) {
+    return window.TransactionProver.newRemoteProver(window.remoteProverUrl);
   } else {
-    return window.TransactionProver.new_local_prover();
+    return window.TransactionProver.newLocalProver();
   }
 };
 

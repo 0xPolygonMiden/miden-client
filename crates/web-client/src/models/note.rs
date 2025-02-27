@@ -39,6 +39,7 @@ impl Note {
         self.0.recipient().clone().into()
     }
 
+    #[wasm_bindgen(js_name = "createP2IDNote")]
     pub fn create_p2id_note(
         sender: &AccountId,
         target: &AccountId,
@@ -66,6 +67,7 @@ impl Note {
         NativeNote::new(assets.into(), metadata, recipient).into()
     }
 
+    #[wasm_bindgen(js_name = "createP2IDRNote")]
     pub fn create_p2idr_note(
         sender: &AccountId,
         target: &AccountId,

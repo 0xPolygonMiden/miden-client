@@ -15,14 +15,17 @@ impl TransactionStatus {
         TransactionStatus(NativeTransactionStatus::Committed(block_num.into()))
     }
 
+    #[wasm_bindgen(js_name = "isPending")]
     pub fn is_pending(&self) -> bool {
         matches!(self.0, NativeTransactionStatus::Pending)
     }
 
+    #[wasm_bindgen(js_name = "isCommitted")]
     pub fn is_committed(&self) -> bool {
         matches!(self.0, NativeTransactionStatus::Committed(_))
     }
 
+    #[wasm_bindgen(js_name = "getBlockNum")]
     pub fn get_block_num(&self) -> Option<u32> {
         match self.0 {
             NativeTransactionStatus::Committed(block_num) => Some(block_num.as_u32()),

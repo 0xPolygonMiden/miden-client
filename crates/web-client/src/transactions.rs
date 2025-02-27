@@ -11,6 +11,7 @@ use crate::WebClient;
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "getTransactions")]
     pub async fn get_transactions(
         &mut self,
         transaction_filter: TransactionFilter,
@@ -27,6 +28,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "compileTxScript")]
     pub fn compile_tx_script(&mut self, script: &str) -> Result<TransactionScript, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_tx_script: NativeTransactionScript =

@@ -14,6 +14,7 @@ use crate::{helpers::generate_wallet, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "newWallet")]
     pub async fn new_wallet(
         &mut self,
         storage_mode: &AccountStorageMode,
@@ -42,6 +43,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newFaucet")]
     pub async fn new_faucet(
         &mut self,
         storage_mode: &AccountStorageMode,

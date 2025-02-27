@@ -41,7 +41,7 @@ import {
 declare global {
   interface Window {
     client: WebClient;
-    remote_prover_url: string;
+    remoteProverUrl: string;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountId: typeof AccountId;
@@ -79,7 +79,7 @@ declare global {
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
     WebClient: typeof WebClient;
     Word: typeof Word;
-    create_client: () => Promise<void>;
+    createClient: () => Promise<void>;
 
     // Add the helpers namespace
     helpers: {

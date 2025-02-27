@@ -21,14 +21,17 @@ impl AccountHeader {
         self.0.nonce().into()
     }
 
+    #[wasm_bindgen(js_name = "vaultCommitment")]
     pub fn vault_commitment(&self) -> RpoDigest {
         self.0.vault_root().into()
     }
 
+    #[wasm_bindgen(js_name = "storageCommitment")]
     pub fn storage_commitment(&self) -> RpoDigest {
         self.0.storage_commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "codeCommitment")]
     pub fn code_commitment(&self) -> RpoDigest {
         self.0.code_commitment().into()
     }

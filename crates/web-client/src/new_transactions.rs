@@ -21,6 +21,7 @@ use crate::{
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "newTransaction")]
     pub async fn new_transaction(
         &mut self,
         account_id: &AccountId,
@@ -40,6 +41,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "submitTransaction")]
     pub async fn submit_transaction(
         &mut self,
         transaction_result: &TransactionResult,
@@ -72,6 +74,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "submitTransactionWithProver")]
     pub async fn submit_transaction_with_prover(
         &mut self,
         transaction_result: &TransactionResult,
@@ -92,6 +95,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newMintTransaction")]
     pub async fn new_mint_transaction(
         &mut self,
         target_account_id: &AccountId,
@@ -137,6 +141,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newSendTransaction")]
     pub async fn new_send_transaction(
         &mut self,
         sender_account_id: &AccountId,
@@ -205,6 +210,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newConsumeTransaction")]
     pub async fn new_consume_transaction(
         &mut self,
         account_id: &AccountId,
@@ -246,6 +252,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newSwapTransaction")]
     pub async fn new_swap_transaction(
         &mut self,
         sender_account_id: String,

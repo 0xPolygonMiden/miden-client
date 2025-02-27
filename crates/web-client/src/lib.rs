@@ -55,6 +55,7 @@ impl WebClient {
         self.inner.as_mut()
     }
 
+    #[wasm_bindgen(js_name = "createClient")]
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,

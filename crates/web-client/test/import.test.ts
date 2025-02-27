@@ -20,13 +20,13 @@ const importWalletFromSeed = async (
       const client = window.client;
       const _walletSeed = new Uint8Array(_serializedWalletSeed);
 
-      const account = await client.import_public_account_from_seed(
+      const account = await client.importPublicAccountFromSeed(
         _walletSeed,
         _mutable
       );
       return {
-        accountId: account.id().to_string(),
-        accountHash: account.hash().to_hex(),
+        accountId: account.id().toString(),
+        accountHash: account.hash().toHex(),
       };
     },
     serializedWalletSeed,

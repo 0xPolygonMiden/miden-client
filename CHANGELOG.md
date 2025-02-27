@@ -17,6 +17,10 @@
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
 
+### Fixes
+
+* Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+
 ## 0.7.0 (2025-01-28)
 
 ### Features

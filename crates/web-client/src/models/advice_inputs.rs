@@ -19,6 +19,7 @@ impl AdviceInputs {
         self.0.stack().iter().map(Into::into).collect()
     }
 
+    #[wasm_bindgen(js_name = "mappedValues")]
     pub fn mapped_values(&self, key: &RpoDigest) -> Option<Vec<Felt>> {
         self.0
             .mapped_values(&key.into())

@@ -13,6 +13,7 @@ pub enum ExportType {
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "exportNote")]
     pub async fn export_note(
         &mut self,
         note_id: String,

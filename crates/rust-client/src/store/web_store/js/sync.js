@@ -14,10 +14,10 @@ export async function getNoteTags() {
     let records = await tags.toArray();
 
     let processedRecords = records.map((record) => {
-      record.source_note_id =
-        record.source_note_id == "" ? null : record.source_note_id;
-      record.source_account_id =
-        record.source_account_id == "" ? null : record.source_account_id;
+      record.sourceNoteId =
+        record.sourceNoteId == "" ? null : record.sourceNoteId;
+      record.sourceAccountId =
+        record.sourceAccountId == "" ? null : record.sourceAccountId;
       return record;
     });
 
@@ -33,7 +33,7 @@ export async function getSyncHeight() {
     const record = await stateSync.get(1); // Since id is the primary key and always 1
     if (record) {
       let data = {
-        block_num: record.blockNum,
+        blockNum: record.blockNum,
       };
       return data;
     } else {
@@ -45,14 +45,14 @@ export async function getSyncHeight() {
   }
 }
 
-export async function addNoteTag(tag, source_note_id, source_account_id) {
+export async function addNoteTag(tag, sourceNoteId, sourceAccountId) {
   try {
     let tagArray = new Uint8Array(tag);
     let tagBase64 = uint8ArrayToBase64(tagArray);
     await tags.add({
       tag: tagBase64,
-      source_note_id: source_note_id ? source_note_id : "",
-      source_account_id: source_account_id ? source_account_id : "",
+      sourceNoteId: sourceNoteId ? sourceNoteId : "",
+      sourceAccountId: sourceAccountId ? sourceAccountId : "",
     });
   } catch (err) {
     console.error("Failed to add note tag: ", err);
@@ -60,7 +60,7 @@ export async function addNoteTag(tag, source_note_id, source_account_id) {
   }
 }
 
-export async function removeNoteTag(tag, source_note_id, source_account_id) {
+export async function removeNoteTag(tag, sourceNoteId, sourceAccountId) {
   try {
     let tagArray = new Uint8Array(tag);
     let tagBase64 = uint8ArrayToBase64(tagArray);
@@ -68,8 +68,8 @@ export async function removeNoteTag(tag, source_note_id, source_account_id) {
     return await tags
       .where({
         tag: tagBase64,
-        source_note_id: source_note_id ? source_note_id : "",
-        source_account_id: source_account_id ? source_account_id : "",
+        sourceNoteId: sourceNoteId ? sourceNoteId : "",
+        sourceAccountId: sourceAccountId ? sourceAccountId : "",
       })
       .delete();
   } catch {
