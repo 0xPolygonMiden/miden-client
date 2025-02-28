@@ -2,7 +2,9 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{
+    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
+};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -114,6 +116,19 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+
+        let transactions_to_discard =
+            Self::get_transactions(conn, &TransactionFilter::Ids(discarded_transactions.clone()))?;
+
+        let outdated_accounts = transactions_to_discard
+            .iter()
+            .map(|transaction_record| {
+                Self::get_account(conn, transaction_record.account_id).unwrap().unwrap()
+            })
+            .collect::<Vec<_>>();
+
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -142,18 +157,6 @@ impl SqliteStore {
         // TODO: here we need to remove the `accounts` table entries that are originated from the
         // discarded transactions
 
-        // First we need the `transaction` entries from the `transactions` table that matches the
-        // `transactions_to_discard`
-        let transactions_to_discard =
-            Self::get_transactions(conn, &TransactionFilter::Ids(discarded_transactions.clone()))?;
-
-        let outdated_accounts = transactions_to_discard
-            .iter()
-            .map(|transaction_record| {
-                Self::get_account(conn, transaction_record.account_id).unwrap().unwrap()
-            })
-            .collect::<Vec<_>>();
-
         // Transaction records have a final_account_state field, which is the hash of the account in
         // the final state after the transaction is applied. We can use this field to
         // identify the accounts that are originated from the discarded transactions.
@@ -165,7 +168,8 @@ impl SqliteStore {
 
                 let account = outdated_accounts
                     .iter()
-                    .find(|account| account.account().hash() == final_account_state)?;
+                    .find(|account| account.account().hash() == final_account_state)
+                    .unwrap();
 
                 account.account().id()
             })

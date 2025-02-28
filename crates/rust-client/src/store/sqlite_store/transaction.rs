@@ -12,7 +12,6 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
-    testing::account_id,
     transaction::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
