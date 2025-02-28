@@ -7,16 +7,16 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
+use tracing::info;
 
 use super::SqliteStore;
 use crate::{
     note::NoteUpdates,
     store::{
-        StoreError,
         sqlite_store::{
             account::{lock_account, update_account},
             note::apply_note_updates_tx,
-        },
+        }, StoreError, TransactionFilter
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
@@ -116,19 +116,6 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
-        // First we need the `transaction` entries from the `transactions` table that matches the
-        // `transactions_to_discard`
-
-        let transactions_to_discard =
-            Self::get_transactions(conn, &TransactionFilter::Ids(discarded_transactions.clone()))?;
-
-        let outdated_accounts = transactions_to_discard
-            .iter()
-            .map(|transaction_record| {
-                Self::get_account(conn, transaction_record.account_id).unwrap().unwrap()
-            })
-            .collect::<Vec<_>>();
-
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -154,30 +141,6 @@ impl SqliteStore {
         // Marc transactions as discarded
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
-        // TODO: here we need to remove the `accounts` table entries that are originated from the
-        // discarded transactions
-
-        // Transaction records have a final_account_state field, which is the hash of the account in
-        // the final state after the transaction is applied. We can use this field to
-        // identify the accounts that are originated from the discarded transactions.
-
-        let accounts_to_remove = transactions_to_discard
-            .iter()
-            .map(|tx| {
-                let final_account_state = tx.final_account_state;
-
-                let account = outdated_accounts
-                    .iter()
-                    .find(|account| account.account().hash() == final_account_state)
-                    .unwrap();
-
-                account.account().id()
-            })
-            .collect::<Vec<AccountId>>();
-
-        // Remove the accounts that are originated from the discarded transactions
-        Self::delete_accounts(&tx, &accounts_to_remove)?;
-
         // Update public accounts on the db that have been updated onchain
         for account in updated_accounts.updated_public_accounts() {
             update_account(&tx, account)?;
@@ -198,11 +161,58 @@ impl SqliteStore {
         note_updates: &NoteUpdates,
         transactions_to_discard: &[TransactionId],
     ) -> Result<(), StoreError> {
+        info!("APPLY NULLIFIERS");
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+
+        info!("discarded_transactions: {:?}", transactions_to_discard);
+        let transactions_records_to_discard = Self::get_transactions(
+            conn,
+            &TransactionFilter::Ids(transactions_to_discard.to_vec()),
+        )?;
+
+        info!("transactions_to_discard: {:?}", transactions_to_discard);
+        let outdated_accounts = transactions_records_to_discard
+            .iter()
+            .map(|transaction_record| {
+                Self::get_account(conn, transaction_record.account_id).unwrap().unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        info!("outdated_accounts: {:?}", outdated_accounts);
+
         let tx = conn.transaction()?;
 
         apply_note_updates_tx(&tx, note_updates)?;
 
         Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
+
+        // TODO: here we need to remove the `accounts` table entries that are originated from the
+        // discarded transactions
+
+        // Transaction records have a final_account_state field, which is the hash of the account in
+        // the final state after the transaction is applied. We can use this field to
+        // identify the accounts that are originated from the discarded transactions.
+
+        let accounts_to_remove = transactions_records_to_discard
+            .iter()
+            .map(|tx| {
+                let final_account_state = tx.final_account_state;
+                info!("final_account_state: {:?}", final_account_state);
+                let account = outdated_accounts
+                    .iter()
+                    .find(|account| account.account().commitment() == final_account_state)
+                    .unwrap();
+
+                info!("account: {:?}", account);
+                account.account().id()
+            })
+            .collect::<Vec<AccountId>>();
+
+        info!("accounts_to_remove: {:?}", accounts_to_remove);
+
+        // Remove the accounts that are originated from the discarded transactions
+        Self::delete_accounts(&tx, &accounts_to_remove)?;
 
         tx.commit()?;
 
