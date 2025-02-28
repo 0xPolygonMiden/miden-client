@@ -12,6 +12,7 @@ use miden_client::rpc::Endpoint;
 use serde::{Deserialize, Serialize};
 
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
+const DEFAULT_COMPONENT_TEMPLATE_DIR: &str = "./templates";
 
 // CLI CONFIG
 // ================================================================================================
@@ -30,6 +31,8 @@ pub struct CliConfig {
     pub token_symbol_map_filepath: PathBuf,
     /// RPC endpoint for the proving service. If this isn't present, a local prover will be used.
     pub remote_prover_endpoint: Option<CliEndpoint>,
+    /// Path to the directory from where account component template files will be loaded.
+    pub component_template_directory: PathBuf,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -63,6 +66,7 @@ impl Default for CliConfig {
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
+            component_template_directory: Path::new(DEFAULT_COMPONENT_TEMPLATE_DIR).to_path_buf(),
         }
     }
 }

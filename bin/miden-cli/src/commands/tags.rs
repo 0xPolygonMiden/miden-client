@@ -8,7 +8,7 @@ use tracing::info;
 use crate::{errors::CliError, Parser};
 
 #[derive(Default, Debug, Parser, Clone)]
-#[clap(about = "View and manage tags. Defaults to `list` command.")]
+#[clap(about = "View and manage tags. Defaults to `list` command")]
 pub struct TagsCmd {
     /// List all tags monitored by this client.
     #[clap(short, long, group = "action")]

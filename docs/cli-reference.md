@@ -79,25 +79,34 @@ For the `--default` flag, if `<ID>` is "none" then the previous default account 
 
 ### `new-wallet`
 
-Creates a new wallet account.
+Creates a new wallet account. 
+
+A basic wallet is comprised of a basic authentication component (for RPO Falcon signature verification), alongside a basic wallet component (for sending and receiving assets).
 
 This command has three optional flags:
 - `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
 - `--mutable`: Makes the account code mutable (it's immutable by default).
 - `--extra-components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
 
-After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
+After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden network.
 
-### `new-faucet`
+### `new-account`
 
-Creates a new faucet account.
+Creates a new account and saves it locally.
 
-This command has three optional flags:
-- `--storage-mode <TYPE>`: Used to select the storage mode of the account (private if not specified). It may receive "private" or "public".
-- `--non-fungible`: Makes the faucet asset non-fungible (it's fungible by default).
-- `--extra-components <TEMPLATE_FILES_LIST>`: Allows to pass a list of account component template files which can be added to the account. If the templates contain placeholders, the CLI will prompt the user to enter the required data for instantiating storage appropriately.
+An account may be composed of one or more components, each with its own storage and distinct functionality. This command lets you build a custom account by selecting an account type and optionally adding extra component templates.
 
-After creating an account with the `new-faucet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
+This command has four flags:
+- `--storage-mode <STORAGE_MODE>`: Specifies the storage mode of the account. It accepts either "private" or "public", with "private" as the default.
+- `--account-type <ACCOUNT_TYPE>`: Specifies the type of account to create. Accepted values are:
+  - `fungible-faucet`
+  - `non-fungible-faucet`
+  - `regular-account-immutable-code`
+  - `regular-account-updatable-code`
+- `--component-templates <COMPONENT_TEMPLATES>`: Allows you to provide a list of file paths for account component template files to include in the account. These components are looked up from your configured `component_template_directory` field in `miden-client.toml`. 
+- `--init-storage-data-path <INIT_STORAGE_DATA_PATH>`: Specifies an optional file path to a TOML file containing key/value pairs used for initializing storage. Each key should map to a placeholder within the provided component templates. The CLI will prompt for any keys that are not present in the file.
+
+After creating an account with the `new-account` command, the account is stored locally and tracked by the client, enabling it to execute transactions and synchronize state changes with the Miden network.
 
 #### Examples
 
@@ -111,8 +120,11 @@ miden new-wallet --storage-mode public --mutable
 # Create a new wallet that includes extra components from local templates
 miden new-wallet --extra-components template1,template2
 
-# Create a fungible faucet 
-miden new-faucet --token-symbol TST --decimals 10 --max-supply 100000 --storage-mode private
+# Create a fungible faucet with interactive input
+miden new-account --account-type fungible-faucet -c basic-fungible-faucet
+
+# Create a fungible faucet with preset fields
+miden new-account --account-type fungible-faucet --component-templates basic-fungible-faucet --init-storage-data-path init_data.toml
 ```
 
 ### `info`
@@ -218,7 +230,7 @@ Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --a
 
 #### `swap`
 
-The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset.
+The source account creates a `SWAP` note that offers some asset in exchange for some other asset. When another account consumes that note, it will receive the offered asset amount and the requested asset will removed from its vault (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset.
 
 Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered-asset <OFFERED AMOUNT>::<OFFERED FAUCET ID> --requested-asset <REQUESTED AMOUNT>::<REQUESTED FAUCET ID> --note-type <NOTE_TYPE>`
 
