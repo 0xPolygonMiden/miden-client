@@ -1561,6 +1561,8 @@ async fn test_expired_transaction_fails() {
     assert!(submited_tx_result.is_err());
 }
 
+/// Tests that RPC methods that are not directly related to the client logic
+/// (like GetBlockByNumber) work correctly
 #[tokio::test]
 async fn test_unused_rpc_api() {
     let (mut client, keystore) = create_test_client().await;
@@ -1580,7 +1582,7 @@ async fn test_unused_rpc_api() {
         .unwrap();
     let block = client.test_rpc_api().get_block_by_number(first_block_num).await.unwrap();
 
-    assert_eq!(block_header, block.header());
+    assert_eq!(&block_header, block.header());
 
     let note =
         mint_note(&mut client, first_basic_account.id(), faucet_account.id(), NoteType::Public)
