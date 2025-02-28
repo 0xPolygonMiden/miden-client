@@ -345,6 +345,8 @@ pub enum TransactionFilter {
     /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
     Uncomitted,
+    /// Return a list of the transaction that matches the provided [`TransactionId`]s.
+    Ids(Vec<TransactionId>),
 }
 
 // NOTE FILTER
