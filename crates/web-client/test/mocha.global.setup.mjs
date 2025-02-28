@@ -91,6 +91,7 @@ before(async () => {
         TransactionFilter,
         TransactionProver,
         TransactionRequest,
+        TransactionResult,
         TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
@@ -138,6 +139,7 @@ before(async () => {
       window.TransactionFilter = TransactionFilter;
       window.TransactionProver = TransactionProver;
       window.TransactionRequest = TransactionRequest;
+      window.TransactionResult = TransactionResult;
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
