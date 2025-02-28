@@ -38,6 +38,7 @@ export {
   TransactionFilter,
   TransactionProver,
   TransactionRequest,
+  TransactionResult,
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
