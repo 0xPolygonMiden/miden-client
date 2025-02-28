@@ -73,6 +73,6 @@ impl From<NativeBlockHeader> for BlockHeader {
 
 impl From<&NativeBlockHeader> for BlockHeader {
     fn from(header: &NativeBlockHeader) -> Self {
-        BlockHeader(*header)
+        BlockHeader(header.clone())
     }
 }

@@ -5,6 +5,7 @@ import { spawn } from "child_process";
 
 import { register } from "ts-node";
 import { env } from "process";
+import { clearStore } from "./webClientTestUtils.js";
 
 chai.use(chaiAsPromised);
 
@@ -180,14 +181,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
-  await testingPage.evaluate(async () => {
-    // Open a connection to the list of databases
-    const databases = await indexedDB.databases();
-    for (const db of databases) {
-      // Delete each database by name
-      indexedDB.deleteDatabase(db.name);
-    }
-  });
+  await clearStore();
 });
 
 after(async () => {

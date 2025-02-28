@@ -394,7 +394,7 @@ async fn test_import_account_by_id() {
         secret_key.public_key(),
         AccountStorageMode::Public,
         false,
-        anchor_block,
+        &anchor_block,
     )
     .unwrap();
     assert_eq!(built_wallet_id, first_regular_account.id());

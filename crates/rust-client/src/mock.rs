@@ -234,7 +234,7 @@ impl NodeRpcClient for MockRpcApi {
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         if block_num == Some(0.into()) {
-            return Ok((self.blocks.first().unwrap().header(), None));
+            return Ok((self.blocks.first().unwrap().header().clone(), None));
         }
         let block = self
             .blocks
@@ -248,7 +248,7 @@ impl NodeRpcClient for MockRpcApi {
             None
         };
 
-        Ok((block.header(), mmr_proof))
+        Ok((block.header().clone(), mmr_proof))
     }
 
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
