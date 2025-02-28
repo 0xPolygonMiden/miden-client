@@ -85,6 +85,7 @@ impl WebClient {
     // Destructive operation, will fully overwrite the current web store
     //
     // The input to this function should be the result of a call to `export_store`
+    #[wasm_bindgen(js_name = "forceImportStore")]
     pub async fn force_import_store(&mut self, store_dump: JsValue) -> Result<JsValue, JsValue> {
         let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
         store

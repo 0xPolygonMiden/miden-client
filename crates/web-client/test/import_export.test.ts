@@ -7,7 +7,7 @@ import { clearStore, setupWalletAndFaucet } from "./webClientTestUtils";
 const exportDb = async () => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
-    const db = await client.export_store();
+    const db = await client.exportStore();
     const serialized = JSON.stringify(db);
     return serialized;
   });
@@ -16,18 +16,18 @@ const exportDb = async () => {
 const importDb = async (db: any) => {
   return await testingPage.evaluate(async (_db) => {
     const client = window.client;
-    await client.force_import_store(_db);
+    await client.forceImportStore(_db);
   }, db);
 };
 
 const getAccount = async (accountId: string) => {
   return await testingPage.evaluate(async (_accountId) => {
     const client = window.client;
-    const accountId = window.AccountId.from_hex(_accountId);
-    const account = await client.get_account(accountId);
+    const accountId = window.AccountId.fromHex(_accountId);
+    const account = await client.getAccount(accountId);
     return {
-      accountId: account?.id().to_string(),
-      accountHash: account?.hash().to_hex(),
+      accountId: account?.id().toString(),
+      accountHash: account?.hash().toHex(),
     };
   }, accountId);
 };
