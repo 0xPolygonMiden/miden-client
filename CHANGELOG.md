@@ -6,7 +6,7 @@
 * Web Client Fix: Handled Case Where Web Workers are Not Available (#743).
 * Web Client: Exposed `InputNotes` iterator and `Note` `assets` property (#757).
 * Web Client Submit Transaction Fix: Typescript Typings Now Match Underlying Client Call (#760).
-* Web Client: Exported TransactionResult in typings
+* Web Client: Exported `TransactionResult` in typings (#768).
 
 ## 0.7.0 (2025-01-28)
 
