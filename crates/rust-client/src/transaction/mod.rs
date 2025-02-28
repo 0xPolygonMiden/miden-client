@@ -73,10 +73,10 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{Account, AccountCode, AccountDelta, AccountId, AccountType, AuthSecretKey},
+    account::{Account, AccountCode, AccountDelta, AccountId, AccountType},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
-    crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
+    crypto::merkle::MerklePath,
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     AccountError, AssetError, Digest, Felt, Word, ZERO,
@@ -88,7 +88,7 @@ use miden_tx::{
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
 };
-use script_builder::{AccountCapabilities, AccountInterface};
+use script_builder::{AccountCapabilities, AccountInterface, AuthTypes};
 use tracing::info;
 
 use super::{Client, FeltRng};
@@ -807,7 +807,7 @@ impl<R: FeltRng> Client<R> {
             .procedure_roots()
             .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
         {
-            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(self.rng()))
+            AuthTypes::RpoFalcon512
         } else {
             return Err(ClientError::AccountError(AccountError::AssumptionViolated(
                 "Account doesn't have authentication procedure".to_string(),

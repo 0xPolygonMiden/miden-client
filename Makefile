@@ -26,6 +26,8 @@ PROVER_BRANCH="next"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
+NODE_PARAM_FILE="crates/block-producer/src/lib.rs"
+
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
@@ -113,7 +115,8 @@ setup-miden-node: ## Clone the miden-node repository if it doesn't exist
 
 .PHONY: update-node-branch
 update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
-	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
+	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && sed -i.bak -e 's/const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(5);/const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_millis(500);/' \
+    -e 's/const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);/const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_millis(200);/' -- "$(NODE_PARAM_FILE)" && rm -- "$(NODE_PARAM_FILE).bak"
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features
@@ -144,7 +147,7 @@ build-prover: update-prover-branch ## Update dependencies and build the prover b
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT) --tx-prover
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process

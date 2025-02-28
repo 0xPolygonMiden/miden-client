@@ -13,6 +13,8 @@ export {
   NewSwapTransactionResult,
   NewTransactionResult,
   Note,
+  NoteAndArgs,
+  NoteAndArgsArray,
   NoteAssets,
   NoteConsumability,
   NoteExecutionHint,

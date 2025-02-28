@@ -40,7 +40,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - run: make clean-node
       - run: make node
-      - run: make start-node > /dev/null &
+      - run: RUST_LOG=none make start-node > /dev/null &
       - run: make integration-test-full
       - name: Kill miden-node
         if: always()
@@ -63,7 +63,7 @@ jobs:
         run: . ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
-      - run: make start-node > /dev/null &
+      - run: RUST_LOG=none make start-node > /dev/null &
       - run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
