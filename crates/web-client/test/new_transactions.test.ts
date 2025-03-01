@@ -446,10 +446,10 @@ const customTxWithMultipleNotes = async (
       // Error should happen if serial numbers are the same in each set of
       // note assets. Otherwise, the transaction should go through.
 
-      let noteAssets_1 = new window.NoteAssets([
+      let noteAssets1 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
-      let noteAssets_2 = new window.NoteAssets([
+      let noteAssets2 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
 
@@ -491,8 +491,8 @@ const customTxWithMultipleNotes = async (
         noteInputs
       );
 
-      let note1 = new window.Note(noteAssets_1, noteMetadata, noteRecipient1);
-      let note2 = new window.Note(noteAssets_2, noteMetadata, noteRecipient2);
+      let note1 = new window.Note(noteAssets1, noteMetadata, noteRecipient1);
+      let note2 = new window.Note(noteAssets2, noteMetadata, noteRecipient2);
 
       let transactionRequest = new window.TransactionRequestBuilder()
         .withOwnOutputNotes(

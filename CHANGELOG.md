@@ -19,7 +19,7 @@
 
 ### Fixes
 
-* Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+* [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
 
 ## 0.7.0 (2025-01-28)
 

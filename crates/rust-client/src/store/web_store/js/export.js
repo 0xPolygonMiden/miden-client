@@ -27,16 +27,16 @@ async function recursivelyTransformForExport(obj) {
 }
 
 export async function exportStore() {
-  const db_json = {};
+  const dbJson = {};
   for (const table of db.tables) {
     const records = await table.toArray();
 
-    db_json[table.name] = await Promise.all(
+    dbJson[table.name] = await Promise.all(
       records.map(recursivelyTransformForExport)
     );
   }
 
-  const stringified = JSON.stringify(db_json);
+  const stringified = JSON.stringify(dbJson);
   return stringified;
 }
 
