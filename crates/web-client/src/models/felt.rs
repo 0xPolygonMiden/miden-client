@@ -12,10 +12,12 @@ impl Felt {
         Felt(NativeFelt::new(value))
     }
 
+    #[wasm_bindgen(js_name = "asInt")]
     pub fn as_int(&self) -> u64 {
         self.0.as_int()
     }
 
+    #[wasm_bindgen(js_name = "toString")]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.0.to_string()

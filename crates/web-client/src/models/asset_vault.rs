@@ -13,6 +13,7 @@ impl AssetVault {
         self.0.commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "getBalance")]
     pub fn get_balance(&self, faucet_id: &AccountId) -> u64 {
         self.0.get_balance(faucet_id.into()).unwrap()
     }

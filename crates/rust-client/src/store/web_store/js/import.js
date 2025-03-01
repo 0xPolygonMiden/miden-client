@@ -28,12 +28,12 @@ export async function forceImportStore(jsonStr) {
       await openDatabase();
     }
 
-    let db_json = JSON.parse(jsonStr);
-    if (typeof db_json === "string") {
-      db_json = JSON.parse(db_json);
+    let dbJson = JSON.parse(jsonStr);
+    if (typeof dbJson === "string") {
+      dbJson = JSON.parse(dbJson);
     }
 
-    const jsonTableNames = Object.keys(db_json);
+    const jsonTableNames = Object.keys(dbJson);
     const dbTableNames = db.tables.map((t) => t.name);
 
     if (jsonTableNames.length === 0) {
@@ -59,7 +59,7 @@ export async function forceImportStore(jsonStr) {
             continue; // Skip tables not in the Dexie schema
           }
 
-          const records = db_json[tableName];
+          const records = dbJson[tableName];
 
           const transformedRecords = await Promise.all(
             records.map(recursivelyTransformForImport)

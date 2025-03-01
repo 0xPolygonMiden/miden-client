@@ -9,19 +9,23 @@ pub struct AccountId(NativeAccountId);
 
 #[wasm_bindgen]
 impl AccountId {
+    #[wasm_bindgen(js_name = "fromHex")]
     pub fn from_hex(hex: &str) -> AccountId {
         let native_account_id = NativeAccountId::from_hex(hex).unwrap();
         AccountId(native_account_id)
     }
 
+    #[wasm_bindgen(js_name = "isFaucet")]
     pub fn is_faucet(&self) -> bool {
         self.0.is_faucet()
     }
 
+    #[wasm_bindgen(js_name = "isRegularAccount")]
     pub fn is_regular_account(&self) -> bool {
         self.0.is_regular_account()
     }
 
+    #[wasm_bindgen(js_name = "toString")]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.0.to_string()

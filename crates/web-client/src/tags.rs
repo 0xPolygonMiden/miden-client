@@ -5,6 +5,7 @@ use crate::WebClient;
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "addTag")]
     pub async fn add_tag(&mut self, tag: String) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_tag_as_u32 = tag.parse::<u32>().unwrap();
@@ -17,6 +18,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "removeTag")]
     pub async fn remove_tag(&mut self, tag: String) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_tag_as_u32 = tag.parse::<u32>().unwrap();
@@ -29,6 +31,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "listTags")]
     pub async fn list_tags(&mut self) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let tags: Vec<NoteTag> = client

@@ -4,6 +4,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionIdxdbObject {
     pub id: String,
     pub account_id: String, // usually i64

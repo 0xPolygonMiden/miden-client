@@ -23,11 +23,13 @@ impl RpoDigest {
         RpoDigest(NativeRpoDigest::new(native_felts))
     }
 
+    #[wasm_bindgen(js_name = "toWord")]
     pub fn to_word(&self) -> Word {
         let native_word: NativeWord = self.0.into();
         native_word.into()
     }
 
+    #[wasm_bindgen(js_name = "toHex")]
     pub fn to_hex(&self) -> String {
         self.0.to_hex()
     }
