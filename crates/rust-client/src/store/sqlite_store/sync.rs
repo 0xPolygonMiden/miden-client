@@ -2,12 +2,9 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{
-    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
-};
+use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
-use tracing::info;
 
 use super::{SqliteStore, account::undo_account_state};
 use crate::{
