@@ -46,9 +46,18 @@ impl AccountDetails {
         }
     }
 
+    // Returns the account update summary hash
     pub fn hash(&self) -> Digest {
         match self {
             Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
+        }
+    }
+
+    // Returns the associated account if the account is public, otherwise none
+    pub fn account(&self) -> Option<&Account> {
+        match self {
+            Self::Private(..) => None,
+            Self::Public(account, _) => Some(account),
         }
     }
 }

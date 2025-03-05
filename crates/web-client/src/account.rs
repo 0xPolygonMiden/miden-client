@@ -9,6 +9,7 @@ use crate::{
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "getAccounts")]
     pub async fn get_accounts(&mut self) -> Result<Vec<AccountHeader>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let result = client
@@ -22,6 +23,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getAccount")]
     pub async fn get_account(
         &mut self,
         account_id: &AccountId,

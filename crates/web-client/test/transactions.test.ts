@@ -18,17 +18,17 @@ const getAllTransactions = async (): Promise<GetAllTransactionsResult> => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
 
-    let transactions = await client.get_transactions(
+    let transactions = await client.getTransactions(
       window.TransactionFilter.all()
     );
-    let uncomittedTransactions = await client.get_transactions(
+    let uncomittedTransactions = await client.getTransactions(
       window.TransactionFilter.uncomitted()
     );
     let transactionIds = transactions.map((transaction) =>
-      transaction.id().to_hex()
+      transaction.id().toHex()
     );
     let uncomittedTransactionIds = uncomittedTransactions.map((transaction) =>
-      transaction.id().to_hex()
+      transaction.id().toHex()
     );
 
     return {
@@ -94,15 +94,15 @@ export const compileTxScript = async (
   return await testingPage.evaluate(async (_script) => {
     const client = window.client;
 
-    let walletAccount = await client.new_wallet(
+    let walletAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
 
-    const compiledScript = await client.compile_tx_script(_script);
+    const compiledScript = await client.compileTxScript(_script);
 
     return {
-      scriptHash: compiledScript.hash().to_hex(),
+      scriptHash: compiledScript.hash().toHex(),
     };
   }, script);
 };

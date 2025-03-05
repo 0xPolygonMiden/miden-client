@@ -9,6 +9,7 @@ pub struct TestUtils;
 
 #[wasm_bindgen]
 impl TestUtils {
+    #[wasm_bindgen(js_name = "createMockAccountId")]
     pub fn create_mock_account_id() -> AccountId {
         let native_account_id: NativeAccountId =
             ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN.try_into().unwrap();

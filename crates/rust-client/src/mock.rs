@@ -8,14 +8,14 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{AccountCode, AccountId},
+    account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
-        merkle::{Mmr, MmrProof},
+        merkle::{Mmr, MmrProof, SmtProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteLocation, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
         note::NoteBuilder,
@@ -234,7 +234,7 @@ impl NodeRpcClient for MockRpcApi {
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         if block_num == Some(0.into()) {
-            return Ok((self.blocks.first().unwrap().header(), None));
+            return Ok((self.blocks.first().unwrap().header().clone(), None));
         }
         let block = self
             .blocks
@@ -248,7 +248,7 @@ impl NodeRpcClient for MockRpcApi {
             None
         };
 
-        Ok((block.header(), mmr_proof))
+        Ok((block.header().clone(), mmr_proof))
     }
 
     async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
@@ -273,7 +273,10 @@ impl NodeRpcClient for MockRpcApi {
         Ok(())
     }
 
-    async fn get_account_update(&self, _account_id: AccountId) -> Result<AccountDetails, RpcError> {
+    async fn get_account_details(
+        &self,
+        _account_id: AccountId,
+    ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 
@@ -293,6 +296,30 @@ impl NodeRpcClient for MockRpcApi {
     ) -> Result<Vec<NullifierUpdate>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
+    }
+
+    async fn check_nullifiers(&self, _nullifiers: &[Nullifier]) -> Result<Vec<SmtProof>, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_account_state_delta(
+        &self,
+        _account_id: AccountId,
+        _from_block: BlockNumber,
+        _to_block: BlockNumber,
+    ) -> Result<AccountDelta, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_block_by_number(&self, block_num: BlockNumber) -> Result<ProvenBlock, RpcError> {
+        let block = self
+            .blocks
+            .iter()
+            .find(|b| b.header().block_num() == block_num)
+            .unwrap()
+            .clone();
+
+        Ok(block)
     }
 }
 

@@ -11,7 +11,6 @@ export {
   FungibleAsset,
   InputNoteState,
   NewSwapTransactionResult,
-  NewTransactionResult,
   Note,
   NoteAssets,
   NoteConsumability,

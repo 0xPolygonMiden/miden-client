@@ -36,6 +36,8 @@ compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
 
 pub mod account;
 pub mod chain_data;
+pub mod export;
+pub mod import;
 pub mod note;
 pub mod sync;
 pub mod transaction;
@@ -132,11 +134,11 @@ impl Store for WebStore {
 
     async fn insert_block_header(
         &self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        self.insert_block_header(&block_header, chain_mmr_peaks, has_client_notes).await
+        self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes).await
     }
 
     async fn get_block_headers(

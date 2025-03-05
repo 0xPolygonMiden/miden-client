@@ -27,7 +27,6 @@ miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
 rand = { workspace = true }
-serde = { workspace = true }
 serde-wasm-bindgen = { version = "0.6" }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4" }

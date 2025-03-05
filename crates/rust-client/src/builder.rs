@@ -1,5 +1,4 @@
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     sync::Arc,
 };
@@ -43,7 +42,7 @@ pub struct ClientBuilder {
     /// An optional RPC endpoint.
     rpc_endpoint: Option<Endpoint>,
     /// An optional custom RPC client. If provided, this takes precedence over `rpc_endpoint`.
-    rpc_api: Option<Box<dyn NodeRpcClient + Send>>,
+    rpc_api: Option<Arc<dyn NodeRpcClient + Send>>,
     /// The timeout (in milliseconds) used when constructing the RPC client.
     timeout_ms: u64,
     /// An optional store provided by the user.
@@ -84,7 +83,7 @@ impl ClientBuilder {
     ///
     /// This method overrides any previously set RPC endpoint.
     #[must_use]
-    pub fn with_rpc(mut self, client: Box<dyn NodeRpcClient + Send>) -> Self {
+    pub fn with_rpc(mut self, client: Arc<dyn NodeRpcClient + Send>) -> Self {
         self.rpc_api = Some(client);
         self
     }
@@ -168,10 +167,10 @@ impl ClientBuilder {
     /// - Returns an error if the keystore is not specified or fails to initialize.
     pub async fn build(self) -> Result<Client<RpoRandomCoin>, ClientError> {
         // Determine the RPC client to use.
-        let rpc_api: Box<dyn NodeRpcClient + Send> = if let Some(client) = self.rpc_api {
+        let rpc_api: Arc<dyn NodeRpcClient + Send> = if let Some(client) = self.rpc_api {
             client
         } else if let Some(endpoint) = self.rpc_endpoint {
-            Box::new(TonicRpcClient::new(&endpoint, self.timeout_ms))
+            Arc::new(TonicRpcClient::new(&endpoint, self.timeout_ms))
         } else {
             return Err(ClientError::ClientInitializationError(
                 "RPC client or endpoint is required. Call `.with_rpc(...)` or `.with_rpc_client(...)`."
@@ -214,7 +213,7 @@ impl ClientBuilder {
         let authenticator = ClientAuthenticator::new(rng, keystore);
 
         Ok(Client::new(
-            rpc_api.into(),
+            rpc_api,
             rng,
             arc_store,
             Arc::new(authenticator),

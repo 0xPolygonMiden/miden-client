@@ -61,17 +61,17 @@ export async function getTransactions(filter) {
 
         let data = {
           id: transactionRecord.id,
-          account_id: transactionRecord.accountId,
-          init_account_state: transactionRecord.initAccountState,
-          final_account_state: transactionRecord.finalAccountState,
-          input_notes: transactionRecord.inputNotes,
-          output_notes: transactionRecord.outputNotes,
-          script_hash: transactionRecord.scriptHash
+          accountId: transactionRecord.accountId,
+          initAccountState: transactionRecord.initAccountState,
+          finalAccountState: transactionRecord.finalAccountState,
+          inputNotes: transactionRecord.inputNotes,
+          outputNotes: transactionRecord.outputNotes,
+          scriptHash: transactionRecord.scriptHash
             ? transactionRecord.scriptHash
             : null,
-          tx_script: txScriptBase64,
-          block_num: transactionRecord.blockNum,
-          commit_height: transactionRecord.commitHeight
+          txScript: txScriptBase64,
+          blockNum: transactionRecord.blockNum,
+          commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
         };

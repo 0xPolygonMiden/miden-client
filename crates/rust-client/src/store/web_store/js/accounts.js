@@ -54,10 +54,10 @@ export async function getAllAccountHeaders() {
         return {
           id: record.id,
           nonce: record.nonce,
-          vault_root: record.vaultRoot,
-          storage_root: record.storageRoot,
-          code_root: record.codeRoot,
-          account_seed: accountSeedBase64, // Now correctly formatted as Base64
+          vaultRoot: record.vaultRoot,
+          storageRoot: record.storageRoot,
+          codeRoot: record.codeRoot,
+          accountSeed: accountSeedBase64, // Now correctly formatted as Base64
           locked: record.locked,
         };
       })
@@ -105,10 +105,10 @@ export async function getAccountHeader(accountId) {
     const AccountHeader = {
       id: mostRecentRecord.id,
       nonce: mostRecentRecord.nonce,
-      vault_root: mostRecentRecord.vaultRoot,
-      storage_root: mostRecentRecord.storageRoot,
-      code_root: mostRecentRecord.codeRoot,
-      account_seed: accountSeedBase64,
+      vaultRoot: mostRecentRecord.vaultRoot,
+      storageRoot: mostRecentRecord.storageRoot,
+      codeRoot: mostRecentRecord.codeRoot,
+      accountSeed: accountSeedBase64,
       locked: mostRecentRecord.locked,
     };
     return AccountHeader;
@@ -144,10 +144,10 @@ export async function getAccountHeaderByHash(accountHash) {
     const AccountHeader = {
       id: matchingRecord.id,
       nonce: matchingRecord.nonce,
-      vault_root: matchingRecord.vaultRoot,
-      storage_root: matchingRecord.storageRoot,
-      code_root: matchingRecord.codeRoot,
-      account_seed: accountSeedBase64,
+      vaultRoot: matchingRecord.vaultRoot,
+      storageRoot: matchingRecord.storageRoot,
+      codeRoot: matchingRecord.codeRoot,
+      accountSeed: accountSeedBase64,
       locked: matchingRecord.locked,
     };
     return AccountHeader;
@@ -304,26 +304,26 @@ export async function insertAccountAssetVault(vaultRoot, assets) {
 
 export async function insertAccountRecord(
   accountId,
-  code_root,
-  storage_root,
-  vault_root,
+  codeRoot,
+  storageRoot,
+  vaultRoot,
   nonce,
   committed,
-  account_seed,
+  accountSeed,
   hash
 ) {
   try {
     let accountSeedBlob = null;
-    if (account_seed) {
-      accountSeedBlob = new Blob([new Uint8Array(account_seed)]);
+    if (accountSeed) {
+      accountSeedBlob = new Blob([new Uint8Array(accountSeed)]);
     }
 
     // Prepare the data object to insert
     const data = {
       id: accountId, // Using accountId as the key
-      codeRoot: code_root,
-      storageRoot: storage_root,
-      vaultRoot: vault_root,
+      codeRoot: codeRoot,
+      storageRoot: storageRoot,
+      vaultRoot: vaultRoot,
       nonce: nonce,
       committed: committed,
       accountSeed: accountSeedBlob,
