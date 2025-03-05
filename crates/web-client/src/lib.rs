@@ -90,7 +90,7 @@ impl WebClient {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
         })?;
 
-        let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
+        let web_rpc_client = Arc::new(TonicRpcClient::new(&endpoint, 0));
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
