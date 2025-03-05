@@ -171,14 +171,15 @@ impl StateSync {
         note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
     ) -> Result<bool, ClientError> {
-        let current_block_num = state_sync_update.block_num;
-
         let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
 
-        let response = self.rpc_api.sync_state(current_block_num, &account_ids, note_tags).await?;
+        let response = self
+            .rpc_api
+            .sync_state(state_sync_update.block_num, &account_ids, note_tags)
+            .await?;
 
         // We don't need to continue if the chain has not advanced, there are no new changes
-        if response.block_header.block_num() == current_block_num {
+        if response.block_header.block_num() == state_sync_update.block_num {
             return Ok(false);
         }
 

@@ -13,46 +13,6 @@ use crate::{
     Client, ClientError,
 };
 
-/// Contains all the block information that needs to be added in the client's store after a sync.
-
-#[derive(Debug, Clone, Default)]
-pub struct BlockUpdates {
-    /// New block headers to be stored, along with a flag indicating whether the block contains
-    /// notes that are relevant to the client and the MMR peaks for the block.
-    block_headers: Vec<(BlockHeader, bool, MmrPeaks)>,
-    /// New authentication nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-}
-
-impl BlockUpdates {
-    /// Creates a new instance of [`BlockUpdates`].
-    pub fn new(
-        block_headers: Vec<(BlockHeader, bool, MmrPeaks)>,
-        new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    ) -> Self {
-        Self { block_headers, new_authentication_nodes }
-    }
-
-    /// Returns the new block headers to be stored, along with a flag indicating whether the block
-    /// contains notes that are relevant to the client and the MMR peaks for the block.
-    pub fn block_headers(&self) -> &[(BlockHeader, bool, MmrPeaks)] {
-        &self.block_headers
-    }
-
-    /// Returns the new authentication nodes that are meant to be stored in order to authenticate
-    /// block headers.
-    pub fn new_authentication_nodes(&self) -> &[(InOrderIndex, Digest)] {
-        &self.new_authentication_nodes
-    }
-
-    /// Extends the current [`BlockUpdates`] with the provided one.
-    pub(crate) fn extend(&mut self, other: BlockUpdates) {
-        self.block_headers.extend(other.block_headers);
-        self.new_authentication_nodes.extend(other.new_authentication_nodes);
-    }
-}
-
 /// Network information management methods.
 impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were

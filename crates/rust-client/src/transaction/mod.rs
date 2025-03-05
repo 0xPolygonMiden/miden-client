@@ -369,45 +369,6 @@ impl TransactionStoreUpdate {
     }
 }
 
-/// Contains transaction changes to apply to the store.
-#[derive(Default)]
-pub struct TransactionUpdates {
-    /// Transaction updates for any transaction that was committed between the sync request's block
-    /// number and the response's block number.
-    committed_transactions: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    discarded_transactions: Vec<TransactionId>,
-}
-
-impl TransactionUpdates {
-    /// Creates a new [`TransactionUpdate`]
-    pub fn new(
-        committed_transactions: Vec<TransactionUpdate>,
-        discarded_transactions: Vec<TransactionId>,
-    ) -> Self {
-        Self {
-            committed_transactions,
-            discarded_transactions,
-        }
-    }
-
-    /// Extends the transaction update information with `other`.
-    pub fn extend(&mut self, other: Self) {
-        self.committed_transactions.extend(other.committed_transactions);
-        self.discarded_transactions.extend(other.discarded_transactions);
-    }
-
-    /// Returns a reference to committed transactions.
-    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
-        &self.committed_transactions
-    }
-
-    /// Returns a reference to discarded transactions.
-    pub fn discarded_transactions(&self) -> &[TransactionId] {
-        &self.discarded_transactions
-    }
-}
-
 /// Transaction management methods
 impl<R: FeltRng> Client<R> {
     // TRANSACTION DATA RETRIEVAL
