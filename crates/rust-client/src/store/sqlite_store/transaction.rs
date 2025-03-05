@@ -48,12 +48,8 @@ impl TransactionFilter {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
             TransactionFilter::Ids(ids) => {
-                let ids = ids
-                    .iter()
-                    .map(|id| format!("'{}'", id.to_string()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{QUERY} WHERE tx.id IN ({})", ids)
+                let ids = ids.iter().map(|id| format!("'{id}'")).collect::<Vec<_>>().join(", ");
+                format!("{QUERY} WHERE tx.id IN ({ids})")
             },
         }
     }
