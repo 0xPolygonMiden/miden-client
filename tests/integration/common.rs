@@ -271,7 +271,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {
-                panic!("Unexpected error: {other_error:?}");
+                panic!("Unexpected error: {other_error}");
             },
             _ => return,
         }

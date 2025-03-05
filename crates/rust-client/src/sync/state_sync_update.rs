@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use miden_objects::{
     account::AccountId,
     block::{BlockHeader, BlockNumber},

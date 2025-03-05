@@ -95,7 +95,7 @@ use super::{Client, FeltRng};
 use crate::{
     account::procedure_roots::RPO_FALCON_512_AUTH,
     note::{NoteScreener, NoteUpdates},
-    rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
+    rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,

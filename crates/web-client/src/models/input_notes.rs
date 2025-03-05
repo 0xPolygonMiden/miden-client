@@ -13,14 +13,17 @@ impl InputNotes {
         self.0.commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "numNotes")]
     pub fn num_notes(&self) -> u8 {
         u8::try_from(self.0.num_notes()).expect("only 256 input notes is allowed")
     }
 
+    #[wasm_bindgen(js_name = "accountId")]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    #[wasm_bindgen(js_name = "getNote")]
     pub fn get_note(&self, index: u8) -> InputNote {
         self.0.get_note(index as usize).into()
     }

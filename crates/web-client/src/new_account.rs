@@ -1,62 +1,37 @@
 use miden_client::{
-    account::{
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
-        AccountBuilder, AccountType,
-    },
+    account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
     authenticator::keystore::KeyStore,
     crypto::SecretKey,
     Felt,
 };
+use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::WebClient;
+use crate::{helpers::generate_wallet, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "newWallet")]
     pub async fn new_wallet(
         &mut self,
         storage_mode: &AccountStorageMode,
         mutable: bool,
+        init_seed: Option<Vec<u8>>,
     ) -> Result<Account, JsValue> {
         let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
-            let key_pair = SecretKey::with_rng(client.rng());
-            let pub_key = key_pair.public_key();
-
-            let mut init_seed = [0u8; 32];
-            client.rng().fill_bytes(&mut init_seed);
-
-            let account_type = if mutable {
-                AccountType::RegularAccountUpdatableCode
-            } else {
-                AccountType::RegularAccountImmutableCode
-            };
-
-            let anchor_block = client.get_latest_epoch_block().await.unwrap();
-
-            let (new_account, seed) = match AccountBuilder::new(init_seed)
-                .anchor((&anchor_block).try_into().unwrap())
-                .account_type(account_type)
-                .storage_mode(storage_mode.into())
-                .with_component(RpoFalcon512::new(pub_key))
-                .with_component(BasicWallet)
-                .build()
-            {
-                Ok(result) => result,
-                Err(err) => {
-                    let error_message = format!("Failed to create new wallet: {err:?}");
-                    return Err(JsValue::from_str(&error_message));
-                },
-            };
+            let (new_account, account_seed, key_pair) =
+                generate_wallet(client, storage_mode, mutable, init_seed).await?;
 
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
                 .map_err(|err| err.to_string())?;
-            match client.add_account(&new_account, Some(seed), false).await {
+
+            match client.add_account(&new_account, Some(account_seed), false).await {
                 Ok(_) => Ok(new_account.into()),
                 Err(err) => {
                     let error_message = format!("Failed to insert new wallet: {err:?}");
@@ -68,6 +43,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newFaucet")]
     pub async fn new_faucet(
         &mut self,
         storage_mode: &AccountStorageMode,

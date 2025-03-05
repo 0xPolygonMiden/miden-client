@@ -86,10 +86,10 @@ export async function getBlockHeaders(blockNumbers) {
           const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
           return {
-            block_num: result.blockNum,
+            blockNum: result.blockNum,
             header: headerBase64,
-            chain_mmr: chainMmrPeaksBase64,
-            has_client_notes: result.hasClientNotes === "true",
+            chainMmr: chainMmrPeaksBase64,
+            hasClientNotes: result.hasClientNotes === "true",
           };
         }
       })
@@ -123,10 +123,10 @@ export async function getTrackedBlockHeaders() {
         const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
         return {
-          block_num: record.blockNum,
+          blockNum: record.blockNum,
           header: headerBase64,
-          chain_mmr: chainMmrPeaksBase64,
-          has_client_notes: record.hasClientNotes === "true",
+          chainMmr: chainMmrPeaksBase64,
+          hasClientNotes: record.hasClientNotes === "true",
         };
       })
     );

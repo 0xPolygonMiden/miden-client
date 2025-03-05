@@ -10,16 +10,14 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{block_header::BlockUpdates, StateSyncUpdate};
+use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 use crate::{
-    account::AccountUpdates,
     note::{NoteScreener, NoteUpdates},
     rpc::{
         domain::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate},
         NodeRpcClient,
     },
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
-    transaction::TransactionUpdates,
     ClientError,
 };
 
@@ -183,7 +181,8 @@ impl StateSync {
             return Ok(false);
         }
 
-        state_sync_update.block_num = response.block_header.block_num();
+        let new_block_num = response.block_header.block_num();
+        state_sync_update.block_num = new_block_num;
 
         let account_updates =
             self.account_state_sync(accounts, &response.account_hash_updates).await?;
@@ -214,7 +213,7 @@ impl StateSync {
             new_authentication_nodes,
         ));
 
-        if response.chain_tip == response.block_header.block_num() {
+        if response.chain_tip == new_block_num {
             Ok(false)
         } else {
             Ok(true)

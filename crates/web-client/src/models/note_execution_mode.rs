@@ -7,14 +7,17 @@ pub struct NoteExecutionMode(NativeNoteExecutionMode);
 
 #[wasm_bindgen]
 impl NoteExecutionMode {
+    #[wasm_bindgen(js_name = "newLocal")]
     pub fn new_local() -> NoteExecutionMode {
         NoteExecutionMode(NativeNoteExecutionMode::Local)
     }
 
+    #[wasm_bindgen(js_name = "newNetwork")]
     pub fn new_network() -> NoteExecutionMode {
         NoteExecutionMode(NativeNoteExecutionMode::Network)
     }
 
+    #[wasm_bindgen(js_name = "toString")]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let note_execution_mode_as_str = match self.0 {

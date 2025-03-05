@@ -41,7 +41,7 @@ use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::{
     block::BlockHeader,
     crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
-    AccountError, Digest, Word,
+    AccountError, Word,
 };
 
 use super::Client;
@@ -152,7 +152,7 @@ impl<R: FeltRng> Client<R> {
                     // If the tracked account is locked, check that the account hash matches the one
                     // in the network
                     let network_account_hash =
-                        self.rpc_api.get_account_update(account.id()).await?.hash();
+                        self.rpc_api.get_account_details(account.id()).await?.hash();
                     if network_account_hash != account.hash() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
@@ -172,7 +172,7 @@ impl<R: FeltRng> Client<R> {
     /// - If the account is private.
     /// - There was an error sending the request to the network.
     pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
-        let account_details = self.rpc_api.get_account_update(account_id).await?;
+        let account_details = self.rpc_api.get_account_details(account_id).await?;
 
         let account = match account_details {
             AccountDetails::Private(..) => {
@@ -275,7 +275,7 @@ pub fn build_wallet_id(
     public_key: PublicKey,
     storage_mode: AccountStorageMode,
     is_mutable: bool,
-    anchor_block: BlockHeader,
+    anchor_block: &BlockHeader,
 ) -> Result<AccountId, ClientError> {
     let account_type = if is_mutable {
         AccountType::RegularAccountUpdatableCode
@@ -283,7 +283,7 @@ pub fn build_wallet_id(
         AccountType::RegularAccountImmutableCode
     };
 
-    let accound_id_anchor = (&anchor_block).try_into().map_err(|_| {
+    let accound_id_anchor = anchor_block.try_into().map_err(|_| {
         ClientError::AccountError(AccountError::AssumptionViolated(
             "Provided block header is not an anchor block".to_string(),
         ))

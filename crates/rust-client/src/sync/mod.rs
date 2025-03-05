@@ -76,7 +76,7 @@ mod state_sync;
 pub use state_sync::{on_note_received, OnNoteReceived, StateSync};
 
 mod state_sync_update;
-pub use state_sync_update::StateSyncUpdate;
+pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 
 // CONSTANTS
 // ================================================================================================
@@ -217,6 +217,7 @@ impl SyncSummary {
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
+            && self.committed_transactions.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
@@ -225,5 +226,6 @@ impl SyncSummary {
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
+        self.committed_transactions.append(&mut other.committed_transactions);
     }
 }

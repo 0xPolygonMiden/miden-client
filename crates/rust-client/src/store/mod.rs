@@ -173,7 +173,7 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(&[block_number])
             .await
-            .map(|block_headers_list| block_headers_list.first().copied())
+            .map(|mut block_headers_list| block_headers_list.pop())
     }
 
     /// Retrieves a list of [`BlockHeader`] that include relevant notes to the client.
@@ -210,7 +210,7 @@ pub trait Store: Send + Sync {
     /// column is updated to `true` to signify that the block now contains a relevant note.
     async fn insert_block_header(
         &self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError>;

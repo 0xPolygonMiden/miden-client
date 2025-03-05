@@ -83,24 +83,11 @@
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, 10_000));
-//!
-//! let state_sync_component = StateSync::new(
-//!     rpc_api.clone(),
-//!     Box::new({
-//!         let store_clone = store.clone();
-//!         move |committed_note, public_note| {
-//!             Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
-//!         }
-//!     }),
-//! );
-//!
 //! let client: Client<RpoRandomCoin> = Client::new(
-//!     rpc_api,
+//!     Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
 //!     Arc::new(authenticator),
-//!     state_sync_component,
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!

@@ -1,4 +1,4 @@
-use miden_objects::{block::BlockHeader, crypto::merkle::MerklePath};
+use miden_objects::block::BlockHeader;
 
 use super::MissingFieldHelper;
 use crate::rpc::{errors::RpcConversionError, generated::block};
@@ -79,43 +79,5 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
                 .try_into()?,
             value.timestamp,
         ))
-    }
-}
-
-/// Data required to verify a block's inclusion proof.
-#[derive(Clone, Debug)]
-pub struct BlockInclusionProof {
-    pub block_header: BlockHeader,
-    pub mmr_path: MerklePath,
-    pub chain_length: u32,
-}
-
-impl From<BlockInclusionProof> for block::BlockInclusionProof {
-    fn from(value: BlockInclusionProof) -> Self {
-        Self {
-            block_header: Some(value.block_header.into()),
-            mmr_path: Some((&value.mmr_path).into()),
-            chain_length: value.chain_length,
-        }
-    }
-}
-
-impl TryFrom<block::BlockInclusionProof> for BlockInclusionProof {
-    type Error = RpcConversionError;
-
-    fn try_from(value: block::BlockInclusionProof) -> Result<Self, RpcConversionError> {
-        let result = Self {
-            block_header: value
-                .block_header
-                .ok_or(block::BlockInclusionProof::missing_field("block_header"))?
-                .try_into()?,
-            mmr_path: (&value
-                .mmr_path
-                .ok_or(block::BlockInclusionProof::missing_field("mmr_path"))?)
-                .try_into()?,
-            chain_length: value.chain_length,
-        };
-
-        Ok(result)
     }
 }

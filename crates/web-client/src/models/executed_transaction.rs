@@ -17,34 +17,42 @@ impl ExecutedTransaction {
         self.0.id().into()
     }
 
+    #[wasm_bindgen(js_name = "accountId")]
     pub fn account_id(&self) -> AccountId {
         self.0.account_id().into()
     }
 
+    #[wasm_bindgen(js_name = "initialAccount")]
     pub fn initial_account(&self) -> Account {
         self.0.initial_account().into()
     }
 
+    #[wasm_bindgen(js_name = "finalAccount")]
     pub fn final_account(&self) -> AccountHeader {
         self.0.final_account().into()
     }
 
+    #[wasm_bindgen(js_name = "inputNotes")]
     pub fn input_notes(&self) -> InputNotes {
         self.0.input_notes().into()
     }
 
+    #[wasm_bindgen(js_name = "outputNotes")]
     pub fn output_notes(&self) -> OutputNotes {
         self.0.output_notes().into()
     }
 
+    #[wasm_bindgen(js_name = "txArgs")]
     pub fn tx_args(&self) -> TransactionArgs {
         self.0.tx_args().into()
     }
 
+    #[wasm_bindgen(js_name = "blockHeader")]
     pub fn block_header(&self) -> BlockHeader {
         self.0.block_header().into()
     }
 
+    #[wasm_bindgen(js_name = "accountDelta")]
     pub fn account_delta(&self) -> AccountDelta {
         self.0.account_delta().into()
     }

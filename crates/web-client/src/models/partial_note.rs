@@ -21,6 +21,7 @@ impl PartialNote {
         self.0.metadata().into()
     }
 
+    #[wasm_bindgen(js_name = "recipientDigest")]
     pub fn recipient_digest(&self) -> RpoDigest {
         self.0.recipient_digest().into()
     }

@@ -4,6 +4,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InputNoteIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub assets: Vec<u8>,
@@ -19,6 +20,7 @@ pub struct InputNoteIdxdbObject {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OutputNoteIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub assets: Vec<u8>,

@@ -35,22 +35,27 @@ impl Account {
         self.0.code().into()
     }
 
+    #[wasm_bindgen(js_name = "isFaucet")]
     pub fn is_faucet(&self) -> bool {
         self.0.is_faucet()
     }
 
+    #[wasm_bindgen(js_name = "isRegularAccount")]
     pub fn is_regular_account(&self) -> bool {
         self.0.is_regular_account()
     }
 
+    #[wasm_bindgen(js_name = "isUpdatable")]
     pub fn is_updatable(&self) -> bool {
         matches!(self.0.account_type(), NativeAccountType::RegularAccountUpdatableCode)
     }
 
+    #[wasm_bindgen(js_name = "isPublic")]
     pub fn is_public(&self) -> bool {
         self.0.is_public()
     }
 
+    #[wasm_bindgen(js_name = "isNew")]
     pub fn is_new(&self) -> bool {
         self.0.is_new()
     }
