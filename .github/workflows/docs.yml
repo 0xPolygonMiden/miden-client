@@ -19,5 +19,5 @@ jobs:
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           NO_DOCS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no docs') }}
-        run: ./scripts/check-documentation.sh "${{ inputs.docs }}"
+        run: ./scripts/check-docs.sh "${{ inputs.docs }}"
         shell: bash
