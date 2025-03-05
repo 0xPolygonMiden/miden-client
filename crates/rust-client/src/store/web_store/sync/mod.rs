@@ -7,7 +7,6 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
-    transaction::TransactionId,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
@@ -20,7 +19,6 @@ use super::{
     WebStore,
 };
 use crate::{
-    note::NoteUpdates,
     store::StoreError,
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
@@ -194,13 +192,5 @@ impl WebStore {
         JsFuture::from(promise).await.unwrap();
 
         Ok(())
-    }
-
-    pub(super) async fn apply_nullifiers(
-        &self,
-        note_updates: NoteUpdates,
-        _transactions_to_discard: Vec<TransactionId>,
-    ) -> Result<(), StoreError> {
-        apply_note_updates_tx(&note_updates).await
     }
 }
