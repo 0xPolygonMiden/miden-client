@@ -1360,7 +1360,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.7.0"
+version = "0.7.2"
 dependencies = [
  "async-trait",
  "base64",
@@ -1410,7 +1410,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-web"
-version = "0.7.0"
+version = "0.7.2"
 dependencies = [
  "console_error_panic_hook",
  "miden-client",
