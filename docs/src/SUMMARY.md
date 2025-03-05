@@ -1,11 +1,21 @@
 # Summary
 
-- [Client](./index.md)
-    * [Installation](./install-and-run.md)
-    * [Features](./features.md)
-    * [Design](./design.md)
-    * [Library](./library.md)
-    * [CLI](./cli-reference.md)
-        + [Config](./cli-config.md)
-    * [Examples](./examples.md)
-    * [API](./api-docs.md)
+[Introduction](./index.md)
+- [Installation](./install-and-run.md)
+- [Features](./features.md)
+- [Design](./design.md)
+- [Examples](./examples.md)
+- [API](./api-docs.md)
+
+---
+
+# Library
+
+- [Library](./library.md)
+
+---
+
+# CLI
+
+- [CLI](./cli-reference.md)
+  - [Config](./cli-config.md)
