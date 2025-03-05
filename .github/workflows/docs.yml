@@ -1,7 +1,7 @@
 # Runs docs related jobs.
 # CI job heavily inspired by: https://github.com/tarides/changelog-check-action
 
-name: documentation
+name: docs
 
 on:
   pull_request:
@@ -18,6 +18,6 @@ jobs:
       - name: Check for changes in the docs directory
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-          NO_DOCS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no documentation') }}
-        run: ./scripts/check-documentation.sh "${{ inputs.documentation }}"
+          NO_DOCS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no docs') }}
+        run: ./scripts/check-documentation.sh "${{ inputs.docs }}"
         shell: bash
