@@ -81,12 +81,13 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AccountError, AssetError, Digest, Felt, Word, ZERO,
 };
+pub use miden_tx::{
+    auth::TransactionAuthenticator, LocalTransactionProver, ProvingOptions, TransactionProver,
+    TransactionProverError,
+};
 use miden_tx::{
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     TransactionExecutor,
-};
-pub use miden_tx::{
-    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
 };
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
@@ -148,7 +149,6 @@ impl TransactionResult {
 
         for note in notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note).await?;
-
             if !account_relevance.is_empty() {
                 let metadata = *note.metadata();
                 relevant_notes.push(InputNoteRecord::new(
@@ -1042,7 +1042,6 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
-        authenticator::keystore::KeyStore,
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };

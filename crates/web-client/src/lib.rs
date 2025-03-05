@@ -2,8 +2,8 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
+use keystore::WebKeyStore;
 use miden_client::{
-    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
     Client, RemoteTransactionProver,
@@ -16,6 +16,7 @@ pub mod account;
 pub mod export;
 pub mod helpers;
 pub mod import;
+pub mod keystore;
 pub mod models;
 pub mod new_account;
 pub mod new_transactions;
@@ -82,9 +83,7 @@ impl WebClient {
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
 
-        let keystore = WebKeyStore {};
-
-        let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
+        let keystore = WebKeyStore::new(rng);
 
         let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
@@ -94,8 +93,7 @@ impl WebClient {
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
-        self.inner =
-            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
+        self.inner = Some(Client::new(web_rpc_client, rng, web_store.clone(), keystore, false));
         self.store = Some(web_store);
         self.keystore = Some(keystore);
 

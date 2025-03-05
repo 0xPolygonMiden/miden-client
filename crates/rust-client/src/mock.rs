@@ -24,12 +24,12 @@ use miden_objects::{
     Felt, Word,
 };
 use miden_tx::testing::MockChain;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng};
 use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+    keystore::FilesystemKeyStore,
     rpc::{
         domain::{
             account::{AccountDetails, AccountProofs},
@@ -332,7 +332,7 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore) {
+pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore<StdRng>) {
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
@@ -341,13 +341,13 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+    let keystore: FilesystemKeyStore<StdRng> =
+        FilesystemKeyStore::<StdRng>::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(keystore.clone()), true);
     (client, rpc_api, keystore)
 }
 

@@ -1,6 +1,6 @@
 use std::error::Error as StdError;
 
-use miden_client::{authenticator::keystore::KeyStoreError, ClientError};
+use miden_client::{keystore::KeyStoreError, ClientError};
 use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
 use thiserror::Error;

@@ -11,11 +11,12 @@ use miden_client::{
     },
     asset::TokenSymbol,
     auth::AuthSecretKey,
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
+    keystore::FilesystemKeyStore,
     utils::Deserializable,
     Client, Felt,
 };
+use rand::rngs::StdRng;
 
 use crate::{
     commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
@@ -105,7 +106,7 @@ impl NewFaucetCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore,
+        keystore: FilesystemKeyStore<StdRng>,
     ) -> Result<(), CliError> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -200,7 +201,7 @@ impl NewWalletCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore,
+        keystore: FilesystemKeyStore<StdRng>,
     ) -> Result<(), CliError> {
         let mut extra_components = Vec::new();
         for path in &self.extra_components {

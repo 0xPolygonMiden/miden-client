@@ -1,7 +1,6 @@
 use miden_client::{
     account::{Account, StorageSlot},
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     testing::prepare_word,

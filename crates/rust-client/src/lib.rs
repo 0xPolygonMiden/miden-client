@@ -108,7 +108,8 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
-pub mod authenticator;
+#[cfg(feature = "std")]
+pub mod keystore;
 pub mod note;
 pub mod rpc;
 pub mod store;

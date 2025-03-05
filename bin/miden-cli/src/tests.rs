@@ -7,10 +7,10 @@ use std::{
 
 use assert_cmd::Command;
 use config::RpcConfig;
+use miden_cli::CliKeyStore;
 use miden_client::{
     self,
     account::{AccountId, AccountStorageMode},
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
@@ -639,7 +639,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub type TestClient = Client<RpoRandomCoin>;
 
 /// Creates a new [`Client`] with a given store. Also returns the keystore associated with it.
-async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
+async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, CliKeyStore) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -652,15 +652,14 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, F
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+    let keystore = CliKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
             rng,
             store,
-            std::sync::Arc::new(authenticator),
+            std::sync::Arc::new(keystore.clone()),
             true,
         ),
         keystore,

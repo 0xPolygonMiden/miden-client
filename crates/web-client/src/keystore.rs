@@ -1,18 +1,25 @@
-use alloc::string::ToString;
+use alloc::sync::Arc;
 
-use miden_objects::{
-    account::AuthSecretKey,
-    utils::{Deserializable, Serializable},
-    Digest, Word,
-};
+use miden_client::{account::AccountDelta, Felt, Word};
+use miden_tx::{utils::sync::RwLock, AuthenticationError};
+use rand::Rng;
 
-use super::{KeyStore, KeyStoreError};
-
-/// A web-based keystore that stores keys in [browser's local storage](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API).
+/// A web-based keystore that stores keys in [browser's local storage](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
+/// and provides transaction authentication functionality.
 #[derive(Clone)]
-pub struct WebKeyStore;
+pub struct WebKeyStore<R: Rng> {
+    /// The random number generator used to generate signatures.
+    rng: Arc<RwLock<R>>,
+}
 
-impl KeyStore for WebKeyStore {
+impl<R: Rng> WebKeyStore<R> {
+    /// Creates a new instance of the web keystore with the provided RNG.
+    pub fn new(rng: R) -> Self {
+        WebKeyStore { rng: Arc::new(RwLock::new(rng)) }
+    }
+}
+
+impl<R: Rng> KeyStore for WebKeyStore<R> {
     fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
         let window = web_sys::window()
             .ok_or_else(|| KeyStoreError::StorageError("Window not available".to_string()))?;
@@ -67,4 +74,36 @@ impl KeyStore for WebKeyStore {
             None => Ok(None),
         }
     }
+}
+
+impl<R: Rng> TransactionAuthenticator for WebKeyStore<R> {
+    /// Gets a signature over a message, given a public key.
+    ///
+    /// The public key should correspond to one of the keys tracked by the keystore.
+    ///
+    /// # Errors
+    /// If the public key isn't found in the store, [`AuthenticationError::UnknownPublicKey`] is
+    /// returned.
+    fn get_signature(
+        &self,
+        pub_key: Word,
+        message: Word,
+        _account_delta: &AccountDelta,
+    ) -> Result<Vec<Felt>, AuthenticationError> {
+        let mut rng = self.rng.write();
+        let secret_key = self
+            .get_key(pub_key)
+            .map_err(|err| AuthenticationError::other(err.to_string()))?;
+        let AuthSecretKey::RpoFalcon512(k) = secret_key
+            .ok_or(AuthenticationError::UnknownPublicKey(Digest::from(pub_key).into()))?;
+        miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum KeyStoreError {
+    #[error("storage error: {0}")]
+    StorageError(String),
+    #[error("decoding error: {0}")]
+    DecodingError(String),
 }

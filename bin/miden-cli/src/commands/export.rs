@@ -2,12 +2,13 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
     account::{Account, AccountFile},
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
+    keystore::FilesystemKeyStore,
     store::NoteExportType,
     utils::Serializable,
     Client, Word,
 };
+use rand::rngs::StdRng;
 use tracing::info;
 
 use crate::{errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id, Parser};
@@ -57,7 +58,7 @@ impl ExportCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore,
+        keystore: FilesystemKeyStore<StdRng>,
     ) -> Result<(), CliError> {
         if self.account {
             export_account(&client, &keystore, self.id.as_str(), self.filename.clone()).await?;
@@ -77,7 +78,7 @@ impl ExportCmd {
 
 async fn export_account(
     client: &Client<impl FeltRng>,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, CliError> {
