@@ -1,12 +1,17 @@
 # Changelog
 
-## 0.7.1 (TBD)
+## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 
-* [BREAKING] Added Initial Web Workers Implementation to Web Client (#720).
-* Web Client Fix: Handled Case Where Web Workers are Not Available (#743).
-* Web Client: Exposed `InputNotes` iterator and `Note` `assets` property (#757).
-* Web Client Submit Transaction Fix: Typescript Typings Now Match Underlying Client Call (#760).
-* Web Client: Exported `TransactionResult` in typings (#768).
+### Changes
+
+* [BREAKING] Added initial Web Workers implementation to web client (#720, #743).
+* Web client: Exposed `InputNotes` iterator and `assets` getter (#757).
+* Web client: Exported `TransactionResult` in typings (#768).
+* Implemented serialization and deserialization for `SyncSummary` (#725).
+
+### Fixes
+
+* Web client: Fixed submit transaction; Typescript types now match underlying Client call (#760).
 
 ## 0.7.0 (2025-01-28)
 
@@ -33,7 +38,6 @@
 * Enabled TLS on tonic client (#697).
 * Added account creation from component templates (#680).
 * Added serialization for `TransactionResult` (#704).
-* Implemented serialization and deserialization for `SyncSummary` (#725).
 
 ### Fixes
 
