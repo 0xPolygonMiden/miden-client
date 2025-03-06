@@ -79,6 +79,7 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
+    vm::AdviceInputs,
     AccountError, AssetError, Digest, Felt, Word, ZERO,
 };
 use miden_tx::{
@@ -899,6 +900,25 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok(Some(block_num))
+    }
+
+    pub async fn execute_program<T>(
+        &self,
+        account_id: AccountId,
+        program: &str,
+        tx_inputs: T,
+        advice_inputs: AdviceInputs,
+    ) -> Result<[Felt; 16], ClientError>
+    where
+        T: IntoIterator<Item = (Word, Vec<Felt>)>,
+    {
+        let block_ref = self.get_sync_height().await?;
+        let tx_script = self.compile_tx_script(tx_inputs, program)?;
+
+        Ok(self
+            .tx_executor
+            .execute_program(account_id, block_ref, tx_script, advice_inputs)
+            .await?)
     }
 }
 

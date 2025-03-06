@@ -278,6 +278,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "bech32"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
+
+[[package]]
 name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1480,7 +1486,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#6d82ff2a4a1f4dfcdb1a20e7baad92d0e2718397"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-program-executor#3f61b60d1e688ac9c6728f91f19856aef4c98f22"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1535,8 +1541,9 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#6d82ff2a4a1f4dfcdb1a20e7baad92d0e2718397"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-program-executor#3f61b60d1e688ac9c6728f91f19856aef4c98f22"
 dependencies = [
+ "bech32",
  "getrandom 0.2.15",
  "miden-assembly",
  "miden-core",
@@ -1581,7 +1588,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#6d82ff2a4a1f4dfcdb1a20e7baad92d0e2718397"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-program-executor#3f61b60d1e688ac9c6728f91f19856aef4c98f22"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1614,7 +1621,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#6d82ff2a4a1f4dfcdb1a20e7baad92d0e2718397"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-program-executor#3f61b60d1e688ac9c6728f91f19856aef4c98f22"
 dependencies = [
  "async-trait",
  "miden-lib",

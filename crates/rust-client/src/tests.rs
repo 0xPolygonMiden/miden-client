@@ -25,6 +25,7 @@ use miden_objects::{
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
     transaction::OutputNote,
+    vm::AdviceInputs,
     Felt, FieldElement, Word, ZERO,
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -726,4 +727,37 @@ async fn test_note_without_asset() {
             TransactionScriptBuilderError::P2IDNoteWithoutAsset
         )
     ));
+}
+
+#[tokio::test]
+async fn test_execute_program() {
+    let (mut client, _, keystore) = create_test_client().await;
+
+    let (wallet, _seed) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
+        .await
+        .unwrap();
+
+    let code = "
+        use.std::sys
+
+        begin
+            push.16
+            repeat.16
+                dup push.1 sub
+            end
+            exec.sys::truncate_stack
+        end
+        ";
+
+    let output_stack = client
+        .execute_program(wallet.id(), code, [], AdviceInputs::default())
+        .await
+        .unwrap();
+
+    let mut expected_stack = [Felt::new(0); 16];
+    for (i, element) in expected_stack.iter_mut().enumerate() {
+        *element = Felt::new(i as u64);
+    }
+
+    assert_eq!(output_stack, expected_stack);
 }
