@@ -48,6 +48,14 @@ before(async () => {
 
   testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
 
+  testingPage.on("pageerror", (err) => {
+    console.error("PAGE ERROR:", err);
+  });
+
+  testingPage.on("error", (err) => {
+    console.error("PUPPETEER ERROR:", err);
+  });
+
   // Creates the client in the test context and attach to window object
   await testingPage.evaluate(
     async (rpcPort, remoteProverPort) => {
@@ -84,6 +92,7 @@ before(async () => {
         TransactionFilter,
         TransactionProver,
         TransactionRequest,
+        TransactionResult,
         TransactionRequestBuilder,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
@@ -95,8 +104,7 @@ before(async () => {
       if (remoteProverPort) {
         proverUrl = `http://localhost:${remoteProverPort}`;
       }
-      const client = new WebClient();
-      await client.createClient(rpcUrl, proverUrl);
+      const client = await WebClient.createClient(rpcUrl);
 
       window.client = client;
       window.Account = Account;
@@ -131,6 +139,7 @@ before(async () => {
       window.TransactionFilter = TransactionFilter;
       window.TransactionProver = TransactionProver;
       window.TransactionRequest = TransactionRequest;
+      window.TransactionResult = TransactionResult;
       window.TransactionRequestBuilder = TransactionRequestBuilder;
       window.TransactionScriptInputPair = TransactionScriptInputPair;
       window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
@@ -170,8 +179,7 @@ before(async () => {
       };
 
       window.helpers.refreshClient = async (initSeed) => {
-        const client = new WebClient();
-        await client.createClient(rpcUrl, proverUrl, initSeed);
+        const client = await WebClient.createClient(rpcUrl, initSeed);
         window.client = client;
       };
     },

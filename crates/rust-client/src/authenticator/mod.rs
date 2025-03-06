@@ -32,7 +32,7 @@
 //!     .unwrap();
 //!
 //! // Add the secret key to the keystore so the account can sign transactions
-//! keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
+//! keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
 //!
 //! // Add the account to the client. The account seed and authentication key are required
 //! // for new accounts.

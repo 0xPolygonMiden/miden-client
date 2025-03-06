@@ -18,7 +18,7 @@ impl InputNotes {
         u8::try_from(self.0.num_notes()).expect("only 256 input notes is allowed")
     }
 
-    #[wasm_bindgen(js_name = "accountId")]
+    #[wasm_bindgen(js_name = "isEmpty")]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -28,9 +28,9 @@ impl InputNotes {
         self.0.get_note(index as usize).into()
     }
 
-    // TODO: iter() ?
-
-    // TODO: into_vec() ?
+    pub fn notes(&self) -> Vec<InputNote> {
+        self.0.iter().cloned().map(Into::into).collect()
+    }
 }
 
 // CONVERSIONS

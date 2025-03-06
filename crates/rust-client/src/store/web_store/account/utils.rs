@@ -1,4 +1,7 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
@@ -7,14 +10,16 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::utils::Serializable;
+use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
 use super::{
     js_bindings::{
-        idxdb_insert_account_asset_vault, idxdb_insert_account_code, idxdb_insert_account_record,
+        idxdb_get_account_auth_by_pub_key, idxdb_insert_account_asset_vault,
+        idxdb_insert_account_auth, idxdb_insert_account_code, idxdb_insert_account_record,
         idxdb_insert_account_storage,
     },
-    models::AccountRecordIdxdbObject,
+    models::{AccountAuthIdxdbObject, AccountRecordIdxdbObject},
 };
 use crate::store::{AccountStatus, StoreError};
 
@@ -46,6 +51,23 @@ pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), 
     let promise = idxdb_insert_account_asset_vault(commitment, assets);
     let _ = JsFuture::from(promise).await;
     Ok(())
+}
+
+pub async fn insert_account_auth(pub_key: String, secret_key: String) -> Result<(), ()> {
+    let promise = idxdb_insert_account_auth(pub_key, secret_key);
+    let _ = JsFuture::from(promise).await;
+
+    Ok(())
+}
+
+pub fn get_account_auth_by_pub_key(pub_key: String) -> Result<String, ()> {
+    let js_value = idxdb_get_account_auth_by_pub_key(pub_key);
+    let account_auth_idxdb: Option<AccountAuthIdxdbObject> = from_value(js_value).unwrap();
+
+    match account_auth_idxdb {
+        Some(account_auth) => Ok(account_auth.secret_key),
+        None => Err(()),
+    }
 }
 
 pub async fn insert_account_record(

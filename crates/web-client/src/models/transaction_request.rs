@@ -11,16 +11,20 @@ use miden_objects::{
     vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
-use super::{
-    advice_map::AdviceMap,
-    note::{Note, NotesArray},
-    note_details::NoteDetails,
-    note_id::NoteId,
-    note_tag::NoteTag,
-    output_note::OutputNotesArray,
-    transaction_script::TransactionScript,
-    word::Word,
+use crate::{
+    models::{
+        advice_map::AdviceMap,
+        note::{Note, NotesArray},
+        note_details::NoteDetails,
+        note_id::NoteId,
+        note_tag::NoteTag,
+        output_note::OutputNotesArray,
+        transaction_script::TransactionScript,
+        word::Word,
+    },
+    utils::{deserialize_from_uint8array, serialize_to_uint8array},
 };
 
 // NoteAndArgs Helper Structs
@@ -224,6 +228,17 @@ pub struct TransactionRequestBuilder(NativeTransactionRequestBuilder);
 #[derive(Clone)]
 #[wasm_bindgen]
 pub struct TransactionRequest(NativeTransactionRequest);
+
+#[wasm_bindgen]
+impl TransactionRequest {
+    pub fn serialize(&self) -> Uint8Array {
+        serialize_to_uint8array(&self.0)
+    }
+
+    pub fn deserialize(bytes: &Uint8Array) -> Result<TransactionRequest, JsValue> {
+        deserialize_from_uint8array::<NativeTransactionRequest>(bytes).map(TransactionRequest)
+    }
+}
 
 #[wasm_bindgen]
 impl TransactionRequestBuilder {

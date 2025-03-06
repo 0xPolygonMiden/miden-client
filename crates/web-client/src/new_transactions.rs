@@ -27,6 +27,14 @@ impl WebClient {
         account_id: &AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<TransactionResult, JsValue> {
+        self.fetch_and_cache_account_auth_by_account_id(account_id)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
+                ))
+            })?;
+
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_execution_result: NativeTransactionResult = client
                 .new_transaction(account_id.into(), transaction_request.into())
@@ -45,20 +53,20 @@ impl WebClient {
     pub async fn submit_transaction(
         &mut self,
         transaction_result: &TransactionResult,
+        prover: Option<TransactionProver>,
     ) -> Result<(), JsValue> {
-        let remote_prover = self.remote_prover.clone();
+        let native_transaction_result: NativeTransactionResult = transaction_result.into();
+
         if let Some(client) = self.get_mut_inner() {
-            let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            match remote_prover {
-                Some(ref remote_prover) => {
+            match prover {
+                Some(p) => {
                     client
-                        .submit_transaction_with_prover(
-                            native_transaction_result,
-                            remote_prover.clone(),
-                        )
+                        .submit_transaction_with_prover(native_transaction_result, p.get_prover())
                         .await
                         .map_err(|err| {
-                            JsValue::from_str(&format!("Failed to submit Transaction: {err}"))
+                            JsValue::from_str(&format!(
+                                "Failed to submit Transaction with prover: {err}"
+                            ))
                         })?;
                 },
                 None => {
@@ -67,28 +75,6 @@ impl WebClient {
                     })?;
                 },
             }
-
-            Ok(())
-        } else {
-            Err(JsValue::from_str("Client not initialized"))
-        }
-    }
-
-    #[wasm_bindgen(js_name = "submitTransactionWithProver")]
-    pub async fn submit_transaction_with_prover(
-        &mut self,
-        transaction_result: &TransactionResult,
-        prover: TransactionProver,
-    ) -> Result<(), JsValue> {
-        if let Some(client) = self.get_mut_inner() {
-            let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            client
-                .submit_transaction_with_prover(native_transaction_result, prover.get_prover())
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Transaction: {err}"))
-                })?;
-
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -103,11 +89,18 @@ impl WebClient {
         note_type: &NoteType,
         amount: u64,
     ) -> Result<TransactionResult, JsValue> {
-        if let Some(client) = self.get_mut_inner() {
-            let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
-                JsValue::from_str(&format!("Failed to create Fungible Asset: {err}"))
+        let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
+            .map_err(|err| JsValue::from_str(&format!("Failed to create Fungible Asset: {err}")))?;
+
+        self.fetch_and_cache_account_auth_by_account_id(faucet_id)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
+                ))
             })?;
 
+        if let Some(client) = self.get_mut_inner() {
             let mint_transaction_request = NativeTransactionRequestBuilder::mint_fungible_asset(
                 fungible_asset,
                 target_account_id.into(),
@@ -118,7 +111,6 @@ impl WebClient {
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {err}"))
             })?;
-
             let mint_transaction_execution_result = client
                 .new_transaction(faucet_id.into(), mint_transaction_request)
                 .await
@@ -151,17 +143,24 @@ impl WebClient {
         amount: u64,
         recall_height: Option<u32>,
     ) -> Result<TransactionResult, JsValue> {
-        if let Some(client) = self.get_mut_inner() {
-            let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
-                JsValue::from_str(&format!("Failed to create Fungible Asset: {err}"))
+        let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
+            .map_err(|err| JsValue::from_str(&format!("Failed to create Fungible Asset: {err}")))?;
+
+        let payment_transaction = PaymentTransactionData::new(
+            vec![fungible_asset.into()],
+            sender_account_id.into(),
+            target_account_id.into(),
+        );
+
+        self.fetch_and_cache_account_auth_by_account_id(sender_account_id)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
+                ))
             })?;
 
-            let payment_transaction = PaymentTransactionData::new(
-                vec![fungible_asset.into()],
-                sender_account_id.into(),
-                target_account_id.into(),
-            );
-
+        if let Some(client) = self.get_mut_inner() {
             let send_transaction_request = if let Some(recall_height) = recall_height {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
@@ -216,6 +215,14 @@ impl WebClient {
         account_id: &AccountId,
         list_of_note_ids: Vec<String>,
     ) -> Result<TransactionResult, JsValue> {
+        self.fetch_and_cache_account_auth_by_account_id(account_id)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
+                ))
+            })?;
+
         if let Some(client) = self.get_mut_inner() {
             let mut result = Vec::new();
             for note_id in list_of_note_ids {
@@ -262,33 +269,40 @@ impl WebClient {
         requested_asset_amount: String,
         note_type: &NoteType,
     ) -> Result<NewSwapTransactionResult, JsValue> {
+        let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
+
+        let offered_asset_faucet_id = NativeAccountId::from_hex(&offered_asset_faucet_id).unwrap();
+        let offered_asset_amount_as_u64: u64 =
+            offered_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
+        let offered_fungible_asset =
+            FungibleAsset::new(offered_asset_faucet_id, offered_asset_amount_as_u64)
+                .map_err(|err| err.to_string())?
+                .into();
+
+        let requested_asset_faucet_id =
+            NativeAccountId::from_hex(&requested_asset_faucet_id).unwrap();
+        let requested_asset_amount_as_u64: u64 =
+            requested_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
+        let requested_fungible_asset =
+            FungibleAsset::new(requested_asset_faucet_id, requested_asset_amount_as_u64)
+                .map_err(|err| err.to_string())?
+                .into();
+
+        let swap_transaction = SwapTransactionData::new(
+            sender_account_id,
+            offered_fungible_asset,
+            requested_fungible_asset,
+        );
+
+        self.fetch_and_cache_account_auth_by_account_id(&sender_account_id.into())
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
+                ))
+            })?;
+
         if let Some(client) = self.get_mut_inner() {
-            let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
-
-            let offered_asset_faucet_id =
-                NativeAccountId::from_hex(&offered_asset_faucet_id).unwrap();
-            let offered_asset_amount_as_u64: u64 =
-                offered_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
-            let offered_fungible_asset =
-                FungibleAsset::new(offered_asset_faucet_id, offered_asset_amount_as_u64)
-                    .map_err(|err| err.to_string())?
-                    .into();
-
-            let requested_asset_faucet_id =
-                NativeAccountId::from_hex(&requested_asset_faucet_id).unwrap();
-            let requested_asset_amount_as_u64: u64 =
-                requested_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
-            let requested_fungible_asset =
-                FungibleAsset::new(requested_asset_faucet_id, requested_asset_amount_as_u64)
-                    .map_err(|err| err.to_string())?
-                    .into();
-
-            let swap_transaction = SwapTransactionData::new(
-                sender_account_id,
-                offered_fungible_asset,
-                requested_fungible_asset,
-            );
-
             let swap_transaction_request = NativeTransactionRequestBuilder::swap(
                 &swap_transaction,
                 note_type.into(),

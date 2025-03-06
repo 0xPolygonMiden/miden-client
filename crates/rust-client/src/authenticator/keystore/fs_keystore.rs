@@ -1,12 +1,14 @@
-use alloc::string::String;
+use alloc::{boxed::Box, string::String};
 use std::{
     fs::OpenOptions,
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{BufRead, BufReader},
     path::PathBuf,
 };
 
 use miden_objects::{account::AuthSecretKey, Digest, Word};
 use miden_tx::utils::{Deserializable, Serializable};
+use tokio::io::AsyncWriteExt;
+use tonic::async_trait;
 
 use super::{KeyStore, KeyStoreError};
 
@@ -32,25 +34,27 @@ impl FilesystemKeyStore {
     }
 }
 
+#[async_trait(?Send)]
 impl KeyStore for FilesystemKeyStore {
-    fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
+    async fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
         let pub_key = match &key {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
         };
 
         let file_path = self.keys_directory.join(pub_key);
-        let file = OpenOptions::new()
+        let file = tokio::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(file_path)
+            .await
             .map_err(|err| {
                 KeyStoreError::StorageError(format!("error opening secret key file: {err:?}"))
             })?;
 
-        let mut writer = BufWriter::new(file);
+        let mut writer = tokio::io::BufWriter::new(file);
         let key_pair_hex = hex::encode(key.to_bytes());
-        writer.write_all(key_pair_hex.as_bytes()).map_err(|err| {
+        writer.write_all(key_pair_hex.as_bytes()).await.map_err(|err| {
             KeyStoreError::StorageError(format!("error writing secret key file: {err:?}"))
         })?;
 
