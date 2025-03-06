@@ -17,6 +17,7 @@
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
+* Added recency validations for the client (#776).
 
 ### Fixes
 

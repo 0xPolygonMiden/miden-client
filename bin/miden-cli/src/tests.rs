@@ -415,6 +415,7 @@ async fn debug_mode_outputs_logs() {
     let note = Note::new(note_assets, note_metadata, note_recipient);
 
     // Send transaction and wait for it to be committed
+    client.sync_state().await.unwrap();
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
         .build()
