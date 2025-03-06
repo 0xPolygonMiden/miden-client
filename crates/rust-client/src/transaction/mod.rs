@@ -100,7 +100,7 @@ use crate::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, StoreError, TransactionFilter,
     },
-    sync::NoteTagRecord,
+    sync::{NoteTagRecord, MAX_BLOCK_NUMBER_DELTA},
     ClientError,
 };
 
@@ -772,10 +772,19 @@ impl<R: FeltRng> Client<R> {
     /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
     /// transactions that are guaranteed to fail.
     pub async fn validate_request(
-        &self,
+        &mut self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
+        let current_chain_tip =
+            self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
+
+        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+            return Err(ClientError::RecencyConditionError(
+                "The client is too far behind the chain tip to execute the transaction".to_string(),
+            ));
+        }
+
         let account: Account = self.try_get_account(account_id).await?.into();
 
         if account.is_faucet() {
@@ -826,6 +835,10 @@ impl<R: FeltRng> Client<R> {
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
     /// retrieve it.
+    ///
+    /// # Errors
+    /// - Returns a [`ClientError::RecencyConditionError`] if the foreign account proofs are too far
+    ///   in the future.
     async fn inject_foreign_account_inputs(
         &mut self,
         foreign_accounts: BTreeSet<ForeignAccount>,
@@ -844,6 +857,12 @@ impl<R: FeltRng> Client<R> {
         // Fetch account proofs
         let (block_num, account_proofs) =
             self.rpc_api.get_account_proofs(&foreign_accounts, known_account_codes).await?;
+
+        if block_num > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+            return Err(ClientError::RecencyConditionError(
+                "Foreign account proofs are too far in the future".to_string(),
+            ));
+        }
 
         let mut account_proofs: BTreeMap<AccountId, AccountProof> =
             account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();

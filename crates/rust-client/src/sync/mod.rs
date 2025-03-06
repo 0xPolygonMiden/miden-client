@@ -81,6 +81,7 @@ use crate::{
 
 mod block_header;
 use block_header::apply_mmr_changes;
+pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
 
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
