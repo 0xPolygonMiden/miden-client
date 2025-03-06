@@ -230,9 +230,13 @@ impl NodeRpcClient for MockRpcApi {
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
         &mut self,
-        block_num: Option<BlockNumber>,
+        mut block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        if block_num.is_none() {
+            block_num = Some(self.get_chain_tip_block_num());
+        }
+
         if block_num == Some(0.into()) {
             return Ok((self.blocks.first().unwrap().header().clone(), None));
         }
