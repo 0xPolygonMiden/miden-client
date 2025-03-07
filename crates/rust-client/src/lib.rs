@@ -54,14 +54,14 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
-//!     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
 //!     crypto::RpoRandomCoin,
+//!     keystore::FilesystemKeyStore,
 //!     rpc::{Endpoint, TonicRpcClient},
 //!     store::{sqlite_store::SqliteStore, Store},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
-//! use rand::Rng;
+//! use rand::{rngs::StdRng, Rng};
 //!
 //! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the SQLite store from the client configuration.
@@ -74,11 +74,7 @@
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-//!
-//! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
-//!
-//! // Create a authenticator with the keystore and random coin.
-//! let authenticator = ClientAuthenticator::new(rng, keystore);
+//! let keystore = FilesystemKeyStore::<StdRng>::new("path/to/keys/directory".try_into()?)?;
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
@@ -86,7 +82,7 @@
 //!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
-//!     Arc::new(authenticator),
+//!     Arc::new(keystore),
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!
@@ -108,7 +104,8 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
-pub mod authenticator;
+#[cfg(feature = "std")]
+pub mod keystore;
 pub mod note;
 pub mod rpc;
 pub mod store;
@@ -172,7 +169,7 @@ pub mod crypto {
     };
 }
 
-pub use errors::{ClientError, IdPrefixFetchError};
+pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
@@ -180,8 +177,9 @@ pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransact
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
-        bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
-        Serializable,
+        bytes_to_hex_string,
+        sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
     };
 }
 

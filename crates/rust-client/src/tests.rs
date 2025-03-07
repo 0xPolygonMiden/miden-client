@@ -28,9 +28,10 @@ use miden_objects::{
     Felt, FieldElement, Word, ZERO,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use rand::rngs::StdRng;
 
 use crate::{
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
+    keystore::FilesystemKeyStore,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
@@ -44,7 +45,7 @@ use crate::{
 async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
@@ -73,7 +74,7 @@ async fn insert_new_wallet<R: FeltRng>(
 async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();

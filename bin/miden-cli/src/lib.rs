@@ -5,13 +5,13 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use errors::CliError;
 use miden_client::{
     account::AccountHeader,
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
+    keystore::FilesystemKeyStore,
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
-use rand::Rng;
+use rand::{rngs::StdRng, Rng};
 mod commands;
 use commands::{
     account::AccountCmd,
@@ -27,6 +27,8 @@ use commands::{
 };
 
 use self::utils::load_config_file;
+
+pub type CliKeyStore = FilesystemKeyStore<StdRng>;
 
 mod config;
 mod errors;
@@ -107,9 +109,8 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let keystore = FilesystemKeyStore::new(cli_config.secret_keys_directory.clone())
+        let keystore = FilesystemKeyStore::<StdRng>::new(cli_config.secret_keys_directory.clone())
             .map_err(CliError::KeyStore)?;
-        let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
@@ -118,7 +119,7 @@ impl Cli {
             )),
             rng,
             store as Arc<dyn Store>,
-            Arc::new(authenticator),
+            Arc::new(keystore.clone()),
             in_debug_mode,
         );
 
