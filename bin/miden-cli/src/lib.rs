@@ -15,6 +15,7 @@ use rand::Rng;
 mod commands;
 use commands::{
     account::AccountCmd,
+    exec::ExecCmd,
     export::ExportCmd,
     import::ImportCmd,
     init::InitCmd,
@@ -73,6 +74,7 @@ pub enum Command {
     Send(SendCmd),
     Swap(SwapCmd),
     ConsumeNotes(ConsumeNotesCmd),
+    Exec(ExecCmd),
 }
 
 /// CLI entry point.
@@ -134,6 +136,7 @@ impl Cli {
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
+            Command::Exec(execute_program) => execute_program.execute(client).await,
             Command::Export(cmd) => cmd.execute(client, keystore).await,
             Command::Mint(mint) => mint.execute(client).await,
             Command::Send(send) => send.execute(client).await,
