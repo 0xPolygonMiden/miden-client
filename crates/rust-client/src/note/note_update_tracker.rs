@@ -1,4 +1,4 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 
 use miden_objects::{
     block::BlockHeader,
@@ -15,20 +15,23 @@ use crate::{
     ClientError,
 };
 
-// NOTE UPDATES
+// NOTE UPDATE TRACKER
 // ================================================================================================
 
-/// Contains note changes to apply to the store.
+/// Contains note changes to apply to the store. This includes new notes that have been created
+/// and existing notes that have been updated. The tracker also lets state changes be applied
+/// to the notes contained, this allows for already updated notes to be further updated as new
+/// information is received.
 #[derive(Clone, Debug, Default)]
-pub struct NoteUpdates {
+pub struct NoteUpdateTracker {
     /// A map of new and updated input note records to be upserted in the store.
     updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
     /// A map of updated output note records to be upserted in the store.
     updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
 }
 
-impl NoteUpdates {
-    /// Creates a [`NoteUpdates`].
+impl NoteUpdateTracker {
+    /// Creates a [`NoteUpdateTracker`].
     pub fn new(
         updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
         updated_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
@@ -69,55 +72,18 @@ impl NoteUpdates {
         self.updated_input_notes.is_empty() && self.updated_output_notes.is_empty()
     }
 
-    /// Returns any note that has been committed into the chain in this update (either new or
-    /// already locally tracked)
-    pub fn committed_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
-        self.updated_input_notes.values().filter(|note| note.is_committed())
-    }
-
     /// Returns the tags of all notes that need to be removed from the store after the state sync.
     /// These are the tags of notes that have been committed and no longer need to be tracked.
     pub fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
-        self.committed_input_notes().map(|note| {
-            NoteTagRecord::with_note_source(
-                note.metadata().expect("Committed notes should have metadata").tag(),
-                note.id(),
-            )
-        })
-    }
-
-    /// Returns the IDs of all notes that have been committed in this update.
-    /// This includes both new notes and tracked expected notes that were committed in this update.
-    pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
-        let committed_output_note_ids = self
-            .updated_output_notes
+        self.updated_input_notes
             .values()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        let committed_input_note_ids = self
-            .updated_input_notes
-            .values()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        committed_input_note_ids
-            .chain(committed_output_note_ids)
-            .collect::<BTreeSet<_>>()
-    }
-
-    /// Returns the IDs of all notes that have been consumed.
-    /// This includes both notes that have been consumed locally or externally in this update.
-    pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
-        let consumed_output_note_ids = self
-            .updated_output_notes
-            .values()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        let consumed_input_note_ids = self
-            .updated_input_notes
-            .values()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
+            .filter(|note| note.is_committed())
+            .map(|note| {
+                NoteTagRecord::with_note_source(
+                    note.metadata().expect("Committed notes should have metadata").tag(),
+                    note.id(),
+                )
+            })
     }
 
     // UPDATE METHODS
@@ -138,8 +104,8 @@ impl NoteUpdates {
         }
     }
 
-    /// Applies the necessary state transitions to the [`NoteUpdates`] when a note is committed in a
-    /// block.
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
+    /// committed in a block.
     pub(crate) fn apply_committed_note_state_transitions(
         &mut self,
         committed_note: &CommittedNote,
@@ -166,8 +132,8 @@ impl NoteUpdates {
         Ok(())
     }
 
-    /// Applies the necessary state transitions to the [`NoteUpdates`] when a note is nullified in a
-    /// block. For input note records two possible scenarios are considered:
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
+    /// nullified in a block. For input note records two possible scenarios are considered:
     /// 1. The note was being processed by a local transaction that just got committed.
     /// 2. The note was consumed by an external transaction. If a local transaction was processing
     ///    the note and it didn't get committed, the transaction should be discarded.

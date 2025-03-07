@@ -94,7 +94,7 @@ use tracing::info;
 use super::{Client, FeltRng};
 use crate::{
     account::procedure_roots::RPO_FALCON_512_AUTH,
-    note::{NoteScreener, NoteUpdates},
+    note::{NoteScreener, NoteUpdateTracker},
     rpc::domain::account::AccountProof,
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
@@ -322,7 +322,7 @@ pub struct TransactionStoreUpdate {
     /// Updated account state after the [`AccountDelta`] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
-    note_updates: NoteUpdates,
+    note_updates: NoteUpdateTracker,
     /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
@@ -340,7 +340,7 @@ impl TransactionStoreUpdate {
         Self {
             executed_transaction,
             updated_account,
-            note_updates: NoteUpdates::new(
+            note_updates: NoteUpdateTracker::new(
                 [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
             ),
@@ -359,7 +359,7 @@ impl TransactionStoreUpdate {
     }
 
     /// Returns the note updates that need to be applied after the transaction execution.
-    pub fn note_updates(&self) -> &NoteUpdates {
+    pub fn note_updates(&self) -> &NoteUpdateTracker {
         &self.note_updates
     }
 

@@ -1,15 +1,18 @@
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
+    note::NoteId,
     transaction::TransactionId,
     Digest,
 };
 
 use super::SyncSummary;
-use crate::{account::Account, note::NoteUpdates, rpc::domain::transaction::TransactionUpdate};
+use crate::{
+    account::Account, note::NoteUpdateTracker, rpc::domain::transaction::TransactionUpdate,
+};
 
 // STATE SYNC UPDATE
 // ================================================================================================
@@ -22,7 +25,7 @@ pub struct StateSyncUpdate {
     /// New blocks and authentication nodes.
     pub block_updates: BlockUpdates,
     /// New and updated notes to be upserted in the store.
-    pub note_updates: NoteUpdates,
+    pub note_updates: NoteUpdateTracker,
     /// Committed and discarded transactions after the sync.
     pub transaction_updates: TransactionUpdates,
     /// Public account updates and mismatched private accounts after the sync.
@@ -31,10 +34,28 @@ pub struct StateSyncUpdate {
 
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
+        let committed_note_ids: BTreeSet<NoteId> = value
+            .note_updates
+            .updated_input_notes()
+            .filter_map(|note| note.is_committed().then_some(note.id()))
+            .chain(
+                value
+                    .note_updates
+                    .updated_output_notes()
+                    .filter_map(|note| note.is_committed().then_some(note.id())),
+            )
+            .collect();
+
+        let consumed_note_ids: BTreeSet<NoteId> = value
+            .note_updates
+            .updated_input_notes()
+            .filter_map(|note| note.is_consumed().then_some(note.id()))
+            .collect();
+
         SyncSummary::new(
             value.block_num,
-            value.note_updates.committed_note_ids().into_iter().collect(),
-            value.note_updates.consumed_note_ids().into_iter().collect(),
+            committed_note_ids.into_iter().collect(),
+            consumed_note_ids.into_iter().collect(),
             value
                 .account_updates
                 .updated_public_accounts()

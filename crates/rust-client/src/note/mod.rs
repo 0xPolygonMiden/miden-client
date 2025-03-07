@@ -70,7 +70,7 @@ pub mod script_roots;
 
 mod import;
 mod note_screener;
-mod note_updates;
+mod note_update_tracker;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -89,7 +89,7 @@ pub use miden_objects::{
     NoteError,
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
-pub use note_updates::NoteUpdates;
+pub use note_update_tracker::NoteUpdateTracker;
 
 /// Contains functions to simplify standard note scripts creation.
 pub mod scripts {

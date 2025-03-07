@@ -143,8 +143,10 @@ impl WebStore {
         apply_note_updates_tx(&note_updates).await?;
 
         // Tags to remove
-        let note_tags_to_remove_as_str: Vec<String> =
-            note_updates.committed_input_notes().map(|note| note.id().to_hex()).collect();
+        let note_tags_to_remove_as_str: Vec<String> = note_updates
+            .updated_input_notes()
+            .filter_map(|note| note.is_committed().then_some(note.id().to_hex()))
+            .collect();
 
         // Serialize data for updating committed transactions
         let transactions_to_commit_block_nums_as_str = transaction_updates

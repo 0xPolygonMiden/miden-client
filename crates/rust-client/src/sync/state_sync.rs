@@ -12,7 +12,7 @@ use tracing::info;
 
 use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 use crate::{
-    note::{NoteScreener, NoteUpdates},
+    note::{NoteScreener, NoteUpdateTracker},
     rpc::{domain::note::CommittedNote, NodeRpcClient},
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     ClientError,
@@ -107,7 +107,7 @@ impl StateSync {
 
         let mut state_sync_update = StateSyncUpdate {
             block_num,
-            note_updates: NoteUpdates::new(unspent_input_notes, unspent_output_notes),
+            note_updates: NoteUpdateTracker::new(unspent_input_notes, unspent_output_notes),
             ..Default::default()
         };
 
@@ -273,7 +273,7 @@ impl StateSync {
     /// * Tracked notes that were nullified by an external transaction.
     async fn note_state_sync(
         &mut self,
-        note_updates: &mut NoteUpdates,
+        note_updates: &mut NoteUpdateTracker,
         note_inclusions: Vec<CommittedNote>,
         block_header: &BlockHeader,
     ) -> Result<bool, ClientError> {
