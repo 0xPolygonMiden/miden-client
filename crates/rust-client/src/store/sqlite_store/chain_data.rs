@@ -4,13 +4,13 @@ use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
 use std::num::NonZeroUsize;
 
 use miden_objects::{
+    Digest,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{
-    params, params_from_iter, types::Value, Connection, OptionalExtension, Transaction,
+    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
 };
 
 use super::SqliteStore;
@@ -61,7 +61,7 @@ impl SqliteStore {
             .map(|block_number| Value::Integer(i64::from(block_number.as_u32())))
             .collect::<Vec<Value>>();
 
-        const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
+        const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
 
         conn.prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
@@ -267,8 +267,8 @@ mod test {
     use miden_objects::{block::BlockHeader, crypto::merkle::MmrPeaks};
 
     use crate::store::{
-        sqlite_store::{tests::create_test_store, SqliteStore},
         Store,
+        sqlite_store::{SqliteStore, tests::create_test_store},
     };
 
     async fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {

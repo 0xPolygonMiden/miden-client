@@ -5,17 +5,17 @@ use std::{
 };
 
 use miden_client::{
+    Client, ClientError,
     account::{AccountFile, AccountId},
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
-    Client, ClientError,
 };
 use tracing::info;
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file, Parser,
+    Parser, commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
 };
 
 #[derive(Debug, Parser, Clone)]

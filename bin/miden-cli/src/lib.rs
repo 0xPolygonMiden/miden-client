@@ -1,15 +1,15 @@
 use std::{env, sync::Arc};
 
 use clap::Parser;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
 use errors::CliError;
 use miden_client::{
+    Client, ClientError, Felt, IdPrefixFetchError,
     account::AccountHeader,
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
-    Client, ClientError, Felt, IdPrefixFetchError,
+    store::{NoteFilter as ClientNoteFilter, OutputNoteRecord, Store, sqlite_store::SqliteStore},
 };
 use rand::Rng;
 mod commands;
@@ -104,7 +104,7 @@ impl Cli {
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let keystore = FilesystemKeyStore::new(cli_config.secret_keys_directory.clone())

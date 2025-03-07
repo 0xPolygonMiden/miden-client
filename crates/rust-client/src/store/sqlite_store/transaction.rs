@@ -7,19 +7,19 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     transaction::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
-    Digest,
 };
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{Connection, Transaction, params};
 use tracing::info;
 
 use super::{
-    account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
+    SqliteStore, account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx,
 };
 use crate::{
     rpc::domain::transaction::TransactionUpdate,
@@ -27,13 +27,11 @@ use crate::{
     transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str =
-    "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
     input_notes, output_notes, script_hash, block_num, commit_height, discarded) \
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
-    "INSERT OR IGNORE INTO transaction_scripts (script_hash, script) \
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_hash, script) \
     VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS

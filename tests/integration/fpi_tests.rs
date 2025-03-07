@@ -1,4 +1,5 @@
 use miden_client::{
+    Felt, Word,
     account::{Account, StorageSlot},
     auth::AuthSecretKey,
     authenticator::keystore::KeyStore,
@@ -8,14 +9,13 @@ use miden_client::{
     transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
-    Felt, Word,
 };
 use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
+    Digest,
     account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
-    Digest,
 };
 
 use super::common::*;

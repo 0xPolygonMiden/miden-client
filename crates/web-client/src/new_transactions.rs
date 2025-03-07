@@ -1,5 +1,5 @@
 use miden_client::{
-    note::{get_input_note_with_id_prefix, BlockNumber},
+    note::{BlockNumber, get_input_note_with_id_prefix},
     transaction::{
         PaymentTransactionData, SwapTransactionData,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
@@ -11,12 +11,12 @@ use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset}
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    WebClient,
     models::{
         account_id::AccountId, note_type::NoteType, provers::TransactionProver,
         transaction_request::TransactionRequest, transaction_result::TransactionResult,
         transactions::NewSwapTransactionResult,
     },
-    WebClient,
 };
 
 #[wasm_bindgen]

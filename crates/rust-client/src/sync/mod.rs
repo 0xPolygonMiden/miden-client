@@ -60,23 +60,23 @@ use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    Digest,
 };
 use tracing::info;
 
 use crate::{
+    Client, ClientError,
     note::NoteUpdates,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     transaction::TransactionStatus,
-    Client, ClientError,
 };
 
 mod block_header;

@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use core::fmt::Display;
 
 use miden_objects::{
-    account::{Account, AccountId},
     Digest, Word,
+    account::{Account, AccountId},
 };
 
 /// Represents a stored account state along with its status.

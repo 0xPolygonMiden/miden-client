@@ -1,16 +1,16 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockNumber,
     transaction::{OutputNotes, TransactionScript},
-    Digest,
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
-use super::{account::utils::update_account, note::utils::apply_note_updates_tx, WebStore};
+use super::{WebStore, account::utils::update_account, note::utils::apply_note_updates_tx};
 use crate::{
     store::{StoreError, TransactionFilter},
     transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},

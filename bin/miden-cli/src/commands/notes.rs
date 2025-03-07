@@ -1,21 +1,20 @@
 use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
 use miden_client::{
+    Client, ClientError, IdPrefixFetchError,
     account::AccountId,
     asset::Asset,
     crypto::{Digest, FeltRng},
     note::{
-        get_input_note_with_id_prefix,
+        NoteConsumability, NoteInputs, NoteMetadata, get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
-        NoteConsumability, NoteInputs, NoteMetadata,
     },
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
-    Client, ClientError, IdPrefixFetchError,
 };
 
 use crate::{
-    create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
-    utils::load_faucet_details_map, Parser,
+    Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
+    utils::load_faucet_details_map,
 };
 
 #[derive(Clone, Debug, ValueEnum)]

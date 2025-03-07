@@ -2,16 +2,16 @@ use std::{io, sync::Arc};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
+    Client, RemoteTransactionProver,
     account::AccountId,
     asset::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    note::{build_swap_tag, get_input_note_with_id_prefix, BlockNumber, NoteType as MidenNoteType},
+    note::{BlockNumber, NoteType as MidenNoteType, build_swap_tag, get_input_note_with_id_prefix},
     store::NoteRecordError,
     transaction::{
         InputNote, OutputNote, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionRequestBuilder, TransactionResult,
     },
-    Client, RemoteTransactionProver,
 };
 use tracing::info;
 
@@ -19,8 +19,8 @@ use crate::{
     create_dynamic_table,
     errors::CliError,
     utils::{
-        get_input_acc_id_by_prefix_or_default, load_config_file, load_faucet_details_map,
-        parse_account_id, SHARED_TOKEN_DOCUMENTATION,
+        SHARED_TOKEN_DOCUMENTATION, get_input_acc_id_by_prefix_or_default, load_config_file,
+        load_faucet_details_map, parse_account_id,
     },
 };
 
@@ -350,7 +350,9 @@ async fn execute_transaction(
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;
     if !force {
-        println!("\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
+        println!(
+            "\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)"
+        );
         let mut proceed_str: String = String::new();
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 

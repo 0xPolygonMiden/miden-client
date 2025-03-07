@@ -1,12 +1,12 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     note::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest,
 };
 
 use super::NoteRecordError;

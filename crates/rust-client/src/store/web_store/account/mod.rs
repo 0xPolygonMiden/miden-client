@@ -5,9 +5,9 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
     asset::{Asset, AssetVault},
-    Digest, Word,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use serde_wasm_bindgen::from_value;

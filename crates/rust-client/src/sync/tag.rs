@@ -1,18 +1,18 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
+    NoteError,
     account::{Account, AccountId},
     crypto::rand::FeltRng,
     note::{NoteExecutionMode, NoteId, NoteTag},
-    NoteError,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::warn;
 
 use crate::{
+    Client,
     errors::ClientError,
     store::{InputNoteRecord, NoteRecordError},
-    Client,
 };
 
 /// Tag management methods

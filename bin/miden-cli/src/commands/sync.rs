@@ -1,5 +1,5 @@
 use clap::Parser;
-use miden_client::{crypto::FeltRng, Client};
+use miden_client::{Client, crypto::FeltRng};
 
 use crate::errors::CliError;
 

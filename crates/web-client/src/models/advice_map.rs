@@ -1,6 +1,6 @@
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest as NativeRpoDigest, vm::AdviceMap as NativeAdviceMap,
-    Felt as NativeFelt,
+    Felt as NativeFelt, crypto::hash::rpo::RpoDigest as NativeRpoDigest,
+    vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
 

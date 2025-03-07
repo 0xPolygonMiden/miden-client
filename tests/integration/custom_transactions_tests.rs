@@ -1,10 +1,11 @@
 use miden_client::{
+    ZERO,
     note::NoteExecutionHint,
     transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
-    ZERO,
 };
 use miden_objects::{
+    Felt, Word,
     account::{AccountId, AccountStorageMode},
     asset::FungibleAsset,
     crypto::{
@@ -18,7 +19,6 @@ use miden_objects::{
     },
     transaction::OutputNote,
     vm::AdviceMap,
-    Felt, Word,
 };
 
 use super::common::*;

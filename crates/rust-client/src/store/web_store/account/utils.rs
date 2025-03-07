@@ -1,10 +1,10 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
+    Digest, Felt, Word,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
     asset::{Asset, AssetVault},
     utils::Deserializable,
-    Digest, Felt, Word,
 };
 use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::JsFuture;

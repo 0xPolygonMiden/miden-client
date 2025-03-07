@@ -3,8 +3,8 @@ use miden_objects::account::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    models::{account::Account, account_header::AccountHeader, account_id::AccountId},
     WebClient,
+    models::{account::Account, account_header::AccountHeader, account_id::AccountId},
 };
 
 #[wasm_bindgen]

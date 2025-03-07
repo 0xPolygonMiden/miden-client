@@ -30,7 +30,7 @@ impl FaucetDetailsMap {
                         return Err(CliError::Config(
                             Box::new(err),
                             "Failed to parse token_symbol_map file".to_string(),
-                        ))
+                        ));
                     },
                 },
                 Err(err) => {

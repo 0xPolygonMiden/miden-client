@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: machete
-        uses: bnjbvr/cargo-machete@v0.7.1
+        uses: bnjbvr/cargo-machete@main
 
   clippy:
     name: Clippy

@@ -4,9 +4,9 @@ use clap::Parser;
 use miden_client::rpc::Endpoint;
 
 use crate::{
+    CLIENT_CONFIG_FILE_NAME,
     config::{CliConfig, CliEndpoint},
     errors::CliError,
-    CLIENT_CONFIG_FILE_NAME,
 };
 
 // Init COMMAND

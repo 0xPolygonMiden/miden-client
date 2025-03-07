@@ -8,10 +8,10 @@ use miden_objects::crypto::rand::RpoRandomCoin;
 use rand::Rng;
 
 use crate::{
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
-    rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, Store},
     Client, ClientError, Felt,
+    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
+    rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
+    store::{Store, sqlite_store::SqliteStore},
 };
 
 /// Represents the configuration for a keystore.
@@ -194,7 +194,7 @@ impl ClientBuilder {
             user_rng
         } else {
             let mut seed_rng = rand::thread_rng();
-            let coin_seed: [u64; 4] = seed_rng.gen();
+            let coin_seed: [u64; 4] = seed_rng.r#gen();
             RpoRandomCoin::new(coin_seed.map(Felt::new))
         };
 

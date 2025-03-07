@@ -7,14 +7,14 @@ use alloc::{
 use std::{collections::BTreeMap, rc::Rc};
 
 use miden_objects::{
+    AccountError, Digest, Felt, Word,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
     asset::{Asset, AssetVault},
-    AccountError, Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, types::Value, Connection, Transaction};
+use rusqlite::{Connection, Transaction, params, types::Value};
 
-use super::{column_value_as_u64, u64_to_value, SqliteStore};
+use super::{SqliteStore, column_value_as_u64, u64_to_value};
 use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 // TYPES
@@ -50,8 +50,7 @@ impl SqliteStore {
     pub(super) fn get_account_headers(
         conn: &mut Connection,
     ) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
-        const QUERY: &str =
-            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed, a.locked \
+        const QUERY: &str = "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed, a.locked \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
@@ -66,8 +65,7 @@ impl SqliteStore {
         conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError> {
-        const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
+        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
@@ -83,8 +81,7 @@ impl SqliteStore {
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
-        const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
+        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
             FROM accounts WHERE account_hash = ?";
 
         conn.prepare(QUERY)?
@@ -236,7 +233,7 @@ pub(super) fn insert_account_record(
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
+    const QUERY: &str = "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
         params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],

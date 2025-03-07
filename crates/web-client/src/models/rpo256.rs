@@ -1,4 +1,4 @@
-use miden_objects::{crypto::hash::rpo::Rpo256 as NativeRpo256, Felt as NativeFelt};
+use miden_objects::{Felt as NativeFelt, crypto::hash::rpo::Rpo256 as NativeRpo256};
 use wasm_bindgen::prelude::*;
 
 use super::{

@@ -1,5 +1,5 @@
 use miden_client::{store::NoteFilter, utils::Serializable};
-use miden_objects::{note::NoteFile, Digest};
+use miden_objects::{Digest, note::NoteFile};
 use wasm_bindgen::prelude::*;
 
 use crate::WebClient;

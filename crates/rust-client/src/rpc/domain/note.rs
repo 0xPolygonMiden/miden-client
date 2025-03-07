@@ -1,16 +1,16 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
+    Digest, Felt,
     block::BlockHeader,
     crypto::merkle::MerklePath,
     note::{Note, NoteExecutionHint, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, NoteType},
-    Digest, Felt,
 };
 
 use super::{MissingFieldHelper, RpcConversionError};
 use crate::rpc::{
-    generated::{note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse},
     RpcError,
+    generated::{note::NoteMetadata as ProtoNoteMetadata, responses::SyncNoteResponse},
 };
 
 impl TryFrom<ProtoNoteMetadata> for NoteMetadata {

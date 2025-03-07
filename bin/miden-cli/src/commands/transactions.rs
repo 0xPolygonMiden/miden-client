@@ -1,8 +1,8 @@
 use miden_client::{
-    crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord, Client,
+    Client, crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord,
 };
 
-use crate::{create_dynamic_table, errors::CliError, Parser};
+use crate::{Parser, create_dynamic_table, errors::CliError};
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "Manage and view transactions. Defaults to `list` command.")]
