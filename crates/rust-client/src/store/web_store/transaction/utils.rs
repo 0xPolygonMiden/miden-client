@@ -5,8 +5,8 @@ use alloc::{
 };
 
 use miden_objects::{
-    transaction::{ExecutedTransaction, ToInputNoteCommitments},
     Digest,
+    transaction::{ExecutedTransaction, ToInputNoteCommitments},
 };
 use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::JsFuture;

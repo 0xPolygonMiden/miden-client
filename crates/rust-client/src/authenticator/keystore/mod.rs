@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use miden_objects::{account::AuthSecretKey, Word};
+use miden_objects::{Word, account::AuthSecretKey};
 use thiserror::Error;
 
 #[derive(Debug, Error)]

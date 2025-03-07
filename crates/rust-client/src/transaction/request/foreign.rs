@@ -177,15 +177,17 @@ impl ForeignAccountInputs {
                         smt_proofs.push(map.open(key));
                     },
                     Some(StorageSlot::Value(_)) => {
-                        return Err(TransactionRequestError::ForeignAccountStorageSlotInvalidIndex(
-                            *slot_index,
-                        ))
+                        return Err(
+                            TransactionRequestError::ForeignAccountStorageSlotInvalidIndex(
+                                *slot_index,
+                            ),
+                        );
                     },
                     None => {
                         return Err(TransactionRequestError::StorageSlotNotFound(
                             *slot_index,
                             account.id(),
-                        ))
+                        ));
                     },
                 }
             }

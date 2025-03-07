@@ -14,10 +14,10 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
 use super::{
+    WebStore,
     account::{lock_account, utils::update_account},
     chain_data::utils::serialize_chain_mmr_node,
     note::utils::apply_note_updates_tx,
-    WebStore,
 };
 use crate::{
     note::NoteUpdates,

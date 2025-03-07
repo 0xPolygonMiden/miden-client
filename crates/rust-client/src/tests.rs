@@ -8,6 +8,7 @@ use miden_lib::{
     transaction::TransactionKernel,
 };
 use miden_objects::{
+    Felt, FieldElement, Word, ZERO,
     account::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
         AccountType, AuthSecretKey,
@@ -25,11 +26,11 @@ use miden_objects::{
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
     transaction::OutputNote,
-    Felt, FieldElement, Word, ZERO,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
+    Client, ClientError,
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     mock::create_test_client,
     rpc::NodeRpcClient,
@@ -38,7 +39,6 @@ use crate::{
         PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
         TransactionScriptBuilderError,
     },
-    Client, ClientError,
 };
 
 async fn insert_new_wallet<R: FeltRng>(

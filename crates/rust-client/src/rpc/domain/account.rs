@@ -6,22 +6,22 @@ use alloc::{
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
+    Digest, Felt,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     block::BlockNumber,
     crypto::merkle::{MerklePath, SmtProof},
-    Digest, Felt,
 };
 use miden_tx::utils::{Deserializable, Serializable, ToHex};
 use thiserror::Error;
 
 use crate::rpc::{
+    RpcError,
     errors::RpcConversionError,
     generated::{
         account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
         requests::get_account_proofs_request,
         responses::{AccountStateHeader as ProtoAccountStateHeader, StorageSlotMapProof},
     },
-    RpcError,
 };
 
 // ACCOUNT DETAILS
