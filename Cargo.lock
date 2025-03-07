@@ -1423,7 +1423,6 @@ dependencies = [
  "miden-objects",
  "miden-tx",
  "rand",
- "serde",
  "serde-wasm-bindgen",
  "thiserror 2.0.11",
  "wasm-bindgen",
