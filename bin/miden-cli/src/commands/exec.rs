@@ -80,12 +80,12 @@ impl ExecCmd {
 }
 
 fn print_stack(stack: [Felt; 16]) {
-    for word_idx in 0..4 {
-        let felts: [Felt; 4] = stack[word_idx * 4..word_idx * 4 + 4]
-            .try_into()
-            .expect("slice should have correct length");
-
-        println!("- {:?}: {}", felts, Digest::new(Word::from(felts)));
+    for (i, value) in stack.iter().enumerate() {
+        if i == 15 {
+            println!("└── {i:2}: {value}");
+        } else {
+            println!("├── {i:2}: {value}");
+        }
     }
 }
 
