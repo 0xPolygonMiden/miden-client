@@ -181,9 +181,6 @@ impl SqliteStore {
 
         Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
 
-        // TODO: here we need to remove the `accounts` table entries that are originated from the
-        // discarded transactions
-
         // Transaction records have a final_account_state field, which is the hash of the account in
         // the final state after the transaction is applied. We can use this field to
         // identify the accounts that are originated from the discarded transactions.
