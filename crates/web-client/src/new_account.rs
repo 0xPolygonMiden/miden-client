@@ -1,7 +1,6 @@
 use miden_client::{
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     crypto::SecretKey,
     Felt,
 };

@@ -29,7 +29,7 @@ pub mod transactions;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     remote_prover: Option<Arc<RemoteTransactionProver>>,
-    keystore: Option<WebKeyStore>,
+    keystore: Option<WebKeyStore<RpoRandomCoin>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -93,7 +93,13 @@ impl WebClient {
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
-        self.inner = Some(Client::new(web_rpc_client, rng, web_store.clone(), keystore, false));
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            rng,
+            web_store.clone(),
+            Arc::new(keystore.clone()),
+            false,
+        ));
         self.store = Some(web_store);
         self.keystore = Some(keystore);
 

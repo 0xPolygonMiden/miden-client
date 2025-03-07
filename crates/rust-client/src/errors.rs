@@ -7,6 +7,9 @@ use miden_objects::{
     account::AccountId, crypto::merkle::MerkleError, note::NoteId, AccountError, AssetError,
     Digest, NoteError, TransactionScriptError,
 };
+// RE-EXPORTS
+// ================================================================================================
+pub use miden_tx::AuthenticationError;
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
     TransactionExecutorError, TransactionProverError,

@@ -173,7 +173,7 @@ pub mod crypto {
     };
 }
 
-pub use errors::{ClientError, IdPrefixFetchError};
+pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
@@ -181,8 +181,9 @@ pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransact
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
-        bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
-        Serializable,
+        bytes_to_hex_string,
+        sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
     };
 }
 

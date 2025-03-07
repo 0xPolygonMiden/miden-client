@@ -46,9 +46,9 @@ use miden_objects::{
 
 use super::Client;
 use crate::{
+    errors::ClientError,
     rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
-    ClientError,
 };
 
 // RE-EXPORTS
