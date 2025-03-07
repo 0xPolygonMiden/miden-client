@@ -58,6 +58,7 @@
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
 //!     store::{sqlite_store::SqliteStore, Store},
+//!     sync::{on_note_received, StateSync},
 //!     Client, Felt,
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
