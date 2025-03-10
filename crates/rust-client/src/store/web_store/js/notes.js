@@ -257,10 +257,10 @@ async function processInputNotes(notes) {
 
       return {
         assets: note.assets,
-        serial_number: note.serialNumber,
+        serialNumber: note.serialNumber,
         inputs: note.inputs,
-        created_at: note.createdAt,
-        serialized_note_script: serializedNoteScriptBase64,
+        createdAt: note.createdAt,
+        serializedNoteScript: serializedNoteScriptBase64,
         state: note.state,
       };
     })
@@ -292,9 +292,9 @@ async function processOutputNotes(notes) {
 
       return {
         assets: note.assets,
-        recipient_digest: note.recipientDigest,
+        recipientDigest: note.recipientDigest,
         metadata: note.metadata,
-        expected_height: note.expectedHeight,
+        expectedHeight: note.expectedHeight,
         state: note.state,
       };
     })

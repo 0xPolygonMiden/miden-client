@@ -38,6 +38,7 @@ impl OutputNote {
         self.0.id().into()
     }
 
+    #[wasm_bindgen(js_name = "recipientDigest")]
     pub fn recipient_digest(&self) -> Option<RpoDigest> {
         self.0.recipient_digest().map(Into::into)
     }

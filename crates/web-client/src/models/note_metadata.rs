@@ -39,6 +39,7 @@ impl NoteMetadata {
         self.0.tag().into()
     }
 
+    #[wasm_bindgen(js_name = "noteType")]
     pub fn note_type(&self) -> NoteType {
         self.0.note_type().into()
     }

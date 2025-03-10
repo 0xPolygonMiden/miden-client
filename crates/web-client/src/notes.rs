@@ -16,6 +16,7 @@ use crate::{
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "getInputNotes")]
     pub async fn get_input_notes(
         &mut self,
         filter: NoteFilter,
@@ -32,6 +33,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getInputNote")]
     pub async fn get_input_note(
         &mut self,
         note_id: String,
@@ -51,6 +53,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getOutputNotes")]
     pub async fn get_output_notes(&mut self, filter: NoteFilter) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let notes: Vec<OutputNoteRecord> =
@@ -63,6 +66,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getOutputNote")]
     pub async fn get_output_note(&mut self, note_id: String) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_id: NoteId = Digest::try_from(note_id)
@@ -77,6 +81,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "compileNoteScript")]
     pub fn compile_note_script(&mut self, script: &str) -> Result<NoteScript, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_note_script: NativeNoteScript = client.compile_note_script(script).unwrap();
@@ -87,6 +92,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getConsumableNotes")]
     pub async fn get_consumable_notes(
         &mut self,
         account_id: Option<AccountId>,

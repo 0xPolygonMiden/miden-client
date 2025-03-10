@@ -13,13 +13,13 @@ use miden_client::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
-    ClientBuilder, ClientError,
+    ClientBuilder, ClientError, ONE,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
     note::{NoteFile, NoteType},
-    transaction::{ProvenTransaction, TransactionWitness},
+    transaction::{ProvenTransaction, ToInputNoteCommitments, TransactionWitness},
 };
 
 mod common;
@@ -877,8 +877,8 @@ async fn test_get_account_update() {
     // TODO: should we expose the `get_account_update` endpoint from the Client?
     let (endpoint, timeout, ..) = get_client_config();
     let mut rpc_api = TonicRpcClient::new(&endpoint, timeout);
-    let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
-    let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
+    let details1 = rpc_api.get_account_details(basic_wallet_1.id()).await.unwrap();
+    let details2 = rpc_api.get_account_details(basic_wallet_2.id()).await.unwrap();
 
     assert!(matches!(details1, AccountDetails::Private(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));
@@ -1537,4 +1537,67 @@ async fn test_expired_transaction_fails() {
     let submited_tx_result = client.submit_transaction(transaction_execution_result).await;
 
     assert!(submited_tx_result.is_err());
+}
+
+/// Tests that RPC methods that are not directly related to the client logic
+/// (like GetBlockByNumber) work correctly
+#[tokio::test]
+async fn test_unused_rpc_api() {
+    let (mut client, keystore) = create_test_client().await;
+
+    let (first_basic_account, faucet_account) =
+        setup_wallet_and_faucet(&mut client, AccountStorageMode::Public, &keystore).await;
+
+    wait_for_node(&mut client).await;
+    client.sync_state().await.unwrap();
+
+    let first_block_num = client.get_sync_height().await.unwrap();
+
+    let (block_header, _) = client
+        .test_rpc_api()
+        .get_block_header_by_number(Some(first_block_num), false)
+        .await
+        .unwrap();
+    let block = client.test_rpc_api().get_block_by_number(first_block_num).await.unwrap();
+
+    assert_eq!(&block_header, block.header());
+
+    let note =
+        mint_note(&mut client, first_basic_account.id(), faucet_account.id(), NoteType::Public)
+            .await;
+
+    consume_notes(&mut client, first_basic_account.id(), &[note.clone()]).await;
+
+    client.sync_state().await.unwrap();
+
+    let second_block_num = client.get_sync_height().await.unwrap();
+
+    let nullifier = note.nullifier();
+
+    let node_nullifier = client
+        .test_rpc_api()
+        .check_nullifiers_by_prefix(&[nullifier.prefix()], 0.into())
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+    let node_nullifier_proof = client
+        .test_rpc_api()
+        .check_nullifiers(&[nullifier])
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert_eq!(node_nullifier.nullifier, nullifier);
+    assert_eq!(node_nullifier_proof.leaf().entries().pop().unwrap().0, nullifier.inner());
+
+    let account_delta = client
+        .test_rpc_api()
+        .get_account_state_delta(first_basic_account.id(), first_block_num, second_block_num)
+        .await
+        .unwrap();
+
+    assert_eq!(account_delta.nonce(), Some(ONE));
+    assert_eq!(*account_delta.vault().fungible().iter().next().unwrap().1, MINT_AMOUNT as i64);
 }

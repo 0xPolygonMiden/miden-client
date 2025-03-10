@@ -14,15 +14,15 @@ export const getAccountOneMatch =
   async (): Promise<GetAccountSuccessResult> => {
     return await testingPage.evaluate(async () => {
       const client = window.client;
-      const newAccount = await client.new_wallet(
+      const newAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
-      const result = await client.get_account(newAccount.id());
+      const result = await client.getAccount(newAccount.id());
 
       return {
-        hashOfCreatedAccount: newAccount.hash().to_hex(),
-        hashOfGetAccountResult: result.hash().to_hex(),
+        hashOfCreatedAccount: newAccount.hash().toHex(),
+        hashOfGetAccountResult: result.hash().toHex(),
         isAccountType: result instanceof window.Account,
       };
     });
@@ -35,12 +35,12 @@ interface GetAccountFailureResult {
 export const getAccountNoMatch = async (): Promise<GetAccountFailureResult> => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
-    const nonExistingAccountId = window.TestUtils.create_mock_account_id();
+    const nonExistingAccountId = window.TestUtils.createMockAccountId();
 
-    const result = await client.get_account(nonExistingAccountId);
+    const result = await client.getAccount(nonExistingAccountId);
 
     return {
-      hashOfGetAccountResult: result ? result.hash().to_hex() : undefined,
+      hashOfGetAccountResult: result ? result.hash().toHex() : undefined,
     };
   });
 };
@@ -73,26 +73,26 @@ export const getAccountsManyMatches =
   async (): Promise<GetAccountsSuccessResult> => {
     return await testingPage.evaluate(async () => {
       const client = window.client;
-      const newAccount1 = await client.new_wallet(
+      const newAccount1 = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
-      const newAccount2 = await client.new_wallet(
+      const newAccount2 = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
       const hashesOfCreatedAccounts = [
-        newAccount1.hash().to_hex(),
-        newAccount2.hash().to_hex(),
+        newAccount1.hash().toHex(),
+        newAccount2.hash().toHex(),
       ];
 
-      const result = await client.get_accounts();
+      const result = await client.getAccounts();
 
       const hashesOfGetAccountsResult = [];
       const resultTypes = [];
 
       for (let i = 0; i < result.length; i++) {
-        hashesOfGetAccountsResult.push(result[i].hash().to_hex());
+        hashesOfGetAccountsResult.push(result[i].hash().toHex());
         resultTypes.push(result[i] instanceof window.AccountHeader);
       }
 
@@ -109,13 +109,13 @@ export const getAccountsNoMatches =
     return await testingPage.evaluate(async () => {
       const client = window.client;
 
-      const result = await client.get_accounts();
+      const result = await client.getAccounts();
 
       const hashesOfGetAccountsResult = [];
       const resultTypes = [];
 
       for (let i = 0; i < result.length; i++) {
-        hashesOfGetAccountsResult.push(result[i].hash().to_hex());
+        hashesOfGetAccountsResult.push(result[i].hash().toHex());
         resultTypes.push(result[i] instanceof window.AccountHeader);
       }
 
@@ -127,7 +127,7 @@ export const getAccountsNoMatches =
     });
   };
 
-describe("get_accounts tests", () => {
+describe("getAccounts tests", () => {
   it("retrieves all existing accounts", async () => {
     const result = await getAccountsManyMatches();
 

@@ -48,11 +48,11 @@ fix-wasm: ## Run Fix for the miden-client-web package
 
 .PHONY: format
 format: ## Run format using nightly toolchain
-	cargo +nightly fmt --all && yarn prettier . --write
+	cargo +nightly fmt --all && yarn prettier . --write && yarn eslint . --fix
 
 .PHONY: format-check
 format-check: ## Run format using nightly toolchain but only in check mode
-	cargo +nightly fmt --all --check && yarn prettier . --check
+	cargo +nightly fmt --all --check && yarn prettier . --check && yarn eslint .
 
 .PHONY: lint
 lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)

@@ -4,6 +4,7 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockHeaderIdxdbObject {
     pub block_num: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
@@ -14,12 +15,14 @@ pub struct BlockHeaderIdxdbObject {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChainMmrNodeIdxdbObject {
     pub id: String,
     pub node: String,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MmrPeaksIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub peaks: Option<Vec<u8>>,

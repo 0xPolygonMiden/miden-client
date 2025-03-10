@@ -5,6 +5,7 @@
 ### Features
 
 * Added support to import public accounts to `Client` (#733).
+* [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
 
 ### Changes
 
@@ -16,6 +17,10 @@
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
+
+### Fixes
+
+* [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
 
 ## 0.7.0 (2025-01-28)
 

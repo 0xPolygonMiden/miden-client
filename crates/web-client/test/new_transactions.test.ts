@@ -92,7 +92,7 @@ describe("new_send_transaction tests", () => {
       await setupWalletAndFaucet();
     const { accountId: targetAccountId } = await setupWalletAndFaucet();
     const recallHeight = 100;
-    let created_send_notes = await sendTransaction(
+    let createdSendNotes = await sendTransaction(
       senderAccountId,
       targetAccountId,
       faucetId,
@@ -100,7 +100,7 @@ describe("new_send_transaction tests", () => {
       recallHeight
     );
 
-    await consumeTransaction(targetAccountId, faucetId, created_send_notes[0]);
+    await consumeTransaction(targetAccountId, faucetId, createdSendNotes[0]);
 
     const result = await sendTransactionTest(
       senderAccountId,
@@ -116,26 +116,26 @@ describe("new_send_transaction tests", () => {
 // CUSTOM_TRANSACTIONS TESTS
 // =======================================================================================================
 
-const customTransaction = async (
-  asserted_value: string,
-  with_custom_prover: boolean
+export const customTransaction = async (
+  assertedValue: string,
+  withCustomProver: boolean
 ): Promise<void> => {
   return await testingPage.evaluate(
-    async (_asserted_value: string, _with_custom_prover: boolean) => {
+    async (_assertedValue: string, _withCustomProver: boolean) => {
       const client = window.client;
 
-      const walletAccount = await client.new_wallet(
+      const walletAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         false
       );
-      const faucetAccount = await client.new_faucet(
+      const faucetAccount = await client.newFaucet(
         window.AccountStorageMode.private(),
         false,
         "DAG",
         8,
         BigInt(10000000)
       );
-      await client.sync_state();
+      await client.syncState();
 
       // Creating Custom Note which needs the following:
       // - Note Assets
@@ -163,20 +163,20 @@ const customTransaction = async (
       let noteMetadata = new window.NoteMetadata(
         faucetAccount.id(),
         window.NoteType.private(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           walletAccount.id(),
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
       );
 
-      let expectedNoteArgs = noteArgs.map((felt) => felt.as_int());
+      let expectedNoteArgs = noteArgs.map((felt) => felt.asInt());
       let memAddress = "1000";
       let memAddress2 = "1004";
       let expectedNoteArg1 = expectedNoteArgs.slice(0, 4).join(".");
       let expectedNoteArg2 = expectedNoteArgs.slice(4, 8).join(".");
-      let note_script = `
+      let noteScript = `
             # Custom P2ID note script
             #
             # This note script asserts that the note args are exactly the same as passed 
@@ -298,7 +298,7 @@ const customTransaction = async (
             end
         `;
 
-      let compiledNoteScript = await client.compile_note_script(note_script);
+      let compiledNoteScript = await client.compileNoteScript(noteScript);
       let noteInputs = new window.NoteInputs(
         new window.FeltArray([
           walletAccount.id().prefix(),
@@ -318,41 +318,41 @@ const customTransaction = async (
       let note = new window.Note(noteAssets, noteMetadata, noteRecipient);
 
       // Creating First Custom Transaction Request to Mint the Custom Note
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([window.OutputNote.full(note)])
         )
         .build();
 
       // Execute and Submit Transaction
-      let transaction_result = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         faucetAccount.id(),
-        transaction_request
+        transactionRequest
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
-          transaction_result,
+      if (_withCustomProver) {
+        await client.submitTransactionWithProver(
+          transactionResult,
           await selectProver()
         );
       } else {
-        await client.submit_transaction(transaction_result);
+        await client.submitTransaction(transactionResult);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
 
       // Just like in the miden test, you can modify this script to get the execution to fail
       // by modifying the assert
-      let tx_script = `
+      let txScript = `
             use.miden::contracts::auth::basic->auth_tx
             use.miden::kernels::tx::prologue
             use.miden::kernels::tx::memory
 
             begin
-                push.0 push.${_asserted_value}
-                # => [0, ${_asserted_value}]
+                push.0 push.${_assertedValue}
+                # => [0, ${_assertedValue}]
                 assert_eq
 
                 call.auth_tx::auth_tx_rpo_falcon512
@@ -361,47 +361,45 @@ const customTransaction = async (
 
       // Creating Second Custom Transaction Request to Consume Custom Note
       // with Invalid/Valid Transaction Script
-      let transaction_script = await client.compile_tx_script(tx_script);
-      let note_id = note.id();
-      let note_args_commitment = window.Rpo256.hash_elements(feltArray); // gets consumed by NoteIdAndArgs
-      let note_id_and_args = new window.NoteIdAndArgs(
-        note_id,
-        note_args_commitment.to_word()
+      let transactionScript = await client.compileTxScript(txScript);
+      let noteId = note.id();
+      let noteArgsCommitment = window.Rpo256.hashElements(feltArray); // gets consumed by NoteIdAndArgs
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        noteId,
+        noteArgsCommitment.toWord()
       );
-      let note_id_and_args_array = new window.NoteIdAndArgsArray([
-        note_id_and_args,
-      ]);
-      let advice_map = new window.AdviceMap();
-      let note_args_commitment_2 = window.Rpo256.hash_elements(feltArray);
-      advice_map.insert(note_args_commitment_2, feltArray);
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      let adviceMap = new window.AdviceMap();
+      let noteArgsCommitment2 = window.Rpo256.hashElements(feltArray);
+      adviceMap.insert(noteArgsCommitment2, feltArray);
 
-      let transaction_request_2 = new window.TransactionRequestBuilder()
-        .with_authenticated_input_notes(note_id_and_args_array)
-        .with_custom_script(transaction_script)
-        .extend_advice_map(advice_map)
+      let transactionRequest2 = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .withCustomScript(transactionScript)
+        .extendAdviceMap(adviceMap)
         .build();
 
       // Execute and Submit Transaction
-      let transaction_result_2 = await client.new_transaction(
+      let transactionResult2 = await client.newTransaction(
         walletAccount.id(),
-        transaction_request_2
+        transactionRequest2
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction_with_prover(
-          transaction_result_2,
+      if (_withCustomProver) {
+        await client.submitTransactionWithProver(
+          transactionResult2,
           await selectProver()
         );
       } else {
-        await client.submit_transaction(transaction_result_2);
+        await client.submitTransaction(transactionResult2);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result_2.executed_transaction().id().to_hex()
+        transactionResult2.executedTransaction().id().toHex()
       );
     },
-    asserted_value,
-    with_custom_prover
+    assertedValue,
+    withCustomProver
   );
 };
 
@@ -414,31 +412,31 @@ const customTxWithMultipleNotes = async (
     async (_isSerialNumSame, _senderAccountId, _faucetAccountId) => {
       const client = window.client;
       const amount = BigInt(10);
-      const targetAccount = await client.new_wallet(
+      const targetAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
       const targetAccountId = targetAccount.id();
-      const senderAccountId = window.AccountId.from_hex(_senderAccountId);
-      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+      const senderAccountId = window.AccountId.fromHex(_senderAccountId);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccountId);
 
       // Create custom note with multiple assets to send to target account
       // Error should happen if serial numbers are the same in each set of
       // note assets. Otherwise, the transaction should go through.
 
-      let noteAssets_1 = new window.NoteAssets([
+      let noteAssets1 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
-      let noteAssets_2 = new window.NoteAssets([
+      let noteAssets2 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
 
       let noteMetadata = new window.NoteMetadata(
         senderAccountId,
         window.NoteType.public(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           targetAccountId,
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
@@ -471,11 +469,11 @@ const customTxWithMultipleNotes = async (
         noteInputs
       );
 
-      let note1 = new window.Note(noteAssets_1, noteMetadata, noteRecipient1);
-      let note2 = new window.Note(noteAssets_2, noteMetadata, noteRecipient2);
+      let note1 = new window.Note(noteAssets1, noteMetadata, noteRecipient1);
+      let note2 = new window.Note(noteAssets2, noteMetadata, noteRecipient2);
 
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([
             window.OutputNote.full(note1),
             window.OutputNote.full(note2),
@@ -483,15 +481,15 @@ const customTxWithMultipleNotes = async (
         )
         .build();
 
-      let transactionResult = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         senderAccountId,
-        transaction_request
+        transactionRequest
       );
 
-      await client.submit_transaction(transactionResult);
+      await client.submitTransaction(transactionResult);
 
       await window.helpers.waitForTransaction(
-        transactionResult.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
     },
     isSerialNumSame,
@@ -539,11 +537,11 @@ describe("custom transaction with multiple output notes", () => {
 // CUSTOM PROVERS TEST
 // ================================================================================================
 
-const selectProver = async (): Promise<TransactionProver> => {
-  if (window.remote_prover_url != null) {
-    return window.TransactionProver.new_remote_prover(window.remote_prover_url);
+export const selectProver = async (): Promise<TransactionProver> => {
+  if (window.remoteProverUrl != null) {
+    return window.TransactionProver.newRemoteProver(window.remoteProverUrl);
   } else {
-    return window.TransactionProver.new_local_prover();
+    return window.TransactionProver.newLocalProver();
   }
 };
 

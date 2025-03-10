@@ -13,6 +13,7 @@ pub struct AccountDelta(NativeAccountDelta);
 
 #[wasm_bindgen]
 impl AccountDelta {
+    #[wasm_bindgen(js_name = "isEmpty")]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

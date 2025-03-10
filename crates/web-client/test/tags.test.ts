@@ -12,8 +12,8 @@ interface AddTagSuccessResult {
 export const addTag = async (tag: string): Promise<AddTagSuccessResult> => {
   return await testingPage.evaluate(async (tag) => {
     const client = window.client;
-    await client.add_tag(tag);
-    const tags = await client.list_tags();
+    await client.addTag(tag);
+    const tags = await client.listTags();
 
     return {
       tag: tag,
@@ -44,10 +44,10 @@ export const removeTag = async (
 ): Promise<RemoveTagSuccessResult> => {
   return await testingPage.evaluate(async (tag) => {
     const client = window.client;
-    await client.add_tag(tag);
-    await client.remove_tag(tag);
+    await client.addTag(tag);
+    await client.removeTag(tag);
 
-    const tags = await client.list_tags();
+    const tags = await client.listTags();
 
     return {
       tag: tag,

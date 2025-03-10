@@ -1422,7 +1422,6 @@ dependencies = [
  "miden-objects",
  "miden-tx",
  "rand",
- "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
  "wasm-bindgen-futures",

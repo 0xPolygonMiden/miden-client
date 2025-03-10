@@ -51,10 +51,12 @@ impl ConsumableNoteRecord {
         ConsumableNoteRecord { input_note_record, note_consumability }
     }
 
+    #[wasm_bindgen(js_name = "inputNoteRecord")]
     pub fn input_note_record(&self) -> InputNoteRecord {
         self.input_note_record.clone()
     }
 
+    #[wasm_bindgen(js_name = "noteConsumability")]
     pub fn note_consumability(&self) -> Vec<NoteConsumability> {
         self.note_consumability.clone()
     }

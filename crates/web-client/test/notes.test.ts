@@ -11,9 +11,9 @@ import {
 const getInputNote = async (noteId: string) => {
   return await testingPage.evaluate(async (_noteId) => {
     const client = window.client;
-    const note = await client.get_input_note(_noteId);
+    const note = await client.getInputNote(_noteId);
     return {
-      noteId: note ? note.id().to_string() : undefined,
+      noteId: note ? note.id().toString() : undefined,
     };
   }, noteId);
 };
@@ -23,9 +23,9 @@ const getInputNotes = async () => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
     const filter = new window.NoteFilter(window.NoteFilterTypes.All);
-    const notes = await client.get_input_notes(filter);
+    const notes = await client.getInputNotes(filter);
     return {
-      noteIds: notes.map((note) => note.id().to_string()),
+      noteIds: notes.map((note) => note.id().toString()),
     };
   });
 };
@@ -54,16 +54,16 @@ const getConsumableNotes = async (accountId?: string) => {
     let records;
     if (_accountId) {
       console.log({ _accountId });
-      const accountId = window.AccountId.from_hex(_accountId);
-      records = await client.get_consumable_notes(accountId);
+      const accountId = window.AccountId.fromHex(_accountId);
+      records = await client.getConsumableNotes(accountId);
     } else {
-      records = await client.get_consumable_notes();
+      records = await client.getConsumableNotes();
     }
 
     return records.map((record) => ({
-      noteId: record.input_note_record().id().to_string(),
-      consumability: record.note_consumability().map((c) => ({
-        accountId: c.account_id().to_string(),
+      noteId: record.inputNoteRecord().id().toString(),
+      consumability: record.noteConsumability().map((c) => ({
+        accountId: c.account_id().toString(),
         consumableAfterBlock: c.consumable_after_block(),
       })),
     }));
