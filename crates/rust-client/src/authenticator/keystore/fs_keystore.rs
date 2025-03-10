@@ -12,7 +12,7 @@ use super::{KeyStore, KeyStoreError};
 
 /// A filesystem-based keystore that stores keys in separate files. The public key is used as the
 /// filename and the contents of the file are the serialized secret key.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FilesystemKeyStore {
     /// The directory where the keys are stored.
     keys_directory: PathBuf,

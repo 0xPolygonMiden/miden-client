@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use assert_cmd::Command;
@@ -655,7 +656,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, F
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),

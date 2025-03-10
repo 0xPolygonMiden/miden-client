@@ -19,7 +19,7 @@ use crate::{
 /// The purpose of this enum is to delay the actual instantiation of the keystore until the build
 /// phase. This allows the builder to accept either:
 ///
-/// - A direct instance of a `FilesystemKeyStore`, or
+/// - A direct instance of a [`Box<dyn KeyStore>`], or
 /// - A keystore path as a string which is then used to initialize the keystore during `build()`.
 ///
 /// Without this enum, we are forced to perform the initialization immediately, which would
@@ -27,7 +27,7 @@ use crate::{
 /// allow error handling during `build()`.
 enum KeystoreConfig {
     Path(String),
-    Instance(FilesystemKeyStore),
+    Instance(Arc<dyn KeyStore>),
 }
 
 /// A builder for constructing a Miden client.
@@ -136,7 +136,7 @@ impl ClientBuilder {
     /// This implementation accepts an already constructed `FilesystemKeyStore` and stores it for
     /// later use during client initialization.
     #[must_use]
-    pub fn with_keystore(mut self, keystore: FilesystemKeyStore) -> Self {
+    pub fn with_keystore(mut self, keystore: Arc<dyn KeyStore>) -> Self {
         self.keystore = Some(KeystoreConfig::Instance(keystore));
         self
     }
@@ -201,8 +201,8 @@ impl ClientBuilder {
         // Require a keystore to be specified.
         let keystore = match self.keystore {
             Some(KeystoreConfig::Instance(k)) => k,
-            Some(KeystoreConfig::Path(ref path)) => FilesystemKeyStore::new(path.into())
-                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?,
+            Some(KeystoreConfig::Path(ref path)) => Arc::new(FilesystemKeyStore::new(path.into())
+                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?),
             None => {
                 return Err(ClientError::ClientInitializationError(
                     "Keystore must be specified. Call `.with_keystore(...)` or `.with_filesystem_keystore(...)` with a keystore path."

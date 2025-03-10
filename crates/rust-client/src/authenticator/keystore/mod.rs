@@ -1,4 +1,5 @@
 use alloc::string::String;
+use core::fmt::Debug;
 
 use miden_objects::{Word, account::AuthSecretKey};
 use thiserror::Error;
@@ -11,7 +12,7 @@ pub enum KeyStoreError {
     DecodingError(String),
 }
 
-pub trait KeyStore {
+pub trait KeyStore: Debug + Send + Sync {
     /// Adds a new key to the keystore. If a key with the same public key already exists, it
     /// will be overwritten.
     fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError>;

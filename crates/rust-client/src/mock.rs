@@ -343,7 +343,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 

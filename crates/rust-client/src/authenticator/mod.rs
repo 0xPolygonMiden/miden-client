@@ -54,16 +54,16 @@ pub mod keystore;
 
 /// An account authenticator based on a [`KeyStore`].
 #[derive(Debug, Clone)]
-pub struct ClientAuthenticator<R, K> {
+pub struct ClientAuthenticator<R> {
     /// The random number generator used to generate signatures.
     rng: Arc<RwLock<R>>,
     /// The key store used to retrieve secret keys.
-    keystore: K,
+    keystore: Arc<dyn KeyStore>,
 }
 
-impl<R: Rng, K: KeyStore> ClientAuthenticator<R, K> {
+impl<R: Rng> ClientAuthenticator<R> {
     /// Creates a new instance of the authenticator.
-    pub fn new(rng: R, keystore: K) -> Self {
+    pub fn new(rng: R, keystore: Arc<dyn KeyStore>) -> Self {
         ClientAuthenticator {
             rng: Arc::new(RwLock::new(rng)),
             keystore,
@@ -71,7 +71,7 @@ impl<R: Rng, K: KeyStore> ClientAuthenticator<R, K> {
     }
 }
 
-impl<R: Rng, K: KeyStore> TransactionAuthenticator for ClientAuthenticator<R, K> {
+impl<R: Rng> TransactionAuthenticator for ClientAuthenticator<R> {
     /// Gets a signature over a message, given a public key.
     ///
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.

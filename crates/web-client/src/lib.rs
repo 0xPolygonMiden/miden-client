@@ -84,7 +84,7 @@ impl WebClient {
 
         let keystore = WebKeyStore {};
 
-        let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
+        let authenticator = Arc::new(ClientAuthenticator::new(rng, Arc::new(keystore.clone())));
 
         let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))

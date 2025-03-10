@@ -78,7 +78,7 @@
 //! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
 //!
 //! // Create a authenticator with the keystore and random coin.
-//! let authenticator = ClientAuthenticator::new(rng, keystore);
+//! let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore));
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));

@@ -9,7 +9,7 @@ use miden_objects::{
 use super::{KeyStore, KeyStoreError};
 
 /// A web-based keystore that stores keys in [browser's local storage](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API).
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WebKeyStore;
 
 impl KeyStore for WebKeyStore {

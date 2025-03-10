@@ -62,7 +62,7 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
+    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
