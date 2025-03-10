@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use clap::Parser;
 use miden_client::{crypto::FeltRng, Client, Felt, Word};
@@ -37,7 +37,7 @@ pub struct ExecCmd {
 }
 
 impl ExecCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
         let script = PathBuf::from(&self.script);
         if !script.exists() {
             return Err(CliError::Exec(
@@ -69,7 +69,9 @@ impl ExecCmd {
 
         let tx_script = client.compile_tx_script(inputs, &program)?;
 
-        let result = client.execute_program(account_id, tx_script, AdviceInputs::default()).await;
+        let result = client
+            .execute_program(account_id, tx_script, AdviceInputs::default(), BTreeSet::new())
+            .await;
 
         match result {
             Ok(output_stack) => {

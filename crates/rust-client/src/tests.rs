@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use std::collections::BTreeSet;
 
 // TESTS
 // ================================================================================================
@@ -752,7 +753,7 @@ async fn test_execute_program() {
     let tx_script = client.compile_tx_script(vec![], code).unwrap();
 
     let output_stack = client
-        .execute_program(wallet.id(), tx_script, AdviceInputs::default())
+        .execute_program(wallet.id(), tx_script, AdviceInputs::default(), BTreeSet::new())
         .await
         .unwrap();
 

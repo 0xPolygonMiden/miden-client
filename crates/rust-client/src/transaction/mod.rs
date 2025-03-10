@@ -903,16 +903,26 @@ impl<R: FeltRng> Client<R> {
     }
 
     pub async fn execute_program(
-        &self,
+        &mut self,
         account_id: AccountId,
         tx_script: TransactionScript,
         advice_inputs: AdviceInputs,
+        foreign_accounts: BTreeSet<ForeignAccount>,
     ) -> Result<[Felt; 16], ClientError> {
         let block_ref = self.get_sync_height().await?;
 
+        let mut tx_args =
+            TransactionArgs::with_tx_script(tx_script).with_advice_inputs(advice_inputs);
+        self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
+
         Ok(self
             .tx_executor
-            .execute_program(account_id, block_ref, tx_script, advice_inputs)
+            .execute_program(
+                account_id,
+                block_ref,
+                tx_args.tx_script().expect("Transaction script should be present").clone(),
+                tx_args.advice_inputs().clone(),
+            )
             .await?)
     }
 }
