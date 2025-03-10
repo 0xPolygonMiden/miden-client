@@ -4,10 +4,10 @@ use alloc::{
 };
 
 use js_sys::{Array, Promise};
-use miden_objects::{note::Nullifier, Digest};
+use miden_objects::{Digest, note::Nullifier};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::{js_sys, wasm_bindgen, JsFuture};
+use wasm_bindgen_futures::{JsFuture, js_sys, wasm_bindgen};
 
 use super::WebStore;
 use crate::store::{
@@ -169,7 +169,7 @@ impl NoteFilter {
             NoteFilter::Processing | NoteFilter::Unverified => {
                 Promise::resolve(&JsValue::from(Array::new()))
             },
-            NoteFilter::List(ref ids) => {
+            NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_output_notes_from_ids(note_ids_as_str)

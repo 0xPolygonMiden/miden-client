@@ -3,6 +3,7 @@ use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
 use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
+    Digest, Felt, FieldElement,
     account::AccountId,
     asset::{Asset, FungibleAsset},
     block::BlockNumber,
@@ -13,7 +14,6 @@ use miden_objects::{
     note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType, PartialNote},
     transaction::{OutputNote, TransactionScript},
     vm::AdviceMap,
-    Digest, Felt, FieldElement,
 };
 
 use super::{

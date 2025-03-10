@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_objects::{account::AuthSecretKey, Digest, Word};
+use miden_objects::{Digest, Word, account::AuthSecretKey};
 use miden_tx::utils::{Deserializable, Serializable};
 
 use super::{KeyStore, KeyStoreError};

@@ -54,11 +54,11 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
-//!     authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+//!     Client, Felt,
+//!     authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
 //!     crypto::RpoRandomCoin,
 //!     rpc::{Endpoint, TonicRpcClient},
-//!     store::{sqlite_store::SqliteStore, Store},
-//!     Client, Felt,
+//!     store::{Store, sqlite_store::SqliteStore},
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
 //! use rand::Rng;
@@ -70,7 +70,7 @@
 //!
 //! // Generate a random seed for the RpoRandomCoin.
 //! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.gen();
+//! let coin_seed: [u64; 4] = rng.r#gen();
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -158,6 +158,7 @@ pub mod block {
 /// the `miden_objects` crate.
 pub mod crypto {
     pub use miden_objects::{
+        Digest,
         crypto::{
             dsa::rpo_falcon512::SecretKey,
             merkle::{
@@ -166,20 +167,19 @@ pub mod crypto {
             },
             rand::{FeltRng, RpoRandomCoin},
         },
-        Digest,
     };
 }
 
 pub use errors::{ClientError, IdPrefixFetchError};
-pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
+pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
-        bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
-        Serializable,
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
+        bytes_to_hex_string,
     };
 }
 
@@ -195,10 +195,10 @@ use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
-    auth::TransactionAuthenticator, DataStore, LocalTransactionProver, TransactionExecutor,
+    DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
 };
 use rpc::NodeRpcClient;
-use store::{data_store::ClientDataStore, Store};
+use store::{Store, data_store::ClientDataStore};
 use tracing::info;
 
 // MIDEN CLIENT

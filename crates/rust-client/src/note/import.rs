@@ -17,10 +17,10 @@ use miden_objects::{
 };
 
 use crate::{
-    rpc::{domain::note::NetworkNote, RpcError},
-    store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
-    sync::NoteTagRecord,
     Client, ClientError,
+    rpc::{RpcError, domain::note::NetworkNote},
+    store::{InputNoteRecord, InputNoteState, input_note_states::ExpectedNoteState},
+    sync::NoteTagRecord,
 };
 
 /// Note importing methods.
@@ -119,7 +119,7 @@ impl<R: FeltRng> Client<R> {
                 NetworkNote::Private(..) => {
                     return Err(ClientError::NoteImportError(
                         "Incomplete imported note is private".to_string(),
-                    ))
+                    ));
                 },
             };
 

@@ -1,10 +1,10 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
+    Digest,
     account::Account,
     block::BlockHeader,
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    Digest,
 };
 
 use super::{NoteTagRecord, SyncSummary};

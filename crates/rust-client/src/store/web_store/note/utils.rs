@@ -5,16 +5,16 @@ use alloc::{
 
 use chrono::Utc;
 use miden_objects::{
+    Digest, Word,
     note::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
     utils::Deserializable,
-    Digest, Word,
 };
 use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::JsFuture;
 
 use super::{
-    js_bindings::{idxdb_upsert_input_note, idxdb_upsert_output_note},
     InputNoteIdxdbObject, OutputNoteIdxdbObject,
+    js_bindings::{idxdb_upsert_input_note, idxdb_upsert_output_note},
 };
 use crate::{
     note::NoteUpdates,

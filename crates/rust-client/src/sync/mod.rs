@@ -58,23 +58,23 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::rand::FeltRng,
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    Digest,
 };
 use tracing::info;
 
 use crate::{
+    Client, ClientError,
     note::NoteUpdates,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     transaction::{TransactionStatus, TransactionUpdates},
-    Client, ClientError,
 };
 
 mod block_header;
