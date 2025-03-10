@@ -1,5 +1,5 @@
 [profile.default]
-retries = { backoff = "exponential", count = 2, delay = "1s", jitter = true, max-delay = "10s"}
+# retries = { backoff = "exponential", count = 2, delay = "1s", jitter = true, max-delay = "10s"}
 status-level = "skip"
 failure-output = "immediate-final"
 fail-fast = false

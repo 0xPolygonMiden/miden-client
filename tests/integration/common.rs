@@ -47,7 +47,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
+pub async fn create_test_client(test_name: &str) -> (TestClient, FilesystemKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -57,6 +57,8 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 
     let mut rng = rand::thread_rng();
     let coin_seed: [u64; 4] = rng.gen();
+
+    println!("---- TEST: {} SEED: {:?} ----", test_name, coin_seed);
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
@@ -216,7 +218,7 @@ pub async fn execute_tx_and_sync(
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     loop {
-        println!("Syncing State...");
+        // println!("Syncing State...");
         client.sync_state().await.unwrap();
 
         // Check if executed transaction got committed by the node
@@ -242,7 +244,7 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
     println!("Syncing until block {}...", final_block);
     loop {
         let summary = client.sync_state().await.unwrap();
-        println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
+        // println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
 
         if summary.block_num >= final_block {
             return summary;
@@ -306,7 +308,7 @@ pub async fn setup(
     let (second_basic_account, ..) =
         insert_new_wallet(client, accounts_storage_mode, keystore).await.unwrap();
 
-    println!("Syncing State...");
+    // println!("Syncing State...");
     client.sync_state().await.unwrap();
 
     // Get Faucet and regular accounts

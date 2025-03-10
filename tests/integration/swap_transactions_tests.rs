@@ -20,10 +20,11 @@ async fn test_swap_fully_onchain() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let (mut client1, authenticator_1) = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client("test_swap_fully_onchain1").await;
     wait_for_node(&mut client1).await;
-    let (mut client2, authenticator_2) = create_test_client().await;
-    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client("test_swap_fully_onchain2").await;
+    let (mut client_with_faucets, authenticator_3) =
+        create_test_client("test_swap_fully_onchain3").await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
@@ -238,10 +239,10 @@ async fn test_swap_private() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let (mut client1, authenticator_1) = create_test_client().await;
+    let (mut client1, authenticator_1) = create_test_client("test_swap_private1").await;
     wait_for_node(&mut client1).await;
-    let (mut client2, authenticator_2) = create_test_client().await;
-    let (mut client_with_faucets, authenticator_3) = create_test_client().await;
+    let (mut client2, authenticator_2) = create_test_client("test_swap_private2").await;
+    let (mut client_with_faucets, authenticator_3) = create_test_client("test_swap_private3").await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();

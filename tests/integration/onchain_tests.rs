@@ -17,11 +17,11 @@ use super::common::*;
 #[tokio::test]
 async fn test_onchain_notes_flow() {
     // Client 1 is an private faucet which will mint an onchain note for client 2
-    let (mut client_1, keystore_1) = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client("test_onchain_notes_flow_client1").await;
     // Client 2 is an private account which will consume the note that it will sync from the node
-    let (mut client_2, keystore_2) = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client("test_onchain_notes_flow_client2").await;
     // Client 3 will be transferred part of the assets by client 2's account
-    let (mut client_3, keystore_3) = create_test_client().await;
+    let (mut client_3, keystore_3) = create_test_client("test_onchain_notes_flow_client3").await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
@@ -117,8 +117,8 @@ async fn test_onchain_notes_flow() {
 
 #[tokio::test]
 async fn test_onchain_accounts() {
-    let (mut client_1, keystore_1) = create_test_client().await;
-    let (mut client_2, keystore_2) = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client("test_onchain_accounts_client1").await;
+    let (mut client_2, keystore_2) = create_test_client("test_onchain_accounts_client2").await;
     wait_for_node(&mut client_2).await;
 
     let (faucet_account_header, _, secret_key) =
@@ -293,13 +293,14 @@ async fn test_onchain_accounts() {
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
     // Client 1 has an private faucet which will mint an onchain note for client 2
-    let (mut client_1, keystore) = create_test_client().await;
+    let (mut client_1, keystore) =
+        create_test_client("test_onchain_notes_sync_with_tag_client1").await;
     // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
     // whose tag doesn't necessarily match any of its accounts
-    let (mut client_2, _) = create_test_client().await;
+    let (mut client_2, _) = create_test_client("test_onchain_notes_sync_with_tag_client2").await;
     // Client 3 will be the control client. We won't add any tags and expect the note not to be
     // fetched
-    let (mut client_3, _) = create_test_client().await;
+    let (mut client_3, _) = create_test_client("test_onchain_notes_sync_with_tag_client3").await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
@@ -352,8 +353,8 @@ async fn test_onchain_notes_sync_with_tag() {
 
 #[tokio::test]
 async fn test_import_account_by_id() {
-    let (mut client_1, keystore_1) = create_test_client().await;
-    let (mut client_2, keystore_2) = create_test_client().await;
+    let (mut client_1, keystore_1) = create_test_client("test_import_account_by_id_client1").await;
+    let (mut client_2, keystore_2) = create_test_client("test_import_account_by_id_client2").await;
     wait_for_node(&mut client_1).await;
 
     let mut user_seed = [0u8; 32];

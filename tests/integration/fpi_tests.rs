@@ -43,7 +43,7 @@ async fn test_standard_fpi_private() {
 /// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
 /// foreign account's code is correctly cached after the transaction.
 async fn test_standard_fpi(storage_mode: AccountStorageMode) {
-    let (mut client, keystore) = create_test_client().await;
+    let (mut client, keystore) = create_test_client("test_standard_fpi").await;
     wait_for_node(&mut client).await;
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();

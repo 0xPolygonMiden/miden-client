@@ -52,7 +52,7 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (mut client, authenticator) = create_test_client("test_transaction_request").await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
@@ -135,7 +135,7 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (mut client, authenticator) = create_test_client("test_merkle_store").await;
     wait_for_node(&mut client).await;
 
     client.sync_state().await.unwrap();
