@@ -3,7 +3,7 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{
-    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
+    Digest, account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
@@ -20,6 +20,9 @@ use crate::{
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
+
+/// The number of blocks that are considered old enough to discard pending transactions.
+const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(conn: &mut Connection) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -138,8 +141,21 @@ impl SqliteStore {
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
 
-        // Marc transactions as discarded
-        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
+        // Find old pending transactions
+        let graceful_block_num = block_header.block_num().as_u32() - TX_GRACEFUL_BLOCKS;
+        let old_pending_transactions = Self::get_old_pending_transactions(&tx, graceful_block_num)?;
+
+        // Delete accounts for old pending transactions
+        let account_hashes_to_delete: Vec<Digest> =
+            old_pending_transactions.iter().map(|tx| tx.final_account_state).collect();
+        Self::delete_accounts(&tx, &account_hashes_to_delete)?;
+
+        // Combine discarded transactions from sync and old pending transactions
+        let mut all_discarded_transactions = discarded_transactions.clone();
+        all_discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
+
+        // Mark all transactions as discarded in a single call
+        Self::mark_transactions_as_discarded(&tx, &all_discarded_transactions)?;
 
         // Update public accounts on the db that have been updated onchain
         for account in updated_accounts.updated_public_accounts() {

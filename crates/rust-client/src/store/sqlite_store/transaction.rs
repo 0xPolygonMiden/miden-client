@@ -170,6 +170,17 @@ impl SqliteStore {
 
         Ok(rows)
     }
+
+    pub(crate) fn get_old_pending_transactions(
+        tx: &Transaction<'_>,
+        min_block: u32,
+    ) -> Result<Vec<TransactionRecord>, StoreError> {
+        const QUERY: &str = "SELECT * FROM transactions WHERE commit_height IS NULL AND block_num < ? AND discarded = false";
+        let mut binding = tx.prepare(QUERY)?;
+        let rows = binding.query_map([min_block], parse_transaction_columns)?;
+        rows.map(|result| Ok(result?).and_then(parse_transaction))
+            .collect::<Result<Vec<TransactionRecord>, _>>()
+    }
 }
 
 pub(super) fn insert_proven_transaction_data(
