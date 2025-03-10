@@ -1,10 +1,10 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    Digest,
     block::BlockHeader,
     note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    Digest,
 };
 
 use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};

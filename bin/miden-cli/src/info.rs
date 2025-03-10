@@ -1,6 +1,6 @@
 use std::fs;
 
-use miden_client::{crypto::FeltRng, store::NoteFilter, Client};
+use miden_client::{Client, crypto::FeltRng, store::NoteFilter};
 
 use super::config::CliConfig;
 use crate::errors::CliError;

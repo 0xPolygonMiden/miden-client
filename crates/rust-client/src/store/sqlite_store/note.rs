@@ -7,21 +7,21 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest, Word,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     note::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
-    Digest, Word,
 };
-use rusqlite::{named_params, params, params_from_iter, types::Value, Connection, Transaction};
+use rusqlite::{Connection, Transaction, named_params, params, params_from_iter, types::Value};
 
 use super::SqliteStore;
 use crate::{
     note::NoteUpdateTracker,
     store::{
-        note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, StoreError,
+        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
+        note_record::OutputNoteState,
     },
 };
 

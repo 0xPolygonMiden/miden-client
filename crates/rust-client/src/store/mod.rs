@@ -29,11 +29,11 @@ use core::fmt::Debug;
 
 use async_trait::async_trait;
 use miden_objects::{
+    Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteTag, Nullifier},
-    Digest, Word,
 };
 
 use crate::{
@@ -65,8 +65,8 @@ mod account;
 pub use account::{AccountRecord, AccountStatus, AccountUpdates};
 mod note_record;
 pub use note_record::{
-    input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
-    OutputNoteRecord, OutputNoteState,
+    InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError, OutputNoteRecord,
+    OutputNoteState, input_note_states,
 };
 
 // STORE TRAIT
@@ -119,7 +119,7 @@ pub trait Store: Send + Sync {
 
     /// Retrieves the input notes from the store.
     async fn get_input_notes(&self, filter: NoteFilter)
-        -> Result<Vec<InputNoteRecord>, StoreError>;
+    -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store.
     async fn get_output_notes(
@@ -244,7 +244,7 @@ pub trait Store: Send + Sync {
     /// Retrieves a full [`AccountRecord`] object, this contains the account's latest state along
     /// with its status. Returns `None` if the account is not found.
     async fn get_account(&self, account_id: AccountId)
-        -> Result<Option<AccountRecord>, StoreError>;
+    -> Result<Option<AccountRecord>, StoreError>;
 
     /// Inserts an [`Account`] along with the seed used to create it.
     async fn insert_account(

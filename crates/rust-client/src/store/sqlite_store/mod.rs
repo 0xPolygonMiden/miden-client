@@ -13,13 +13,13 @@ use std::{path::PathBuf, string::ToString};
 
 use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
+    Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteTag, Nullifier},
-    Digest, Word,
 };
-use rusqlite::{types::Value, vtab::array, Connection};
+use rusqlite::{Connection, types::Value, vtab::array};
 use tonic::async_trait;
 
 use super::{

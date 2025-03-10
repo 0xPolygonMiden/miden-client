@@ -2,15 +2,15 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_objects::{
+    Digest,
     block::{BlockHeader, BlockNumber},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
-    Digest,
 };
 use tracing::warn;
 
 use crate::{
-    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
     Client, ClientError,
+    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
 };
 
 /// Network information management methods.

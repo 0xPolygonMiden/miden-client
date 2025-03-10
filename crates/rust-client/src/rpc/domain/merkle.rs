@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
-    crypto::merkle::{MerklePath, MmrDelta},
     Digest,
+    crypto::merkle::{MerklePath, MmrDelta},
 };
 
 use crate::rpc::{errors::RpcConversionError, generated};

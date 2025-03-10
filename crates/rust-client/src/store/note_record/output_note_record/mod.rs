@@ -2,13 +2,13 @@ use alloc::string::ToString;
 use core::fmt::{self, Display};
 
 use miden_objects::{
+    Digest,
     block::BlockNumber,
     note::{
         Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
         NoteRecipient, Nullifier, PartialNote,
     },
     transaction::OutputNote,
-    Digest,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 

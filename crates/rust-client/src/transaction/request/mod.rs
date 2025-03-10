@@ -7,20 +7,20 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest, Felt, NoteError, Word,
     account::AccountId,
     assembly::AssemblyError,
     crypto::merkle::MerkleStore,
     note::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
-    Digest, Felt, NoteError, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use thiserror::Error;
 
 use super::{
-    script_builder::{AccountCapabilities, TransactionScriptBuilder},
     TransactionScriptBuilderError,
+    script_builder::{AccountCapabilities, TransactionScriptBuilder},
 };
 
 mod builder;
@@ -257,7 +257,7 @@ impl Deserializable for TransactionRequest {
             _ => {
                 return Err(DeserializationError::InvalidValue(
                     "Invalid script template type".to_string(),
-                ))
+                ));
             },
         };
 
@@ -303,11 +303,11 @@ pub enum TransactionRequestError {
     ForeignAccountStorageSlotInvalidIndex(u8),
     #[error("requested foreign account with ID {0} does not have an expected storage mode")]
     InvalidForeignAccountId(AccountId),
-    #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
-    InputNoteNotAuthenticated,
     #[error(
-        "the input notes map should include keys for all provided unauthenticated input notes"
+        "every authenticated note to be consumed should be committed and contain a valid inclusion proof"
     )]
+    InputNoteNotAuthenticated,
+    #[error("the input notes map should include keys for all provided unauthenticated input notes")]
     InputNotesMapMissingUnauthenticatedNotes,
     #[error("own notes shouldn't be of the header variant")]
     InvalidNoteVariant,
@@ -338,6 +338,7 @@ mod tests {
 
     use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
+        Digest, Felt, ZERO,
         account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
         asset::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
@@ -350,7 +351,6 @@ mod tests {
             },
         },
         transaction::OutputNote,
-        Digest, Felt, ZERO,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 

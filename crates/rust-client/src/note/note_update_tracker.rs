@@ -7,12 +7,12 @@ use miden_objects::{
 };
 
 use crate::{
+    ClientError,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{InputNoteRecord, OutputNoteRecord},
     sync::NoteTagRecord,
-    ClientError,
 };
 
 // NOTE UPDATE TRACKER

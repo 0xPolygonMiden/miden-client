@@ -2,20 +2,20 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{future::Future, pin::Pin};
 
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     note::{NoteId, NoteTag},
-    Digest,
 };
 use tracing::info;
 
 use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 use crate::{
-    note::{NoteScreener, NoteUpdateTracker},
-    rpc::{domain::note::CommittedNote, NodeRpcClient},
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     ClientError,
+    note::{NoteScreener, NoteUpdateTracker},
+    rpc::{NodeRpcClient, domain::note::CommittedNote},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
 };
 
 // SYNC CALLBACKS

@@ -65,7 +65,7 @@ use miden_objects::{
     transaction::TransactionId,
 };
 
-use crate::{store::NoteFilter, Client, ClientError};
+use crate::{Client, ClientError, store::NoteFilter};
 
 mod block_header;
 
@@ -73,7 +73,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 mod state_sync;
-pub use state_sync::{on_note_received, OnNoteReceived, StateSync};
+pub use state_sync::{OnNoteReceived, StateSync, on_note_received};
 
 mod state_sync_update;
 pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};

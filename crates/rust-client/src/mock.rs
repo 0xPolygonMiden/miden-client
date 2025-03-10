@@ -8,6 +8,7 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
+    Felt, Word,
     account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
@@ -21,7 +22,6 @@ use miden_objects::{
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
-    Felt, Word,
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
@@ -29,8 +29,10 @@ use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+    Client,
+    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     rpc::{
+        NodeRpcClient, RpcError,
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
@@ -42,11 +44,9 @@ use crate::{
             note::NoteSyncRecord,
             responses::{SyncNoteResponse, SyncStateResponse},
         },
-        NodeRpcClient, RpcError,
     },
     store::sqlite_store::SqliteStore,
     transaction::ForeignAccount,
-    Client,
 };
 
 pub type MockClient = Client<RpoRandomCoin>;
@@ -331,7 +331,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 

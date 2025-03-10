@@ -62,8 +62,8 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{account::AccountId, crypto::rand::FeltRng};
 
 use crate::{
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
 };
 
 pub mod script_roots;
@@ -80,13 +80,13 @@ pub use miden_lib::note::{
     utils::{build_p2id_recipient, build_swap_tag},
 };
 pub use miden_objects::{
+    NoteError,
     block::BlockNumber,
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
         NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
         Nullifier,
     },
-    NoteError,
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 pub use note_update_tracker::NoteUpdateTracker;

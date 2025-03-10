@@ -1,5 +1,5 @@
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest as NativeRpoDigest, Felt as NativeFelt, Word as NativeWord,
+    Felt as NativeFelt, Word as NativeWord, crypto::hash::rpo::RpoDigest as NativeRpoDigest,
 };
 use wasm_bindgen::prelude::*;
 

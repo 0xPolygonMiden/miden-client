@@ -1,12 +1,12 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::NoteId,
     transaction::TransactionId,
-    Digest,
 };
 
 use super::SyncSummary;
