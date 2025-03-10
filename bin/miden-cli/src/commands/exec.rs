@@ -30,6 +30,10 @@ pub struct ExecCmd {
     ///   values for the input entry
     #[clap(long, short)]
     inputs: Option<String>,
+
+    /// Print the output stack grouped into words
+    #[clap(long, default_value_t = false)]
+    hex_words: bool,
 }
 
 impl ExecCmd {
@@ -71,20 +75,39 @@ impl ExecCmd {
             Ok(output_stack) => {
                 println!("Program executed successfully");
                 println!("Output stack:");
-                print_stack(output_stack);
+                self.print_stack(output_stack);
                 Ok(())
             },
             Err(err) => Err(CliError::Exec(err.into(), "error executing the program".to_string())),
         }
     }
-}
 
-fn print_stack(stack: [Felt; 16]) {
-    for (i, value) in stack.iter().enumerate() {
-        if i == 15 {
-            println!("└── {i:2}: {value}");
+    /// Print the output stack in a human-readable format
+    fn print_stack(&self, stack: [Felt; 16]) {
+        if self.hex_words {
+            for i in 0..4 {
+                let word_idx = i * 4;
+                let word_idx_end = word_idx + 3;
+
+                if word_idx == 12 {
+                    print!("└── {word_idx:2} - {word_idx_end:2}: ");
+                } else {
+                    print!("├── {word_idx:2} - {word_idx_end:2}: ");
+                }
+
+                let word: [Felt; 4] =
+                    stack[word_idx..=word_idx_end].try_into().expect("Length should be 4");
+
+                println!("{:?} ({})", word, Digest::from(word));
+            }
         } else {
-            println!("├── {i:2}: {value}");
+            for (i, value) in stack.iter().enumerate() {
+                if i == 15 {
+                    println!("└── {i:2}: {value}");
+                } else {
+                    println!("├── {i:2}: {value}");
+                }
+            }
         }
     }
 }
