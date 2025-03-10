@@ -749,8 +749,10 @@ async fn test_execute_program() {
         end
         ";
 
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
     let output_stack = client
-        .execute_program(wallet.id(), code, [], AdviceInputs::default())
+        .execute_program(wallet.id(), tx_script, AdviceInputs::default())
         .await
         .unwrap();
 

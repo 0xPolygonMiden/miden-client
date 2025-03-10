@@ -902,18 +902,13 @@ impl<R: FeltRng> Client<R> {
         Ok(Some(block_num))
     }
 
-    pub async fn execute_program<T>(
+    pub async fn execute_program(
         &self,
         account_id: AccountId,
-        program: &str,
-        tx_inputs: T,
+        tx_script: TransactionScript,
         advice_inputs: AdviceInputs,
-    ) -> Result<[Felt; 16], ClientError>
-    where
-        T: IntoIterator<Item = (Word, Vec<Felt>)>,
-    {
+    ) -> Result<[Felt; 16], ClientError> {
         let block_ref = self.get_sync_height().await?;
-        let tx_script = self.compile_tx_script(tx_inputs, program)?;
 
         Ok(self
             .tx_executor

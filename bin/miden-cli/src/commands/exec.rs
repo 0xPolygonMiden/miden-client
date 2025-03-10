@@ -63,9 +63,9 @@ impl ExecCmd {
             None => vec![],
         };
 
-        let result = client
-            .execute_program(account_id, &program, inputs, AdviceInputs::default())
-            .await;
+        let tx_script = client.compile_tx_script(inputs, &program)?;
+
+        let result = client.execute_program(account_id, tx_script, AdviceInputs::default()).await;
 
         match result {
             Ok(output_stack) => {
