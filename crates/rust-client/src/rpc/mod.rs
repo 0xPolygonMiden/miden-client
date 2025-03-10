@@ -17,7 +17,7 @@
 //! ```no_run
 //! # use miden_client::rpc::{Endpoint, NodeRpcClient, TonicRpcClient};
 //! # use miden_objects::block::BlockNumber;
-//! ##[tokio::main]
+//! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
