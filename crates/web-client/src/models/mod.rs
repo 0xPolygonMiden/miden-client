@@ -34,7 +34,6 @@ pub mod account_header;
 pub mod account_id;
 pub mod account_storage;
 pub mod account_storage_mode;
-pub mod accounts;
 pub mod advice_inputs;
 pub mod advice_map;
 pub mod asset_vault;

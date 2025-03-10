@@ -5,11 +5,12 @@ use wasm_bindgen::prelude::*;
 
 use super::models::account::Account;
 use crate::{
-    helpers::generate_wallet, models::account_storage_mode::AccountStorageMode, WebClient,
+    WebClient, helpers::generate_wallet, models::account_storage_mode::AccountStorageMode,
 };
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "importAccount")]
     pub async fn import_account(&mut self, account_bytes: JsValue) -> Result<JsValue, JsValue> {
         let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
@@ -40,6 +41,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "importPublicAccountFromSeed")]
     pub async fn import_public_account_from_seed(
         &mut self,
         init_seed: Vec<u8>,
@@ -59,6 +61,8 @@ impl WebClient {
 
         Ok(Account::from(generated_acct))
     }
+
+    #[wasm_bindgen(js_name = "importNote")]
     pub async fn import_note(&mut self, note_bytes: JsValue) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let note_bytes_result: Vec<u8> = from_value(note_bytes).unwrap();
@@ -76,5 +80,19 @@ impl WebClient {
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
+    }
+
+    // Destructive operation, will fully overwrite the current web store
+    //
+    // The input to this function should be the result of a call to `export_store`
+    #[wasm_bindgen(js_name = "forceImportStore")]
+    pub async fn force_import_store(&mut self, store_dump: JsValue) -> Result<JsValue, JsValue> {
+        let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
+        store
+            .force_import_store(store_dump)
+            .await
+            .map_err(|err| JsValue::from_str(&format!("{err}")))?;
+
+        Ok(JsValue::from_str("Store imported successfully"))
     }
 }

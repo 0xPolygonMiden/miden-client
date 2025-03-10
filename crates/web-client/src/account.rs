@@ -3,12 +3,13 @@ use miden_objects::account::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    models::{account::Account, account_header::AccountHeader, account_id::AccountId},
     WebClient,
+    models::{account::Account, account_header::AccountHeader, account_id::AccountId},
 };
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "getAccounts")]
     pub async fn get_accounts(&mut self) -> Result<Vec<AccountHeader>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let result = client
@@ -22,6 +23,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getAccount")]
     pub async fn get_account(
         &mut self,
         account_id: &AccountId,

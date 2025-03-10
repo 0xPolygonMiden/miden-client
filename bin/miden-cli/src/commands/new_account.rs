@@ -7,15 +7,15 @@ use std::{
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
+    Client, Word,
     account::{
-        component::COMPONENT_TEMPLATE_EXTENSION, Account, AccountBuilder, AccountStorageMode,
-        AccountType,
+        Account, AccountBuilder, AccountStorageMode, AccountType,
+        component::COMPONENT_TEMPLATE_EXTENSION,
     },
     auth::AuthSecretKey,
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
-    Client, Word,
 };
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::account::{
@@ -23,8 +23,8 @@ use miden_objects::account::{
 };
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
-    CLIENT_BINARY_NAME,
+    CLIENT_BINARY_NAME, commands::account::maybe_set_default_account, errors::CliError,
+    utils::load_config_file,
 };
 
 // CLI TYPES

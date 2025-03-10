@@ -1,19 +1,20 @@
 use miden_client::{
+    Felt,
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
     authenticator::keystore::KeyStore,
     crypto::SecretKey,
-    Felt,
 };
 use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::{helpers::generate_wallet, WebClient};
+use crate::{WebClient, helpers::generate_wallet};
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "newWallet")]
     pub async fn new_wallet(
         &mut self,
         storage_mode: &AccountStorageMode,
@@ -42,6 +43,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "newFaucet")]
     pub async fn new_faucet(
         &mut self,
         storage_mode: &AccountStorageMode,

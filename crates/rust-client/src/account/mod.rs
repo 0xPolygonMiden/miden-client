@@ -39,16 +39,16 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::{
+    AccountError, Word,
     block::BlockHeader,
     crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
-    AccountError, Word,
 };
 
 use super::Client;
 use crate::{
+    ClientError,
     rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
-    ClientError,
 };
 
 // RE-EXPORTS
@@ -121,7 +121,9 @@ impl<R: FeltRng> Client<R> {
             // ignore it at the point of executing against this transaction, but that
             // approach seems a little bit more incorrect
             if account_seed.is_some() {
-                tracing::warn!("Added an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+                tracing::warn!(
+                    "Added an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored."
+                );
             }
             None
         };
@@ -154,7 +156,7 @@ impl<R: FeltRng> Client<R> {
                     // If the tracked account is locked, check that the account hash matches the one
                     // in the network
                     let network_account_hash =
-                        self.rpc_api.get_account_update(account.id()).await?.hash();
+                        self.rpc_api.get_account_details(account.id()).await?.hash();
                     if network_account_hash != account.hash() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
@@ -174,7 +176,7 @@ impl<R: FeltRng> Client<R> {
     /// - If the account is private.
     /// - There was an error sending the request to the network.
     pub async fn import_account_by_id(&mut self, account_id: AccountId) -> Result<(), ClientError> {
-        let account_details = self.rpc_api.get_account_update(account_id).await?;
+        let account_details = self.rpc_api.get_account_details(account_id).await?;
 
         let account = match account_details {
             AccountDetails::Private(..) => {
@@ -311,12 +313,12 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
+        Felt, Word,
         account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
         },
-        Felt, Word,
     };
 
     use crate::mock::create_test_client;

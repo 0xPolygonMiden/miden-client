@@ -10,9 +10,9 @@ use miden_client::rpc::Endpoint;
 use tracing::info;
 
 use crate::{
+    CLIENT_CONFIG_FILE_NAME,
     config::{CliConfig, CliEndpoint},
     errors::CliError,
-    CLIENT_CONFIG_FILE_NAME,
 };
 
 /// Contains the account component template file generated on build.rs, corresponding to the

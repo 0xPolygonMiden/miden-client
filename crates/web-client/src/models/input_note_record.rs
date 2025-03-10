@@ -28,10 +28,12 @@ impl InputNoteRecord {
         self.0.metadata().map(Into::into)
     }
 
+    #[wasm_bindgen(js_name = "inclusionProof")]
     pub fn inclusion_proof(&self) -> Option<NoteInclusionProof> {
         self.0.inclusion_proof().map(Into::into)
     }
 
+    #[wasm_bindgen(js_name = "consumerTransactionId")]
     pub fn consumer_transaction_id(&self) -> Option<String> {
         self.0.consumer_transaction_id().map(ToString::to_string)
     }
@@ -40,14 +42,17 @@ impl InputNoteRecord {
         self.0.nullifier().to_hex()
     }
 
+    #[wasm_bindgen(js_name = "isAuthenticated")]
     pub fn is_authenticated(&self) -> bool {
         self.0.is_authenticated()
     }
 
+    #[wasm_bindgen(js_name = "isConsumed")]
     pub fn is_consumed(&self) -> bool {
         self.0.is_consumed()
     }
 
+    #[wasm_bindgen(js_name = "isProcessing")]
     pub fn is_processing(&self) -> bool {
         self.0.is_processing()
     }

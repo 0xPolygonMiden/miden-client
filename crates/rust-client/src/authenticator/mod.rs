@@ -42,10 +42,10 @@
 use alloc::{string::ToString, sync::Arc, vec::Vec};
 
 use miden_objects::{
-    account::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
+    account::{AccountDelta, AuthSecretKey},
 };
-use miden_tx::{auth::TransactionAuthenticator, utils::sync::RwLock, AuthenticationError};
+use miden_tx::{AuthenticationError, auth::TransactionAuthenticator, utils::sync::RwLock};
 use rand::Rng;
 
 use crate::authenticator::keystore::KeyStore;

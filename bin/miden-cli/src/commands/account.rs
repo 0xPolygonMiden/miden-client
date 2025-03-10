@@ -1,17 +1,17 @@
 use clap::Parser;
 use miden_client::{
+    Client, ZERO,
     account::{Account, AccountId, AccountType, StorageSlot},
     asset::Asset,
     crypto::FeltRng,
-    Client, ZERO,
 };
 
 use crate::{
+    CLIENT_BINARY_NAME,
     config::CliConfig,
     create_dynamic_table,
     errors::CliError,
     utils::{load_config_file, load_faucet_details_map, parse_account_id, update_config},
-    CLIENT_BINARY_NAME,
 };
 
 // ACCOUNT COMMAND

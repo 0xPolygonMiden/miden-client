@@ -1,5 +1,5 @@
 use miden_client::{store::NoteFilter, utils::Serializable};
-use miden_objects::{note::NoteFile, Digest};
+use miden_objects::{Digest, note::NoteFile};
 use wasm_bindgen::prelude::*;
 
 use crate::WebClient;
@@ -13,6 +13,7 @@ pub enum ExportType {
 
 #[wasm_bindgen]
 impl WebClient {
+    #[wasm_bindgen(js_name = "exportNote")]
     pub async fn export_note(
         &mut self,
         note_id: String,
@@ -68,5 +69,17 @@ impl WebClient {
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
+    }
+
+    /// Retrieves the entire underlying web store and returns it as a JsValue
+    ///
+    /// Meant to be used in conjunction with the force_import_store method
+    #[wasm_bindgen(js_name = "exportStore")]
+    pub async fn export_store(&mut self) -> Result<JsValue, JsValue> {
+        let store = self.store.as_ref().ok_or(JsValue::from_str("Store not initialized"))?;
+        let export =
+            store.export_store().await.map_err(|err| JsValue::from_str(&format!("{err}")))?;
+
+        Ok(export)
     }
 }

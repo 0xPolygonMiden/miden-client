@@ -3,13 +3,13 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
-    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
-    rpc::WebTonicRpcClient,
-    store::web_store::WebStore,
     Client, RemoteTransactionProver,
+    authenticator::{ClientAuthenticator, keystore::WebKeyStore},
+    rpc::{Endpoint, TonicRpcClient},
+    store::web_store::WebStore,
 };
-use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::prelude::*;
 
 pub mod account;
@@ -55,6 +55,7 @@ impl WebClient {
         self.inner.as_mut()
     }
 
+    #[wasm_bindgen(js_name = "createClient")]
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
@@ -73,7 +74,7 @@ impl WebClient {
             },
             None => StdRng::from_entropy(),
         };
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()
@@ -84,9 +85,12 @@ impl WebClient {
         let keystore = WebKeyStore {};
 
         let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
-        let web_rpc_client = Box::new(WebTonicRpcClient::new(
-            &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
-        ));
+
+        let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
+            Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
+        })?;
+
+        let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
 
         self.remote_prover =
             prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));

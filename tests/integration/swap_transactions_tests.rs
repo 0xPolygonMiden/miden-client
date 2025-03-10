@@ -1,6 +1,6 @@
 use miden_client::{
     account::Account,
-    note::{build_swap_tag, Note},
+    note::{Note, build_swap_tag},
     transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
@@ -84,9 +84,11 @@ async fn test_swap_fully_onchain() {
     client1.sync_state().await.unwrap();
     let client_1_consumable_notes =
         client1.get_consumable_notes(Some(account_a.id())).await.unwrap();
-    assert!(client_1_consumable_notes
-        .iter()
-        .any(|(note, _)| note.id() == account_a_mint_note_id));
+    assert!(
+        client_1_consumable_notes
+            .iter()
+            .any(|(note, _)| note.id() == account_a_mint_note_id)
+    );
 
     println!("Consuming mint note on first client...");
 
@@ -99,9 +101,11 @@ async fn test_swap_fully_onchain() {
     client2.sync_state().await.unwrap();
     let client_2_consumable_notes =
         client2.get_consumable_notes(Some(account_b.id())).await.unwrap();
-    assert!(client_2_consumable_notes
-        .iter()
-        .any(|(note, _)| note.id() == account_b_mint_note_id));
+    assert!(
+        client_2_consumable_notes
+            .iter()
+            .any(|(note, _)| note.id() == account_b_mint_note_id)
+    );
 
     println!("Consuming mint note on second client...");
 
@@ -301,9 +305,11 @@ async fn test_swap_private() {
     client1.sync_state().await.unwrap();
     let client_1_consumable_notes =
         client1.get_consumable_notes(Some(account_a.id())).await.unwrap();
-    assert!(client_1_consumable_notes
-        .iter()
-        .any(|(note, _)| note.id() == account_a_mint_note_id));
+    assert!(
+        client_1_consumable_notes
+            .iter()
+            .any(|(note, _)| note.id() == account_a_mint_note_id)
+    );
 
     println!("Consuming mint note on first client...");
 
@@ -316,9 +322,11 @@ async fn test_swap_private() {
     client2.sync_state().await.unwrap();
     let client_2_consumable_notes =
         client2.get_consumable_notes(Some(account_b.id())).await.unwrap();
-    assert!(client_2_consumable_notes
-        .iter()
-        .any(|(note, _)| note.id() == account_b_mint_note_id));
+    assert!(
+        client_2_consumable_notes
+            .iter()
+            .any(|(note, _)| note.id() == account_b_mint_note_id)
+    );
 
     println!("Consuming mint note on second client...");
 

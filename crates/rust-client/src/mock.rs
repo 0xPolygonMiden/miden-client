@@ -8,20 +8,20 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{AccountCode, AccountId},
+    Felt, Word,
+    account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
-        merkle::{Mmr, MmrProof},
+        merkle::{Mmr, MmrProof, SmtProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteLocation, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
         account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
-    Felt, Word,
 };
 use miden_tx::testing::MockChain;
 use rand::Rng;
@@ -29,8 +29,10 @@ use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+    Client,
+    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     rpc::{
+        NodeRpcClient, RpcError,
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
@@ -42,11 +44,9 @@ use crate::{
             note::NoteSyncRecord,
             responses::{SyncNoteResponse, SyncStateResponse},
         },
-        NodeRpcClient, RpcError,
     },
     store::sqlite_store::SqliteStore,
     transaction::ForeignAccount,
-    Client,
 };
 
 pub type MockClient = Client<RpoRandomCoin>;
@@ -273,11 +273,11 @@ impl NodeRpcClient for MockRpcApi {
         Ok(())
     }
 
-    async fn get_account_update(
+    async fn get_account_details(
         &mut self,
         _account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
-        panic!("shouldn't be used for now")
+        unimplemented!("shouldn't be used for now")
     }
 
     async fn get_account_proofs(
@@ -297,6 +297,36 @@ impl NodeRpcClient for MockRpcApi {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
     }
+
+    async fn check_nullifiers(
+        &mut self,
+        _nullifiers: &[Nullifier],
+    ) -> Result<Vec<SmtProof>, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_account_state_delta(
+        &mut self,
+        _account_id: AccountId,
+        _from_block: BlockNumber,
+        _to_block: BlockNumber,
+    ) -> Result<AccountDelta, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_block_by_number(
+        &mut self,
+        block_num: BlockNumber,
+    ) -> Result<ProvenBlock, RpcError> {
+        let block = self
+            .blocks
+            .iter()
+            .find(|b| b.header().block_num() == block_num)
+            .unwrap()
+            .clone();
+
+        Ok(block)
+    }
 }
 
 // HELPERS
@@ -307,7 +337,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 

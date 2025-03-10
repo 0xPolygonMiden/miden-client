@@ -5,8 +5,8 @@ use std::{
 };
 
 use figment::{
-    value::{Dict, Map},
     Metadata, Profile, Provider,
+    value::{Dict, Map},
 };
 use miden_client::rpc::Endpoint;
 use serde::{Deserialize, Serialize};

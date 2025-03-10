@@ -1,11 +1,11 @@
 use miden_client::{
+    Client,
     crypto::FeltRng,
     note::{NoteExecutionMode, NoteTag},
-    Client,
 };
 use tracing::info;
 
-use crate::{errors::CliError, Parser};
+use crate::{Parser, errors::CliError};
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "View and manage tags. Defaults to `list` command")]

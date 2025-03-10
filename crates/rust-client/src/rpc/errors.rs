@@ -1,6 +1,6 @@
 use alloc::string::{String, ToString};
 
-use miden_objects::{account::AccountId, note::NoteId, utils::DeserializationError, NoteError};
+use miden_objects::{NoteError, account::AccountId, note::NoteId, utils::DeserializationError};
 use thiserror::Error;
 
 // RPC ERROR
@@ -51,6 +51,8 @@ pub enum RpcConversionError {
     NotAValidFelt,
     #[error("invalid note type value")]
     NoteTypeError(#[from] NoteError),
+    #[error("failed to convert rpc data: {0}")]
+    InvalidField(String),
     #[error("field `{field_name}` expected to be present in protobuf representation of {entity}")]
     MissingFieldInProtobufRepresentation {
         entity: &'static str,

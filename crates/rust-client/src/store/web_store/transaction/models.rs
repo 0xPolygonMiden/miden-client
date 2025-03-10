@@ -1,9 +1,10 @@
 use alloc::{string::String, vec::Vec};
 
-use base64::{engine::general_purpose, Engine as _};
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use base64::{Engine as _, engine::general_purpose};
+use serde::{Deserialize, Deserializer, Serialize, de::Error};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionIdxdbObject {
     pub id: String,
     pub account_id: String, // usually i64

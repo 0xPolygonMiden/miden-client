@@ -8,9 +8,9 @@ use std::{
 use assert_cmd::Command;
 use config::RpcConfig;
 use miden_client::{
-    self,
+    self, Client, Felt,
     account::{AccountId, AccountStorageMode},
-    authenticator::{keystore::FilesystemKeyStore, ClientAuthenticator},
+    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
@@ -21,9 +21,8 @@ use miden_client::{
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
-    Client, Felt,
 };
-use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR};
+use miden_client_tests::common::{ACCOUNT_ID_REGULAR, execute_tx_and_sync, insert_new_wallet};
 use predicates::str::contains;
 use rand::Rng;
 use uuid::Uuid;
@@ -383,7 +382,9 @@ async fn debug_mode_outputs_logs() {
     // using the CLI to check the stdout.
 
     const NOTE_FILENAME: &str = "test_note.mno";
-    env::set_var("MIDEN_DEBUG", "true");
+    unsafe {
+        env::set_var("MIDEN_DEBUG", "true");
+    }
 
     // Create a Client and a custom note
     let store_path = create_test_store_path();
@@ -659,7 +660,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, F
     };
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 

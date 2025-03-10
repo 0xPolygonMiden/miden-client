@@ -2,10 +2,10 @@ use alloc::string::{String, ToString};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
+    Felt, TransactionScriptError,
     account::{AccountId, AccountIdPrefix, AuthSecretKey},
     note::PartialNote,
     transaction::TransactionScript,
-    Felt, TransactionScriptError,
 };
 use miden_tx::TransactionExecutorError;
 use thiserror::Error;

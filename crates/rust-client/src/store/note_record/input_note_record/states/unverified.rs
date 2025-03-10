@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::{BlockHeader, BlockNumber},
-    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_hash},
     transaction::TransactionId,
 };
 

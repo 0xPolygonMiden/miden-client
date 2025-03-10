@@ -1,6 +1,6 @@
 use miden_client::utils::Serializable;
 use miden_objects::{
-    account::AuthSecretKey as NativeAuthSecretKey, Felt as NativeFelt, Word as NativeWord,
+    Felt as NativeFelt, Word as NativeWord, account::AuthSecretKey as NativeAuthSecretKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -12,6 +12,7 @@ pub struct AuthSecretKey(NativeAuthSecretKey);
 
 #[wasm_bindgen]
 impl AuthSecretKey {
+    #[wasm_bindgen(js_name = "getRpoFalcon512PublicKeyAsWord")]
     pub fn get_rpo_falcon_512_public_key_as_word(&self) -> Word {
         let public_key = match self.0 {
             NativeAuthSecretKey::RpoFalcon512(ref key) => key.public_key(),
@@ -20,6 +21,7 @@ impl AuthSecretKey {
         public_key_as_native_word.into()
     }
 
+    #[wasm_bindgen(js_name = "getRpoFalcon512SecretKeyAsFelts")]
     pub fn get_rpo_falcon_512_secret_key_as_felts(&self) -> Vec<Felt> {
         let secret_key_as_bytes = match self.0 {
             NativeAuthSecretKey::RpoFalcon512(ref key) => key.to_bytes(),

@@ -16,8 +16,8 @@ describe("new_wallet tests", () => {
       storageMode: StorageMode.PRIVATE,
       mutable: false,
       expected: {
-        is_public: false,
-        is_updatable: false,
+        isPublic: false,
+        isUpdatable: false,
       },
     },
     {
@@ -25,8 +25,8 @@ describe("new_wallet tests", () => {
       storageMode: StorageMode.PUBLIC,
       mutable: false,
       expected: {
-        is_public: true,
-        is_updatable: false,
+        isPublic: true,
+        isUpdatable: false,
       },
     },
     {
@@ -34,8 +34,8 @@ describe("new_wallet tests", () => {
       storageMode: StorageMode.PRIVATE,
       mutable: true,
       expected: {
-        is_public: false,
-        is_updatable: true,
+        isPublic: false,
+        isUpdatable: true,
       },
     },
     {
@@ -43,8 +43,8 @@ describe("new_wallet tests", () => {
       storageMode: StorageMode.PUBLIC,
       mutable: true,
       expected: {
-        is_public: true,
-        is_updatable: true,
+        isPublic: true,
+        isUpdatable: true,
       },
     },
   ];
@@ -55,14 +55,14 @@ describe("new_wallet tests", () => {
 
       isValidAddress(result.id);
       expect(result.nonce).to.equal("0");
-      isValidAddress(result.vault_commitment);
-      isValidAddress(result.storage_commitment);
-      isValidAddress(result.code_commitment);
-      expect(result.is_faucet).to.equal(false);
-      expect(result.is_regular_account).to.equal(true);
-      expect(result.is_updatable).to.equal(expected.is_updatable);
-      expect(result.is_public).to.equal(expected.is_public);
-      expect(result.is_new).to.equal(true);
+      isValidAddress(result.vaultCommitment);
+      isValidAddress(result.storageCommitment);
+      isValidAddress(result.codeCommitment);
+      expect(result.isFaucet).to.equal(false);
+      expect(result.isRegularAccount).to.equal(true);
+      expect(result.isUpdatable).to.equal(expected.isUpdatable);
+      expect(result.isPublic).to.equal(expected.isPublic);
+      expect(result.isNew).to.equal(true);
     });
   });
 
@@ -98,29 +98,29 @@ describe("new_faucet tests", () => {
     {
       description: "creates a new private, fungible faucet",
       storageMode: StorageMode.PRIVATE,
-      non_fungible: false,
-      token_symbol: "DAG",
+      nonFungible: false,
+      tokenSymbol: "DAG",
       decimals: 8,
-      max_supply: BigInt(10000000),
+      maxSupply: BigInt(10000000),
       expected: {
-        is_public: false,
-        is_updatable: false,
-        is_regular_account: false,
-        is_faucet: true,
+        isPublic: false,
+        isUpdatable: false,
+        isRegularAccount: false,
+        isFaucet: true,
       },
     },
     {
       description: "creates a new public, fungible faucet",
       storageMode: StorageMode.PUBLIC,
-      non_fungible: false,
-      token_symbol: "DAG",
+      nonFungible: false,
+      tokenSymbol: "DAG",
       decimals: 8,
-      max_supply: BigInt(10000000),
+      maxSupply: BigInt(10000000),
       expected: {
-        is_public: true,
-        is_updatable: false,
-        is_regular_account: false,
-        is_faucet: true,
+        isPublic: true,
+        isUpdatable: false,
+        isRegularAccount: false,
+        isFaucet: true,
       },
     },
   ];
@@ -129,31 +129,31 @@ describe("new_faucet tests", () => {
     ({
       description,
       storageMode,
-      non_fungible,
-      token_symbol,
+      nonFungible,
+      tokenSymbol,
       decimals,
-      max_supply,
+      maxSupply,
       expected,
     }) => {
       it(description, async () => {
         const result = await createNewFaucet(
           storageMode,
-          non_fungible,
-          token_symbol,
+          nonFungible,
+          tokenSymbol,
           decimals,
-          max_supply
+          maxSupply
         );
 
         isValidAddress(result.id);
         expect(result.nonce).to.equal("0");
-        isValidAddress(result.vault_commitment);
-        isValidAddress(result.storage_commitment);
-        isValidAddress(result.code_commitment);
-        expect(result.is_faucet).to.equal(true);
-        expect(result.is_regular_account).to.equal(false);
-        expect(result.is_updatable).to.equal(false);
-        expect(result.is_public).to.equal(expected.is_public);
-        expect(result.is_new).to.equal(true);
+        isValidAddress(result.vaultCommitment);
+        isValidAddress(result.storageCommitment);
+        isValidAddress(result.codeCommitment);
+        expect(result.isFaucet).to.equal(true);
+        expect(result.isRegularAccount).to.equal(false);
+        expect(result.isUpdatable).to.equal(false);
+        expect(result.isPublic).to.equal(expected.isPublic);
+        expect(result.isNew).to.equal(true);
       });
     }
   );
