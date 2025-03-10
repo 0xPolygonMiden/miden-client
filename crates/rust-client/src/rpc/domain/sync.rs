@@ -1,16 +1,16 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrDelta,
     note::NoteId,
     transaction::TransactionId,
-    Digest,
 };
 
 use super::{note::CommittedNote, transaction::TransactionUpdate};
-use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
+use crate::rpc::{RpcError, generated::responses::SyncStateResponse};
 
 // STATE SYNC INFO
 // ================================================================================================

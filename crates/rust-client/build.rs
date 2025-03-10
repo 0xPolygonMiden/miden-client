@@ -9,7 +9,7 @@ use miden_lib::{
     account::auth::RpoFalcon512,
     note::scripts::{p2id, p2idr, swap},
 };
-use miden_objects::{account::AccountComponent, crypto::dsa::rpo_falcon512::PublicKey, EMPTY_WORD};
+use miden_objects::{EMPTY_WORD, account::AccountComponent, crypto::dsa::rpo_falcon512::PublicKey};
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;

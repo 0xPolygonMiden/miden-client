@@ -10,16 +10,16 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
+    Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
     transaction::TransactionId,
-    Digest, Word,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{js_sys, wasm_bindgen, JsFuture};
+use wasm_bindgen_futures::{JsFuture, js_sys, wasm_bindgen};
 
 use super::{
     AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,

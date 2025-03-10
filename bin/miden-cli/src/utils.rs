@@ -5,13 +5,13 @@ use std::{
 };
 
 use figment::{
-    providers::{Format, Toml},
     Figment,
+    providers::{Format, Toml},
 };
-use miden_client::{account::AccountId, crypto::FeltRng, Client};
+use miden_client::{Client, account::AccountId, crypto::FeltRng};
 use tracing::info;
 
-use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use super::{CLIENT_CONFIG_FILE_NAME, config::CliConfig, get_account_with_id_prefix};
 use crate::{errors::CliError, faucet_details_map::FaucetDetailsMap};
 
 pub(crate) const SHARED_TOKEN_DOCUMENTATION: &str = "There are two accepted formats for the asset:

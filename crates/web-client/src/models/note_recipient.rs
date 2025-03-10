@@ -1,9 +1,9 @@
 use miden_objects::{
+    Word as NativeWord,
     note::{
         NoteInputs as NativeNoteInputs, NoteRecipient as NativeNoteRecipient,
         NoteScript as NativeNoteScript,
     },
-    Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;
 

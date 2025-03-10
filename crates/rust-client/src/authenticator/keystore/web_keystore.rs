@@ -1,9 +1,9 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    Digest, Word,
     account::AuthSecretKey,
     utils::{Deserializable, Serializable},
-    Digest, Word,
 };
 
 use super::{KeyStore, KeyStoreError};
