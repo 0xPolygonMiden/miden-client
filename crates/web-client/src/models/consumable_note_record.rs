@@ -82,12 +82,9 @@ impl From<(NativeInputNoteRecord, Vec<NativeNoteConsumability>)> for ConsumableN
 
 impl From<NativeNoteConsumability> for NoteConsumability {
     fn from(note_consumability: NativeNoteConsumability) -> Self {
-        NoteConsumability::new(
-            note_consumability.0.into(),
-            match note_consumability.1 {
-                NoteRelevance::After(block) => Some(block),
-                NoteRelevance::Always => None,
-            },
-        )
+        NoteConsumability::new(note_consumability.0.into(), match note_consumability.1 {
+            NoteRelevance::After(block) => Some(block),
+            NoteRelevance::Always => None,
+        })
     }
 }

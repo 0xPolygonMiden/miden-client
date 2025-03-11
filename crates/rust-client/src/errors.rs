@@ -3,6 +3,7 @@ use alloc::{
     vec::Vec,
 };
 
+use miden_lib::transaction::TransactionScriptBuilderError;
 use miden_objects::{
     AccountError, AssetError, Digest, NoteError, TransactionScriptError, account::AccountId,
     crypto::merkle::MerkleError, note::NoteId,
@@ -17,7 +18,7 @@ use crate::{
     note::NoteScreenerError,
     rpc::RpcError,
     store::{NoteRecordError, StoreError},
-    transaction::{TransactionRequestError, TransactionScriptBuilderError},
+    transaction::TransactionRequestError,
 };
 
 // CLIENT ERROR

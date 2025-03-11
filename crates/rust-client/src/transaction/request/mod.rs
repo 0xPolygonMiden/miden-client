@@ -6,6 +6,10 @@ use alloc::{
     vec::Vec,
 };
 
+use miden_lib::{
+    account::interface::AccountInterface,
+    transaction::{TransactionScriptBuilder, TransactionScriptBuilderError},
+};
 use miden_objects::{
     Digest, Felt, NoteError, Word,
     account::AccountId,
@@ -17,11 +21,6 @@ use miden_objects::{
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use thiserror::Error;
-
-use super::{
-    TransactionScriptBuilderError,
-    script_builder::{AccountCapabilities, TransactionScriptBuilder},
-};
 
 mod builder;
 pub use builder::{PaymentTransactionData, SwapTransactionData, TransactionRequestBuilder};
@@ -181,14 +180,14 @@ impl TransactionRequest {
     /// The debug mode enables the script debug logs.
     pub(crate) fn build_transaction_script(
         &self,
-        account_capabilities: AccountCapabilities,
+        account_interface: AccountInterface,
         in_debug_mode: bool,
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
                 let tx_script_builder = TransactionScriptBuilder::new(
-                    account_capabilities,
+                    account_interface,
                     self.expiration_delta,
                     in_debug_mode,
                 );
@@ -200,7 +199,7 @@ impl TransactionRequest {
                     Err(TransactionRequestError::NoInputNotes)
                 } else {
                     let tx_script_builder = TransactionScriptBuilder::new(
-                        account_capabilities,
+                        account_interface,
                         self.expiration_delta,
                         in_debug_mode,
                     );

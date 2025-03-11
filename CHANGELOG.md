@@ -18,6 +18,7 @@
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
 * [BREAKING] Updated client to Rust 2024 edition (#778).
+* [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
 
 ### Fixes
 

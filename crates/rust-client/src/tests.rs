@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use miden_lib::{
     account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
     note::utils,
-    transaction::TransactionKernel,
+    transaction::{TransactionKernel, TransactionScriptBuilderError},
 };
 use miden_objects::{
     Felt, FieldElement, Word, ZERO,
@@ -35,10 +35,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transaction::{
-        PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
-        TransactionScriptBuilderError,
-    },
+    transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
 };
 
 async fn insert_new_wallet<R: FeltRng>(

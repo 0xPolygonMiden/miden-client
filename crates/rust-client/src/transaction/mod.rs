@@ -65,19 +65,22 @@
 
 use alloc::{
     collections::{BTreeMap, BTreeSet},
-    string::{String, ToString},
+    string::ToString,
     sync::Arc,
     vec::Vec,
 };
 use core::fmt::{self};
 
-pub use miden_lib::transaction::TransactionKernel;
+pub use miden_lib::{
+    account::interface::{AccountComponentInterface, AccountInterface},
+    transaction::TransactionKernel,
+};
 use miden_objects::{
-    AccountError, AssetError, Digest, Felt, Word, ZERO,
-    account::{Account, AccountCode, AccountDelta, AccountId, AccountType, AuthSecretKey},
+    AssetError, Digest, Felt, Word, ZERO,
+    account::{Account, AccountCode, AccountDelta, AccountId},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
-    crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
+    crypto::merkle::MerklePath,
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
 };
@@ -88,13 +91,11 @@ use miden_tx::{
     TransactionExecutor,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
 };
-use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
     ClientError,
-    account::procedure_roots::RPO_FALCON_512_AUTH,
     note::{NoteScreener, NoteUpdates},
     rpc::domain::account::AccountProof,
     store::{
@@ -105,19 +106,16 @@ use crate::{
 };
 
 mod request;
-pub use request::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, PaymentTransactionData, SwapTransactionData,
-    TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
-    TransactionScriptTemplate,
-};
-
-mod script_builder;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
-pub use script_builder::TransactionScriptBuilderError;
+pub use request::{
+    ForeignAccount, ForeignAccountInputs, NoteArgs, PaymentTransactionData, SwapTransactionData,
+    TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
+    TransactionScriptTemplate,
+};
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
@@ -446,7 +444,7 @@ impl<R: FeltRng> Client<R> {
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = transaction_request.build_transaction_script(
-            self.get_account_capabilities(account_id).await?,
+            self.get_account_interface(account_id).await?,
             self.in_debug_mode,
         )?;
 
@@ -786,35 +784,14 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Retrieves the account capabilities for the specified account.
-    async fn get_account_capabilities(
+    /// Retrieves the account interface for the specified account.
+    async fn get_account_interface(
         &mut self,
         account_id: AccountId,
-    ) -> Result<AccountCapabilities, ClientError> {
+    ) -> Result<AccountInterface, ClientError> {
         let account: Account = self.try_get_account(account_id).await?.into();
 
-        // TODO: we should check if the account actually exposes the interfaces we're trying to use
-        let interfaces = match account.account_type() {
-            AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
-            AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
-            AccountType::RegularAccountImmutableCode | AccountType::RegularAccountUpdatableCode => {
-                AccountInterface::BasicWallet
-            },
-        };
-
-        let auth = if account
-            .code()
-            .procedure_roots()
-            .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
-        {
-            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(self.rng()))
-        } else {
-            return Err(ClientError::AccountError(AccountError::AssumptionViolated(
-                "Account doesn't have authentication procedure".to_string(),
-            )));
-        };
-
-        Ok(AccountCapabilities { account_id, auth, interfaces })
+        Ok(AccountInterface::from(&account))
     }
 
     /// Injects foreign account data inputs into `tx_args` (account proof, code commitment and
@@ -1001,10 +978,6 @@ fn collect_assets<'a>(
     (fungible_balance_map, non_fungible_set)
 }
 
-pub(crate) fn prepare_word(word: &Word) -> String {
-    word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
-}
-
 /// Extracts notes from [`OutputNotes`].
 /// Used for:
 /// - Checking the relevance of notes to save them as input notes.
@@ -1065,13 +1038,13 @@ mod test {
         let pub_key = secret_key.public_key();
         keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
 
-        let wallet_component = AccountComponent::compile(
-            BASIC_WALLET_CODE,
-            TransactionKernel::assembler(),
-            vec![StorageSlot::Value(Word::default()), StorageSlot::Map(StorageMap::default())],
-        )
-        .unwrap()
-        .with_supports_all_types();
+        let wallet_component =
+            AccountComponent::compile(BASIC_WALLET_CODE, TransactionKernel::assembler(), vec![
+                StorageSlot::Value(Word::default()),
+                StorageSlot::Map(StorageMap::default()),
+            ])
+            .unwrap()
+            .with_supports_all_types();
 
         let anchor_block = client.get_latest_epoch_block().await.unwrap();
 

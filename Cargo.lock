@@ -1491,7 +1491,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#aa6abaf8e00dcc8c1bbc379c9e609487951aa186"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-move-script-builder-to-base#d3a2d281e321703ce05dddc2a193986fe5033068"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1546,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#aa6abaf8e00dcc8c1bbc379c9e609487951aa186"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-move-script-builder-to-base#d3a2d281e321703ce05dddc2a193986fe5033068"
 dependencies = [
  "bech32",
  "getrandom 0.2.15",
@@ -1593,7 +1593,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#aa6abaf8e00dcc8c1bbc379c9e609487951aa186"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-move-script-builder-to-base#d3a2d281e321703ce05dddc2a193986fe5033068"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1612,7 +1612,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#8747d15828e288e2e07b5aae19f89d412555e6c1"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#9cf31925073110bbde8139724755ba210d5c0783"
 
 [[package]]
 name = "miden-stdlib"
@@ -1626,7 +1626,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#aa6abaf8e00dcc8c1bbc379c9e609487951aa186"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=andrew-move-script-builder-to-base#d3a2d281e321703ce05dddc2a193986fe5033068"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2835,9 +2835,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.44.0"
+version = "1.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9975ea0f48b5aa3972bf2d888c238182458437cc2a19374b81b25cdf1023fb3a"
+checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -2883,9 +2883,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.13"
+version = "0.7.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
+checksum = "6b9590b93e6fcc1739458317cccd391ad3955e2bde8913edf6f95f9e65a8f034"
 dependencies = [
  "bytes",
  "futures-core",

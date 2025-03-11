@@ -5,12 +5,11 @@ use miden_client::{
     authenticator::keystore::KeyStore,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
-    testing::prepare_word,
     transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
 };
-use miden_lib::account::auth::RpoFalcon512;
+use miden_lib::{account::auth::RpoFalcon512, utils::prepare_word};
 use miden_objects::{
     Digest,
     account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},

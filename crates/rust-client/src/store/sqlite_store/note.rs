@@ -363,20 +363,17 @@ pub(super) fn upsert_input_note_tx(
             :created_at);
     ";
 
-    tx.execute(
-        NOTE_QUERY,
-        named_params! {
-            ":note_id": id,
-            ":assets": assets,
-            ":serial_number": serial_number,
-            ":inputs": inputs,
-            ":script_hash": script_hash,
-            ":nullifier": nullifier,
-            ":state_discriminant": state_discriminant,
-            ":state": state,
-            ":created_at": created_at,
-        },
-    )
+    tx.execute(NOTE_QUERY, named_params! {
+        ":note_id": id,
+        ":assets": assets,
+        ":serial_number": serial_number,
+        ":inputs": inputs,
+        ":script_hash": script_hash,
+        ":nullifier": nullifier,
+        ":state_discriminant": state_discriminant,
+        ":state": state,
+        ":created_at": created_at,
+    })
     .map_err(|err| StoreError::QueryError(err.to_string()))
     .map(|_| ())
 }
@@ -418,19 +415,16 @@ pub fn upsert_output_note_tx(
         state,
     } = serialize_output_note(note);
 
-    tx.execute(
-        NOTE_QUERY,
-        named_params! {
-            ":note_id": id,
-            ":assets": assets,
-            ":recipient": recipient_digest,
-            ":metadata": metadata,
-            ":nullifier": nullifier,
-            ":expected_height": expected_height,
-            ":state_discriminant": state_discriminant,
-            ":state": state,
-        },
-    )?;
+    tx.execute(NOTE_QUERY, named_params! {
+        ":note_id": id,
+        ":assets": assets,
+        ":recipient": recipient_digest,
+        ":metadata": metadata,
+        ":nullifier": nullifier,
+        ":expected_height": expected_height,
+        ":state_discriminant": state_discriminant,
+        ":state": state,
+    })?;
 
     Ok(())
 }

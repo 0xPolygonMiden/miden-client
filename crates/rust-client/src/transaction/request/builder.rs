@@ -1,7 +1,10 @@
 //! Contains structures and functions related to transaction creation.
 use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
-use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
+use miden_lib::{
+    note::{create_p2id_note, create_p2idr_note, create_swap_note},
+    transaction::TransactionScriptBuilderError,
+};
 use miden_objects::{
     Digest, Felt, FieldElement,
     account::AccountId,
@@ -20,7 +23,6 @@ use super::{
     ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
-use crate::transaction::TransactionScriptBuilderError;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -275,7 +277,7 @@ impl TransactionRequestBuilder {
             .iter()
             .all(|asset| asset.is_fungible() && asset.unwrap_fungible().amount() == 0)
         {
-            return Err(TransactionRequestError::TransactionScriptBuilderError(
+            return Err(TransactionRequestError::P2IDNoteWithoutAsset(
                 TransactionScriptBuilderError::P2IDNoteWithoutAsset,
             ));
         }
