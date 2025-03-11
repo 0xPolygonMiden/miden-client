@@ -201,7 +201,7 @@ impl SqliteStore {
         }
 
         // Remove the accounts that are originated from the discarded transactions
-        Self::delete_accounts(&tx, &accounts_to_remove)?;
+        Self::undo_account_state(&tx, &accounts_to_remove)?;
 
         tx.commit()?;
 
