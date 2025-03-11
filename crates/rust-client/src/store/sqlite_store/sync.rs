@@ -1,7 +1,6 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{collections::BTreeSet, vec::Vec};
-use std::println;
 
 use miden_objects::{
     Digest, account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
@@ -135,7 +134,6 @@ impl SqliteStore {
                         && !discarded_transactions.contains(&tx.id)
                 })
                 .collect();
-        println!("old_pending_transactions: {old_pending_transactions:?}");
 
         let tx = conn.transaction()?;
 
@@ -168,7 +166,6 @@ impl SqliteStore {
         let mut all_discarded_transactions = discarded_transactions.clone();
         all_discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
 
-        println!("all_discarded_transactions: {all_discarded_transactions:?}");
         // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &all_discarded_transactions)?;
 

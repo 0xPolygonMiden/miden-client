@@ -1730,11 +1730,6 @@ async fn test_old_pending_transactions_discarded() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    println!(
-        "all transactions: {:?}",
-        client.get_transactions(TransactionFilter::All).await.unwrap()
-    );
-    println!("tx_record: {:?}", tx_record);
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded
