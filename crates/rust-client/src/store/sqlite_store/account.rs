@@ -205,7 +205,14 @@ impl SqliteStore {
             .collect::<Result<BTreeMap<AccountId, AccountCode>, _>>()
     }
 
-    pub fn delete_accounts(
+    /// Removes account states with the specified hashes from the database.
+    ///
+    /// This is used to rollback account changes when a transaction is discarded,
+    /// effectively undoing the account state changes that were applied by the transaction.
+    ///
+    /// Note: This is not part of the Store trait and is only used internally by the SQLite store
+    /// implementation to handle transaction rollbacks.
+    pub fn undo_account_state(
         tx: &Transaction<'_>,
         account_hashes: &[Digest],
     ) -> Result<(), StoreError> {
