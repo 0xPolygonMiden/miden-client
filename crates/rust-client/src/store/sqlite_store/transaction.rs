@@ -54,7 +54,7 @@ impl TransactionFilter {
             },
             TransactionFilter::ExpiredPending(block_num) => {
                 format!(
-                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false",
+                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false AND tx.commit_height IS NULL",
                     block_num.as_u32()
                 )
             },
