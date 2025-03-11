@@ -86,6 +86,9 @@ use block_header::apply_mmr_changes;
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
+/// The number of blocks that are considered old enough to discard pending transactions.
+pub const TX_GRACEFUL_BLOCKS: u32 = 10;
+
 /// Contains stats about the sync operation.
 #[derive(Debug, PartialEq)]
 pub struct SyncSummary {

@@ -1,6 +1,7 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{collections::BTreeSet, vec::Vec};
+use std::println;
 
 use miden_objects::{
     Digest, account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
@@ -18,11 +19,9 @@ use crate::{
             note::apply_note_updates_tx,
         },
     },
-    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
+    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate, TX_GRACEFUL_BLOCKS},
+    transaction::TransactionRecord,
 };
-
-/// The number of blocks that are considered old enough to discard pending transactions.
-const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(conn: &mut Connection) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -119,6 +118,25 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
+        // Find old pending transactions before starting the transaction
+        let graceful_block_num =
+            block_header.block_num().checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+        // Filter the transactions to commit and the transactions to discard from the old pending
+        // transactions
+        let old_pending_transactions: Vec<TransactionRecord> =
+            Self::get_transactions(conn, &TransactionFilter::ExpiredPending(graceful_block_num))?
+                .into_iter()
+                .filter(|tx| {
+                    !committed_transactions
+                        .iter()
+                        .map(|tx| tx.transaction_id)
+                        .collect::<Vec<_>>()
+                        .contains(&tx.id)
+                        && !discarded_transactions.contains(&tx.id)
+                })
+                .collect();
+        println!("old_pending_transactions: {old_pending_transactions:?}");
+
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -141,19 +159,16 @@ impl SqliteStore {
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
 
-        // Find old pending transactions
-        let graceful_block_num = block_header.block_num().as_u32() - TX_GRACEFUL_BLOCKS;
-        let old_pending_transactions = Self::get_old_pending_transactions(&tx, graceful_block_num)?;
-
         // Delete accounts for old pending transactions
         let account_hashes_to_delete: Vec<Digest> =
             old_pending_transactions.iter().map(|tx| tx.final_account_state).collect();
-        Self::delete_accounts(&tx, &account_hashes_to_delete)?;
+        Self::undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
         let mut all_discarded_transactions = discarded_transactions.clone();
         all_discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
 
+        println!("all_discarded_transactions: {all_discarded_transactions:?}");
         // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &all_discarded_transactions)?;
 

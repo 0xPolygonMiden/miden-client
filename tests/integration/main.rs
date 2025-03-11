@@ -9,7 +9,7 @@ use miden_client::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::NoteTagSource,
+    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
@@ -1675,15 +1675,11 @@ async fn test_old_pending_transactions_discarded() {
     consume_notes(&mut client, account_id, &[note]).await;
 
     // Create a transaction but don't submit it to the node
-    let current_block_num = client.get_sync_height().await.unwrap();
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-
-    // Create a transaction with a block number that is old enough to be considered discarded
-    let old_block_num = current_block_num.checked_sub(20).unwrap();
 
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
-        Some(old_block_num),
+        None,
         NoteType::Public,
         client.rng(),
     )
@@ -1723,7 +1719,7 @@ async fn test_old_pending_transactions_discarded() {
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
-    client.sync_state().await.unwrap();
+    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
 
     // Verify the transaction is now discarded
     let tx_record = client
@@ -1733,6 +1729,12 @@ async fn test_old_pending_transactions_discarded() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
+
+    println!(
+        "all transactions: {:?}",
+        client.get_transactions(TransactionFilter::All).await.unwrap()
+    );
+    println!("tx_record: {:?}", tx_record);
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded

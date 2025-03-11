@@ -347,6 +347,8 @@ pub enum TransactionFilter {
     Uncomitted,
     /// Return a list of the transaction that matches the provided [`TransactionId`]s.
     Ids(Vec<TransactionId>),
+    /// Return a list of the transaction that have expired.
+    ExpiredPending(BlockNumber),
 }
 
 // NOTE FILTER

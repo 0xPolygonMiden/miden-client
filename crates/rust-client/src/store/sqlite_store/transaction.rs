@@ -52,6 +52,12 @@ impl TransactionFilter {
                 // Use SQLite's array parameter binding
                 format!("{QUERY} WHERE tx.id IN rarray(?)")
             },
+            TransactionFilter::ExpiredPending(block_num) => {
+                format!(
+                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false",
+                    block_num.as_u32()
+                )
+            },
         }
     }
 }
@@ -169,17 +175,6 @@ impl SqliteStore {
         }
 
         Ok(rows)
-    }
-
-    pub(crate) fn get_old_pending_transactions(
-        tx: &Transaction<'_>,
-        min_block: u32,
-    ) -> Result<Vec<TransactionRecord>, StoreError> {
-        const QUERY: &str = "SELECT * FROM transactions WHERE commit_height IS NULL AND block_num < ? AND discarded = false";
-        let mut binding = tx.prepare(QUERY)?;
-        let rows = binding.query_map([min_block], parse_transaction_columns)?;
-        rows.map(|result| Ok(result?).and_then(parse_transaction))
-            .collect::<Result<Vec<TransactionRecord>, _>>()
     }
 }
 
