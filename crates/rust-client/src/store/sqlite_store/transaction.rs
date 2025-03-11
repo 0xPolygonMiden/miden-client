@@ -119,10 +119,13 @@ impl SqliteStore {
         let mut rows = 0;
         for transaction_update in transactions_to_commit {
             const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
-            rows += tx.execute(QUERY, params![
-                Some(transaction_update.block_num),
-                transaction_update.transaction_id.to_string()
-            ])?;
+            rows += tx.execute(
+                QUERY,
+                params![
+                    Some(transaction_update.block_num),
+                    transaction_update.transaction_id.to_string()
+                ],
+            )?;
         }
         info!("Marked {} transactions as committed", rows);
 
@@ -171,18 +174,21 @@ pub(super) fn insert_proven_transaction_data(
         tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, tx_script])?;
     }
 
-    tx.execute(INSERT_TRANSACTION_QUERY, params![
-        transaction_id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
-        script_hash,
-        block_num,
-        committed,
-        discarded,
-    ])?;
+    tx.execute(
+        INSERT_TRANSACTION_QUERY,
+        params![
+            transaction_id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_hash,
+            block_num,
+            committed,
+            discarded,
+        ],
+    )?;
 
     Ok(())
 }

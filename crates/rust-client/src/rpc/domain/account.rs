@@ -203,10 +203,10 @@ impl ProtoAccountStateHeader {
             {
                 Some(list) => list.push(proof),
                 None => {
-                    _ = storage_slot_proofs
-                        .insert(u8::try_from(storage_slot).expect("only 256 storage slots"), vec![
-                            proof,
-                        ]);
+                    _ = storage_slot_proofs.insert(
+                        u8::try_from(storage_slot).expect("only 256 storage slots"),
+                        vec![proof],
+                    );
                 },
             }
         }

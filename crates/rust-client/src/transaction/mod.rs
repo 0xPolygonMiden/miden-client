@@ -1038,13 +1038,13 @@ mod test {
         let pub_key = secret_key.public_key();
         keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
 
-        let wallet_component =
-            AccountComponent::compile(BASIC_WALLET_CODE, TransactionKernel::assembler(), vec![
-                StorageSlot::Value(Word::default()),
-                StorageSlot::Map(StorageMap::default()),
-            ])
-            .unwrap()
-            .with_supports_all_types();
+        let wallet_component = AccountComponent::compile(
+            BASIC_WALLET_CODE,
+            TransactionKernel::assembler(),
+            vec![StorageSlot::Value(Word::default()), StorageSlot::Map(StorageMap::default())],
+        )
+        .unwrap()
+        .with_supports_all_types();
 
         let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
