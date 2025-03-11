@@ -5,6 +5,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use std::rc::Rc;
 
 use miden_objects::{
     Digest,
@@ -15,7 +16,7 @@ use miden_objects::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
 };
-use rusqlite::{Connection, Transaction, params};
+use rusqlite::{Connection, Transaction, params, types::Value};
 use tracing::info;
 
 use super::{
@@ -47,9 +48,9 @@ impl TransactionFilter {
         match self {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
-            TransactionFilter::Ids(ids) => {
-                let ids = ids.iter().map(|id| format!("'{id}'")).collect::<Vec<_>>().join(", ");
-                format!("{QUERY} WHERE tx.id IN ({ids})")
+            TransactionFilter::Ids(_) => {
+                // Use SQLite's array parameter binding
+                format!("{QUERY} WHERE tx.id IN rarray(?)")
             },
         }
     }
@@ -78,11 +79,26 @@ impl SqliteStore {
         conn: &mut Connection,
         filter: &TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        conn.prepare(&filter.to_query())?
-            .query_map([], parse_transaction_columns)
-            .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).and_then(parse_transaction))
-            .collect::<Result<Vec<TransactionRecord>, _>>()
+        match filter {
+            TransactionFilter::Ids(ids) => {
+                // Convert transaction IDs to strings for the array parameter
+                let id_strings =
+                    ids.iter().map(|id| Value::Text(id.to_string())).collect::<Vec<_>>();
+
+                // Create a prepared statement and bind the array parameter
+                conn.prepare(&filter.to_query())?
+                    .query_map(params![Rc::new(id_strings)], parse_transaction_columns)?
+                    .map(|result| Ok(result?).and_then(parse_transaction))
+                    .collect::<Result<Vec<TransactionRecord>, _>>()
+            },
+            _ => {
+                // For other filters, no parameters are needed
+                conn.prepare(&filter.to_query())?
+                    .query_map([], parse_transaction_columns)?
+                    .map(|result| Ok(result?).and_then(parse_transaction))
+                    .collect::<Result<Vec<TransactionRecord>, _>>()
+            },
+        }
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes.
