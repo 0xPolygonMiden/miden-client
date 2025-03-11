@@ -2,7 +2,9 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{
+    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
+};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
