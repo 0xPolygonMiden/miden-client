@@ -109,6 +109,7 @@ extern crate std;
 
 pub mod account;
 pub mod authenticator;
+pub mod builder;
 pub mod note;
 pub mod rpc;
 pub mod store;
@@ -120,12 +121,6 @@ pub mod mock;
 
 #[cfg(test)]
 pub mod tests;
-
-#[cfg(feature = "std")]
-pub mod builder;
-
-#[cfg(feature = "std")]
-pub use builder::ClientBuilder;
 
 mod errors;
 
@@ -172,6 +167,7 @@ pub mod crypto {
     };
 }
 
+pub use builder::ClientBuilder;
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;

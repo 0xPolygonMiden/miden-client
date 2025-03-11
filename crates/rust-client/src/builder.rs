@@ -7,11 +7,19 @@ use alloc::{
 use miden_objects::crypto::rand::RpoRandomCoin;
 use rand::Rng;
 
+#[cfg(feature = "std")]
+use crate::authenticator::keystore::FilesystemKeyStore;
+#[cfg(not(feature = "std"))]
+use crate::authenticator::keystore::WebKeyStore;
+#[cfg(feature = "sqlite")]
+use crate::store::sqlite_store::SqliteStore;
+#[cfg(feature = "idxdb")]
+use crate::store::{StoreError, web_store::WebStore};
 use crate::{
     Client, ClientError, Felt,
-    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
+    authenticator::{ClientAuthenticator, keystore::KeyStore},
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
-    store::{Store, sqlite_store::SqliteStore},
+    store::Store,
 };
 
 /// Represents the configuration for a keystore.
@@ -19,7 +27,7 @@ use crate::{
 /// The purpose of this enum is to delay the actual instantiation of the keystore until the build
 /// phase. This allows the builder to accept either:
 ///
-/// - A direct instance of a [`Box<dyn KeyStore>`], or
+/// - A direct instance of an [`Arc<dyn KeyStore>`], or
 /// - A keystore path as a string which is then used to initialize the keystore during `build()`.
 ///
 /// Without this enum, we are forced to perform the initialization immediately, which would
@@ -36,9 +44,6 @@ enum KeystoreConfig {
 /// RPC endpoint, store, and RNG. It provides flexibility by letting you supply your own
 /// implementations or falling back to default implementations (e.g. using a default `SQLite` store
 /// and `RpoRandomCoin` for randomness) when the respective feature flags are enabled.
-///
-/// This builder **only exists** if the `std` feature is enabled. Otherwise,
-/// it's completely ignored and never compiled.
 pub struct ClientBuilder {
     /// An optional RPC endpoint.
     rpc_endpoint: Option<Endpoint>,
@@ -183,9 +188,18 @@ impl ClientBuilder {
         let arc_store: Arc<dyn Store> = if let Some(store) = self.store {
             store
         } else {
+            #[cfg(feature = "sqlite")]
             let store = SqliteStore::new(self.store_path.clone().into())
                 .await
                 .map_err(ClientError::StoreError)?;
+
+            #[cfg(feature = "idxdb")]
+            let store = WebStore::new().await.map_err(|_| {
+                ClientError::StoreError(StoreError::DatabaseError(
+                    "Failed to initialize the WebStore.".to_string(),
+                ))
+            })?;
+
             Arc::new(store)
         };
 
@@ -201,8 +215,19 @@ impl ClientBuilder {
         // Require a keystore to be specified.
         let keystore = match self.keystore {
             Some(KeystoreConfig::Instance(k)) => k,
-            Some(KeystoreConfig::Path(ref path)) => Arc::new(FilesystemKeyStore::new(path.into())
-                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?),
+            Some(KeystoreConfig::Path(ref path)) => {
+                #[cfg(feature="std")]
+                let keystore = FilesystemKeyStore::new(path.into())
+                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
+
+                #[cfg(not(feature="std"))]
+                let keystore = {
+                    _ = path;
+                    WebKeyStore {}
+                };
+
+                Arc::new(keystore)
+            },
             None => {
                 return Err(ClientError::ClientInitializationError(
                     "Keystore must be specified. Call `.with_keystore(...)` or `.with_filesystem_keystore(...)` with a keystore path."
