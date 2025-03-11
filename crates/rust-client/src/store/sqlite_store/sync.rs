@@ -2,7 +2,9 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{
+    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
+};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -192,9 +194,11 @@ impl SqliteStore {
                 .iter()
                 .find(|account| account.account().commitment() == final_account_state)
                 .ok_or_else(|| {
-                    StoreError::QueryError(format!(
-                        "Could not find account with hash {final_account_state}"
-                    ))
+                    let hex = final_account_state.to_hex();
+                    match AccountId::from_hex(&hex) {
+                        Ok(account_id) => StoreError::AccountDataNotFound(account_id),
+                        Err(err) => StoreError::AccountIdError(err),
+                    }
                 })?;
 
             accounts_to_remove.push(account.account().commitment());
