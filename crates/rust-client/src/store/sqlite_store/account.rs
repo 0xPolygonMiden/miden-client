@@ -210,7 +210,7 @@ impl SqliteStore {
     /// This is used to rollback account changes when a transaction is discarded,
     /// effectively undoing the account state changes that were applied by the transaction.
     ///
-    /// Note: This is not part of the Store trait and is only used internally by the SQLite store
+    /// Note: This is not part of the Store trait and is only used internally by the `SQLite` store
     /// implementation to handle transaction rollbacks.
     pub fn undo_account_state(
         tx: &Transaction<'_>,
