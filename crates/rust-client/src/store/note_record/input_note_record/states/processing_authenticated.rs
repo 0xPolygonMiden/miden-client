@@ -1,11 +1,11 @@
 use alloc::string::ToString;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockHeader,
     note::{NoteId, NoteInclusionProof, NoteMetadata},
     transaction::TransactionId,
-    Digest,
 };
 
 use super::{

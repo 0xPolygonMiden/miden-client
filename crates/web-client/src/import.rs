@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use super::models::account::Account;
 use crate::{
-    helpers::generate_wallet, models::account_storage_mode::AccountStorageMode, WebClient,
+    WebClient, helpers::generate_wallet, models::account_storage_mode::AccountStorageMode,
 };
 
 #[wasm_bindgen]

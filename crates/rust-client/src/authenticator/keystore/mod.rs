@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, string::String};
 
-use miden_objects::{account::AuthSecretKey, Word};
+use miden_objects::{Word, account::AuthSecretKey};
 use thiserror::Error;
 use tonic::async_trait;
 

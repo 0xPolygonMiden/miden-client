@@ -15,10 +15,9 @@
 //! ## Example
 //!
 //! ```no_run
-//! # use miden_client::rpc::{NodeRpcClient, TonicRpcClient};
+//! # use miden_client::rpc::{Endpoint, NodeRpcClient, TonicRpcClient};
 //! # use miden_objects::block::BlockNumber;
-//! # use miden_client::rpc::Endpoint;
-//! ##[tokio::main]
+//! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a Tonic RPC client instance (assumes default endpoint configuration).
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
@@ -82,7 +81,7 @@ mod tonic_client;
 pub use tonic_client::TonicRpcClient;
 
 use crate::{
-    store::{input_note_states::UnverifiedNoteState, InputNoteRecord},
+    store::{InputNoteRecord, input_note_states::UnverifiedNoteState},
     transaction::ForeignAccount,
 };
 

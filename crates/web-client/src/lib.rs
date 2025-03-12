@@ -3,13 +3,13 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
-    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
+    authenticator::{ClientAuthenticator, keystore::WebKeyStore},
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
     Client,
 };
-use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::prelude::*;
 
 pub mod account;
@@ -68,7 +68,7 @@ impl WebClient {
             },
             None => StdRng::from_entropy(),
         };
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()

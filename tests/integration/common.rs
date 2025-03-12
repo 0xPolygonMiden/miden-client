@@ -1,33 +1,33 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
+    Client, ClientError, Word,
     account::{
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
         AccountBuilder, AccountType,
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
     },
     auth::AuthSecretKey,
     authenticator::{
-        keystore::{FilesystemKeyStore, KeyStore},
         ClientAuthenticator,
+        keystore::{FilesystemKeyStore, KeyStore},
     },
     crypto::FeltRng,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transaction::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
-    Client, ClientError, Word,
 };
 use miden_objects::{
+    Felt, FieldElement,
     account::{Account, AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
-    Felt, FieldElement,
 };
 use rand::Rng;
 use toml::Table;
@@ -56,7 +56,7 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
     };
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
@@ -263,7 +263,9 @@ pub async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
-    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries...");
+    println!(
+        "Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries..."
+    );
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {

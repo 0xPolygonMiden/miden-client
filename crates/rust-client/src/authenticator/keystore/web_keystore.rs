@@ -1,9 +1,9 @@
 use alloc::{boxed::Box, string::ToString};
 
 use miden_objects::{
+    Digest, Word,
     account::AuthSecretKey,
     utils::{Deserializable, Serializable},
-    Digest, Word,
 };
 use tonic::async_trait;
 
