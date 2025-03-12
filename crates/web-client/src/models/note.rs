@@ -1,9 +1,9 @@
 use miden_client::note::{
     NoteExecutionHint as NativeNoteExecutionHint, NoteExecutionMode as NativeNoteExecutionMode,
     NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
-    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag,
+    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag, scripts as native_scripts,
 };
-use miden_lib::note::{scripts as native_scripts, utils};
+use miden_lib::note::utils;
 use miden_objects::note::Note as NativeNote;
 use wasm_bindgen::prelude::*;
 

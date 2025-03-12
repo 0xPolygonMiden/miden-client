@@ -91,7 +91,19 @@ pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScre
 
 /// Contains functions to simplify standard note scripts creation.
 pub mod scripts {
-    pub use miden_lib::note::scripts::{p2id, p2idr, swap};
+    use miden_objects::note::NoteScript;
+
+    pub fn p2id() -> NoteScript {
+        miden_lib::note::well_known_note::WellKnownNote::P2ID.script()
+    }
+
+    pub fn p2idr() -> NoteScript {
+        miden_lib::note::well_known_note::WellKnownNote::P2IDR.script()
+    }
+
+    pub fn swap() -> NoteScript {
+        miden_lib::note::well_known_note::WellKnownNote::SWAP.script()
+    }
 }
 
 /// Note retrieval methods.
