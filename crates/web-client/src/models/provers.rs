@@ -1,10 +1,10 @@
 use alloc::sync::Arc;
 
 use miden_client::{
+    RemoteTransactionProver,
     transaction::{
         LocalTransactionProver, ProvingOptions, TransactionProver as TransactionProverTrait,
     },
-    RemoteTransactionProver,
 };
 use wasm_bindgen::prelude::*;
 

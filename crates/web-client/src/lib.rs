@@ -3,10 +3,10 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
+    Client,
     authenticator::{ClientAuthenticator, keystore::WebKeyStore},
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
-    Client,
 };
 use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
 use rand::{Rng, SeedableRng, rngs::StdRng};
