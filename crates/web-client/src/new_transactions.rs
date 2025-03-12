@@ -109,7 +109,8 @@ impl WebClient {
             })?
         };
 
-        Ok(self.execute_and_submit_transaction(faucet_id, &mint_transaction_request.into(), "Mint").await?)
+        self.execute_and_submit_transaction(faucet_id, &mint_transaction_request.into(), "Mint")
+            .await
     }
 
     #[wasm_bindgen(js_name = "newSendTransaction")]
@@ -163,7 +164,12 @@ impl WebClient {
             }
         };
 
-        Ok(self.execute_and_submit_transaction(sender_account_id, &send_transaction_request.into(), "Send").await?)
+        self.execute_and_submit_transaction(
+            sender_account_id,
+            &send_transaction_request.into(),
+            "Send",
+        )
+        .await
     }
 
     #[wasm_bindgen(js_name = "newConsumeTransaction")]
@@ -187,13 +193,16 @@ impl WebClient {
             }
 
             NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
-                JsValue::from_str(&format!(
-                    "Failed to create Consume Transaction Request: {err}"
-                ))
+                JsValue::from_str(&format!("Failed to create Consume Transaction Request: {err}"))
             })?
         };
 
-        Ok(self.execute_and_submit_transaction(account_id, &consume_transaction_request.into(), "Consume").await?)
+        self.execute_and_submit_transaction(
+            account_id,
+            &consume_transaction_request.into(),
+            "Consume",
+        )
+        .await
     }
 
     #[wasm_bindgen(js_name = "newSwapTransaction")]
@@ -291,10 +300,8 @@ impl WebClient {
         transaction_request: &TransactionRequest,
         transaction_type: &str, // For logging error messages
     ) -> Result<TransactionResult, JsValue> {
-        let transaction_execution_result = self
-            .new_transaction(account_id, transaction_request)
-            .await
-            .map_err(|err| {
+        let transaction_execution_result =
+            self.new_transaction(account_id, transaction_request).await.map_err(|err| {
                 JsValue::from_str(&format!(
                     "Failed to execute {transaction_type} Transaction: {err:?}"
                 ))
