@@ -1,7 +1,7 @@
 use miden_client::note::{
     NoteExecutionHint as NativeNoteExecutionHint, NoteExecutionMode as NativeNoteExecutionMode,
     NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
-    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag, scripts as native_scripts,
+    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag, WellKnownNote,
 };
 use miden_lib::note::utils;
 use miden_objects::note::Note as NativeNote;
@@ -81,7 +81,7 @@ impl Note {
         recall_height: u32,
         aux: &Felt,
     ) -> Self {
-        let note_script = native_scripts::p2idr();
+        let note_script = WellKnownNote::P2IDR.script();
 
         let inputs = NativeNoteInputs::new(vec![
             target.suffix().into(),
