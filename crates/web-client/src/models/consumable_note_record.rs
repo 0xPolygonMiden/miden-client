@@ -32,10 +32,12 @@ impl NoteConsumability {
         NoteConsumability { account_id, consumable_after_block }
     }
 
+    #[wasm_bindgen(js_name = "accountId")]
     pub fn account_id(&self) -> AccountId {
         self.account_id
     }
 
+    #[wasm_bindgen(js_name = "consumableAfterBlock")]
     pub fn consumable_after_block(&self) -> Option<u32> {
         self.consumable_after_block
     }

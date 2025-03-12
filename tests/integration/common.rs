@@ -37,7 +37,7 @@ pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_O
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
 /// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -76,18 +76,18 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 }
 
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
-    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
+    let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
-        + "://"
-        + rpc_endpoint_toml["host"].as_str().unwrap()
-        + ":"
-        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
-    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+    let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+    let port = if rpc_endpoint_toml.contains_key("port") {
+        rpc_endpoint_toml["port"].as_integer().map(|port| port as u16)
+    } else {
+        None
+    };
+
+    let endpoint = Endpoint::new(protocol, host, port);
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
@@ -123,7 +123,7 @@ pub async fn insert_new_wallet_with_seed<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
@@ -149,7 +149,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];

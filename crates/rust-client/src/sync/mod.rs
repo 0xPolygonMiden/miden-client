@@ -67,6 +67,7 @@ use miden_objects::{
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
 };
+use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use tracing::info;
 
 use crate::{
@@ -86,6 +87,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
+#[derive(Debug, PartialEq)]
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
@@ -153,6 +155,42 @@ impl SyncSummary {
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
         self.committed_transactions.append(&mut other.committed_transactions);
+    }
+}
+
+impl Serializable for SyncSummary {
+    fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
+        self.block_num.write_into(target);
+        self.received_notes.write_into(target);
+        self.committed_notes.write_into(target);
+        self.consumed_notes.write_into(target);
+        self.updated_accounts.write_into(target);
+        self.locked_accounts.write_into(target);
+        self.committed_transactions.write_into(target);
+    }
+}
+
+impl Deserializable for SyncSummary {
+    fn read_from<R: miden_tx::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, DeserializationError> {
+        let block_num = BlockNumber::read_from(source)?;
+        let received_notes = Vec::<NoteId>::read_from(source)?;
+        let committed_notes = Vec::<NoteId>::read_from(source)?;
+        let consumed_notes = Vec::<NoteId>::read_from(source)?;
+        let updated_accounts = Vec::<AccountId>::read_from(source)?;
+        let locked_accounts = Vec::<AccountId>::read_from(source)?;
+        let committed_transactions = Vec::<TransactionId>::read_from(source)?;
+
+        Ok(Self {
+            block_num,
+            received_notes,
+            committed_notes,
+            consumed_notes,
+            updated_accounts,
+            locked_accounts,
+            committed_transactions,
+        })
     }
 }
 

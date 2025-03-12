@@ -2,6 +2,7 @@ import {
   accountCodes,
   accountStorages,
   accountVaults,
+  accountAuths,
   accounts,
   foreignAccountCode,
 } from "./schema.js";
@@ -245,6 +246,50 @@ export async function getAccountAssetVault(vaultRoot) {
   }
 }
 
+export function getAccountAuthByPubKey(pubKey) {
+  // Try to get the account auth from the cache
+  let cachedSecretKey = ACCOUNT_AUTH_MAP.get(pubKey);
+
+  // If it's not in the cache, throw an error
+  if (!cachedSecretKey) {
+    throw new Error("Account auth not found in cache.");
+  }
+
+  let data = {
+    secretKey: cachedSecretKey,
+  };
+
+  return data;
+}
+
+var ACCOUNT_AUTH_MAP = new Map();
+export async function fetchAndCacheAccountAuthByPubKey(pubKey) {
+  try {
+    // Fetch all records matching the given id
+    const allMatchingRecords = await accountAuths
+      .where("pubKey")
+      .equals(pubKey)
+      .toArray();
+
+    if (allMatchingRecords.length === 0) {
+      console.log("No account auth records found for given account ID.");
+      return null; // No records found
+    }
+
+    // The first record is the only one due to the uniqueness constraint
+    const authRecord = allMatchingRecords[0];
+
+    // Store the auth info in the map
+    ACCOUNT_AUTH_MAP.set(authRecord.pubKey, authRecord.secretKey);
+
+    return {
+      secretKey: authRecord.secretKey,
+    };
+  } catch (err) {
+    throw err; // Re-throw the error for further handling
+  }
+}
+
 // INSERT FUNCTIONS
 
 export async function insertAccountCode(codeRoot, code) {
@@ -335,6 +380,22 @@ export async function insertAccountRecord(
     await accounts.add(data);
   } catch (error) {
     console.error(`Error inserting account: ${accountId}:`, error);
+    throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
+export async function insertAccountAuth(pubKey, secretKey) {
+  try {
+    // Prepare the data object to insert
+    const data = {
+      pubKey: pubKey,
+      secretKey: secretKey,
+    };
+
+    // Perform the insert using Dexie
+    await accountAuths.add(data);
+  } catch (error) {
+    console.error(`Error inserting auth for account: ${accountId}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
   }
 }
