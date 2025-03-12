@@ -56,7 +56,7 @@ impl From<&ExportType> for NoteExportType {
 impl ExportCmd {
     pub async fn execute(
         &self,
-        mut client: Client<impl FeltRng>,
+        mut client: Client,
         keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         if self.account {
@@ -76,7 +76,7 @@ impl ExportCmd {
 // ================================================================================================
 
 async fn export_account(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     keystore: &FilesystemKeyStore,
     account_id: &str,
     filename: Option<PathBuf>,
@@ -117,7 +117,7 @@ async fn export_account(
 // ================================================================================================
 
 async fn export_note(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: &ExportType,

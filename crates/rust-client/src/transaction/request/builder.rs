@@ -1,5 +1,6 @@
 //! Contains structures and functions related to transaction creation.
 use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
+use std::boxed::Box;
 
 use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -263,7 +264,7 @@ impl TransactionRequestBuilder {
         payment_data: PaymentTransactionData,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut Box<dyn FeltRng>,
     ) -> Result<Self, TransactionRequestError> {
         let PaymentTransactionData {
             assets,

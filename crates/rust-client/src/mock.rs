@@ -49,7 +49,7 @@ use crate::{
     transaction::ForeignAccount,
 };
 
-pub type MockClient = Client<RpoRandomCoin>;
+pub type MockClient = Client;
 
 /// Mock RPC API
 ///
@@ -347,7 +347,8 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
+    let client =
+        MockClient::new(boxed_rpc_api, Box::new(rng), store, Arc::new(authenticator.clone()), true);
     (client, rpc_api, keystore)
 }
 

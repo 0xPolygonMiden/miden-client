@@ -41,8 +41,8 @@ use crate::{
     },
 };
 
-async fn insert_new_wallet<R: FeltRng>(
-    client: &mut Client<R>,
+async fn insert_new_wallet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word), ClientError> {
@@ -70,8 +70,8 @@ async fn insert_new_wallet<R: FeltRng>(
     Ok((account, seed))
 }
 
-async fn insert_new_fungible_faucet<R: FeltRng>(
-    client: &mut Client<R>,
+async fn insert_new_fungible_faucet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word), ClientError> {

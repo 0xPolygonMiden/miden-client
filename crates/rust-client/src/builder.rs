@@ -4,7 +4,7 @@ use alloc::{
     sync::Arc,
 };
 
-use miden_objects::crypto::rand::RpoRandomCoin;
+use miden_objects::crypto::rand::{FeltRng, RpoRandomCoin};
 use rand::Rng;
 
 #[cfg(feature = "std")]
@@ -54,7 +54,7 @@ pub struct ClientBuilder {
     /// An optional store provided by the user.
     store: Option<Arc<dyn Store>>,
     /// An optional RNG provided by the user.
-    rng: Option<RpoRandomCoin>,
+    rng: Option<Box<dyn FeltRng>>,
     /// The store path to use when no store is directly provided via `with_store()`.
     store_path: String,
     /// The keystore configuration provided by the user.
@@ -131,7 +131,7 @@ impl ClientBuilder {
 
     /// Optionally provide a custom RNG.
     #[must_use]
-    pub fn with_rng(mut self, rng: RpoRandomCoin) -> Self {
+    pub fn with_rng(mut self, rng: Box<dyn FeltRng>) -> Self {
         self.rng = Some(rng);
         self
     }
@@ -171,7 +171,7 @@ impl ClientBuilder {
     /// - Returns an error if no RPC client or endpoint was provided.
     /// - Returns an error if the store cannot be instantiated.
     /// - Returns an error if the keystore is not specified or fails to initialize.
-    pub async fn build(self) -> Result<Client<RpoRandomCoin>, ClientError> {
+    pub async fn build(self) -> Result<Client, ClientError> {
         // Determine the RPC client to use.
         let rpc_api: Box<dyn NodeRpcClient + Send> = if let Some(client) = self.rpc_api {
             client
@@ -209,7 +209,7 @@ impl ClientBuilder {
         } else {
             let mut seed_rng = rand::thread_rng();
             let coin_seed: [u64; 4] = seed_rng.r#gen();
-            RpoRandomCoin::new(coin_seed.map(Felt::new))
+            Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
         };
 
         // Require a keystore to be specified.
@@ -236,7 +236,11 @@ impl ClientBuilder {
             }
         };
 
-        let authenticator = ClientAuthenticator::new(rng, keystore);
+        let mut seed_rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = seed_rng.r#gen();
+
+        let authenticator =
+            ClientAuthenticator::new(RpoRandomCoin::new(coin_seed.map(Felt::new)), keystore);
 
         Ok(Client::new(
             rpc_api,

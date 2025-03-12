@@ -104,7 +104,7 @@ pub struct NewFaucetCmd {
 impl NewFaucetCmd {
     pub async fn execute(
         &self,
-        mut client: Client<impl FeltRng>,
+        mut client: Client,
         keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         if self.non_fungible {
@@ -199,7 +199,7 @@ pub struct NewWalletCmd {
 impl NewWalletCmd {
     pub async fn execute(
         &self,
-        mut client: Client<impl FeltRng>,
+        mut client: Client,
         keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         let mut extra_components = Vec::new();

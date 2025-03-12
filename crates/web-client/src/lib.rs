@@ -51,7 +51,7 @@ impl WebClient {
         }
     }
 
-    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
+    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client> {
         self.inner.as_mut()
     }
 

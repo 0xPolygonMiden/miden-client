@@ -30,7 +30,7 @@
 //! # use miden_client::{Client, ClientError};
 //! # use miden_objects::{block::BlockHeader, Felt, Word, StarkField};
 //! # use miden_objects::crypto::rand::FeltRng;
-//! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
+//! # async fn run_sync(client: &mut Client) -> Result<(), ClientError> {
 //! // Attempt to synchronize the client's state with the Miden network.
 //! // The requested data is based on the client's state: it gets updates for accounts, relevant
 //! // notes, etc. For more information on the data that gets requested, see the doc comments for
@@ -58,12 +58,11 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
-    crypto::{self, rand::FeltRng},
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
 };
@@ -198,7 +197,7 @@ pub struct StateSyncUpdate {
 // ================================================================================================
 
 /// Client syncronization methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

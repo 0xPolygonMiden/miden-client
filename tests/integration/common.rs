@@ -35,7 +35,7 @@ use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
-pub type TestClient = Client<RpoRandomCoin>;
+pub type TestClient = Client;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
 /// Creates a `TestClient`.
@@ -66,7 +66,7 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
-            rng,
+            Box::new(rng),
             store,
             Arc::new(authenticator),
             true,
@@ -103,8 +103,8 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub async fn insert_new_wallet<R: FeltRng>(
-    client: &mut Client<R>,
+pub async fn insert_new_wallet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
@@ -114,8 +114,8 @@ pub async fn insert_new_wallet<R: FeltRng>(
     insert_new_wallet_with_seed(client, storage_mode, keystore, init_seed).await
 }
 
-pub async fn insert_new_wallet_with_seed<R: FeltRng>(
-    client: &mut Client<R>,
+pub async fn insert_new_wallet_with_seed(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
     init_seed: [u8; 32],
@@ -141,8 +141,8 @@ pub async fn insert_new_wallet_with_seed<R: FeltRng>(
     Ok((account, seed, key_pair))
 }
 
-pub async fn insert_new_fungible_faucet<R: FeltRng>(
-    client: &mut Client<R>,
+pub async fn insert_new_fungible_faucet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {

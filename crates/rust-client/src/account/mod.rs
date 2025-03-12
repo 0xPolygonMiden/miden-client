@@ -39,9 +39,7 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::{
-    AccountError, Word,
-    block::BlockHeader,
-    crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
+    AccountError, Word, block::BlockHeader, crypto::dsa::rpo_falcon512::PublicKey,
 };
 
 use super::Client;
@@ -84,7 +82,7 @@ pub mod component {
 ///   with the network.
 ///
 /// - **Data retrieval:** The module also provides methods to fetch account-related data.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

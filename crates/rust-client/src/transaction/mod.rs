@@ -33,7 +33,7 @@
 //! /// This transaction is executed by `sender_id`, and creates an output note
 //! /// containing 100 tokens of `faucet_id`'s fungible asset.
 //! async fn create_and_submit_transaction<R: rand::Rng>(
-//!     client: &mut Client<impl FeltRng>,
+//!     client: &mut Client,
 //!     sender_id: AccountId,
 //!     target_id: AccountId,
 //!     faucet_id: AccountId,
@@ -91,7 +91,7 @@ use miden_tx::{
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
-use super::{Client, FeltRng};
+use super::Client;
 use crate::{
     ClientError,
     account::procedure_roots::RPO_FALCON_512_AUTH,
@@ -372,7 +372,7 @@ impl TransactionStoreUpdate {
 }
 
 /// Transaction management methods
-impl<R: FeltRng> Client<R> {
+impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -717,7 +717,7 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<(), ClientError> {
         // Get outgoing assets
         let (fungible_balance_map, non_fungible_set) =
-            <Client<R>>::get_outgoing_assets(transaction_request);
+            Client::get_outgoing_assets(transaction_request);
 
         // Get incoming assets
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
@@ -807,7 +807,7 @@ impl<R: FeltRng> Client<R> {
             .procedure_roots()
             .any(|root| root.to_hex() == RPO_FALCON_512_AUTH)
         {
-            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(self.rng()))
+            AuthSecretKey::RpoFalcon512(SecretKey::with_rng(&mut self.rng()))
         } else {
             return Err(ClientError::AccountError(AccountError::AssumptionViolated(
                 "Account doesn't have authentication procedure".to_string(),
@@ -908,7 +908,7 @@ impl<R: FeltRng> Client<R> {
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<R: FeltRng> Client<R> {
+impl Client {
     pub async fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,

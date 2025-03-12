@@ -82,7 +82,7 @@
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let client: Client<RpoRandomCoin> = Client::new(
+//! let client: Client = Client::new(
 //!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
@@ -209,12 +209,12 @@ use tracing::info;
 ///   as notes and transactions.
 /// - Connects to a Miden node to periodically sync with the current state of the network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<R: FeltRng> {
+pub struct Client {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Arc<dyn Store>,
     /// An instance of [`FeltRng`] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
-    rng: R,
+    rng: Box<dyn FeltRng>,
     /// An instance of [`NodeRpcClient`] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
@@ -228,7 +228,7 @@ pub struct Client<R: FeltRng> {
 }
 
 /// Construction and access methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -254,7 +254,7 @@ impl<R: FeltRng> Client<R> {
     /// Returns an error if the client couldn't be instantiated.
     pub fn new(
         rpc_api: Box<dyn NodeRpcClient + Send>,
-        rng: R,
+        rng: Box<dyn FeltRng>,
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
@@ -286,7 +286,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Returns a reference to the client's random number generator. This can be used to generate
     /// randomness for various purposes such as serial numbers, keys, etc.
-    pub fn rng(&mut self) -> &mut R {
+    pub fn rng(&mut self) -> &mut Box<dyn FeltRng> {
         &mut self.rng
     }
 

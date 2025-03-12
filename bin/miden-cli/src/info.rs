@@ -5,10 +5,7 @@ use miden_client::{Client, crypto::FeltRng, store::NoteFilter};
 use super::config::CliConfig;
 use crate::errors::CliError;
 
-pub async fn print_client_info(
-    client: &Client<impl FeltRng>,
-    config: &CliConfig,
-) -> Result<(), CliError> {
+pub async fn print_client_info(client: &Client, config: &CliConfig) -> Result<(), CliError> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
     print_client_stats(client).await
@@ -16,7 +13,7 @@ pub async fn print_client_info(
 
 // HELPERS
 // ================================================================================================
-async fn print_client_stats(client: &Client<impl FeltRng>) -> Result<(), CliError> {
+async fn print_client_stats(client: &Client) -> Result<(), CliError> {
     println!("Block number: {}", client.get_sync_height().await?);
     println!("Tracked accounts: {}", client.get_account_headers().await?.len());
     println!("Expected notes: {}", client.get_input_notes(NoteFilter::Expected).await?.len());

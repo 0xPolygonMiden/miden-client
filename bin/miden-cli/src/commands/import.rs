@@ -32,7 +32,7 @@ pub struct ImportCmd {
 impl ImportCmd {
     pub async fn execute(
         &self,
-        mut client: Client<impl FeltRng>,
+        mut client: Client,
         keystore: FilesystemKeyStore,
     ) -> Result<(), CliError> {
         validate_paths(&self.filenames)?;
@@ -73,7 +73,7 @@ impl ImportCmd {
 // ================================================================================================
 
 async fn import_account(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     keystore: &FilesystemKeyStore,
     account_data_file_contents: &[u8],
     overwrite: bool,
