@@ -339,3 +339,15 @@ impl From<&TransactionRequest> for NativeTransactionRequest {
         transaction_request.0.clone()
     }
 }
+
+impl From<NativeTransactionRequest> for TransactionRequest {
+    fn from(transaction_request: NativeTransactionRequest) -> Self {
+        TransactionRequest(transaction_request)
+    }
+}
+
+impl From<&NativeTransactionRequest> for TransactionRequest {
+    fn from(transaction_request: &NativeTransactionRequest) -> Self {
+        TransactionRequest(transaction_request.clone())
+    }
+}

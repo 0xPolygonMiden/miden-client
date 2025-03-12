@@ -4,7 +4,6 @@
 
 ### Features
 
-* Merge main into next and fix web keystore (#779).
 * Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
 
@@ -22,6 +21,7 @@
 
 ### Fixes
 
+* Fix Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates

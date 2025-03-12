@@ -220,8 +220,6 @@ impl WebStore {
             .map_err(|_| StoreError::DatabaseError("Failed to update account".to_string()))
     }
 
-    /// Fetches an [`AuthSecretKey`] by a public key represented by a String and caches it in the
-    /// store. This is used in the `web_client` so adding this to ignore the dead code warning.
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         pub_key: String,

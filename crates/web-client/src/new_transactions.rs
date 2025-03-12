@@ -92,16 +92,12 @@ impl WebClient {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
             .map_err(|err| JsValue::from_str(&format!("Failed to create Fungible Asset: {err}")))?;
 
-        self.fetch_and_cache_account_auth_by_account_id(faucet_id)
-            .await
-            .map_err(|err| {
-                JsValue::from_str(&format!(
-                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
-                ))
+        let mint_transaction_request = {
+            let client = self.get_mut_inner().ok_or_else(|| {
+                JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-        if let Some(client) = self.get_mut_inner() {
-            let mint_transaction_request = NativeTransactionRequestBuilder::mint_fungible_asset(
+            NativeTransactionRequestBuilder::mint_fungible_asset(
                 fungible_asset,
                 target_account_id.into(),
                 note_type.into(),
@@ -110,27 +106,10 @@ impl WebClient {
             .and_then(NativeTransactionRequestBuilder::build)
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {err}"))
-            })?;
-            let mint_transaction_execution_result = client
-                .new_transaction(faucet_id.into(), mint_transaction_request)
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Mint Transaction: {err}"))
-                })?;
+            })?
+        };
 
-            let result = mint_transaction_execution_result.clone().into();
-
-            client
-                .submit_transaction(mint_transaction_execution_result)
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {err}"))
-                })?;
-
-            Ok(result)
-        } else {
-            Err(JsValue::from_str("Client not initialized"))
-        }
+        Ok(self.execute_and_submit_transaction(faucet_id, &mint_transaction_request.into(), "Mint").await?)
     }
 
     #[wasm_bindgen(js_name = "newSendTransaction")]
@@ -152,16 +131,12 @@ impl WebClient {
             target_account_id.into(),
         );
 
-        self.fetch_and_cache_account_auth_by_account_id(sender_account_id)
-            .await
-            .map_err(|err| {
-                JsValue::from_str(&format!(
-                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
-                ))
+        let send_transaction_request = {
+            let client = self.get_mut_inner().ok_or_else(|| {
+                JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-        if let Some(client) = self.get_mut_inner() {
-            let send_transaction_request = if let Some(recall_height) = recall_height {
+            if let Some(recall_height) = recall_height {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
                     Some(BlockNumber::from(recall_height)),
@@ -185,28 +160,10 @@ impl WebClient {
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to create Send Transaction Request: {err}"))
                 })?
-            };
+            }
+        };
 
-            let send_transaction_execution_result = client
-                .new_transaction(sender_account_id.into(), send_transaction_request)
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Send Transaction: {err}"))
-                })?;
-
-            let result = send_transaction_execution_result.clone().into();
-
-            client
-                .submit_transaction(send_transaction_execution_result)
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {err}"))
-                })?;
-
-            Ok(result)
-        } else {
-            Err(JsValue::from_str("Client not initialized"))
-        }
+        Ok(self.execute_and_submit_transaction(sender_account_id, &send_transaction_request.into(), "Send").await?)
     }
 
     #[wasm_bindgen(js_name = "newConsumeTransaction")]
@@ -215,15 +172,11 @@ impl WebClient {
         account_id: &AccountId,
         list_of_note_ids: Vec<String>,
     ) -> Result<TransactionResult, JsValue> {
-        self.fetch_and_cache_account_auth_by_account_id(account_id)
-            .await
-            .map_err(|err| {
-                JsValue::from_str(&format!(
-                    "Failed to fetch and cache account auth by account id for mint transaction: {err:?}"
-                ))
+        let consume_transaction_request = {
+            let client = self.get_mut_inner().ok_or_else(|| {
+                JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-        if let Some(client) = self.get_mut_inner() {
             let mut result = Vec::new();
             for note_id in list_of_note_ids {
                 let note_record =
@@ -233,30 +186,14 @@ impl WebClient {
                 result.push(note_record.id());
             }
 
-            let consume_transaction_request =
-                NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
-                    JsValue::from_str(&format!(
-                        "Failed to create Consume Transaction Request: {err}"
-                    ))
-                })?;
+            NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to create Consume Transaction Request: {err}"
+                ))
+            })?
+        };
 
-            let consume_transaction_execution_result = client
-                .new_transaction(account_id.into(), consume_transaction_request)
-                .await
-                .map_err(|err| {
-                    JsValue::from_str(&format!("Failed to execute Consume Transaction: {err}"))
-                })?;
-
-            let result = consume_transaction_execution_result.clone().into();
-
-            client.submit_transaction(consume_transaction_execution_result).await.map_err(
-                |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {err}")),
-            )?;
-
-            Ok(result)
-        } else {
-            Err(JsValue::from_str("Client not initialized"))
-        }
+        Ok(self.execute_and_submit_transaction(account_id, &consume_transaction_request.into(), "Consume").await?)
     }
 
     #[wasm_bindgen(js_name = "newSwapTransaction")]
@@ -294,6 +231,7 @@ impl WebClient {
             requested_fungible_asset,
         );
 
+        // TODO: Leaving this alone for now because new_swap_transaction needs a rework anyway
         self.fetch_and_cache_account_auth_by_account_id(&sender_account_id.into())
             .await
             .map_err(|err| {
@@ -344,5 +282,32 @@ impl WebClient {
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
+    }
+
+    /// Helper function to execute a transaction and submit it.
+    async fn execute_and_submit_transaction(
+        &mut self,
+        account_id: &AccountId,
+        transaction_request: &TransactionRequest,
+        transaction_type: &str, // For logging error messages
+    ) -> Result<TransactionResult, JsValue> {
+        let transaction_execution_result = self
+            .new_transaction(account_id, transaction_request)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to execute {transaction_type} Transaction: {err:?}"
+                ))
+            })?;
+
+        self.submit_transaction(&transaction_execution_result, None)
+            .await
+            .map_err(|err| {
+                JsValue::from_str(&format!(
+                    "Failed to submit {transaction_type} Transaction: {err:?}"
+                ))
+            })?;
+
+        Ok(transaction_execution_result)
     }
 }
