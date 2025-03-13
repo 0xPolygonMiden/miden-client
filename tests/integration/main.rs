@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
 use miden_client::{
+    ClientBuilder, ClientError, ONE,
     account::Account,
     note::NoteRelevance,
-    rpc::{domain::account::AccountDetails, Endpoint, NodeRpcClient, TonicRpcClient},
+    rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
     store::{
-        input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
-        NoteFilter, OutputNoteState, TransactionFilter,
+        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
+        input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
     sync::NoteTagSource,
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
-    ClientBuilder, ClientError, ONE,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -247,22 +247,26 @@ async fn test_p2id_transfer() {
     let transaction_id = execute_tx(&mut client, from_account_id, tx_request).await;
 
     // Check that a note tag started being tracked for this note.
-    assert!(client
-        .get_note_tags()
-        .await
-        .unwrap()
-        .into_iter()
-        .any(|tag| tag.source == NoteTagSource::Note(note.id())));
+    assert!(
+        client
+            .get_note_tags()
+            .await
+            .unwrap()
+            .into_iter()
+            .any(|tag| tag.source == NoteTagSource::Note(note.id()))
+    );
 
     wait_for_tx(&mut client, transaction_id).await;
 
     // Check that the tag is not longer being tracked
-    assert!(!client
-        .get_note_tags()
-        .await
-        .unwrap()
-        .into_iter()
-        .any(|tag| tag.source == NoteTagSource::Note(note.id())));
+    assert!(
+        !client
+            .get_note_tags()
+            .await
+            .unwrap()
+            .into_iter()
+            .any(|tag| tag.source == NoteTagSource::Note(note.id()))
+    );
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");

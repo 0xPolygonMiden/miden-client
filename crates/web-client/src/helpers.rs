@@ -1,11 +1,11 @@
 use miden_client::{
+    Client,
     account::{Account, AccountBuilder, AccountType},
     crypto::{RpoRandomCoin, SecretKey},
-    Client,
 };
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::Felt;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::JsValue;
 
 use crate::models::account_storage_mode::AccountStorageMode;
@@ -35,7 +35,7 @@ pub(crate) async fn generate_wallet(
                 .try_into()
                 .map_err(|_| JsValue::from_str("Seed must be exactly 32 bytes"))?;
             let mut std_rng = StdRng::from_seed(seed_array);
-            let coin_seed: [u64; 4] = std_rng.gen();
+            let coin_seed: [u64; 4] = std_rng.r#gen();
             &mut RpoRandomCoin::new(coin_seed.map(Felt::new))
         },
         None => client.rng(),

@@ -1,6 +1,7 @@
 import rust from "@wasm-tool/rollup-plugin-rust";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
+import copy from "rollup-plugin-copy";
 
 // Flag that indicates if the build is meant for testing purposes.
 const testing = process.env.MIDEN_WEB_TESTING === "true";
@@ -57,6 +58,26 @@ export default [
       }),
       resolve(),
       commonjs(),
+    ],
+  },
+  // Build the worker file
+  {
+    input: "./js/workers/web-client-methods-worker.js",
+    output: {
+      dir: `dist/workers`,
+      format: "es",
+      sourcemap: true,
+    },
+    plugins: [
+      resolve(),
+      commonjs(),
+      copy({
+        targets: [
+          // Copy WASM to `dist/workers/assets` for worker accessibility
+          { src: "dist/assets/*.wasm", dest: "dist/workers/assets" },
+        ],
+        verbose: true,
+      }),
     ],
   },
   // Build the main entry point

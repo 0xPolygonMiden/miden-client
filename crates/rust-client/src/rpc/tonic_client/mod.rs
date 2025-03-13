@@ -9,18 +9,20 @@ use core::time::Duration;
 
 use async_trait::async_trait;
 use miden_objects::{
+    Digest,
     account::{Account, AccountCode, AccountDelta, AccountId},
     block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::merkle::{MerklePath, MmrProof, SmtProof},
     note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
-    Digest,
 };
 use miden_tx::utils::Serializable;
 use tracing::info;
 
 use super::{
+    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
+    StateSyncInfo,
     domain::{
         account::{AccountProof, AccountProofs, AccountUpdateSummary},
         note::NetworkNote,
@@ -28,15 +30,13 @@ use super::{
     },
     generated::{
         requests::{
-            get_account_proofs_request::{self},
             CheckNullifiersByPrefixRequest, CheckNullifiersRequest, GetAccountDetailsRequest,
             GetAccountProofsRequest, GetAccountStateDeltaRequest, GetBlockByNumberRequest,
             GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+            get_account_proofs_request::{self},
         },
         rpc::api_client::ApiClient,
     },
-    AccountDetails, Endpoint, NodeRpcClient, NodeRpcClientEndpoint, NoteSyncInfo, RpcError,
-    StateSyncInfo,
 };
 use crate::{rpc::generated::requests::GetBlockHeaderByNumberRequest, transaction::ForeignAccount};
 

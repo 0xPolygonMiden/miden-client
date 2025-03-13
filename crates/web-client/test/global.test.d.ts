@@ -31,6 +31,7 @@ import {
   TransactionFilter,
   TransactionProver,
   TransactionRequest,
+  TransactionResult,
   TransactionRequestBuilder,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
@@ -78,6 +79,7 @@ declare global {
     TransactionFilter: typeof TransactionFilter;
     TransactionProver: typeof TransactionProver;
     TransactionRequest: typeof TransactionRequest;
+    TransactionResult: typeof TransactionResult;
     TransactionRequestBuilder: typeof TransactionRequestBuilder;
     TransactionScriptInputPair: typeof TransactionScriptInputPair;
     TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;

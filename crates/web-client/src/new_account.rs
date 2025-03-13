@@ -1,16 +1,16 @@
 use miden_client::{
+    Felt,
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
     authenticator::keystore::KeyStore,
     crypto::SecretKey,
-    Felt,
 };
 use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::asset::TokenSymbol;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::{helpers::generate_wallet, WebClient};
+use crate::{WebClient, helpers::generate_wallet};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -29,6 +29,7 @@ impl WebClient {
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .await
                 .map_err(|err| err.to_string())?;
 
             match client.add_account(&new_account, Some(account_seed), false).await {
@@ -91,6 +92,7 @@ impl WebClient {
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .await
                 .map_err(|err| err.to_string())?;
 
             match client.add_account(&new_account, Some(seed), false).await {

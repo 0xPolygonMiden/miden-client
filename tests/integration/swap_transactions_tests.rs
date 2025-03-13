@@ -1,6 +1,6 @@
 use miden_client::{
     account::Account,
-    note::{build_swap_tag, Note},
+    note::{Note, build_swap_tag},
     transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{

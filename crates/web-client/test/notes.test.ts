@@ -63,8 +63,8 @@ const getConsumableNotes = async (accountId?: string) => {
     return records.map((record) => ({
       noteId: record.inputNoteRecord().id().toString(),
       consumability: record.noteConsumability().map((c) => ({
-        accountId: c.account_id().toString(),
-        consumableAfterBlock: c.consumable_after_block(),
+        accountId: c.accountId().toString(),
+        consumableAfterBlock: c.consumableAfterBlock(),
       })),
     }));
   }, accountId);
