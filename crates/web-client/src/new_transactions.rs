@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use miden_client::{
     note::{get_input_note_with_id_prefix, BlockNumber},
     transaction::{
@@ -194,10 +192,7 @@ impl WebClient {
                 .new_transaction(sender_account_id.into(), send_transaction_request)
                 .await
                 .map_err(|err| {
-                    JsValue::from_str(&format!(
-                        "Failed to execute Send Transaction: {}",
-                        err.source().unwrap()
-                    ))
+                    JsValue::from_str(&format!("Failed to execute Send Transaction: {err}"))
                 })?;
 
             let result = send_transaction_execution_result.clone().into();

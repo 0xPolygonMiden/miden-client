@@ -242,7 +242,10 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
         // 100_000_000 ns = 0.1s
         std::thread::sleep(std::time::Duration::new(0, 100_000_000));
     }
-    if std::env::var("LOG_WAIT_TIMES").unwrap_or_else(|_| "false".to_string()) == "true" {
+
+    // Log wait time in a file if the env var is set
+    // This allows us to aggregate and measure how long the tests are waiting for transactions to be committed
+    if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
         let elapsed = now.elapsed();
         let wait_times_dir = std::path::PathBuf::from("wait_times");
         std::fs::create_dir_all(&wait_times_dir).unwrap();
@@ -402,6 +405,7 @@ pub async fn consume_notes(
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
+/// Asserts that the account has a single asset with the expected amount.
 pub async fn assert_account_has_single_asset(
     client: &TestClient,
     account_id: AccountId,
@@ -421,6 +425,7 @@ pub async fn assert_account_has_single_asset(
     }
 }
 
+/// Tries to consume the note and asserts that the expected error is returned.
 pub async fn assert_note_cannot_be_consumed_twice(
     client: &mut TestClient,
     consuming_account_id: AccountId,
@@ -444,6 +449,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
     }
 }
 
+/// Creates a transaction request that mint assets for each target_id account.
 pub fn mint_multiple_fungible_asset(
     asset: FungibleAsset,
     target_id: Vec<AccountId>,
@@ -470,6 +476,7 @@ pub fn mint_multiple_fungible_asset(
     TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
 }
 
+/// Executes a transaction and consumes the resulting unauthenticated notes inmediately without waiting for the first transaction to be committed.
 pub async fn execute_tx_and_consume_output_notes(
     tx_request: TransactionRequest,
     client: &mut TestClient,
@@ -492,6 +499,7 @@ pub async fn execute_tx_and_consume_output_notes(
     wait_for_tx(client, transaction_id).await;
 }
 
+/// Mint assets for the target account and consume them inmediately without waiting for the first transaction to be committed.
 pub async fn mint_and_consume(
     client: &mut TestClient,
     basic_account_id: AccountId,
