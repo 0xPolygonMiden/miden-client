@@ -5,12 +5,12 @@ use alloc::{
 };
 use core::num::NonZeroUsize;
 
-use miden_objects::{block::BlockHeader, crypto::merkle::InOrderIndex, Digest};
+use miden_objects::{Digest, block::BlockHeader, crypto::merkle::InOrderIndex};
 use miden_tx::utils::Serializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 
-use crate::store::{web_store::chain_data::ChainMmrNodeIdxdbObject, StoreError};
+use crate::store::{StoreError, web_store::chain_data::ChainMmrNodeIdxdbObject};
 
 pub struct SerializedBlockHeaderData {
     pub block_num: String,

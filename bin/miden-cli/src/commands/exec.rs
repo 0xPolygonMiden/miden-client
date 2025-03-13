@@ -1,8 +1,8 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
 use clap::Parser;
-use miden_client::{crypto::FeltRng, Client, Felt, Word};
-use miden_objects::{vm::AdviceInputs, Digest};
+use miden_client::{Client, Felt, Word, crypto::FeltRng};
+use miden_objects::{Digest, vm::AdviceInputs};
 use serde::{Deserialize, Serialize};
 
 use crate::{errors::CliError, utils::get_input_acc_id_by_prefix_or_default};

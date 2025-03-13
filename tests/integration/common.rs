@@ -1,33 +1,33 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
+    Client, ClientError, Word,
     account::{
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
         AccountBuilder, AccountType,
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
     },
     auth::AuthSecretKey,
     authenticator::{
-        keystore::{FilesystemKeyStore, KeyStore},
         ClientAuthenticator,
+        keystore::{FilesystemKeyStore, KeyStore},
     },
     crypto::FeltRng,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
     transaction::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
     },
-    Client, ClientError, Word,
 };
 use miden_objects::{
+    Felt, FieldElement,
     account::{Account, AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
-    Felt, FieldElement,
 };
 use rand::Rng;
 use toml::Table;
@@ -37,7 +37,7 @@ pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_O
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
 /// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -56,7 +56,7 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
     };
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
@@ -76,18 +76,18 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 }
 
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
-    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
+    let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
-        + "://"
-        + rpc_endpoint_toml["host"].as_str().unwrap()
-        + ":"
-        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
-    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+    let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+    let port = if rpc_endpoint_toml.contains_key("port") {
+        rpc_endpoint_toml["port"].as_integer().map(|port| port as u16)
+    } else {
+        None
+    };
+
+    let endpoint = Endpoint::new(protocol, host, port);
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
@@ -123,7 +123,7 @@ pub async fn insert_new_wallet_with_seed<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
@@ -149,7 +149,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -263,7 +263,9 @@ pub async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
-    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries...");
+    println!(
+        "Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries..."
+    );
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {

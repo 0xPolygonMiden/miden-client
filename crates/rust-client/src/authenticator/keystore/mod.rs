@@ -1,7 +1,8 @@
-use alloc::string::String;
+use alloc::{boxed::Box, string::String};
 
-use miden_objects::{account::AuthSecretKey, Word};
+use miden_objects::{Word, account::AuthSecretKey};
 use thiserror::Error;
+use tonic::async_trait;
 
 #[derive(Debug, Error)]
 pub enum KeyStoreError {
@@ -11,10 +12,11 @@ pub enum KeyStoreError {
     DecodingError(String),
 }
 
+#[async_trait(?Send)]
 pub trait KeyStore {
     /// Adds a new key to the keystore. If a key with the same public key already exists, it
     /// will be overwritten.
-    fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError>;
+    async fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError>;
 
     /// Gets a secret key by public key. If the public key isn't found, `None` is returned.
     fn get_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, KeyStoreError>;

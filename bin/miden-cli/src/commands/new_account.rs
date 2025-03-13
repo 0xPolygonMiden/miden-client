@@ -2,24 +2,24 @@ use std::{collections::BTreeMap, fs, io::Write, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
+    Client, Felt,
     account::{
+        AccountBuilder, AccountStorageMode, AccountType,
         component::{
             AccountComponent, AccountComponentTemplate, BasicFungibleFaucet, BasicWallet,
             InitStorageData, RpoFalcon512,
         },
-        AccountBuilder, AccountStorageMode, AccountType,
     },
     asset::TokenSymbol,
     auth::AuthSecretKey,
     authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
-    Client, Felt,
 };
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
-    CLIENT_BINARY_NAME,
+    CLIENT_BINARY_NAME, commands::account::maybe_set_default_account, errors::CliError,
+    utils::load_config_file,
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -166,6 +166,7 @@ impl NewFaucetCmd {
 
         keystore
             .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .map_err(CliError::KeyStore)?;
         client.add_account(&new_account, Some(seed), false).await?;
 
@@ -245,6 +246,7 @@ impl NewWalletCmd {
 
         keystore
             .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .map_err(CliError::KeyStore)?;
         client.add_account(&new_account, Some(seed), false).await?;
 

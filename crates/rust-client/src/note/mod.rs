@@ -62,8 +62,8 @@ use miden_lib::transaction::TransactionKernel;
 use miden_objects::{account::AccountId, crypto::rand::FeltRng};
 
 use crate::{
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
 };
 
 pub mod script_roots;
@@ -77,22 +77,18 @@ mod note_screener;
 pub use miden_lib::note::{
     create_p2id_note, create_p2idr_note, create_swap_note,
     utils::{build_p2id_recipient, build_swap_tag},
+    well_known_note::WellKnownNote,
 };
 pub use miden_objects::{
+    NoteError,
     block::BlockNumber,
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
         NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
         Nullifier,
     },
-    NoteError,
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
-
-/// Contains functions to simplify standard note scripts creation.
-pub mod scripts {
-    pub use miden_lib::note::scripts::{p2id, p2idr, swap};
-}
 
 /// Note retrieval methods.
 impl<R: FeltRng> Client<R> {
