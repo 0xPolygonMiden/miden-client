@@ -17,11 +17,26 @@
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
+* [BREAKING] Updated client to Rust 2024 edition (#778).
 * Added recency validations for the client (#776).
 
 ### Fixes
 
+* Fix Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+
+## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
+
+### Changes
+
+* [BREAKING] Added initial Web Workers implementation to web client (#720, #743).
+* Web client: Exposed `InputNotes` iterator and `assets` getter (#757).
+* Web client: Exported `TransactionResult` in typings (#768).
+* Implemented serialization and deserialization for `SyncSummary` (#725).
+
+### Fixes
+
+* Web client: Fixed submit transaction; Typescript types now match underlying Client call (#760).
 
 ## 0.7.0 (2025-01-28)
 

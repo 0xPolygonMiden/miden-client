@@ -3,13 +3,13 @@ use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
-    authenticator::{keystore::WebKeyStore, ClientAuthenticator},
+    Client,
+    authenticator::{ClientAuthenticator, keystore::WebKeyStore},
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
-    Client, RemoteTransactionProver,
 };
-use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::prelude::*;
 
 pub mod account;
@@ -23,11 +23,11 @@ pub mod notes;
 pub mod sync;
 pub mod tags;
 pub mod transactions;
+pub mod utils;
 
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
-    remote_prover: Option<Arc<RemoteTransactionProver>>,
     keystore: Option<WebKeyStore>,
     inner: Option<Client<RpoRandomCoin>>,
 }
@@ -43,12 +43,7 @@ impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         set_once();
-        WebClient {
-            inner: None,
-            remote_prover: None,
-            store: None,
-            keystore: None,
-        }
+        WebClient { inner: None, store: None, keystore: None }
     }
 
     pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
@@ -59,7 +54,6 @@ impl WebClient {
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
-        prover_url: Option<String>,
         seed: Option<Vec<u8>>,
     ) -> Result<JsValue, JsValue> {
         let mut rng = match seed {
@@ -74,7 +68,7 @@ impl WebClient {
             },
             None => StdRng::from_entropy(),
         };
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()
@@ -92,8 +86,6 @@ impl WebClient {
 
         let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
 
-        self.remote_prover =
-            prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
         self.inner =
             Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);

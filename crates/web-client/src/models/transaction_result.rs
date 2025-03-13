@@ -1,9 +1,13 @@
 use miden_client::transaction::TransactionResult as NativeTransactionResult;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
-use super::{
-    account_delta::AccountDelta, executed_transaction::ExecutedTransaction,
-    input_notes::InputNotes, output_notes::OutputNotes, transaction_args::TransactionArgs,
+use crate::{
+    models::{
+        account_delta::AccountDelta, executed_transaction::ExecutedTransaction,
+        input_notes::InputNotes, output_notes::OutputNotes, transaction_args::TransactionArgs,
+    },
+    utils::{deserialize_from_uint8array, serialize_to_uint8array},
 };
 
 #[wasm_bindgen]
@@ -41,6 +45,14 @@ impl TransactionResult {
     #[wasm_bindgen(js_name = "consumedNotes")]
     pub fn consumed_notes(&self) -> InputNotes {
         self.0.consumed_notes().into()
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        serialize_to_uint8array(&self.0)
+    }
+
+    pub fn deserialize(bytes: &Uint8Array) -> Result<TransactionResult, JsValue> {
+        deserialize_from_uint8array::<NativeTransactionResult>(bytes).map(TransactionResult)
     }
 }
 

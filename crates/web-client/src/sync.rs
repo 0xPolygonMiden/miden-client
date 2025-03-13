@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{models::sync_summary::SyncSummary, WebClient};
+use crate::{WebClient, models::sync_summary::SyncSummary};
 
 #[wasm_bindgen]
 impl WebClient {

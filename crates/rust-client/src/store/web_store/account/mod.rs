@@ -5,9 +5,9 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorage},
     asset::{Asset, AssetVault},
-    Digest, Word,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use serde_wasm_bindgen::from_value;
@@ -18,16 +18,16 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 
 mod js_bindings;
 use js_bindings::{
-    idxdb_get_account_asset_vault, idxdb_get_account_code, idxdb_get_account_header,
-    idxdb_get_account_header_by_hash, idxdb_get_account_headers, idxdb_get_account_ids,
-    idxdb_get_account_storage, idxdb_get_foreign_account_code, idxdb_lock_account,
-    idxdb_upsert_foreign_account_code,
+    idxdb_fetch_and_cache_account_auth_by_pub_key, idxdb_get_account_asset_vault,
+    idxdb_get_account_code, idxdb_get_account_header, idxdb_get_account_header_by_hash,
+    idxdb_get_account_headers, idxdb_get_account_ids, idxdb_get_account_storage,
+    idxdb_get_foreign_account_code, idxdb_lock_account, idxdb_upsert_foreign_account_code,
 };
 
 mod models;
 use models::{
-    AccountCodeIdxdbObject, AccountRecordIdxdbObject, AccountStorageIdxdbObject,
-    AccountVaultIdxdbObject, ForeignAcountCodeIdxdbObject,
+    AccountAuthIdxdbObject, AccountCodeIdxdbObject, AccountRecordIdxdbObject,
+    AccountStorageIdxdbObject, AccountVaultIdxdbObject, ForeignAcountCodeIdxdbObject,
 };
 
 pub(crate) mod utils;
@@ -218,6 +218,29 @@ impl WebStore {
         update_account(new_account_state)
             .await
             .map_err(|_| StoreError::DatabaseError("Failed to update account".to_string()))
+    }
+
+    pub async fn fetch_and_cache_account_auth_by_pub_key(
+        &self,
+        pub_key: String,
+    ) -> Result<Option<String>, StoreError> {
+        let promise = idxdb_fetch_and_cache_account_auth_by_pub_key(pub_key);
+
+        let js_value = JsFuture::from(promise).await.unwrap();
+        let account_auth_idxdb: Option<AccountAuthIdxdbObject> =
+            from_value(js_value).map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to deserialize {err:?}"
+                )))
+            })?;
+
+        match account_auth_idxdb {
+            None => Ok(None),
+            Some(account_auth_idxdb) => {
+                // Convert the auth_info to the appropriate AuthInfo enum variant
+                Ok(Some(account_auth_idxdb.secret_key))
+            },
+        }
     }
 
     pub(crate) async fn upsert_foreign_account_code(

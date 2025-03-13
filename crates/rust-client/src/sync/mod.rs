@@ -60,33 +60,35 @@ use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::{self, rand::FeltRng},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    Digest,
 };
+use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use tracing::info;
 
 use crate::{
+    Client, ClientError,
     note::NoteUpdates,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
     transaction::TransactionStatus,
-    Client, ClientError,
 };
 
 mod block_header;
-use block_header::apply_mmr_changes;
 pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
+use block_header::apply_mmr_changes;
 
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
+#[derive(Debug, PartialEq)]
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
@@ -154,6 +156,42 @@ impl SyncSummary {
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
         self.committed_transactions.append(&mut other.committed_transactions);
+    }
+}
+
+impl Serializable for SyncSummary {
+    fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
+        self.block_num.write_into(target);
+        self.received_notes.write_into(target);
+        self.committed_notes.write_into(target);
+        self.consumed_notes.write_into(target);
+        self.updated_accounts.write_into(target);
+        self.locked_accounts.write_into(target);
+        self.committed_transactions.write_into(target);
+    }
+}
+
+impl Deserializable for SyncSummary {
+    fn read_from<R: miden_tx::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, DeserializationError> {
+        let block_num = BlockNumber::read_from(source)?;
+        let received_notes = Vec::<NoteId>::read_from(source)?;
+        let committed_notes = Vec::<NoteId>::read_from(source)?;
+        let consumed_notes = Vec::<NoteId>::read_from(source)?;
+        let updated_accounts = Vec::<AccountId>::read_from(source)?;
+        let locked_accounts = Vec::<AccountId>::read_from(source)?;
+        let committed_transactions = Vec::<TransactionId>::read_from(source)?;
+
+        Ok(Self {
+            block_num,
+            received_notes,
+            committed_notes,
+            consumed_notes,
+            updated_accounts,
+            locked_accounts,
+            committed_transactions,
+        })
     }
 }
 

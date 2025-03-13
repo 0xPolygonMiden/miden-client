@@ -21,9 +21,9 @@
 //!
 //! ```rust
 //! use miden_client::{
+//!     Client,
 //!     crypto::FeltRng,
 //!     transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionResult},
-//!     Client,
 //! };
 //! use miden_objects::{account::AccountId, asset::FungibleAsset, note::NoteType};
 //! # use std::error::Error;
@@ -73,35 +73,35 @@ use core::fmt::{self};
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
+    AccountError, AssetError, Digest, Felt, Word, ZERO,
     account::{Account, AccountCode, AccountDelta, AccountId, AccountType, AuthSecretKey},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
     crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    AccountError, AssetError, Digest, Felt, Word, ZERO,
-};
-use miden_tx::{
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    TransactionExecutor,
 };
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+};
+use miden_tx::{
+    TransactionExecutor,
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
 };
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 
 use super::{Client, FeltRng};
 use crate::{
+    ClientError,
     account::procedure_roots::RPO_FALCON_512_AUTH,
     note::{NoteScreener, NoteUpdates},
     rpc::domain::account::AccountProof,
     store::{
-        input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, StoreError, TransactionFilter,
+        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
+        TransactionFilter, input_note_states::ExpectedNoteState,
     },
-    sync::{NoteTagRecord, MAX_BLOCK_NUMBER_DELTA},
-    ClientError,
+    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
 };
 
 mod request;
@@ -907,7 +907,9 @@ impl<R: FeltRng> Client<R> {
 
         // Optionally retrieve block header if we don't have it
         if self.store.get_block_headers(&[block_num]).await?.is_empty() {
-            info!("Getting current block header data to execute transaction with foreign account requirements");
+            info!(
+                "Getting current block header data to execute transaction with foreign account requirements"
+            );
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
@@ -1044,6 +1046,7 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{account::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
+        Word,
         account::{AccountBuilder, AccountComponent, AuthSecretKey, StorageMap, StorageSlot},
         asset::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
@@ -1055,7 +1058,6 @@ mod test {
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
         },
-        Word,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -1080,7 +1082,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,
@@ -1117,11 +1119,13 @@ mod test {
         .unwrap();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
-        assert!(tx_result
-            .created_notes()
-            .get_note(0)
-            .assets()
-            .is_some_and(|assets| assets.num_assets() == 2));
+        assert!(
+            tx_result
+                .created_notes()
+                .get_note(0)
+                .assets()
+                .is_some_and(|assets| assets.num_assets() == 2)
+        );
         // Prove and apply transaction
         client.testing_apply_transaction(tx_result.clone()).await.unwrap();
 
