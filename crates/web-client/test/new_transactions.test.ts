@@ -328,7 +328,7 @@ export const customTransaction = async (
         ])
       );
 
-      const serialNum = window.Word.new_from_u64s(
+      const serialNum = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
       let noteRecipient = new window.NoteRecipient(
@@ -353,10 +353,7 @@ export const customTransaction = async (
       );
 
       if (_withCustomProver) {
-        await client.submitTransactionWithProver(
-          transactionResult,
-          await selectProver()
-        );
+        await client.submitTransaction(transactionResult, await selectProver());
       } else {
         await client.submitTransaction(transactionResult);
       }
@@ -408,7 +405,7 @@ export const customTransaction = async (
       );
 
       if (_withCustomProver) {
-        await client.submitTransactionWithProver(
+        await client.submitTransaction(
           transactionResult2,
           await selectProver()
         );
@@ -464,10 +461,10 @@ const customTxWithMultipleNotes = async (
         undefined
       );
 
-      let serialNum1 = window.Word.new_from_u64s(
+      let serialNum1 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
-      let serialNum2 = window.Word.new_from_u64s(
+      let serialNum2 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(5), BigInt(6), BigInt(7), BigInt(8)])
       );
 

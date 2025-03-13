@@ -18,3 +18,4 @@ blockstore_dir    = "./blocks"
 database_filepath = "./miden-store.sqlite3"
 endpoint          = "http://127.0.0.1:28943"
 genesis_filepath  = "./genesis.dat"
+db_optimization_interval_secs = 86400

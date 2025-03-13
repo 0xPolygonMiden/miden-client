@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use super::models::account::Account;
 use crate::{
-    helpers::generate_wallet, models::account_storage_mode::AccountStorageMode, WebClient,
+    WebClient, helpers::generate_wallet, models::account_storage_mode::AccountStorageMode,
 };
 
 #[wasm_bindgen]
@@ -21,6 +21,7 @@ impl WebClient {
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&account_data.auth_secret_key)
+                .await
                 .map_err(|err| err.to_string())?;
             match client
                 .add_account(&account_data.account, account_data.account_seed, false)
@@ -46,11 +47,18 @@ impl WebClient {
         init_seed: Vec<u8>,
         mutable: bool,
     ) -> Result<Account, JsValue> {
+        let keystore = self.keystore.clone();
         let client = self.get_mut_inner().ok_or(JsValue::from_str("Client not initialized"))?;
 
-        let (generated_acct, ..) =
+        let (generated_acct, _, key_pair) =
             generate_wallet(client, &AccountStorageMode::public(), mutable, Some(init_seed))
                 .await?;
+
+        keystore
+            .expect("KeyStore should be initialized")
+            .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .await
+            .map_err(|err| err.to_string())?;
 
         let account_id = generated_acct.id();
         client.import_account_by_id(account_id).await.map_err(|err| {

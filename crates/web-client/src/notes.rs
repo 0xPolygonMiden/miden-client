@@ -1,17 +1,17 @@
 use miden_client::store::OutputNoteRecord;
 use miden_objects::{
-    note::{NoteId, NoteScript as NativeNoteScript},
     Digest,
+    note::{NoteId, NoteScript as NativeNoteScript},
 };
 use wasm_bindgen::prelude::*;
 
 use super::models::note_script::NoteScript;
 use crate::{
+    WebClient,
     models::{
         account_id::AccountId, consumable_note_record::ConsumableNoteRecord,
         input_note_record::InputNoteRecord, note_filter::NoteFilter,
     },
-    WebClient,
 };
 
 #[wasm_bindgen]

@@ -1,17 +1,17 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
+    Client, Word,
     account::{Account, AccountFile},
     crypto::FeltRng,
     keystore::FilesystemKeyStore,
     store::NoteExportType,
     utils::Serializable,
-    Client, Word,
 };
 use rand::rngs::StdRng;
 use tracing::info;
 
-use crate::{errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id, Parser};
+use crate::{Parser, errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]

@@ -9,7 +9,7 @@ use assert_cmd::Command;
 use config::RpcConfig;
 use miden_cli::CliKeyStore;
 use miden_client::{
-    self,
+    self, Client, Felt,
     account::{AccountId, AccountStorageMode},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
@@ -21,9 +21,8 @@ use miden_client::{
     testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
-    Client, Felt,
 };
-use miden_client_tests::common::{execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR};
+use miden_client_tests::common::{ACCOUNT_ID_REGULAR, execute_tx_and_sync, insert_new_wallet};
 use predicates::str::contains;
 use rand::Rng;
 use uuid::Uuid;
@@ -53,8 +52,6 @@ mod config;
 fn test_init_without_params() {
     let temp_dir = init_cli("localhost").1;
 
-    sync_cli(&temp_dir);
-
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args(["init"]);
@@ -74,8 +71,6 @@ fn test_init_with_params() {
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
     assert!(config_file_str.contains("localhost"));
-
-    sync_cli(&temp_dir);
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
@@ -383,7 +378,9 @@ async fn debug_mode_outputs_logs() {
     // using the CLI to check the stdout.
 
     const NOTE_FILENAME: &str = "test_note.mno";
-    env::set_var("MIDEN_DEBUG", "true");
+    unsafe {
+        env::set_var("MIDEN_DEBUG", "true");
+    }
 
     // Create a Client and a custom note
     let store_path = create_test_store_path();
@@ -648,7 +645,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
     };
 
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let coin_seed: [u64; 4] = rng.r#gen();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 

@@ -39,9 +39,9 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::{
+    AccountError, Word,
     block::BlockHeader,
     crypto::{dsa::rpo_falcon512::PublicKey, rand::FeltRng},
-    AccountError, Word,
 };
 
 use super::Client;
@@ -119,7 +119,9 @@ impl<R: FeltRng> Client<R> {
             // ignore it at the point of executing against this transaction, but that
             // approach seems a little bit more incorrect
             if account_seed.is_some() {
-                tracing::warn!("Added an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+                tracing::warn!(
+                    "Added an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored."
+                );
             }
             None
         };
@@ -309,12 +311,12 @@ pub mod tests {
 
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
+        Felt, Word,
         account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
         },
-        Felt, Word,
     };
 
     use crate::mock::create_test_client;

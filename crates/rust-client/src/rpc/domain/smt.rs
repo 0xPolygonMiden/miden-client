@@ -1,8 +1,8 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    crypto::merkle::{LeafIndex, SmtLeaf, SmtProof, SMT_DEPTH},
     Digest, Word,
+    crypto::merkle::{LeafIndex, SMT_DEPTH, SmtLeaf, SmtProof},
 };
 
 use super::MissingFieldHelper;

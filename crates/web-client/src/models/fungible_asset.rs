@@ -1,7 +1,7 @@
 use miden_objects::{
+    Word as NativeWord,
     account::AccountId as NativeAccountId,
     asset::{Asset as NativeAsset, FungibleAsset as FungibleAssetNative},
-    Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;
 

@@ -1,4 +1,5 @@
 use miden_client::{
+    Felt, Word,
     account::{Account, StorageSlot},
     auth::AuthSecretKey,
     block::BlockHeader,
@@ -7,14 +8,13 @@ use miden_client::{
     transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
-    Felt, Word,
 };
 use miden_lib::account::auth::RpoFalcon512;
 use miden_objects::{
+    Digest,
     account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},
     crypto::dsa::rpo_falcon512::SecretKey,
     transaction::TransactionScript,
-    Digest,
 };
 
 use super::common::*;
@@ -50,7 +50,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
