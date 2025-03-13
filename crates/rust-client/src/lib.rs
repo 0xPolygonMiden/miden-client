@@ -54,6 +54,7 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
+//!     Client, Felt,
 //!     crypto::RpoRandomCoin,
 //!     keystore::FilesystemKeyStore,
 //!     rpc::{Endpoint, TonicRpcClient},

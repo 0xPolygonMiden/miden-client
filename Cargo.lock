@@ -1429,16 +1429,13 @@ name = "miden-client-web"
 version = "0.8.0"
 dependencies = [
  "console_error_panic_hook",
- "hex",
  "miden-client",
  "miden-lib",
  "miden-objects",
  "rand",
  "serde-wasm-bindgen",
- "thiserror 2.0.12",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
