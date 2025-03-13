@@ -78,6 +78,7 @@ mod note_update_tracker;
 pub use miden_lib::note::{
     create_p2id_note, create_p2idr_note, create_swap_note,
     utils::{build_p2id_recipient, build_swap_tag},
+    well_known_note::WellKnownNote,
 };
 pub use miden_objects::{
     NoteError,
@@ -90,11 +91,6 @@ pub use miden_objects::{
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 pub use note_update_tracker::NoteUpdateTracker;
-
-/// Contains functions to simplify standard note scripts creation.
-pub mod scripts {
-    pub use miden_lib::note::scripts::{p2id, p2idr, swap};
-}
 
 /// Note retrieval methods.
 impl<R: FeltRng> Client<R> {

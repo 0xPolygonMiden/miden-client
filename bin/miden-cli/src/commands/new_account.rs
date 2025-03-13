@@ -166,6 +166,7 @@ impl NewFaucetCmd {
 
         keystore
             .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .map_err(CliError::KeyStore)?;
         client.add_account(&new_account, Some(seed), false).await?;
 
@@ -245,6 +246,7 @@ impl NewWalletCmd {
 
         keystore
             .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .map_err(CliError::KeyStore)?;
         client.add_account(&new_account, Some(seed), false).await?;
 

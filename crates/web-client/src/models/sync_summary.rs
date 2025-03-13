@@ -1,7 +1,11 @@
 use miden_client::sync::SyncSummary as NativeSyncSummary;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
-use super::{account_id::AccountId, note_id::NoteId, transaction_id::TransactionId};
+use crate::{
+    models::{account_id::AccountId, note_id::NoteId, transaction_id::TransactionId},
+    utils::{deserialize_from_uint8array, serialize_to_uint8array},
+};
 
 #[wasm_bindgen]
 pub struct SyncSummary(NativeSyncSummary);
@@ -31,6 +35,14 @@ impl SyncSummary {
     #[wasm_bindgen(js_name = "committedTransactions")]
     pub fn committed_transactions(&self) -> Vec<TransactionId> {
         self.0.committed_transactions.iter().map(Into::into).collect()
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        serialize_to_uint8array(&self.0)
+    }
+
+    pub fn deserialize(bytes: &Uint8Array) -> Result<SyncSummary, JsValue> {
+        deserialize_from_uint8array::<NativeSyncSummary>(bytes).map(SyncSummary)
     }
 }
 
