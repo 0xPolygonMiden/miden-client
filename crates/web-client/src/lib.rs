@@ -7,8 +7,11 @@ use miden_client::{
     authenticator::{ClientAuthenticator, keystore::WebKeyStore},
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
+    transaction::TransactionResult as NativeTransactionResult,
 };
+
 use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use models::transaction_result::TransactionResult;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::prelude::*;
 
@@ -92,5 +95,30 @@ impl WebClient {
         self.keystore = Some(keystore);
 
         Ok(JsValue::from_str("Client created successfully"))
+    }
+}
+
+// TESTING HELPERS
+// ================================================================================================
+
+#[cfg(feature = "testing")]
+#[wasm_bindgen]
+impl WebClient {
+    #[wasm_bindgen(js_name = "testingApplyTransaction")]
+    pub async fn testing_apply_transaction(
+        &mut self,
+        tx_result: TransactionResult,
+    ) -> Result<(), JsValue> {
+        let native_transaction_result: NativeTransactionResult = tx_result.into();
+
+        if let Some(client) = self.get_mut_inner() {
+            client
+                .testing_apply_transaction(native_transaction_result)
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to apply transaction: {err}")))?;
+            Ok(())
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
     }
 }
