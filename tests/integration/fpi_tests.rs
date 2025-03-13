@@ -50,7 +50,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         foreign_account(storage_mode, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(

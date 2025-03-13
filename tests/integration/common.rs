@@ -26,7 +26,7 @@ use miden_objects::{
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
 };
-use rand::{rngs::StdRng, Rng};
+use rand::{Rng, rngs::StdRng};
 use toml::Table;
 use uuid::Uuid;
 
@@ -120,7 +120,7 @@ pub async fn insert_new_wallet_with_seed<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
@@ -146,7 +146,7 @@ pub async fn insert_new_fungible_faucet<R: FeltRng>(
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];

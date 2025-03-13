@@ -2,8 +2,9 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use console_error_panic_hook::set_once;
-use keystore::WebKeyStore;
 use miden_client::{
+    Client,
+    keystore::WebKeyStore,
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
 };
@@ -15,7 +16,6 @@ pub mod account;
 pub mod export;
 pub mod helpers;
 pub mod import;
-pub mod keystore;
 pub mod models;
 pub mod new_account;
 pub mod new_transactions;
@@ -28,7 +28,6 @@ pub mod utils;
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
-    remote_prover: Option<Arc<RemoteTransactionProver>>,
     keystore: Option<WebKeyStore<RpoRandomCoin>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
@@ -85,8 +84,6 @@ impl WebClient {
 
         let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
 
-        self.remote_prover =
-            prover_url.map(|prover_url| Arc::new(RemoteTransactionProver::new(prover_url)));
         self.inner = Some(Client::new(
             web_rpc_client,
             rng,

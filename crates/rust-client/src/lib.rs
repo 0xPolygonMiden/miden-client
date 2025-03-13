@@ -60,7 +60,7 @@
 //!     store::{Store, sqlite_store::SqliteStore},
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
-//! use rand::{rngs::StdRng, Rng};
+//! use rand::{Rng, rngs::StdRng};
 //!
 //! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the SQLite store from the client configuration.
@@ -103,7 +103,6 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
-#[cfg(feature = "std")]
 pub mod keystore;
 pub mod note;
 pub mod rpc;
@@ -169,16 +168,16 @@ pub mod crypto {
 }
 
 pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
-pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
+pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
         bytes_to_hex_string,
         sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
-        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
     };
 }
 

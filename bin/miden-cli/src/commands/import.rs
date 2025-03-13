@@ -14,8 +14,8 @@ use miden_client::{
 use tracing::info;
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file,
-    CliKeyStore, Parser,
+    CliKeyStore, Parser, commands::account::maybe_set_default_account, errors::CliError,
+    utils::load_config_file,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -82,10 +82,7 @@ async fn import_account(
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
-    keystore
-        .add_key(&account_data.auth_secret_key)
-        .await
-        .map_err(CliError::KeyStore)?;
+    keystore.add_key(&account_data.auth_secret_key).map_err(CliError::KeyStore)?;
 
     client
         .add_account(&account_data.account, account_data.account_seed, overwrite)

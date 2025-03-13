@@ -6,13 +6,12 @@ use errors::CliError;
 use miden_client::{
     Client, ClientError, Felt, IdPrefixFetchError,
     account::AccountHeader,
-    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     crypto::{FeltRng, RpoRandomCoin},
     keystore::FilesystemKeyStore,
     rpc::TonicRpcClient,
     store::{NoteFilter as ClientNoteFilter, OutputNoteRecord, Store, sqlite_store::SqliteStore},
 };
-use rand::{rngs::StdRng, Rng};
+use rand::{Rng, rngs::StdRng};
 mod commands;
 use commands::{
     account::AccountCmd,

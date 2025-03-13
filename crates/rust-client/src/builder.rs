@@ -4,10 +4,11 @@ use alloc::{
     sync::Arc,
 };
 
-use miden_objects::crypto::rand::RpoRandomCoin;
-use rand::{rngs::StdRng, Rng};
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use rand::{Rng, rngs::StdRng};
 
 use crate::{
+    Client, ClientError,
     keystore::FilesystemKeyStore,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
     store::{Store, sqlite_store::SqliteStore},

@@ -24,11 +24,12 @@ use miden_objects::{
     transaction::{InputNote, ProvenTransaction},
 };
 use miden_tx::testing::MockChain;
-use rand::{rngs::StdRng, Rng};
+use rand::{Rng, rngs::StdRng};
 use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
+    Client,
     keystore::FilesystemKeyStore,
     rpc::{
         NodeRpcClient, RpcError,

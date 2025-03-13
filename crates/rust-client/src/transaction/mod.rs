@@ -80,15 +80,14 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    AccountError, AssetError, Digest, Felt, Word, ZERO,
 };
 pub use miden_tx::{
-    auth::TransactionAuthenticator, LocalTransactionProver, ProvingOptions, TransactionProver,
-    TransactionProverError,
+    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+    auth::TransactionAuthenticator,
 };
 use miden_tx::{
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     TransactionExecutor,
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
 };
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
@@ -1063,7 +1062,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,
