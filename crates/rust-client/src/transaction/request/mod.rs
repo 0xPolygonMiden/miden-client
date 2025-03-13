@@ -320,6 +320,8 @@ pub enum TransactionRequestError {
     NoteNotFound(String),
     #[error("note creation error")]
     NoteCreationError(#[from] NoteError),
+    #[error("pay to id note doesn't contain at least one asset")]
+    P2IDNoteWithoutAsset,
     #[error("transaction script template error: {0}")]
     ScriptTemplateError(String),
     #[error("storage slot {0} not found in account ID {1}")]

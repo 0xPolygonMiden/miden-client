@@ -698,12 +698,7 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
     let error = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(
@@ -717,10 +712,5 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 }
