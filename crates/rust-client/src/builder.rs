@@ -5,6 +5,7 @@ use alloc::{
 };
 
 use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use miden_tx::auth::TransactionAuthenticator;
 use rand::{Rng, rngs::StdRng};
 
 use crate::{
@@ -14,15 +15,16 @@ use crate::{
     store::{Store, sqlite_store::SqliteStore},
 };
 
-/// Represents the configuration for a keystore.
+/// Represents the configuration for an authenticator.
 ///
-/// This enum defers keystore instantiation until the build phase. The builder can accept either:
+/// This enum defers authenticator instantiation until the build phase. The builder can accept
+/// either:
 ///
-/// - A direct instance of a keystore, or
-/// - A keystore path as a string which is then used to initialize the keystore during `build()`.
-enum KeystoreConfig<K> {
+/// - A direct instance of an authenticator, or
+/// - A keystore path as a string which is then used as an authenticator.
+enum AuthenticatorConfig {
     Path(String),
-    Instance(K),
+    Instance(Arc<dyn TransactionAuthenticator>),
 }
 
 /// A builder for constructing a Miden client.
@@ -30,7 +32,7 @@ enum KeystoreConfig<K> {
 /// This builder allows you to configure the various components required by the client, such as the
 /// RPC endpoint, store, RNG, and keystore. It is generic over the keystore type. By default, it
 /// uses `FilesystemKeyStore<rand::rngs::StdRng>`.
-pub struct ClientBuilder<K = FilesystemKeyStore<rand::rngs::StdRng>> {
+pub struct ClientBuilder {
     /// An optional RPC endpoint.
     rpc_endpoint: Option<Endpoint>,
     /// An optional custom RPC client. If provided, this takes precedence over `rpc_endpoint`.
@@ -44,12 +46,12 @@ pub struct ClientBuilder<K = FilesystemKeyStore<rand::rngs::StdRng>> {
     /// The store path to use when no store is directly provided via `with_store()`.
     store_path: String,
     /// The keystore configuration provided by the user.
-    keystore: Option<KeystoreConfig<K>>,
+    keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
 }
 
-impl<K> Default for ClientBuilder<K> {
+impl Default for ClientBuilder {
     fn default() -> Self {
         Self {
             rpc_endpoint: None,
@@ -64,7 +66,7 @@ impl<K> Default for ClientBuilder<K> {
     }
 }
 
-impl<K> ClientBuilder<K> {
+impl ClientBuilder {
     /// Create a new `ClientBuilder` with default settings.
     #[must_use]
     pub fn new() -> Self {
@@ -120,24 +122,24 @@ impl<K> ClientBuilder<K> {
         self
     }
 
-    /// Optionally provide a custom keystore instance.
+    /// Optionally provide a custom authenticator instance.
     #[must_use]
-    pub fn with_keystore(mut self, keystore: K) -> Self {
-        self.keystore = Some(KeystoreConfig::Instance(keystore));
+    pub fn with_authenticator(mut self, authenticator: Arc<dyn TransactionAuthenticator>) -> Self {
+        self.keystore = Some(AuthenticatorConfig::Instance(authenticator));
         self
     }
 }
 
 /// Methods that only make sense when using the default keystore type,
 /// i.e. `FilesystemKeyStore<rand::rngs::StdRng>`.
-impl ClientBuilder<FilesystemKeyStore<rand::rngs::StdRng>> {
+impl ClientBuilder {
     /// **Required:** Provide the keystore path as a string.
     ///
     /// This stores the keystore path as a configuration option so that actual keystore
     /// initialization is deferred until `build()`. This avoids panicking during builder chaining.
     #[must_use]
     pub fn with_filesystem_keystore(mut self, keystore_path: &str) -> Self {
-        self.keystore = Some(KeystoreConfig::Path(keystore_path.to_string()));
+        self.keystore = Some(AuthenticatorConfig::Path(keystore_path.to_string()));
         self
     }
 
@@ -180,12 +182,14 @@ impl ClientBuilder<FilesystemKeyStore<rand::rngs::StdRng>> {
             RpoRandomCoin::new(coin_seed.map(Felt::new))
         };
 
-        // Initialize the keystore.
-        let keystore = match self.keystore {
-            Some(KeystoreConfig::Instance(k)) => k,
-            Some(KeystoreConfig::Path(ref path)) => {
-                FilesystemKeyStore::<StdRng>::new(path.into())
-                    .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?
+        // Initialize the authenticator.
+        let authenticator = match self.keystore {
+            Some(AuthenticatorConfig::Instance(authenticator)) => authenticator,
+            Some(AuthenticatorConfig::Path(ref path)) => {
+                let fs_keystore = FilesystemKeyStore::<StdRng>::new(path.into())
+                    .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
+
+                Arc::new(fs_keystore)
             },
             None => {
                 return Err(ClientError::ClientInitializationError(
@@ -195,6 +199,6 @@ impl ClientBuilder<FilesystemKeyStore<rand::rngs::StdRng>> {
             }
         };
 
-        Ok(Client::new(rpc_api, rng, arc_store, Arc::new(keystore), self.in_debug_mode))
+        Ok(Client::new(rpc_api, rng, arc_store, authenticator, self.in_debug_mode))
     }
 }
