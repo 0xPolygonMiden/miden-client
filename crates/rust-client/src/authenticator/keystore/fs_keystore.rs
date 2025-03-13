@@ -1,12 +1,14 @@
-use alloc::string::String;
+use alloc::{boxed::Box, string::String};
 use std::{
     fs::OpenOptions,
-    io::{BufRead, BufReader, BufWriter, Write},
+    io::{BufReader, Read},
     path::PathBuf,
 };
 
 use miden_objects::{Digest, Word, account::AuthSecretKey};
 use miden_tx::utils::{Deserializable, Serializable};
+use tokio::io::AsyncWriteExt;
+use tonic::async_trait;
 
 use super::{KeyStore, KeyStoreError};
 
@@ -32,51 +34,70 @@ impl FilesystemKeyStore {
     }
 }
 
+#[async_trait(?Send)]
 impl KeyStore for FilesystemKeyStore {
-    fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
+    /// Adds a new key to the keystore. If a key with the same public key already exists, it
+    /// will be overwritten.
+    async fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
         let pub_key = match &key {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
         };
 
-        let file_path = self.keys_directory.join(pub_key);
-        let file = OpenOptions::new()
+        let file_path = self.keys_directory.join(&pub_key);
+
+        let file = tokio::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(file_path)
+            .open(&file_path)
+            .await
             .map_err(|err| {
                 KeyStoreError::StorageError(format!("error opening secret key file: {err:?}"))
             })?;
 
-        let mut writer = BufWriter::new(file);
-        let key_pair_hex = hex::encode(key.to_bytes());
-        writer.write_all(key_pair_hex.as_bytes()).map_err(|err| {
+        let mut writer = tokio::io::BufWriter::new(file);
+        let mut key_pair_hex = hex::encode(key.to_bytes());
+
+        // Ensure a newline is added so it is read correctly later
+        key_pair_hex.push('\n');
+
+        writer.write_all(key_pair_hex.as_bytes()).await.map_err(|err| {
             KeyStoreError::StorageError(format!("error writing secret key file: {err:?}"))
+        })?;
+
+        // Ensure the data is written before closing the file
+        writer.flush().await.map_err(|err| {
+            KeyStoreError::StorageError(format!("error flushing secret key file: {err:?}"))
         })?;
 
         Ok(())
     }
 
+    /// Retrieves a secret key by its public key. Returns `None` if the key is not found.
     fn get_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, KeyStoreError> {
         let pub_key_str = Digest::from(pub_key).to_hex();
-
         let file_path = self.keys_directory.join(pub_key_str);
+
         if !file_path.exists() {
             return Ok(None);
         }
 
-        let file = OpenOptions::new().read(true).open(file_path).map_err(|err| {
+        let file = OpenOptions::new().read(true).open(&file_path).map_err(|err| {
             KeyStoreError::StorageError(format!("error opening secret key file: {err:?}"))
         })?;
+
         let mut reader = BufReader::new(file);
         let mut key_pair_hex = String::new();
-        reader.read_line(&mut key_pair_hex).map_err(|err| {
+
+        // Read the entire file contents instead of just one line
+        reader.read_to_string(&mut key_pair_hex).map_err(|err| {
             KeyStoreError::StorageError(format!("error reading secret key file: {err:?}"))
         })?;
 
         let secret_key_bytes = hex::decode(key_pair_hex.trim()).map_err(|err| {
             KeyStoreError::DecodingError(format!("error decoding secret key hex: {err:?}"))
         })?;
+
         let secret_key =
             AuthSecretKey::read_from_bytes(secret_key_bytes.as_slice()).map_err(|err| {
                 KeyStoreError::DecodingError(format!(

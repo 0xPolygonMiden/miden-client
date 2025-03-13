@@ -53,8 +53,6 @@ mod config;
 fn test_init_without_params() {
     let temp_dir = init_cli("localhost").1;
 
-    sync_cli(&temp_dir);
-
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args(["init"]);
@@ -74,8 +72,6 @@ fn test_init_with_params() {
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
     assert!(config_file_str.contains("localhost"));
-
-    sync_cli(&temp_dir);
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
