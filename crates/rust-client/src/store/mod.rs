@@ -348,6 +348,9 @@ pub enum TransactionFilter {
     /// Return a list of the transaction that matches the provided [`TransactionId`]s.
     Ids(Vec<TransactionId>),
     /// Return a list of the transaction that have expired.
+    ///
+    /// A transaction is considered expired if is uncommitted and the difference between the
+    /// chain tip and the transaction's block number is greater than the provided limit.
     ExpiredPending(BlockNumber),
 }
 
