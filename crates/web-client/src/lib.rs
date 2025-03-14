@@ -97,3 +97,19 @@ impl WebClient {
         Ok(JsValue::from_str("Client created successfully"))
     }
 }
+
+// ERROR HANDLING HELPERS
+// ================================================================================================
+
+fn js_error_with_context<T>(err: T, context: &str) -> JsValue
+where
+    T: core::error::Error,
+{
+    let mut messages = vec![context.to_string()];
+    let mut source = Some(&err as &dyn core::error::Error);
+    while let Some(err) = source {
+        messages.push(err.to_string());
+        source = err.source();
+    }
+    messages.join(": ").into()
+}

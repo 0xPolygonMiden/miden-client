@@ -86,7 +86,7 @@ describe("new_wallet tests", () => {
         clientSeed,
         isolatedClient: true,
       })
-    ).to.be.rejectedWith(/Failed to insert new wallet: AccountAlreadyTracked/);
+    ).to.be.rejectedWith(/failed to insert new wallet/);
   });
 });
 

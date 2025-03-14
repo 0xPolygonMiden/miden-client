@@ -6,7 +6,7 @@ use miden_objects::account::AccountId as NativeAccountId;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    WebClient,
+    WebClient, js_error_with_context,
     models::{account_id::AccountId, transaction_result::TransactionResult},
 };
 
@@ -39,7 +39,7 @@ impl WebClient {
             client
                 .testing_apply_transaction(native_transaction_result)
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to apply transaction: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to apply transaction"))?;
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
