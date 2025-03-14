@@ -9,7 +9,6 @@ use miden_client::{
     store::web_store::WebStore,
     transaction::TransactionResult as NativeTransactionResult,
 };
-
 use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
 use models::transaction_result::TransactionResult;
 use rand::{Rng, SeedableRng, rngs::StdRng};

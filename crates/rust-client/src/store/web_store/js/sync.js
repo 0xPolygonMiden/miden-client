@@ -225,6 +225,35 @@ async function updateCommittedTransactions(tx, blockNums, transactionIds) {
   }
 }
 
+export async function discardTransactions(transactionIds) {
+  return db.transaction("rw", transactions, async (tx) => {
+    await updateDiscardedTransactions(tx, transactionIds);
+  });
+}
+
+async function updateDiscardedTransactions(tx, transactionIds) {
+  try {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    const existingRecords = await tx.transactions
+      .where("id")
+      .anyOf(transactionIds)
+      .toArray();
+
+    const updates = existingRecords.map((record) => ({
+      ...record,
+      discarded: true,
+    }));
+
+    await tx.transactions.bulkPut(updates);
+  } catch (err) {
+    console.error("Failed to mark transactions as discarded: ", err);
+    throw err;
+  }
+}
+
 function uint8ArrayToBase64(bytes) {
   const binary = bytes.reduce(
     (acc, byte) => acc + String.fromCharCode(byte),

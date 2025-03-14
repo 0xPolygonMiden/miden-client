@@ -27,8 +27,8 @@ use crate::{
 
 mod js_bindings;
 use js_bindings::{
-    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_get_note_tags, idxdb_get_sync_height,
-    idxdb_remove_note_tag,
+    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_discard_transactions, idxdb_get_note_tags,
+    idxdb_get_sync_height, idxdb_remove_note_tag,
 };
 
 mod models;
@@ -191,8 +191,15 @@ impl WebStore {
     pub(super) async fn apply_nullifiers(
         &self,
         note_updates: NoteUpdates,
-        _transactions_to_discard: Vec<TransactionId>,
+        transactions_to_discard: Vec<TransactionId>,
     ) -> Result<(), StoreError> {
-        apply_note_updates_tx(&note_updates).await
+        apply_note_updates_tx(&note_updates).await?;
+        let transactions_ids_as_str: Vec<String> =
+            transactions_to_discard.iter().map(ToString::to_string).collect();
+
+        let promise = idxdb_discard_transactions(transactions_ids_as_str);
+        JsFuture::from(promise).await.unwrap();
+
+        Ok(())
     }
 }

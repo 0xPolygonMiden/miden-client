@@ -47,4 +47,7 @@ extern "C" {
         source_note_id: Option<String>,
         source_account_id: Option<String>,
     ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = discardTransactions)]
+    pub fn idxdb_discard_transactions(transactions: Vec<String>) -> js_sys::Promise;
 }
