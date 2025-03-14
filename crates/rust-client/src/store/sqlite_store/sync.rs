@@ -117,7 +117,7 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
-        // Find old pending transactions before starting the transaction
+        // Find old pending transactions before starting the database transaction
         let graceful_block_num =
             block_header.block_num().checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
         // Filter the transactions to commit and the transactions to discard from the old pending
