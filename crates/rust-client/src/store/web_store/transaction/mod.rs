@@ -70,8 +70,11 @@ impl WebStore {
                         None
                     };
 
-                let transaction_status =
-                    commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
+                let transaction_status = match (commit_height, tx_idxdb.discarded) {
+                    (_, true) => TransactionStatus::Discarded,
+                    (Some(block_num), false) => TransactionStatus::Committed(block_num),
+                    (None, false) => TransactionStatus::Pending,
+                };
 
                 Ok(TransactionRecord {
                     id: id.into(),

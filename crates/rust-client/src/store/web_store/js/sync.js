@@ -87,7 +87,8 @@ export async function applyStateSync(
   nodes,
   inputNoteIds,
   committedTransactionIds,
-  transactionBlockNums
+  transactionBlockNums,
+  discardTransactionIds
 ) {
   return db.transaction(
     "rw",
@@ -114,6 +115,7 @@ export async function applyStateSync(
         transactionBlockNums,
         committedTransactionIds
       );
+      await discardTransactions(discardTransactionIds);
     }
   );
 }
