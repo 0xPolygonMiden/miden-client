@@ -42,7 +42,7 @@ impl WebStore {
                 format!("Ids:{ids_str}")
             },
             TransactionFilter::ExpiredPending(block_number) => {
-                &{ format!("ExpiredPending:{block_number}") }
+                &format!("ExpiredPending:{block_number}")
             },
         };
 
