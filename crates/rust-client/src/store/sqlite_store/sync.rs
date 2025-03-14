@@ -113,7 +113,7 @@ impl SqliteStore {
             new_authentication_nodes,
             updated_accounts,
             block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
+            transactions_to_discard: mut discarded_transactions,
             tags_to_remove,
         } = state_sync_update;
 
@@ -161,11 +161,10 @@ impl SqliteStore {
         Self::undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
-        let mut all_discarded_transactions = discarded_transactions.clone();
-        all_discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
+        discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
 
         // Mark all transactions as discarded in a single call
-        Self::mark_transactions_as_discarded(&tx, &all_discarded_transactions)?;
+        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update public accounts on the db that have been updated onchain
         for account in updated_accounts.updated_public_accounts() {
