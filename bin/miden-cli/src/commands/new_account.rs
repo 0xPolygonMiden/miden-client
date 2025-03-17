@@ -13,14 +13,11 @@ use miden_client::{
     asset::TokenSymbol,
     auth::AuthSecretKey,
     crypto::{FeltRng, SecretKey},
-    keystore::FilesystemKeyStore,
     utils::Deserializable,
 };
-use rand::rngs::StdRng;
 
 use crate::{
-    CLIENT_BINARY_NAME, commands::account::maybe_set_default_account, errors::CliError,
-    utils::load_config_file,
+    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file, CliKeyStore, CLIENT_BINARY_NAME
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

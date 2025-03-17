@@ -109,7 +109,7 @@ impl<R: Rng> FilesystemKeyStore<R> {
 // Provide a default implementation for `StdRng` so you can call FilesystemKeyStore::new() without
 // type annotations.
 impl FilesystemKeyStore<rand::rngs::StdRng> {
-    /// Creates a new [FilesystemKeyStore] using [rand::rngs::StdRng] as the RNG.
+    /// Creates a new [`FilesystemKeyStore`] using [`rand::rngs::StdRng`] as the RNG.
     pub fn new(keys_directory: PathBuf) -> Result<Self, KeyStoreError> {
         use rand::{SeedableRng, rngs::StdRng};
         let rng = StdRng::from_entropy();
