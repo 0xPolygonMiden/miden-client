@@ -102,14 +102,14 @@ export const sendTransaction = async (
       let noteAndArgsArray = new window.NoteAndArgsArray([noteAndArgs]);
 
       let txRequest = new window.TransactionRequestBuilder()
-        .with_unauthenticated_input_notes(noteAndArgsArray)
+        .withUnauthenticatedInputNotes(noteAndArgsArray)
         .build();
 
       let transactionResult = await client.newTransaction(
         senderAccountId,
         txRequest
       );
-      await client.submit_transaction(transactionResult);
+      await client.submitTransaction(transactionResult);
 
       let sendTransactionResult = await client.newSendTransaction(
         senderAccountId,
@@ -360,19 +360,19 @@ export const mintAndConsumeTransaction = async (
     async (_targetAccountId, _faucetAccountId) => {
       const client = window.client;
 
-      const targetAccountId = window.AccountId.from_hex(_targetAccountId);
-      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+      const targetAccountId = window.AccountId.fromHex(_targetAccountId);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccountId);
 
-      let mintTransactionResult = await client.new_mint_transaction(
+      let mintTransactionResult = await client.newMintTransaction(
         targetAccountId,
-        window.AccountId.from_hex(_faucetAccountId),
+        window.AccountId.fromHex(_faucetAccountId),
         window.NoteType.private(),
         BigInt(1000)
       );
       let createdNote = mintTransactionResult
-        .created_notes()
+        .createdNotes()
         .notes()[0]
-        .into_full();
+        .intoFull();
 
       if (!createdNote) {
         throw new Error("Created note is undefined");
@@ -382,48 +382,46 @@ export const mintAndConsumeTransaction = async (
       let noteAndArgsArray = new window.NoteAndArgsArray([noteAndArgs]);
 
       let txRequest = new window.TransactionRequestBuilder()
-        .with_unauthenticated_input_notes(noteAndArgsArray)
+        .withUnauthenticatedInputNotes(noteAndArgsArray)
         .build();
 
-      let consumeTransactionResult = await client.new_transaction(
+      let consumeTransactionResult = await client.newTransaction(
         targetAccountId,
         txRequest
       );
-      await client.submit_transaction(consumeTransactionResult);
+      await client.submitTransaction(consumeTransactionResult);
       await window.helpers.waitForTransaction(
-        consumeTransactionResult.executed_transaction().id().to_hex()
+        consumeTransactionResult.executedTransaction().id().toHex()
       );
 
-      const changedTargetAccount = await client.get_account(targetAccountId);
+      const changedTargetAccount = await client.getAccount(targetAccountId);
 
       return {
         mintResult: {
           transactionId: mintTransactionResult
-            .executed_transaction()
+            .executedTransaction()
             .id()
-            .to_hex(),
+            .toHex(),
           numOutputNotesCreated: mintTransactionResult
-            .created_notes()
-            .num_notes(),
-          nonce: mintTransactionResult.account_delta().nonce()?.to_string(),
+            .createdNotes()
+            .numNotes(),
+          nonce: mintTransactionResult.accountDelta().nonce()?.toString(),
           createdNoteId: mintTransactionResult
-            .created_notes()
+            .createdNotes()
             .notes()[0]
             .id()
-            .to_string(),
+            .toString(),
         },
         consumeResult: {
           transactionId: consumeTransactionResult
-            .executed_transaction()
+            .executedTransaction()
             .id()
-            .to_hex(),
-          nonce: consumeTransactionResult.account_delta().nonce()?.to_string(),
-          numConsumedNotes: consumeTransactionResult
-            .consumed_notes()
-            .num_notes(),
+            .toHex(),
+          nonce: consumeTransactionResult.accountDelta().nonce()?.toString(),
+          numConsumedNotes: consumeTransactionResult.consumedNotes().numNotes(),
           targetAccountBalanace: changedTargetAccount
             .vault()
-            .get_balance(faucetAccountId)
+            .getBalance(faucetAccountId)
             .toString(),
         },
       };

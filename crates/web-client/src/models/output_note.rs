@@ -52,6 +52,7 @@ impl OutputNote {
         self.0.shrink().into()
     }
 
+    #[wasm_bindgen(js_name = "intoFull")]
     pub fn into_full(self) -> Option<Note> {
         match self.0 {
             NativeOutputNote::Full(note) => Some(note.into()),

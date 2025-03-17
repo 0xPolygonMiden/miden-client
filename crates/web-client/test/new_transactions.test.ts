@@ -61,22 +61,22 @@ export const sendTransactionTest = async (
       _targetAccount: string,
       _faucetAccount: string
     ) => {
-      const targetAccountId = window.AccountId.from_hex(_targetAccount);
-      const senderAccountId = window.AccountId.from_hex(_senderAccount);
-      const faucetAccountId = window.AccountId.from_hex(_faucetAccount);
+      const targetAccountId = window.AccountId.fromHex(_targetAccount);
+      const senderAccountId = window.AccountId.fromHex(_senderAccount);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccount);
 
       const client = window.client;
-      const changedSenderAccount = await client.get_account(senderAccountId);
-      const changedTargetAccount = await client.get_account(targetAccountId);
+      const changedSenderAccount = await client.getAccount(senderAccountId);
+      const changedTargetAccount = await client.getAccount(targetAccountId);
 
       return {
         senderAccountBalance: changedSenderAccount
           .vault()
-          .get_balance(faucetAccountId)
+          .getBalance(faucetAccountId)
           .toString(),
         changedTargetBalance: changedTargetAccount
           .vault()
-          .get_balance(faucetAccountId)
+          .getBalance(faucetAccountId)
           .toString(),
       };
     },
