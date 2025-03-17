@@ -7,11 +7,8 @@ use miden_client::{
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
     },
     auth::AuthSecretKey,
-    authenticator::{
-        ClientAuthenticator,
-        keystore::{FilesystemKeyStore, KeyStore},
-    },
     crypto::FeltRng,
+    keystore::FilesystemKeyStore,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
@@ -29,15 +26,16 @@ use miden_objects::{
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
 };
-use rand::Rng;
+use rand::{Rng, rngs::StdRng};
 use toml::Table;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client;
+pub type TestClientKeyStore = FilesystemKeyStore<StdRng>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
 /// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -47,7 +45,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./config/miden-client-rpc.to
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
+pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -62,13 +60,12 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
             Box::new(rng),
             store,
-            Arc::new(authenticator),
+            Arc::new(keystore.clone()),
             true,
         ),
         keystore,
@@ -76,18 +73,18 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 }
 
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
-    let rpc_config_toml = std::fs::read_to_string(TEST_CLIENT_RPC_CONFIG_FILE_PATH)
-        .unwrap()
-        .parse::<Table>()
-        .unwrap();
+    let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
 
-    let endpoint = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string()
-        + "://"
-        + rpc_endpoint_toml["host"].as_str().unwrap()
-        + ":"
-        + &rpc_endpoint_toml["port"].as_integer().unwrap().to_string();
-    let endpoint = Endpoint::try_from(endpoint.as_str()).unwrap();
+    let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+    let port = if rpc_endpoint_toml.contains_key("port") {
+        rpc_endpoint_toml["port"].as_integer().map(|port| port as u16)
+    } else {
+        None
+    };
+
+    let endpoint = Endpoint::new(protocol, host, port);
 
     let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
 
@@ -106,7 +103,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub async fn insert_new_wallet(
     client: &mut Client,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -117,7 +114,7 @@ pub async fn insert_new_wallet(
 pub async fn insert_new_wallet_with_seed(
     client: &mut Client,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
     init_seed: [u8; 32],
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
@@ -144,7 +141,7 @@ pub async fn insert_new_wallet_with_seed(
 pub async fn insert_new_fungible_faucet(
     client: &mut Client,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
@@ -289,7 +286,7 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 pub async fn setup(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_account_headers().await.unwrap().is_empty());

@@ -18,7 +18,7 @@ use miden_objects::{
     },
     note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
-        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
@@ -49,7 +49,7 @@ use crate::{
     transaction::ForeignAccount,
 };
 
-pub type MockClient = Client;
+pub type MockClient = Client<RpoRandomCoin>;
 
 /// Mock RPC API
 ///
@@ -77,7 +77,7 @@ impl MockRpcApi {
         };
 
         let note_first = NoteBuilder::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_SENDER.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([FungibleAsset::mock(20)])
@@ -85,7 +85,7 @@ impl MockRpcApi {
         .unwrap();
 
         let note_second = NoteBuilder::new(
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
@@ -115,7 +115,7 @@ impl MockRpcApi {
             self.mock_chain.add_nullifier(nullifier);
         }
 
-        let block = self.mock_chain.seal_block(None);
+        let block = self.mock_chain.seal_block(None, None);
         self.blocks.push(block);
     }
 
@@ -343,12 +343,11 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
+    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client =
-        MockClient::new(boxed_rpc_api, Box::new(rng), store, Arc::new(authenticator.clone()), true);
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator.clone()), true);
     (client, rpc_api, keystore)
 }
 

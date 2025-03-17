@@ -1,7 +1,6 @@
 use miden_client::{
     account::build_wallet_id,
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };

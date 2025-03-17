@@ -1,4 +1,4 @@
-use miden_client::note::{NoteScript as NativeNoteScript, scripts as native_scripts};
+use miden_client::note::{NoteScript as NativeNoteScript, WellKnownNote};
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]
@@ -8,15 +8,15 @@ pub struct NoteScript(NativeNoteScript);
 #[wasm_bindgen]
 impl NoteScript {
     pub fn p2id() -> Self {
-        native_scripts::p2id().into()
+        WellKnownNote::P2ID.script().into()
     }
 
     pub fn p2idr() -> Self {
-        native_scripts::p2idr().into()
+        WellKnownNote::P2IDR.script().into()
     }
 
     pub fn swap() -> Self {
-        native_scripts::swap().into()
+        WellKnownNote::SWAP.script().into()
     }
 }
 // CONVERSIONS

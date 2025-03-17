@@ -36,7 +36,7 @@ db.version(1).stores({
   [Table.AccountCode]: indexes("root"),
   [Table.AccountStorage]: indexes("root"),
   [Table.AccountVaults]: indexes("root"),
-  [Table.AccountAuth]: indexes("accountId", "pubKey"),
+  [Table.AccountAuth]: indexes("pubKey"),
   [Table.Accounts]: indexes(
     "&accountHash",
     "id",
@@ -73,6 +73,7 @@ db.on("populate", () => {
 const accountCodes = db.table(Table.AccountCode);
 const accountStorages = db.table(Table.AccountStorage);
 const accountVaults = db.table(Table.AccountVaults);
+const accountAuths = db.table(Table.AccountAuth);
 const accounts = db.table(Table.Accounts);
 const transactions = db.table(Table.Transactions);
 const transactionScripts = db.table(Table.TransactionScripts);
@@ -90,6 +91,7 @@ export {
   accountCodes,
   accountStorages,
   accountVaults,
+  accountAuths,
   accounts,
   transactions,
   transactionScripts,

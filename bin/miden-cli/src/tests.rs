@@ -8,10 +8,10 @@ use std::{
 
 use assert_cmd::Command;
 use config::RpcConfig;
+use miden_cli::CliKeyStore;
 use miden_client::{
     self, Client, Felt,
     account::{AccountId, AccountStorageMode},
-    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
@@ -53,8 +53,6 @@ mod config;
 fn test_init_without_params() {
     let temp_dir = init_cli("localhost").1;
 
-    sync_cli(&temp_dir);
-
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args(["init"]);
@@ -74,8 +72,6 @@ fn test_init_with_params() {
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
     assert!(config_file_str.contains("localhost"));
-
-    sync_cli(&temp_dir);
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
@@ -641,7 +637,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub type TestClient = Client;
 
 /// Creates a new [`Client`] with a given store. Also returns the keystore associated with it.
-async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, FilesystemKeyStore) {
+async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, CliKeyStore) {
     let rpc_config = RpcConfig::default();
 
     let store = {
@@ -654,15 +650,14 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, F
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+    let keystore = CliKeyStore::new(temp_dir()).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, Arc::new(keystore.clone()));
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
             rng,
             store,
-            std::sync::Arc::new(authenticator),
+            std::sync::Arc::new(keystore.clone()),
             true,
         ),
         keystore,

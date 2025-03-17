@@ -278,3 +278,16 @@ The user needs to specify how the note should be exported via the `--export-type
 #### `import`
 
 Import entities managed by the client, such as accounts and notes. The type of entities is inferred.
+
+### Executing scripts
+
+#### `exec`
+
+Execute the specified program against the specified account.
+
+| Flag                           | Description                                    | Aliases |
+|--------------------------------|------------------------------------------------|---------|
+| `--account <ACCOUNT_ID>`       | Account ID to use for the program execution.   | `-a`    |
+| `--script-path <SCRIPT_PATH>`  | Path to script's source code to be executed.   | `-s`    |
+| `--inputs-path <INPUTS_PATH>`  | Path to the inputs file.                       | `-i`    |
+| `--hex-words`                  | Print the output stack grouped into words.     |         |

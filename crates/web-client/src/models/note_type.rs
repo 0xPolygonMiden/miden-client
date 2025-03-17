@@ -1,5 +1,8 @@
 use miden_objects::note::NoteType as NativeNoteType;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
+
+use crate::utils::{deserialize_from_uint8array, serialize_to_uint8array};
 
 #[derive(Clone, Copy)]
 #[wasm_bindgen]
@@ -17,6 +20,14 @@ impl NoteType {
 
     pub fn encrypted() -> NoteType {
         NoteType(NativeNoteType::Encrypted)
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        serialize_to_uint8array(&self.0)
+    }
+
+    pub fn deserialize(bytes: &Uint8Array) -> Result<NoteType, JsValue> {
+        deserialize_from_uint8array::<NativeNoteType>(bytes).map(NoteType)
     }
 }
 

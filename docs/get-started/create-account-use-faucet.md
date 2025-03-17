@@ -23,9 +23,9 @@ The Miden client facilitates interaction with the Miden rollup and provides a wa
 
 3. Initialize the client. This creates the `miden-client.toml` file.
 
-```shell
-miden init --network testnet # Creates a miden-client.toml configured with the testnet node's IP
-```
+      ```shell
+      miden init --network testnet # Creates a miden-client.toml configured with the testnet node's IP
+      ```
 
 ## Create a new Miden account
 
@@ -48,22 +48,22 @@ Save the account ID for a future step.
 
 ## Request tokens from the public faucet
 
-1. To request funds from the faucet navigate to the following website: [Miden faucet website](https://testnet.miden.io/).
+1. To request funds from the faucet navigate to the following website: [Miden faucet website](https://faucet.testnet.miden.io/).
 
 2. Copy the **Account ID** printed by the `miden account -l` command in the previous step. Feel free to change the amount of tokens to issue.
 
 3. Paste this ID into the **Request test tokens** input field on the faucet website and click **Send Private Note**.
 
 > **Tip**
-> You can also click **Send Public Note**. If you do this, the note's details will be public and you will not need to download and import it, so you can skip to [Sync the client](#sync-the-client).  
+> You can also click **Send Public Note**. If you do this, the note's details will be public and you will not need to download and import it, so you can skip to [Sync the client](#sync-the-client).
 
 4. After a few seconds your browser should download - or prompt you to download - a file called `note.mno` (mno = Miden note). It contains the funds the faucet sent to your address.
 
-5. Save this file on your computer, you will need it for the next step. 
+5. Save this file on your computer, you will need it for the next step.
 
 ## Import the note into the Miden client
 
-1. Import the private note that you have received using the following commands: 
+1. Import the private note that you have received using the following commands:
 
       ```shell
       miden import <path-to-note>/note.mno
@@ -171,13 +171,13 @@ Commited transactions: 0
 
 ## View confirmations
 
-5. View your updated account's vault containing the tokens sent by the faucet by running the following command: 
+5. View your updated account's vault containing the tokens sent by the faucet by running the following command:
 
       ```shell
       miden account --show <Account-Id>
       ```
 
-6. You should now see your accounts vault containing the funds sent by the faucet. 
+6. You should now see your accounts vault containing the funds sent by the faucet.
 
       ![Viewing account vault with funds](../img/get-started/view-account-vault.png)
 

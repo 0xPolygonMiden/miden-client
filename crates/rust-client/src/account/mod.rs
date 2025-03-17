@@ -44,7 +44,7 @@ use miden_objects::{
 
 use super::Client;
 use crate::{
-    ClientError,
+    errors::ClientError,
     rpc::domain::account::AccountDetails,
     store::{AccountRecord, AccountStatus},
 };
@@ -54,8 +54,8 @@ use crate::{
 pub mod procedure_roots;
 
 pub use miden_objects::account::{
-    Account, AccountBuilder, AccountCode, AccountFile, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlot,
+    Account, AccountBuilder, AccountCode, AccountDelta, AccountFile, AccountHeader, AccountId,
+    AccountStorage, AccountStorageMode, AccountType, StorageSlot,
 };
 
 pub mod component {

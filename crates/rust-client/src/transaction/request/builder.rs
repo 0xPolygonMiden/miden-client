@@ -236,7 +236,7 @@ impl TransactionRequestBuilder {
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut Box<dyn FeltRng>,
     ) -> Result<Self, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
@@ -316,7 +316,7 @@ impl TransactionRequestBuilder {
     pub fn swap(
         swap_data: &SwapTransactionData,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut Box<dyn FeltRng>,
     ) -> Result<Self, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually.
