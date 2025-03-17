@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{errors::CliError, utils::get_input_acc_id_by_prefix_or_default};
 
-// Exec COMMAND
+// EXEC COMMAND
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]

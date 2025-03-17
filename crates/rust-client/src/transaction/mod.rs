@@ -904,6 +904,10 @@ impl<R: FeltRng> Client<R> {
         Ok(Some(block_num))
     }
 
+    /// Executes the provided transaction script against the specified account, and returns the
+    /// resulting stack. Advice inputs and foreign accounts can be provided for the execution.
+    ///
+    /// The transaction will use the current sync height as the block reference.
     pub async fn execute_program(
         &mut self,
         account_id: AccountId,
