@@ -17,7 +17,8 @@ impl AssetVault {
         self.0.get_balance(faucet_id.into()).unwrap()
     }
 
-    pub fn assets(&self) -> Vec<FungibleAsset> {
+    #[wasm_bindgen(js_name = "fungibleAssets")]
+    pub fn fungible_assets(&self) -> Vec<FungibleAsset> {
         self.0
             .assets()
             .filter_map(|asset| {
