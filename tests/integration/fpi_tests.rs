@@ -4,7 +4,6 @@ use miden_client::{
     auth::AuthSecretKey,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
-    testing::prepare_word,
     transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
@@ -46,7 +45,7 @@ async fn test_fpi_execute_program() {
         foreign_account(AccountStorageMode::Public, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
@@ -291,4 +290,8 @@ pub fn foreign_account(
 
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
     (account, seed, proc_root, secret_key)
+}
+
+fn prepare_word(word: &Word) -> String {
+    word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }

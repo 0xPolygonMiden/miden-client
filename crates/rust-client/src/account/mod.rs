@@ -315,7 +315,7 @@ pub mod tests {
         account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
-            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET,
         },
     };
 
@@ -333,9 +333,9 @@ pub mod tests {
     }
 
     pub fn create_initial_accounts_data() -> Vec<AccountFile> {
-        let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
+        let account = create_account_data(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET);
 
-        let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
+        let faucet_account = create_account_data(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET);
 
         // Create Genesis state and save it to a file
         let accounts = vec![account, faucet_account];
@@ -349,7 +349,7 @@ pub mod tests {
         let (mut client, _rpc_api, _) = create_test_client().await;
 
         let account = Account::mock(
-            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
             Felt::new(0),
             TransactionKernel::testing_assembler(),
         );
