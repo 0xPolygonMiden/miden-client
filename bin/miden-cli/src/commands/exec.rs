@@ -19,7 +19,7 @@ pub struct ExecCmd {
 
     /// Path to script's source code to be executed
     #[clap(long, short)]
-    script: String,
+    script_path: String,
 
     /// Path to the inputs file
     ///
@@ -29,7 +29,7 @@ pub struct ExecCmd {
     /// - `values`: an array of 64-bit unsigned integers representing field elements to be used as
     ///   values for the input entry
     #[clap(long, short)]
-    inputs: Option<String>,
+    inputs_path: Option<String>,
 
     /// Print the output stack grouped into words
     #[clap(long, default_value_t = false)]
@@ -38,20 +38,20 @@ pub struct ExecCmd {
 
 impl ExecCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
-        let script = PathBuf::from(&self.script);
-        if !script.exists() {
+        let script_path = PathBuf::from(&self.script_path);
+        if !script_path.exists() {
             return Err(CliError::Exec(
                 "error with the program file".to_string().into(),
-                format!("the program file at path {} does not exist", self.script),
+                format!("the program file at path {} does not exist", self.script_path),
             ));
         }
 
-        let program = std::fs::read_to_string(script)?;
+        let program = std::fs::read_to_string(script_path)?;
 
         let account_id =
             get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()).await?;
 
-        let inputs = match &self.inputs {
+        let inputs = match &self.inputs_path {
             Some(input_file) => {
                 let input_file = PathBuf::from(input_file);
                 if !input_file.exists() {
