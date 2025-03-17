@@ -310,7 +310,7 @@ pub enum TransactionRequestError {
     ScriptTemplateError(String),
     #[error("storage slot {0} not found in account ID {1}")]
     StorageSlotNotFound(u8, AccountId),
-    #[error("transaction script builder error")]
+    #[error("account interface error")]
     AccountInterfaceError(#[from] AccountInterfaceError),
 }
 

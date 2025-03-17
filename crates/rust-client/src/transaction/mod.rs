@@ -118,7 +118,7 @@ pub use request::{
 };
 
 // TRANSACTION RESULT
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Represents the result of executing a transaction by the client.
 ///
@@ -240,7 +240,7 @@ impl Deserializable for TransactionResult {
 }
 
 // TRANSACTION RECORD
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Describes a transaction that has been executed and is being tracked on the Client.
 ///
@@ -310,7 +310,7 @@ impl fmt::Display for TransactionStatus {
 }
 
 // TRANSACTION STORE UPDATE
-// --------------------------------------------------------------------------------------------
+// ================================================================================================
 
 /// Represents the changes that need to be applied to the client store as a result of a
 /// transaction execution.
