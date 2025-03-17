@@ -4,11 +4,9 @@ use miden_client::{
     Client, Word,
     account::{Account, AccountFile},
     crypto::FeltRng,
-    keystore::FilesystemKeyStore,
     store::NoteExportType,
     utils::Serializable,
 };
-use rand::rngs::StdRng;
 use tracing::info;
 
 use crate::{
@@ -80,7 +78,7 @@ impl ExportCmd {
 
 async fn export_account(
     client: &Client<impl FeltRng>,
-    keystore: &FilesystemKeyStore<StdRng>,
+    keystore: &CliKeyStore,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, CliError> {
