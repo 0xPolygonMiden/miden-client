@@ -147,7 +147,7 @@ build-prover: update-prover-branch ## Update dependencies and build the prover b
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT) --tx-prover
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
