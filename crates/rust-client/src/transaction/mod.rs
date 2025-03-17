@@ -444,7 +444,7 @@ impl<R: FeltRng> Client<R> {
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = transaction_request.build_transaction_script(
-            self.get_account_interface(account_id).await?,
+            &self.get_account_interface(account_id).await?,
             self.in_debug_mode,
         )?;
 
@@ -1008,8 +1008,8 @@ mod test {
         testing::{
             account_component::BASIC_WALLET_CODE,
             account_id::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+                ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET,
+                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
             },
         },
     };
@@ -1026,11 +1026,11 @@ mod test {
     async fn test_transaction_creates_two_notes() {
         let (mut client, _, keystore) = create_test_client().await;
         let asset_1: Asset =
-            FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
+            FungibleAsset::new(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(), 123)
                 .unwrap()
                 .into();
         let asset_2: Asset =
-            FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap(), 500)
+            FungibleAsset::new(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET.try_into().unwrap(), 500)
                 .unwrap()
                 .into();
 
@@ -1062,7 +1062,7 @@ mod test {
             PaymentTransactionData::new(
                 vec![asset_1, asset_2],
                 account.id(),
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN.try_into().unwrap(),
+                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
             ),
             None,
             NoteType::Private,

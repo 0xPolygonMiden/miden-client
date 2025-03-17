@@ -6,10 +6,7 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_lib::{
-    account::interface::AccountInterface,
-    transaction::{TransactionScriptBuilder, TransactionScriptBuilderError},
-};
+use miden_lib::account::interface::{AccountInterface, AccountInterfaceError};
 use miden_objects::{
     Digest, Felt, NoteError, Word,
     account::AccountId,
@@ -180,31 +177,18 @@ impl TransactionRequest {
     /// The debug mode enables the script debug logs.
     pub(crate) fn build_transaction_script(
         &self,
-        account_interface: AccountInterface,
+        account_interface: &AccountInterface,
         in_debug_mode: bool,
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                let tx_script_builder = TransactionScriptBuilder::new(
-                    account_interface,
-                    self.expiration_delta,
-                    in_debug_mode,
-                );
-
-                Ok(tx_script_builder.build_send_notes_script(notes)?)
-            },
+            Some(TransactionScriptTemplate::SendNotes(notes)) => Ok(account_interface
+                .build_send_notes_script(notes, self.expiration_delta, in_debug_mode)?),
             None => {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
                 } else {
-                    let tx_script_builder = TransactionScriptBuilder::new(
-                        account_interface,
-                        self.expiration_delta,
-                        in_debug_mode,
-                    );
-
-                    Ok(tx_script_builder.build_auth_script()?)
+                    Ok(account_interface.build_auth_script(in_debug_mode)?)
                 }
             },
         }
@@ -327,7 +311,7 @@ pub enum TransactionRequestError {
     #[error("storage slot {0} not found in account ID {1}")]
     StorageSlotNotFound(u8, AccountId),
     #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
+    AccountInterfaceError(#[from] AccountInterfaceError),
 }
 
 // TESTS
@@ -347,8 +331,8 @@ mod tests {
         testing::{
             account_component::AccountMockComponent,
             account_id::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER,
+                ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
+                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE, ACCOUNT_ID_SENDER,
             },
         },
         transaction::OutputNote,
@@ -365,8 +349,8 @@ mod tests {
     fn transaction_request_serialization() {
         let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
         let target_id =
-            AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
-        let faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN).unwrap();
+            AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap();
+        let faucet_id = AccountId::try_from(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET).unwrap();
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];

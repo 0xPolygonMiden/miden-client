@@ -3,9 +3,12 @@ use alloc::vec::Vec;
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    account::{
+        auth::RpoFalcon512, faucets::BasicFungibleFaucet, interface::AccountInterfaceError,
+        wallets::BasicWallet,
+    },
     note::utils,
-    transaction::{TransactionKernel, TransactionScriptBuilderError},
+    transaction::TransactionKernel,
 };
 use miden_objects::{
     Felt, FieldElement, Word, ZERO,
@@ -20,10 +23,10 @@ use miden_objects::{
         NoteType,
     },
     testing::account_id::{
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
-        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,
+        ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
     },
     transaction::OutputNote,
 };
@@ -227,7 +230,7 @@ async fn insert_same_account_twice_fails() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+        ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,
         Felt::new(2),
         TransactionKernel::testing_assembler(),
     );
@@ -242,7 +245,7 @@ async fn test_account_code() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
         Felt::ZERO,
         TransactionKernel::testing_assembler(),
     );
@@ -265,7 +268,7 @@ async fn test_get_account_by_id() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
         Felt::new(10),
         TransactionKernel::assembler(),
     );
@@ -280,7 +283,7 @@ async fn test_get_account_by_id() {
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
-    let invalid_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
+    let invalid_id = AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2).unwrap();
     assert!(client.get_account_header_by_id(invalid_id).await.unwrap().is_none());
 }
 
@@ -429,7 +432,7 @@ async fn test_mint_transaction() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -457,7 +460,7 @@ async fn test_get_output_notes() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -520,7 +523,7 @@ async fn test_transaction_request_expiration() {
 
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -683,11 +686,9 @@ async fn test_note_without_asset() {
 
     assert!(matches!(
         error,
-        ClientError::TransactionRequestError(
-            TransactionRequestError::TransactionScriptBuilderError(
-                TransactionScriptBuilderError::FaucetNoteWithoutAsset
-            )
-        )
+        ClientError::TransactionRequestError(TransactionRequestError::AccountInterfaceError(
+            AccountInterfaceError::FaucetNoteWithoutAsset
+        ))
     ));
 
     let error = TransactionRequestBuilder::pay_to_id(
