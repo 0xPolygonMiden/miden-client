@@ -6,12 +6,12 @@ use errors::CliError;
 use miden_client::{
     Client, ClientError, Felt, IdPrefixFetchError,
     account::AccountHeader,
-    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
     crypto::{FeltRng, RpoRandomCoin},
+    keystore::FilesystemKeyStore,
     rpc::TonicRpcClient,
     store::{NoteFilter as ClientNoteFilter, OutputNoteRecord, Store, sqlite_store::SqliteStore},
 };
-use rand::Rng;
+use rand::{Rng, rngs::StdRng};
 mod commands;
 use commands::{
     account::AccountCmd,
@@ -28,6 +28,8 @@ use commands::{
 };
 
 use self::utils::load_config_file;
+
+pub type CliKeyStore = FilesystemKeyStore<StdRng>;
 
 mod config;
 mod errors;
@@ -109,9 +111,8 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let keystore = FilesystemKeyStore::new(cli_config.secret_keys_directory.clone())
+        let keystore = CliKeyStore::new(cli_config.secret_keys_directory.clone())
             .map_err(CliError::KeyStore)?;
-        let authenticator = ClientAuthenticator::new(rng, keystore.clone());
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(
@@ -120,7 +121,7 @@ impl Cli {
             )),
             rng,
             store as Arc<dyn Store>,
-            Arc::new(authenticator),
+            Arc::new(keystore.clone()),
             in_debug_mode,
         );
 

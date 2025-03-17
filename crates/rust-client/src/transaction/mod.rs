@@ -84,6 +84,7 @@ use miden_objects::{
 };
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+    auth::TransactionAuthenticator,
 };
 use miden_tx::{
     TransactionExecutor,
@@ -149,7 +150,6 @@ impl TransactionResult {
 
         for note in notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note).await?;
-
             if !account_relevance.is_empty() {
                 let metadata = *note.metadata();
                 relevant_notes.push(InputNoteRecord::new(
@@ -1073,7 +1073,6 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
-        authenticator::keystore::KeyStore,
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };
@@ -1092,7 +1091,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,

@@ -1,4 +1,4 @@
-use miden_client::{auth::AuthSecretKey, authenticator::keystore::KeyStore};
+use miden_client::auth::AuthSecretKey;
 use miden_objects::{account::AccountFile, note::NoteFile, utils::Deserializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;

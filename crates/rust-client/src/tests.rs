@@ -30,10 +30,11 @@ use miden_objects::{
     vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use rand::rngs::StdRng;
 
 use crate::{
     Client, ClientError,
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
+    keystore::FilesystemKeyStore,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
@@ -46,12 +47,12 @@ use crate::{
 async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng.fill_bytes(&mut init_seed);
@@ -75,12 +76,12 @@ async fn insert_new_wallet<R: FeltRng>(
 async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];

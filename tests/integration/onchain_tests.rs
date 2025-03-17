@@ -1,7 +1,6 @@
 use miden_client::{
     account::build_wallet_id,
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
@@ -143,7 +142,7 @@ async fn test_onchain_accounts() {
     let (_, status) = client_1.get_account_header_by_id(faucet_account_id).await.unwrap().unwrap();
     let faucet_seed = status.seed().cloned();
 
-    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client_2.add_account(&faucet_account_header, faucet_seed, false).await.unwrap();
 
     // First Mint necesary token
@@ -399,7 +398,7 @@ async fn test_import_account_by_id() {
     .unwrap();
     assert_eq!(built_wallet_id, first_regular_account.id());
     client_2.import_account_by_id(built_wallet_id).await.unwrap();
-    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
     let original_account = client_1.get_account(first_regular_account.id()).await.unwrap().unwrap();
     let imported_account = client_2.get_account(first_regular_account.id()).await.unwrap().unwrap();

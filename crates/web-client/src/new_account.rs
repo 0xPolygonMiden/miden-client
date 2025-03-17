@@ -2,7 +2,6 @@ use miden_client::{
     Felt,
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     crypto::SecretKey,
 };
 use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
