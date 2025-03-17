@@ -17,7 +17,8 @@ use miden_client::{
 };
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file, CliKeyStore, CLIENT_BINARY_NAME
+    CLIENT_BINARY_NAME, CliKeyStore, commands::account::maybe_set_default_account,
+    errors::CliError, utils::load_config_file,
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
