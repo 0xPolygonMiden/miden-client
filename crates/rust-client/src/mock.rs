@@ -121,7 +121,7 @@ impl MockRpcApi {
 
     /// Returns the current MMR of the blockchain.
     pub fn get_mmr(&self) -> Mmr {
-        self.blocks.iter().map(ProvenBlock::hash).into()
+        self.blocks.iter().map(ProvenBlock::commitment).into()
     }
 
     /// Retrieves the note at the specified position.

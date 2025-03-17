@@ -356,10 +356,10 @@ async fn test_sync_state_mmr() {
     let latest_block = client.get_sync_height().await.unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        rpc_api.blocks.last().unwrap().hash(),
+        rpc_api.blocks.last().unwrap().commitment(),
         client.test_store().get_block_headers(&[latest_block]).await.unwrap()[0]
             .0
-            .hash()
+            .commitment()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
@@ -375,11 +375,11 @@ async fn test_sync_state_mmr() {
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
     let (block_1, _) = rpc_api.get_block_header_by_number(Some(1.into()), false).await.unwrap();
-    partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
+    partial_mmr.peaks().verify(block_1.commitment(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     let (block_4, _) = rpc_api.get_block_header_by_number(Some(4.into()), false).await.unwrap();
-    partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
+    partial_mmr.peaks().verify(block_4.commitment(), mmr_proof).unwrap();
 }
 
 #[tokio::test]
