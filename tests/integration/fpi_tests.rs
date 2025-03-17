@@ -187,7 +187,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
         end
         ",
-        fpi_value = prepare_word(&FPI_STORAGE_VALUE),
+        fpi_value = word_to_masm_push_string(&FPI_STORAGE_VALUE),
         account_id_prefix = foreign_account_id.prefix().as_u64(),
         account_id_suffix = foreign_account_id.suffix(),
     );
@@ -269,7 +269,7 @@ pub fn foreign_account(
             swapw dropw
         end
         ",
-            map_key = prepare_word(&MAP_KEY)
+            map_key = word_to_masm_push_string(&MAP_KEY)
         ),
         TransactionKernel::assembler(),
         vec![StorageSlot::Map(storage_map)],
@@ -292,6 +292,6 @@ pub fn foreign_account(
     (account, seed, proc_root, secret_key)
 }
 
-fn prepare_word(word: &Word) -> String {
+fn word_to_masm_push_string(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }
