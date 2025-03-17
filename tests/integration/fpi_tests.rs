@@ -291,7 +291,3 @@ pub fn foreign_account(
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
     (account, seed, proc_root, secret_key)
 }
-
-fn word_to_masm_push_string(word: &Word) -> String {
-    word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
-}
