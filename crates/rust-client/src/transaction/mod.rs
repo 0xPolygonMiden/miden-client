@@ -83,9 +83,11 @@ use miden_objects::{
     crypto::merkle::MerklePath,
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
+    vm::AdviceInputs,
 };
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
+    auth::TransactionAuthenticator,
 };
 use miden_tx::{
     TransactionExecutor,
@@ -146,7 +148,6 @@ impl TransactionResult {
 
         for note in notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note).await?;
-
             if !account_relevance.is_empty() {
                 let metadata = *note.metadata();
                 relevant_notes.push(InputNoteRecord::new(
@@ -879,6 +880,34 @@ impl<R: FeltRng> Client<R> {
 
         Ok(Some(block_num))
     }
+
+    /// Executes the provided transaction script against the specified account, and returns the
+    /// resulting stack. Advice inputs and foreign accounts can be provided for the execution.
+    ///
+    /// The transaction will use the current sync height as the block reference.
+    pub async fn execute_program(
+        &mut self,
+        account_id: AccountId,
+        tx_script: TransactionScript,
+        advice_inputs: AdviceInputs,
+        foreign_accounts: BTreeSet<ForeignAccount>,
+    ) -> Result<[Felt; 16], ClientError> {
+        let block_ref = self.get_sync_height().await?;
+
+        let mut tx_args =
+            TransactionArgs::with_tx_script(tx_script).with_advice_inputs(advice_inputs);
+        self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
+
+        Ok(self
+            .tx_executor
+            .execute_tx_view_script(
+                account_id,
+                block_ref,
+                tx_args.tx_script().expect("Transaction script should be present").clone(),
+                tx_args.advice_inputs().clone(),
+            )
+            .await?)
+    }
 }
 
 // TESTING HELPERS
@@ -1017,7 +1046,6 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
-        authenticator::keystore::KeyStore,
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };
@@ -1036,7 +1064,7 @@ mod test {
 
         let secret_key = SecretKey::new();
         let pub_key = secret_key.public_key();
-        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+        keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
 
         let wallet_component = AccountComponent::compile(
             BASIC_WALLET_CODE,

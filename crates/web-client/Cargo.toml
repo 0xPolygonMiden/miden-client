@@ -22,6 +22,7 @@ workspace = true
 testing = ["miden-client/testing"]
 
 [dependencies]
+console_error_panic_hook = "0.1"
 miden-client = { version = "0.8", path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
@@ -29,7 +30,6 @@ rand = { workspace = true }
 serde-wasm-bindgen = { version = "0.6" }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4" }
-console_error_panic_hook = "0.1"
 
 [dev-dependencies]
 miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic", "testing"] }

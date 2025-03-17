@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use std::collections::BTreeSet;
 
 // TESTS
 // ================================================================================================
@@ -29,12 +30,14 @@ use miden_objects::{
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
     },
     transaction::OutputNote,
+    vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use rand::rngs::StdRng;
 
 use crate::{
     Client, ClientError,
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
+    keystore::FilesystemKeyStore,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
@@ -44,12 +47,12 @@ use crate::{
 async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng.fill_bytes(&mut init_seed);
@@ -73,12 +76,12 @@ async fn insert_new_wallet<R: FeltRng>(
 async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -714,4 +717,39 @@ async fn test_note_without_asset() {
     .unwrap_err();
 
     assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
+}
+
+#[tokio::test]
+async fn test_execute_program() {
+    let (mut client, _, keystore) = create_test_client().await;
+
+    let (wallet, _seed) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
+        .await
+        .unwrap();
+
+    let code = "
+        use.std::sys
+
+        begin
+            push.16
+            repeat.16
+                dup push.1 sub
+            end
+            exec.sys::truncate_stack
+        end
+        ";
+
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
+    let output_stack = client
+        .execute_program(wallet.id(), tx_script, AdviceInputs::default(), BTreeSet::new())
+        .await
+        .unwrap();
+
+    let mut expected_stack = [Felt::new(0); 16];
+    for (i, element) in expected_stack.iter_mut().enumerate() {
+        *element = Felt::new(i as u64);
+    }
+
+    assert_eq!(output_stack, expected_stack);
 }
