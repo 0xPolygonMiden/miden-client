@@ -768,9 +768,10 @@ impl<R: FeltRng> Client<R> {
 
     /// Validates that the specified transaction request can be executed by the specified account.
     ///
-    /// This function checks that the account has enough balance to cover the outgoing assets. This
-    /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
-    /// transactions that are guaranteed to fail.
+    /// This does't guarantee that the transaction will succeed, but it's useful to avoid submitting
+    /// transactions that are guaranteed to fail. Some of the validations include:
+    /// - That the account has enough balance to cover the outgoing assets.
+    /// - That the client is not too far behind the chain tip.
     pub async fn validate_request(
         &mut self,
         account_id: AccountId,
