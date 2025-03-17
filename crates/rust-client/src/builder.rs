@@ -6,7 +6,7 @@ use alloc::{
 
 use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
 use miden_tx::auth::TransactionAuthenticator;
-use rand::{Rng, rngs::StdRng};
+use rand::Rng;
 
 use crate::{
     Client, ClientError,
@@ -186,7 +186,7 @@ impl ClientBuilder {
         let authenticator = match self.keystore {
             Some(AuthenticatorConfig::Instance(authenticator)) => authenticator,
             Some(AuthenticatorConfig::Path(ref path)) => {
-                let fs_keystore = FilesystemKeyStore::<StdRng>::new(path.into())
+                let fs_keystore = FilesystemKeyStore::new(path.into())
                     .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
 
                 Arc::new(fs_keystore)

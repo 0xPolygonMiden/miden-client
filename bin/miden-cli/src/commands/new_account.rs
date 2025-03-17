@@ -106,7 +106,7 @@ impl NewFaucetCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore<StdRng>,
+        keystore: CliKeyStore,
     ) -> Result<(), CliError> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -202,7 +202,7 @@ impl NewWalletCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore<StdRng>,
+        keystore: CliKeyStore,
     ) -> Result<(), CliError> {
         let mut extra_components = Vec::new();
         for path in &self.extra_components {

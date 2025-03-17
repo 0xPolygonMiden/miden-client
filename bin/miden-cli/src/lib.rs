@@ -109,7 +109,7 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.r#gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let keystore = FilesystemKeyStore::<StdRng>::new(cli_config.secret_keys_directory.clone())
+        let keystore = CliKeyStore::new(cli_config.secret_keys_directory.clone())
             .map_err(CliError::KeyStore)?;
 
         let client = Client::new(

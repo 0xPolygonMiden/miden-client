@@ -11,7 +11,9 @@ use miden_client::{
 use rand::rngs::StdRng;
 use tracing::info;
 
-use crate::{Parser, errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id};
+use crate::{
+    CliKeyStore, Parser, errors::CliError, get_output_note_with_id_prefix, utils::parse_account_id,
+};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]
@@ -58,7 +60,7 @@ impl ExportCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore<StdRng>,
+        keystore: CliKeyStore,
     ) -> Result<(), CliError> {
         if self.account {
             export_account(&client, &keystore, self.id.as_str(), self.filename.clone()).await?;

@@ -341,8 +341,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore: FilesystemKeyStore<StdRng> =
-        FilesystemKeyStore::<StdRng>::new(temp_dir()).unwrap();
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());

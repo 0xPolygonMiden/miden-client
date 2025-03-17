@@ -74,7 +74,7 @@
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-//! let keystore = FilesystemKeyStore::<StdRng>::new("path/to/keys/directory".try_into()?)?;
+//! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));

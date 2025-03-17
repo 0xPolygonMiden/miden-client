@@ -58,7 +58,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore = FilesystemKeyStore::<StdRng>::new(auth_path).unwrap();
+    let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
     (
         TestClient::new(

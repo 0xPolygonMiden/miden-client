@@ -24,6 +24,9 @@ use super::KeyStoreError;
 /// A filesystem-based keystore that stores keys in separate files and provides transaction
 /// authentication functionality. The public key is used as the filename and the contents of the
 /// file are the serialized secret key.
+///
+/// The keystore requires an RNG component for generating Falcon signatures at the moment of
+/// transaction signing.
 #[derive(Debug, Clone)]
 pub struct FilesystemKeyStore<R: Rng> {
     /// The random number generator used to generate signatures.
@@ -33,15 +36,6 @@ pub struct FilesystemKeyStore<R: Rng> {
 }
 
 impl<R: Rng> FilesystemKeyStore<R> {
-    #[cfg(feature = "std")]
-    pub fn new(
-        keys_directory: PathBuf,
-    ) -> Result<FilesystemKeyStore<rand::rngs::StdRng>, KeyStoreError> {
-        use rand::{SeedableRng, rngs::StdRng};
-        let rng = StdRng::from_entropy();
-        FilesystemKeyStore::with_rng(keys_directory, rng)
-    }
-
     pub fn with_rng(keys_directory: PathBuf, rng: R) -> Result<Self, KeyStoreError> {
         if !keys_directory.exists() {
             std::fs::create_dir_all(&keys_directory).map_err(|err| {
@@ -109,6 +103,18 @@ impl<R: Rng> FilesystemKeyStore<R> {
             })?;
 
         Ok(Some(secret_key))
+    }
+}
+
+// Provide a default implementation for `StdRng` so you can call FilesystemKeyStore::new() without
+// type annotations.
+impl FilesystemKeyStore<rand::rngs::StdRng> {
+    /// Creates a new [FilesystemKeyStore] using [rand::rngs::StdRng] as the RNG.
+    pub fn new(keys_directory: PathBuf) -> Result<Self, KeyStoreError> {
+        use rand::{SeedableRng, rngs::StdRng};
+        let rng = StdRng::from_entropy();
+
+        FilesystemKeyStore::with_rng(keys_directory, rng)
     }
 }
 
