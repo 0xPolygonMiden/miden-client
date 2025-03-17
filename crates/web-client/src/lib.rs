@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use console_error_panic_hook::set_once;
 use miden_client::{
     Client,
-    authenticator::{ClientAuthenticator, keystore::WebKeyStore},
+    keystore::WebKeyStore,
     rpc::{Endpoint, TonicRpcClient},
     store::web_store::WebStore,
     transaction::TransactionResult as NativeTransactionResult,
@@ -30,7 +30,7 @@ pub mod utils;
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
-    keystore: Option<WebKeyStore>,
+    keystore: Option<WebKeyStore<RpoRandomCoin>>,
     inner: Option<Client<RpoRandomCoin>>,
 }
 
@@ -78,9 +78,7 @@ impl WebClient {
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
 
-        let keystore = WebKeyStore {};
-
-        let authenticator = Arc::new(ClientAuthenticator::new(rng, keystore.clone()));
+        let keystore = WebKeyStore::new(rng);
 
         let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
@@ -88,8 +86,13 @@ impl WebClient {
 
         let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
 
-        self.inner =
-            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            rng,
+            web_store.clone(),
+            Arc::new(keystore.clone()),
+            false,
+        ));
         self.store = Some(web_store);
         self.keystore = Some(keystore);
 
