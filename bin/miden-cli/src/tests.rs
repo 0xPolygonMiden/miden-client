@@ -3,7 +3,6 @@ use std::{
     fs::File,
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use assert_cmd::Command;
@@ -648,7 +647,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
     let mut rng = rand::thread_rng();
     let coin_seed: [u64; 4] = rng.r#gen();
 
-    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+    let rng = Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new)));
 
     let keystore = CliKeyStore::new(temp_dir()).unwrap();
 

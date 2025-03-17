@@ -1,6 +1,5 @@
 //! Contains structures and functions related to transaction creation.
 use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
-use std::boxed::Box;
 
 use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -8,10 +7,7 @@ use miden_objects::{
     account::AccountId,
     asset::{Asset, FungibleAsset},
     block::BlockNumber,
-    crypto::{
-        merkle::{InnerNodeInfo, MerkleStore},
-        rand::FeltRng,
-    },
+    crypto::merkle::{InnerNodeInfo, MerkleStore},
     note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType, PartialNote},
     transaction::{OutputNote, TransactionScript},
     vm::AdviceMap,
@@ -21,7 +17,7 @@ use super::{
     ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
-use crate::transaction::TransactionScriptBuilderError;
+use crate::{ClientRng, transaction::TransactionScriptBuilderError};
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -236,7 +232,7 @@ impl TransactionRequestBuilder {
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut Box<dyn FeltRng>,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
@@ -264,7 +260,7 @@ impl TransactionRequestBuilder {
         payment_data: PaymentTransactionData,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
-        rng: &mut Box<dyn FeltRng>,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         let PaymentTransactionData {
             assets,
@@ -316,7 +312,7 @@ impl TransactionRequestBuilder {
     pub fn swap(
         swap_data: &SwapTransactionData,
         note_type: NoteType,
-        rng: &mut Box<dyn FeltRng>,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually.

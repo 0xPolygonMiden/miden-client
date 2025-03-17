@@ -12,9 +12,10 @@ use miden_client::{
     },
     asset::TokenSymbol,
     auth::AuthSecretKey,
-    crypto::{FeltRng, SecretKey},
+    crypto::SecretKey,
     utils::Deserializable,
 };
+use rand::RngCore;
 
 use crate::{
     CLIENT_BINARY_NAME, CliKeyStore, commands::account::maybe_set_default_account,

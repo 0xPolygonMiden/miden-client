@@ -26,7 +26,7 @@ use miden_objects::{
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
 };
-use rand::{Rng, rngs::StdRng};
+use rand::{Rng, RngCore, rngs::StdRng};
 use toml::Table;
 use uuid::Uuid;
 

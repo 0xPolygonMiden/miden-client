@@ -7,7 +7,6 @@ use std::{
 use miden_client::{
     Client, ClientError,
     account::{AccountFile, AccountId},
-    crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
 };

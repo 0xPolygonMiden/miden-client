@@ -29,7 +29,7 @@ pub mod utils;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     keystore: Option<WebKeyStore<RpoRandomCoin>>,
-    inner: Option<Client<RpoRandomCoin>>,
+    inner: Option<Client>,
 }
 
 impl Default for WebClient {
@@ -86,7 +86,7 @@ impl WebClient {
 
         self.inner = Some(Client::new(
             web_rpc_client,
-            rng,
+            Box::new(rng),
             web_store.clone(),
             Arc::new(keystore.clone()),
             false,

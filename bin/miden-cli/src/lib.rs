@@ -6,7 +6,7 @@ use errors::CliError;
 use miden_client::{
     Client, ClientError, Felt, IdPrefixFetchError,
     account::AccountHeader,
-    crypto::{FeltRng, RpoRandomCoin},
+    crypto::RpoRandomCoin,
     keystore::FilesystemKeyStore,
     rpc::TonicRpcClient,
     store::{NoteFilter as ClientNoteFilter, OutputNoteRecord, Store, sqlite_store::SqliteStore},

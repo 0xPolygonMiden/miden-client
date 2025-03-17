@@ -191,6 +191,7 @@ use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
     DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
 };
+use rand::{Error, RngCore};
 use rpc::NodeRpcClient;
 use store::{Store, data_store::ClientDataStore};
 use tracing::info;
@@ -210,7 +211,7 @@ pub struct Client {
     store: Arc<dyn Store>,
     /// An instance of [`FeltRng`] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
-    rng: Box<dyn FeltRng>,
+    rng: ClientRng,
     /// An instance of [`NodeRpcClient`] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
@@ -267,7 +268,7 @@ impl Client {
 
         Self {
             store,
-            rng,
+            rng: ClientRng::new(rng),
             rpc_api,
             tx_prover,
             tx_executor,
@@ -282,7 +283,7 @@ impl Client {
 
     /// Returns a reference to the client's random number generator. This can be used to generate
     /// randomness for various purposes such as serial numbers, keys, etc.
-    pub fn rng(&mut self) -> &mut Box<dyn FeltRng> {
+    pub fn rng(&mut self) -> &mut ClientRng {
         &mut self.rng
     }
 
@@ -297,5 +298,45 @@ impl Client {
     #[cfg(any(test, feature = "testing"))]
     pub fn test_store(&mut self) -> &mut Arc<dyn Store> {
         &mut self.store
+    }
+}
+
+pub struct ClientRng(Box<dyn FeltRng>);
+
+impl ClientRng {
+    pub fn new(rng: Box<dyn FeltRng>) -> Self {
+        Self(rng)
+    }
+
+    pub fn inner_mut(&mut self) -> &mut Box<dyn FeltRng> {
+        &mut self.0
+    }
+}
+
+impl RngCore for ClientRng {
+    fn next_u32(&mut self) -> u32 {
+        self.0.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0.fill_bytes(dest);
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        self.0.try_fill_bytes(dest)
+    }
+}
+
+impl FeltRng for ClientRng {
+    fn draw_element(&mut self) -> Felt {
+        self.0.draw_element()
+    }
+
+    fn draw_word(&mut self) -> Word {
+        self.0.draw_word()
     }
 }

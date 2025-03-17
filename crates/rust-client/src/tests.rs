@@ -30,7 +30,7 @@ use miden_objects::{
     vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rand::rngs::StdRng;
+use rand::{RngCore, rngs::StdRng};
 
 use crate::{
     Client, ClientError,

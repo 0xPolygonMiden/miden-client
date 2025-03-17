@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use miden_client::{
-    ClientBuilder, ClientError, ONE,
+    ClientError, ONE,
     account::Account,
+    builder::ClientBuilder,
     note::NoteRelevance,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
     store::{

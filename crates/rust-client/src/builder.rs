@@ -212,7 +212,9 @@ impl ClientBuilder {
                 #[cfg(not(feature="std"))]
                 let keystore = {
                     _ = path;
-                    WebKeyStore {}
+                    let mut seed_rng = rand::thread_rng();
+                    let coin_seed: [u64; 4] = seed_rng.r#gen();
+                    WebKeyStore::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
                 };
 
                 Arc::new(keystore)

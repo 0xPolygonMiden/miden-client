@@ -1,6 +1,4 @@
-use miden_client::{
-    Client, crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord,
-};
+use miden_client::{Client, store::TransactionFilter, transaction::TransactionRecord};
 
 use crate::{Parser, create_dynamic_table, errors::CliError};
 
