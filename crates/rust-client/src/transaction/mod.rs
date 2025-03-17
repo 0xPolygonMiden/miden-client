@@ -80,6 +80,7 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, merkle::MerklePath},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
+    vm::AdviceInputs,
 };
 pub use miden_tx::{
     LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
@@ -901,6 +902,34 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok(Some(block_num))
+    }
+
+    /// Executes the provided transaction script against the specified account, and returns the
+    /// resulting stack. Advice inputs and foreign accounts can be provided for the execution.
+    ///
+    /// The transaction will use the current sync height as the block reference.
+    pub async fn execute_program(
+        &mut self,
+        account_id: AccountId,
+        tx_script: TransactionScript,
+        advice_inputs: AdviceInputs,
+        foreign_accounts: BTreeSet<ForeignAccount>,
+    ) -> Result<[Felt; 16], ClientError> {
+        let block_ref = self.get_sync_height().await?;
+
+        let mut tx_args =
+            TransactionArgs::with_tx_script(tx_script).with_advice_inputs(advice_inputs);
+        self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
+
+        Ok(self
+            .tx_executor
+            .execute_tx_view_script(
+                account_id,
+                block_ref,
+                tx_args.tx_script().expect("Transaction script should be present").clone(),
+                tx_args.advice_inputs().clone(),
+            )
+            .await?)
     }
 }
 

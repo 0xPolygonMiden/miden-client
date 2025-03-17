@@ -30,6 +30,9 @@ pub enum CliError {
         help("Check if the configuration file exists and is well-formed.")
     )]
     Config(#[source] SourceError, String),
+    #[error("execute program error: {1}")]
+    #[diagnostic(code(cli::execute_program_error))]
+    Exec(#[source] SourceError, String),
     #[error("export error: {0}")]
     #[diagnostic(code(cli::export_error), help("Check the ID."))]
     Export(String),
