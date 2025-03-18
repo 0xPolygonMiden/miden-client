@@ -36,8 +36,8 @@ pub enum ClientError {
     AccountError(#[from] AccountError),
     #[error("account with id {0} is locked")]
     AccountLocked(AccountId),
-    #[error("network account hash {0} doesn't match the imported account hash")]
-    AccountHashMismatch(Digest),
+    #[error("network account commitment {0} doesn't match the imported account commitment")]
+    AccountCommitmentMismatch(Digest),
     #[error("account with id {0} is private")]
     AccountIsPrivate(AccountId),
     #[error("account nonce is too low to import")]

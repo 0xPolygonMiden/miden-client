@@ -9,8 +9,8 @@ pub struct AssetVault(NativeAssetVault);
 
 #[wasm_bindgen]
 impl AssetVault {
-    pub fn commitment(&self) -> RpoDigest {
-        self.0.commitment().into()
+    pub fn root(&self) -> RpoDigest {
+        self.0.root().into()
     }
 
     #[wasm_bindgen(js_name = "getBalance")]
