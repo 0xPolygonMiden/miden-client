@@ -9,6 +9,7 @@
 * [BREAKING] Generalized `miden new-account` CLI command (#728).
 * Added `ClientBuilder` for client initialization (#741).
 * Added support for script execution in the `Client` and CLI (#777).
+* Added note code to `miden notes --show` command (#790).
 
 ### Changes
 
