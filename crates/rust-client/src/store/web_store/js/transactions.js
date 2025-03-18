@@ -18,27 +18,27 @@ export async function getTransactions(filter) {
       return [];
     }
 
-    const scriptHashes = transactionRecords.map((transactionRecord) => {
-      return transactionRecord.scriptHash;
+    const scriptCommitments = transactionRecords.map((transactionRecord) => {
+      return transactionRecord.scriptCommitment;
     });
 
     const scripts = await transactionScripts
-      .where("scriptHash")
-      .anyOf(scriptHashes)
+      .where("scriptCommitment")
+      .anyOf(scriptCommitments)
       .toArray();
 
-    // Create a map of scriptHash to script for quick lookup
+    // Create a map of scriptCommitment to script for quick lookup
     const scriptMap = new Map();
     scripts.forEach((script) => {
-      scriptMap.set(script.scriptHash, script.txScript);
+      scriptMap.set(script.scriptCommitment, script.txScript);
     });
 
     const processedTransactions = await Promise.all(
       transactionRecords.map(async (transactionRecord) => {
         let txScriptBase64 = null;
 
-        if (transactionRecord.scriptHash) {
-          const txScript = scriptMap.get(transactionRecord.scriptHash);
+        if (transactionRecord.scriptCommitment) {
+          const txScript = scriptMap.get(transactionRecord.scriptCommitment);
 
           if (txScript) {
             let txScriptArrayBuffer = await txScript.arrayBuffer();
@@ -66,8 +66,8 @@ export async function getTransactions(filter) {
           finalAccountState: transactionRecord.finalAccountState,
           inputNotes: transactionRecord.inputNotes,
           outputNotes: transactionRecord.outputNotes,
-          scriptHash: transactionRecord.scriptHash
-            ? transactionRecord.scriptHash
+          scriptCommitment: transactionRecord.scriptCommitment
+            ? transactionRecord.scriptCommitment
             : null,
           txScript: txScriptBase64,
           blockNum: transactionRecord.blockNum,
@@ -87,24 +87,24 @@ export async function getTransactions(filter) {
   }
 }
 
-export async function insertTransactionScript(scriptHash, txScript) {
+export async function insertTransactionScript(scriptCommitment, txScript) {
   try {
-    // check if script hash already exists
+    // check if script commitment already exists
     let record = await transactionScripts
-      .where("scriptHash")
-      .equals(scriptHash)
+      .where("scriptCommitment")
+      .equals(scriptCommitment)
       .first();
 
     if (record) {
       return;
     }
 
-    if (!scriptHash) {
-      throw new Error("Script hash must be provided");
+    if (!scriptCommitment) {
+      throw new Error("Script commitment must be provided");
     }
 
-    let scriptHashArray = new Uint8Array(scriptHash);
-    let scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
+    let scriptCommitmentArray = new Uint8Array(scriptCommitment);
+    let scriptCommitmentBase64 = uint8ArrayToBase64(scriptCommitmentArray);
 
     let txScriptBlob = null;
     if (txScript) {
@@ -112,7 +112,7 @@ export async function insertTransactionScript(scriptHash, txScript) {
     }
 
     const data = {
-      scriptHash: scriptHashBase64,
+      scriptCommitment: scriptCommitmentBase64,
       txScript: txScriptBlob,
     };
 
@@ -134,17 +134,17 @@ export async function insertProvenTransactionData(
   finalAccountState,
   inputNotes,
   outputNotes,
-  scriptHash,
+  scriptCommitment,
   blockNum,
   committed
 ) {
   try {
     let inputNotesBlob = new Blob([new Uint8Array(inputNotes)]);
     let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
-    let scriptHashBase64 = null;
-    if (scriptHash !== null) {
-      let scriptHashArray = new Uint8Array(scriptHash);
-      scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
+    let scriptCommitmentBase64 = null;
+    if (scriptCommitment !== null) {
+      let scriptCommitmentArray = new Uint8Array(scriptCommitment);
+      scriptCommitmentBase64 = uint8ArrayToBase64(scriptCommitmentArray);
     }
 
     const data = {
@@ -154,7 +154,7 @@ export async function insertProvenTransactionData(
       finalAccountState: finalAccountState,
       inputNotes: inputNotesBlob,
       outputNotes: outputNotesBlob,
-      scriptHash: scriptHashBase64,
+      scriptCommitment: scriptCommitmentBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
     };

@@ -99,8 +99,8 @@ impl<R: FeltRng> Client<R> {
     /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked.
-    /// - If `overwrite` is set to `true` and the `account_data` hash doesn't match the network's
-    ///   account hash.
+    /// - If `overwrite` is set to `true` and the `account_data` commitment doesn't match the
+    ///   network's account commitment.
     pub async fn add_account(
         &mut self,
         account: &Account,
@@ -151,12 +151,14 @@ impl<R: FeltRng> Client<R> {
                 }
 
                 if tracked_account.is_locked() {
-                    // If the tracked account is locked, check that the account hash matches the one
-                    // in the network
-                    let network_account_hash =
-                        self.rpc_api.get_account_details(account.id()).await?.hash();
-                    if network_account_hash != account.commitment() {
-                        return Err(ClientError::AccountHashMismatch(network_account_hash));
+                    // If the tracked account is locked, check that the account commitment matches
+                    // the one in the network
+                    let network_account_commitment =
+                        self.rpc_api.get_account_details(account.id()).await?.commitment();
+                    if network_account_commitment != account.commitment() {
+                        return Err(ClientError::AccountCommitmentMismatch(
+                            network_account_commitment,
+                        ));
                     }
                 }
 

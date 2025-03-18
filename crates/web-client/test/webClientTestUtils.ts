@@ -196,7 +196,7 @@ export const createNewWallet = async ({
       return {
         id: newWallet.id().toString(),
         nonce: newWallet.nonce().toString(),
-        vaultCommitment: newWallet.vault().commitment().toHex(),
+        vaultCommitment: newWallet.vault().root().toHex(),
         storageCommitment: newWallet.storage().commitment().toHex(),
         codeCommitment: newWallet.code().commitment().toHex(),
         isFaucet: newWallet.isFaucet(),
@@ -238,7 +238,7 @@ export const createNewFaucet = async (
       return {
         id: newFaucet.id().toString(),
         nonce: newFaucet.nonce().toString(),
-        vaultCommitment: newFaucet.vault().commitment().toHex(),
+        vaultCommitment: newFaucet.vault().root().toHex(),
         storageCommitment: newFaucet.storage().commitment().toHex(),
         codeCommitment: newFaucet.code().commitment().toHex(),
         isFaucet: newFaucet.isFaucet(),
@@ -342,7 +342,7 @@ export const consumeTransaction = async (
 interface SetupWalletFaucetResult {
   accountId: string;
   faucetId: string;
-  accountHash: string;
+  accountCommitment: string;
 }
 
 export const setupWalletAndFaucet =
@@ -364,7 +364,7 @@ export const setupWalletAndFaucet =
 
       return {
         accountId: account.id().toString(),
-        accountHash: account.commitment().toHex(),
+        accountCommitment: account.commitment().toHex(),
         faucetId: faucetAccount.id().toString(),
       };
     });
@@ -377,9 +377,9 @@ export const getAccount = async (accountId: string) => {
     const account = await client.getAccount(accountId);
     return {
       id: account?.id().toString(),
-      hash: account?.hash().toHex(),
+      commitment: account?.commitment().toHex(),
       nonce: account?.nonce().toString(),
-      vaultCommitment: account?.vault().commitment().toHex(),
+      vaultCommitment: account?.vault().root().toHex(),
       storageCommitment: account?.storage().commitment().toHex(),
       codeCommitment: account?.code().commitment().toHex(),
     };

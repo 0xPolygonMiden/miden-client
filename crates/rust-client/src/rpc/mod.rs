@@ -188,7 +188,7 @@ pub trait NodeRpcClient {
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
     /// specified foreign accounts, using the `GetAccountProofs` endpoint.
     ///
-    /// The `code_commitments` parameter is a list of known code hashes
+    /// The `code_commitments` parameter is a list of known code commitments
     /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
     /// one of the tracked accounts is not found in the node, the method will return an error.
     async fn get_account_proofs(

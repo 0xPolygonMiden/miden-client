@@ -471,18 +471,18 @@ impl<R: FeltRng> Client<R> {
             .await?;
 
         // Check that the expected output notes matches the transaction outcome.
-        // We compare authentication hashes where possible since that involves note IDs + metadata
-        // (as opposed to just note ID which remains the same regardless of metadata)
-        // We also do the check for partial output notes
+        // We compare authentication commitments where possible since that involves note IDs +
+        // metadata (as opposed to just note ID which remains the same regardless of
+        // metadata) We also do the check for partial output notes
 
-        let tx_note_auth_hashes: BTreeSet<Digest> =
+        let tx_note_auth_commitments: BTreeSet<Digest> =
             notes_from_output(executed_transaction.output_notes())
                 .map(Note::commitment)
                 .collect();
 
         let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
-            .filter_map(|n| (!tx_note_auth_hashes.contains(&n.commitment())).then_some(n.id()))
+            .filter_map(|n| (!tx_note_auth_commitments.contains(&n.commitment())).then_some(n.id()))
             .collect();
 
         if !missing_note_ids.is_empty() {
@@ -568,8 +568,13 @@ impl<R: FeltRng> Client<R> {
         let mut account: Account = account_record.into();
         account.apply_delta(account_delta)?;
 
-        if self.store.get_account_header_by_hash(account.commitment()).await?.is_some() {
-            return Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(
+        if self
+            .store
+            .get_account_header_by_commitment(account.commitment())
+            .await?
+            .is_some()
+        {
+            return Err(ClientError::StoreError(StoreError::AccountCommitmentAlreadyExists(
                 account.commitment(),
             )));
         }

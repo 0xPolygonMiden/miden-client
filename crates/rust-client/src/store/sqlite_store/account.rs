@@ -76,16 +76,16 @@ impl SqliteStore {
             .transpose()
     }
 
-    pub(crate) fn get_account_header_by_hash(
+    pub(crate) fn get_account_header_by_commitment(
         conn: &mut Connection,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
-        let account_hash_str: String = account_hash.to_string();
+        let account_commitment_str: String = account_commitment.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
-            FROM accounts WHERE account_hash = ?";
+            FROM accounts WHERE account_commitment = ?";
 
         conn.prepare(QUERY)?
-            .query_map(params![account_hash_str], parse_accounts_columns)?
+            .query_map(params![account_commitment_str], parse_accounts_columns)?
             .map(|result| {
                 let result = result?;
                 Ok(parse_accounts(result)?.0)
@@ -228,15 +228,24 @@ pub(super) fn insert_account_record(
     account: &Account,
     account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
-    let (id, code_root, storage_root, vault_root, nonce, committed, hash) =
+    let (id, code_root, storage_root, vault_root, nonce, committed, commitment) =
         serialize_account(account);
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str = "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
+    const QUERY: &str = "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_commitment, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
-        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
+        params![
+            id,
+            code_root,
+            storage_root,
+            vault_root,
+            nonce,
+            committed,
+            account_seed,
+            commitment
+        ],
     )?;
     Ok(())
 }
@@ -354,9 +363,9 @@ fn serialize_account(account: &Account) -> SerializedAccountData {
     let vault_root = account.vault().root().to_string();
     let committed = account.is_public();
     let nonce = u64_to_value(account.nonce().as_int());
-    let hash = account.commitment().to_string();
+    let commitment = account.commitment().to_string();
 
-    (id, code_root, commitment_root, vault_root, nonce, committed, hash)
+    (id, code_root, commitment_root, vault_root, nonce, committed, commitment)
 }
 
 /// Serialize the provided `account_code` into database compatible types.

@@ -634,7 +634,7 @@ async fn test_no_nonce_change_transaction_request() {
 
     assert!(matches!(
         result,
-        Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
+        Err(ClientError::StoreError(StoreError::AccountCommitmentAlreadyExists(_)))
     ));
 }
 

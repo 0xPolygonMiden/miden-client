@@ -17,8 +17,8 @@ extern "C" {
     #[wasm_bindgen(js_name = getAccountHeader)]
     pub fn idxdb_get_account_header(account_id: String) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountHeaderByHash)]
-    pub fn idxdb_get_account_header_by_hash(account_hash: String) -> js_sys::Promise;
+    #[wasm_bindgen(js_name = getAccountHeaderByCommitment)]
+    pub fn idxdb_get_account_header_by_commitment(account_commitment: String) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountCode)]
     pub fn idxdb_get_account_code(code_root: String) -> js_sys::Promise;

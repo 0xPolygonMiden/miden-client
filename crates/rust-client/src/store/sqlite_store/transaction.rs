@@ -28,10 +28,10 @@ use crate::{
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_hash, block_num, commit_height, discarded) \
+    input_notes, output_notes, script_commitment, block_num, commit_height, discarded) \
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_hash, script) \
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_commitment, script) \
     VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS
@@ -41,9 +41,9 @@ impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-            tx.input_notes, tx.output_notes, tx.script_hash, script.script, tx.block_num, tx.commit_height, \
+            tx.input_notes, tx.output_notes, tx.script_commitment, script.script, tx.block_num, tx.commit_height, \
             tx.discarded
-            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
+            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_commitment = script.script_commitment";
         match self {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
@@ -163,15 +163,15 @@ pub(super) fn insert_proven_transaction_data(
         final_account_state,
         input_notes,
         output_notes,
-        script_hash,
+        script_commitment,
         tx_script,
         block_num,
         committed,
         discarded,
     ) = serialize_transaction_data(executed_transaction);
 
-    if let Some(hash) = script_hash.clone() {
-        tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, tx_script])?;
+    if let Some(commitment) = script_commitment.clone() {
+        tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![commitment, tx_script])?;
     }
 
     tx.execute(
@@ -183,7 +183,7 @@ pub(super) fn insert_proven_transaction_data(
             final_account_state,
             input_notes,
             output_notes,
-            script_hash,
+            script_commitment,
             block_num,
             committed,
             discarded,
@@ -218,7 +218,7 @@ pub(super) fn serialize_transaction_data(
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = executed_transaction.tx_args();
     let tx_script = transaction_args.tx_script().map(TransactionScript::to_bytes);
-    let script_hash = transaction_args.tx_script().map(|script| script.hash().to_bytes());
+    let script_commitment = transaction_args.tx_script().map(|script| script.hash().to_bytes());
 
     (
         transaction_id,
@@ -227,7 +227,7 @@ pub(super) fn serialize_transaction_data(
         final_account_state.to_owned(),
         input_notes,
         output_notes.to_bytes(),
-        script_hash,
+        script_commitment,
         tx_script,
         executed_transaction.block_header().block_num().as_u32(),
         None,
@@ -244,7 +244,7 @@ fn parse_transaction_columns(
     let final_account_state: String = row.get(3)?;
     let input_notes: Vec<u8> = row.get(4)?;
     let output_notes: Vec<u8> = row.get(5)?;
-    let script_hash: Option<Vec<u8>> = row.get(6)?;
+    let script_commitment: Option<Vec<u8>> = row.get(6)?;
     let tx_script: Option<Vec<u8>> = row.get(7)?;
     let block_num: u32 = row.get(8)?;
     let commit_height: Option<u32> = row.get(9)?;
@@ -257,7 +257,7 @@ fn parse_transaction_columns(
         final_account_state,
         input_notes,
         output_notes,
-        script_hash,
+        script_commitment,
         tx_script,
         block_num,
         commit_height,
@@ -276,7 +276,7 @@ fn parse_transaction(
         final_account_state,
         input_notes,
         output_notes,
-        _script_hash,
+        _script_commitment,
         tx_script,
         block_num,
         commit_height,
