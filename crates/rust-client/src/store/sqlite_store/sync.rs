@@ -18,8 +18,7 @@ use crate::{
             note::apply_note_updates_tx,
         },
     },
-    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate, TX_GRACEFUL_BLOCKS},
-    transaction::TransactionRecord,
+    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
 impl SqliteStore {
@@ -115,23 +114,8 @@ impl SqliteStore {
             block_has_relevant_notes,
             transactions_to_discard: mut discarded_transactions,
             tags_to_remove,
+            old_pending_transactions,
         } = state_sync_update;
-
-        // Find old pending transactions before starting the database transaction
-        let graceful_block_num =
-            block_header.block_num().checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
-        // Retain old pending transactions
-        let mut old_pending_transactions: Vec<TransactionRecord> =
-            Self::get_transactions(conn, &TransactionFilter::ExpiredPending(graceful_block_num))?;
-
-        old_pending_transactions.retain(|tx| {
-            committed_transactions
-                .iter()
-                .map(|tx| tx.transaction_id)
-                .collect::<Vec<_>>()
-                .contains(&tx.id)
-                && !discarded_transactions.contains(&tx.id)
-        });
 
         let tx = conn.transaction()?;
 

@@ -77,7 +77,7 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
-    transaction::TransactionStatus,
+    transaction::{TransactionRecord, TransactionStatus},
 };
 
 mod block_header;
@@ -233,6 +233,8 @@ pub struct StateSyncUpdate {
     pub block_has_relevant_notes: bool,
     /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
+    /// Transactions that were pending before the sync and were not committed.
+    pub old_pending_transactions: Vec<TransactionRecord>,
 }
 
 // CONSTANTS
@@ -362,6 +364,27 @@ impl<R: FeltRng> Client<R> {
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
         let response_block_num = response.block_header.block_num();
+
+        let transactions_to_discard = vec![];
+
+        // Find old pending transactions before starting the database transaction
+        let graceful_block_num =
+            response_block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+        // Retain old pending transactions
+        let mut old_pending_transactions: Vec<TransactionRecord> = self
+            .store
+            .get_transactions(TransactionFilter::ExpiredPending(graceful_block_num))
+            .await?;
+
+        old_pending_transactions.retain(|tx| {
+            transactions_to_commit
+                .iter()
+                .map(|tx| tx.transaction_id)
+                .collect::<Vec<_>>()
+                .contains(&tx.id)
+                && !transactions_to_discard.contains(&tx.id)
+        });
+
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             note_updates,
@@ -373,8 +396,9 @@ impl<R: FeltRng> Client<R> {
                 mismatched_private_accounts,
             ),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
-            transactions_to_discard: vec![],
+            transactions_to_discard,
             tags_to_remove,
+            old_pending_transactions,
         };
 
         // Apply received and computed updates to the store
