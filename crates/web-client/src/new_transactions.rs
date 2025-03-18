@@ -103,7 +103,6 @@ impl WebClient {
                 note_type.into(),
                 client.rng(),
             )
-            .and_then(NativeTransactionRequestBuilder::build)
             .map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {err}"))
             })?
@@ -144,7 +143,6 @@ impl WebClient {
                     note_type.into(),
                     client.rng(),
                 )
-                .and_then(NativeTransactionRequestBuilder::build)
                 .map_err(|err| {
                     JsValue::from_str(&format!(
                         "Failed to create Send Transaction Request with Recall Height: {err}"
@@ -157,7 +155,6 @@ impl WebClient {
                     note_type.into(),
                     client.rng(),
                 )
-                .and_then(NativeTransactionRequestBuilder::build)
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to create Send Transaction Request: {err}"))
                 })?
@@ -192,7 +189,7 @@ impl WebClient {
                 result.push(note_record.id());
             }
 
-            NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
+            NativeTransactionRequestBuilder::consume_notes(result).map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Consume Transaction Request: {err}"))
             })?
         };
@@ -255,8 +252,6 @@ impl WebClient {
                 note_type.into(),
                 client.rng(),
             )
-            .unwrap()
-            .build()
             .unwrap();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())

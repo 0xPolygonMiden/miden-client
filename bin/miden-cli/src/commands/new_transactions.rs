@@ -76,7 +76,6 @@ impl MintCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build mint transaction".to_string())
         })?;
@@ -149,7 +148,6 @@ impl SendCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build payment transaction".to_string())
         })?;
@@ -218,7 +216,6 @@ impl SwapCmd {
             (&self.note_type).into(),
             client.rng(),
         )
-        .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
             CliError::Transaction(err.into(), "Failed to build swap transaction".to_string())
         })?;

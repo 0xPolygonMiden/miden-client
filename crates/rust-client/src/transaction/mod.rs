@@ -1103,8 +1103,6 @@ mod test {
             NoteType::Private,
             client.rng(),
         )
-        .unwrap()
-        .build()
         .unwrap();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
