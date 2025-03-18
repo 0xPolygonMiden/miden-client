@@ -58,7 +58,7 @@ impl WebStore {
                 let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
 
                 let transaction_script: Option<TransactionScript> =
-                    if tx_idxdb.script_commitment.is_some() {
+                    if tx_idxdb.script_hash.is_some() {
                         let tx_script = tx_idxdb
                             .tx_script
                             .map(|script| TransactionScript::read_from_bytes(&script))

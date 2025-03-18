@@ -56,19 +56,19 @@ CREATE TABLE transactions (
     final_account_state BLOB NOT NULL,               -- Commitment of the account state after the transaction was executed.
     input_notes BLOB,                                -- Serialized list of input note commitments
     output_notes BLOB,                               -- Serialized list of output note commitments
-    script_commitment TEXT,                          -- Transaction script commitment
+    script_hash TEXT,                                -- Transaction script hash
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
     discarded BOOLEAN NOT NULL,                      -- Boolean indicating if the transaction is discarded
-    FOREIGN KEY (script_commitment) REFERENCES transaction_scripts(script_commitment),
+    FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)
 );
 
 CREATE TABLE transaction_scripts (
-    script_commitment TEXT NOT NULL,                 -- Transaction script commitment
+    script_hash TEXT NOT NULL,                       -- Transaction script hash
     script BLOB,                                     -- serialized Transaction script
 
-    PRIMARY KEY (script_commitment)
+    PRIMARY KEY (script_hash)
 );
 
 -- Create input notes table

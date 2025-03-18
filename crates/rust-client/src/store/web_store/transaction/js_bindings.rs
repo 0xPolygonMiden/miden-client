@@ -15,7 +15,7 @@ extern "C" {
 
     #[wasm_bindgen(js_name = insertTransactionScript)]
     pub fn idxdb_insert_transaction_script(
-        script_commitment: Vec<u8>,
+        script_hash: Vec<u8>,
         tx_script: Option<Vec<u8>>,
     ) -> js_sys::Promise;
 
@@ -27,7 +27,7 @@ extern "C" {
         final_account_state: String,
         input_notes: Vec<u8>,
         output_notes: Vec<u8>,
-        script_commitment: Option<Vec<u8>>,
+        script_hash: Option<Vec<u8>>,
         block_num: String,
         committed: Option<String>,
     ) -> js_sys::Promise;
