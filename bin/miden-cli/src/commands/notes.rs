@@ -11,6 +11,7 @@ use miden_client::{
     },
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
 };
+use miden_objects::PrettyPrint;
 
 use crate::{
     Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
@@ -208,8 +209,9 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     };
 
     let assets = input_note_record
+        .clone()
         .map(|record| record.assets().clone())
-        .or(output_note_record.map(|record| record.assets().clone()))
+        .or(output_note_record.clone().map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
 
     // print note vault
@@ -259,6 +261,19 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         });
         println!("{table}");
     };
+
+    let mut table = create_dynamic_table(&["Note Code"]);
+    let code = match (&input_note_record, &output_note_record) {
+        (Some(record), _) => record.details().script().to_pretty_string(),
+        (_, Some(record)) => {
+            record.state().recipient().map_or("Code unavailable".to_string(), |recipient| {
+                recipient.script().to_pretty_string()
+            })
+        },
+        (None, None) => "Code unavailable".to_string(),
+    };
+    table.add_row(vec![Cell::new(code)]);
+    println!("{table}");
 
     Ok(())
 }
