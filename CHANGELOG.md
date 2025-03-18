@@ -20,6 +20,7 @@
 * Added `ClientBuilder` for client initialization (#741).
 * [BREAKING] Updated client to Rust 2024 edition (#778).
 * [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
+* [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
 
 ### Fixes
 
