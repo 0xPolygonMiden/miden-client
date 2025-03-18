@@ -133,14 +133,11 @@ pub trait Store: Send + Sync {
     ///
     /// The default implementation of this method uses [Store::get_input_notes].
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        let nullifiers = self
-            .get_input_notes(NoteFilter::Unspent)
+        self.get_input_notes(NoteFilter::Unspent)
             .await?
             .iter()
             .map(|input_note| Ok(input_note.nullifier()))
-            .collect::<Result<Vec<_>, _>>();
-
-        nullifiers
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// Inserts the provided input notes into the database. If a note with the same ID already

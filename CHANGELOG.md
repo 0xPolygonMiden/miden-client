@@ -4,6 +4,7 @@
 
 ### Features
 
+* Added Delegated Proving Support to All Transaction Types in Web Client (#792).
 * Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
 * [BREAKING] Generalized `miden new-account` CLI command (#728).

@@ -180,7 +180,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         P2IDR => script_root += " (P2IDR)",
         SWAP => script_root += " (SWAP)",
         _ => {},
-    };
+    }
 
     table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
     table.add_row(vec![Cell::new("Assets Commitment"), Cell::new(assets_commitment)]);
@@ -258,7 +258,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
         println!("{table}");
-    };
+    }
 
     Ok(())
 }

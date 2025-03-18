@@ -134,7 +134,7 @@ impl InitCmd {
             CliError::Config("failed to write config file".to_string().into(), err.to_string())
         })?;
 
-        println!("Config file successfully created at: {config_file_path:?}");
+        println!("Config file successfully created at: {}", config_file_path.display());
 
         Ok(())
     }
