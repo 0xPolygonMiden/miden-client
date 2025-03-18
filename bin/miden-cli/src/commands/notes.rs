@@ -83,7 +83,7 @@ impl NotesCmd {
 
 struct CliNoteSummary {
     id: String,
-    script_commitment: String,
+    script_root: String,
     assets_commitment: String,
     inputs_commitment: String,
     serial_num: String,
@@ -164,7 +164,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 
     let CliNoteSummary {
         id,
-        mut script_commitment,
+        mut script_root,
         assets_commitment,
         inputs_commitment,
         serial_num,
@@ -175,14 +175,14 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
-    match script_commitment.clone().as_str() {
-        P2ID => script_commitment += " (P2ID)",
-        P2IDR => script_commitment += " (P2IDR)",
-        SWAP => script_commitment += " (SWAP)",
+    match script_root.clone().as_str() {
+        P2ID => script_root += " (P2ID)",
+        P2IDR => script_root += " (P2IDR)",
+        SWAP => script_root += " (SWAP)",
         _ => {},
     };
 
-    table.add_row(vec![Cell::new("Script Commitment"), Cell::new(script_commitment)]);
+    table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
     table.add_row(vec![Cell::new("Assets Commitment"), Cell::new(assets_commitment)]);
     table.add_row(vec![Cell::new("Inputs Commitment"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
@@ -344,14 +344,14 @@ fn note_summary(
         .or(output_note_record.map(|record| record.assets().commitment().to_string()))
         .expect("One of the two records should be Some");
 
-    let (inputs_commitment_str, serial_num, script_commitment_str) =
+    let (inputs_commitment_str, serial_num, script_root_str) =
         match (input_note_record, output_note_record) {
             (Some(record), _) => {
                 let details = record.details();
                 (
                     details.inputs().commitment().to_string(),
                     Digest::new(details.serial_num()).to_string(),
-                    details.script().commitment().to_string(),
+                    details.script().root().to_string(),
                 )
             },
             (None, Some(record)) if record.recipient().is_some() => {
@@ -359,7 +359,7 @@ fn note_summary(
                 (
                     recipient.inputs().commitment().to_string(),
                     Digest::new(recipient.serial_num()).to_string(),
-                    recipient.script().commitment().to_string(),
+                    recipient.script().root().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -389,7 +389,7 @@ fn note_summary(
 
     CliNoteSummary {
         id: note_id.inner().to_string(),
-        script_commitment: script_commitment_str,
+        script_root: script_root_str,
         assets_commitment: assets_commitment_str,
         inputs_commitment: inputs_commitment_str,
         serial_num,

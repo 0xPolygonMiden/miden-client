@@ -312,9 +312,9 @@ checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "blake3"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "675f87afced0413c9bb02843499dbbd3882a237645883f71a2b59644a6d2f753"
+checksum = "b17679a8d69b6d7fd9cd9801a536cec9fa5e5970b69f9d4747f70b39b031f5e7"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -1492,7 +1492,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#911d713bbd5a9c41b8dcd576d1500e01af4896a2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#60a581e6fe9e7b29eebad33fb305949288fe50a2"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1547,7 +1547,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#911d713bbd5a9c41b8dcd576d1500e01af4896a2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#60a581e6fe9e7b29eebad33fb305949288fe50a2"
 dependencies = [
  "bech32",
  "getrandom 0.2.15",
@@ -1594,7 +1594,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#911d713bbd5a9c41b8dcd576d1500e01af4896a2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#60a581e6fe9e7b29eebad33fb305949288fe50a2"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1613,7 +1613,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#4906ffb59f017c8ec2237266c64dc66b682ea4ba"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#399888dfea24322604f0ce5a720628dc368edbbc"
 
 [[package]]
 name = "miden-stdlib"
@@ -1627,7 +1627,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#911d713bbd5a9c41b8dcd576d1500e01af4896a2"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#60a581e6fe9e7b29eebad33fb305949288fe50a2"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2360,9 +2360,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7178faa4b75a30e269c71e61c353ce2748cf3d76f0c44c393f4e60abf49b825"
+checksum = "e56a18552996ac8d29ecc3b190b4fdbb2d91ca4ec396de7bbffaf43f3d637e96"
 dependencies = [
  "bitflags",
  "errno",
@@ -2719,7 +2719,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.2",
  "once_cell",
- "rustix 1.0.2",
+ "rustix 1.0.3",
  "windows-sys 0.59.0",
 ]
 
@@ -2759,7 +2759,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45c6481c4829e4cc63825e62c49186a34538b7b2750b73b266581ffb612fb5ed"
 dependencies = [
- "rustix 1.0.2",
+ "rustix 1.0.3",
  "windows-sys 0.59.0",
 ]
 
@@ -3461,9 +3461,9 @@ dependencies = [
 
 [[package]]
 name = "windows-link"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dccfd733ce2b1753b03b6d3c65edf020262ea35e20ccdf3e288043e6dd620e3"
+checksum = "76840935b766e1b0a05c0066835fb9ec80071d4c09a16f6bd5f7e655e3c14c38"
 
 [[package]]
 name = "windows-result"

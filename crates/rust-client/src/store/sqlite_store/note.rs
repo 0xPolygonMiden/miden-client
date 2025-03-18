@@ -34,7 +34,7 @@ struct SerializedInputNoteData {
     pub assets: Vec<u8>,
     pub serial_number: Vec<u8>,
     pub inputs: Vec<u8>,
-    pub script_commitment: String,
+    pub script_root: String,
     pub script: Vec<u8>,
     pub nullifier: String,
     pub state_discriminant: u8,
@@ -165,7 +165,7 @@ impl NoteFilter {
                 note.created_at
                 from input_notes AS note
                 LEFT OUTER JOIN notes_scripts AS script
-                    ON note.script_commitment = script.script_commitment";
+                    ON note.script_root = script.script_root";
 
         let (condition, params) = self.input_notes_condition();
         let query = format!("{base} WHERE {condition}");
@@ -328,7 +328,7 @@ pub(super) fn upsert_input_note_tx(
         assets,
         serial_number,
         inputs,
-        script_commitment,
+        script_root,
         script,
         nullifier,
         state_discriminant,
@@ -336,8 +336,9 @@ pub(super) fn upsert_input_note_tx(
         created_at,
     } = serialize_input_note(note);
 
-    const SCRIPT_QUERY: &str = "INSERT OR REPLACE INTO notes_scripts (script_commitment, serialized_note_script) VALUES (?, ?)";
-    tx.execute(SCRIPT_QUERY, params![script_commitment, script,])?;
+    const SCRIPT_QUERY: &str =
+        "INSERT OR REPLACE INTO notes_scripts (script_root, serialized_note_script) VALUES (?, ?)";
+    tx.execute(SCRIPT_QUERY, params![script_root, script,])?;
 
     const NOTE_QUERY: &str = "
         INSERT OR REPLACE INTO input_notes (
@@ -345,7 +346,7 @@ pub(super) fn upsert_input_note_tx(
             assets,
             serial_number,
             inputs,
-            script_commitment,
+            script_root,
             nullifier,
             state_discriminant,
             state,
@@ -355,7 +356,7 @@ pub(super) fn upsert_input_note_tx(
             :assets,
             :serial_number,
             :inputs,
-            :script_commitment,
+            :script_root,
             :nullifier,
             :state_discriminant,
             :state,
@@ -369,7 +370,7 @@ pub(super) fn upsert_input_note_tx(
             ":assets": assets,
             ":serial_number": serial_number,
             ":inputs": inputs,
-            ":script_commitment": script_commitment,
+            ":script_root": script_root,
             ":nullifier": nullifier,
             ":state_discriminant": state_discriminant,
             ":state": state,
@@ -496,7 +497,7 @@ fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNoteData {
     let script = recipient.script().to_bytes();
     let inputs = recipient.inputs().to_bytes();
 
-    let script_commitment = recipient.script().commitment().to_hex();
+    let script_root = recipient.script().root().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
@@ -506,7 +507,7 @@ fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNoteData {
         assets,
         serial_number,
         inputs,
-        script_commitment,
+        script_root,
         script,
         nullifier,
         state_discriminant,

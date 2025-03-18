@@ -56,19 +56,19 @@ CREATE TABLE transactions (
     final_account_state BLOB NOT NULL,               -- Commitment of the account state after the transaction was executed.
     input_notes BLOB,                                -- Serialized list of input note commitments
     output_notes BLOB,                               -- Serialized list of output note commitments
-    script_hash TEXT,                                -- Transaction script hash
+    script_root TEXT,                                -- Transaction script root
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
     discarded BOOLEAN NOT NULL,                      -- Boolean indicating if the transaction is discarded
-    FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
+    FOREIGN KEY (script_root) REFERENCES transaction_scripts(script_root),
     PRIMARY KEY (id)
 );
 
 CREATE TABLE transaction_scripts (
-    script_hash TEXT NOT NULL,                       -- Transaction script hash
+    script_root TEXT NOT NULL,                       -- Transaction script root
     script BLOB,                                     -- serialized Transaction script
 
-    PRIMARY KEY (script_hash)
+    PRIMARY KEY (script_root)
 );
 
 -- Create input notes table
@@ -77,14 +77,14 @@ CREATE TABLE input_notes (
     assets BLOB NOT NULL,                                   -- the serialized list of assets
     serial_number BLOB NOT NULL,                            -- the serial number of the note
     inputs BLOB NOT NULL,                                   -- the serialized list of note inputs
-    script_commitment TEXT NOT NULL,                        -- the script commitment of the note, used to join with the notes_scripts table
+    script_root TEXT NOT NULL,                              -- the script root of the note, used to join with the notes_scripts table
     nullifier TEXT NOT NULL,                                -- the nullifier of the note, used to query by nullifier
     state_discriminant UNSIGNED INT NOT NULL,               -- state discriminant of the note, used to query by state
     state BLOB NOT NULL,                                    -- serialized note state
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
 
     PRIMARY KEY (note_id)
-    FOREIGN KEY (script_commitment) REFERENCES notes_scripts(script_commitment)
+    FOREIGN KEY (script_root) REFERENCES notes_scripts(script_root)
 );
 
 -- Create output notes table
@@ -105,10 +105,10 @@ CREATE TABLE output_notes (
 
 -- Create note's scripts table, used for both input and output notes
 CREATE TABLE notes_scripts (
-    script_commitment TEXT NOT NULL,                       -- Note script commitment
+    script_root TEXT NOT NULL,                       -- Note script root
     serialized_note_script BLOB,                     -- NoteScript, serialized
 
-    PRIMARY KEY (script_commitment)
+    PRIMARY KEY (script_root)
 );
 
 -- Create state sync table

@@ -60,7 +60,7 @@ extern "C" {
         nonce: String,
         committed: bool,
         account_seed: Option<Vec<u8>>,
-        hash: String,
+        commitment: String,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAuth)]

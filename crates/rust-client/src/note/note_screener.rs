@@ -63,8 +63,8 @@ impl NoteScreener {
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let account_ids = BTreeSet::from_iter(self.store.get_account_ids().await?);
 
-        let script_commitment = note.script().commitment().to_string();
-        let note_relevance = match script_commitment.as_str() {
+        let script_root = note.script().root().to_string();
+        let note_relevance = match script_root.as_str() {
             P2ID => Self::check_p2id_relevance(note, &account_ids)?,
             P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
             SWAP => self.check_swap_relevance(note, &account_ids).await?,

@@ -29,7 +29,7 @@ pub struct SerializedInputNoteData {
     pub note_assets: Vec<u8>,
     pub serial_number: Vec<u8>,
     pub inputs: Vec<u8>,
-    pub note_script_commitment: String,
+    pub note_script_root: String,
     pub note_script: Vec<u8>,
     pub nullifier: String,
     pub state_discriminant: u8,
@@ -60,8 +60,8 @@ pub(crate) fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNot
     let nullifier = details.nullifier().to_hex();
 
     let recipient = details.recipient();
-    let note_script = recipient.script().to_bytes();
-    let note_script_commitment = recipient.script().commitment().to_hex();
+    let note_script: Vec<u8> = recipient.script().to_bytes();
+    let note_script_root = recipient.script().root().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
@@ -72,7 +72,7 @@ pub(crate) fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNot
         note_assets,
         serial_number,
         inputs,
-        note_script_commitment,
+        note_script_root,
         note_script,
         nullifier,
         state_discriminant,
@@ -89,7 +89,7 @@ pub async fn upsert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreErr
         serialized_data.note_assets,
         serialized_data.serial_number,
         serialized_data.inputs,
-        serialized_data.note_script_commitment,
+        serialized_data.note_script_root,
         serialized_data.note_script,
         serialized_data.nullifier,
         serialized_data.created_at,

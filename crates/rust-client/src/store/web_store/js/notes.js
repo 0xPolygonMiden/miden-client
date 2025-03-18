@@ -124,7 +124,7 @@ export async function upsertInputNote(
   assets,
   serialNumber,
   inputs,
-  noteScriptCommitment,
+  noteScriptRoot,
   serializedNoteScript,
   nullifier,
   serializedCreatedAt,
@@ -144,7 +144,7 @@ export async function upsertInputNote(
         assets: assetsBlob,
         serialNumber: serialNumberBlob,
         inputs: inputsBlob,
-        noteScriptCommitment,
+        noteScriptRoot,
         nullifier: nullifier,
         state: stateBlob,
         stateDiscriminant: stateDiscriminant,
@@ -159,7 +159,7 @@ export async function upsertInputNote(
       ]);
 
       const noteScriptData = {
-        scriptCommitment: noteScriptCommitment,
+        scriptRoot: noteScriptRoot,
         serializedNoteScript: serializedNoteScriptBlob,
       };
 
@@ -238,8 +238,8 @@ async function processInputNotes(notes) {
 
       // Convert the serialized note script blob to base64
       let serializedNoteScriptBase64 = null;
-      if (note.noteScriptCommitment) {
-        let record = await notesScripts.get(note.noteScriptCommitment);
+      if (note.noteScriptRoot) {
+        let record = await notesScripts.get(note.noteScriptRoot);
         let serializedNoteScriptArrayBuffer =
           await record.serializedNoteScript.arrayBuffer();
         const serializedNoteScriptArray = new Uint8Array(

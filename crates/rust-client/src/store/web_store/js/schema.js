@@ -45,7 +45,7 @@ db.version(1).stores({
     "vaultRoot"
   ),
   [Table.Transactions]: indexes("id"),
-  [Table.TransactionScripts]: indexes("scriptHash"),
+  [Table.TransactionScripts]: indexes("scriptRoot"),
   [Table.InputNotes]: indexes("noteId", "nullifier", "stateDiscriminant"),
   [Table.OutputNotes]: indexes(
     "noteId",
@@ -53,7 +53,7 @@ db.version(1).stores({
     "stateDiscriminant",
     "nullifier"
   ),
-  [Table.NotesScripts]: indexes("scriptCommitment"),
+  [Table.NotesScripts]: indexes("scriptRoot"),
   [Table.StateSync]: indexes("id"),
   [Table.BlockHeaders]: indexes("blockNum", "hasClientNotes"),
   [Table.ChainMmrNodes]: indexes("id"),

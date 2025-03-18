@@ -150,7 +150,7 @@ async fn test_onchain_accounts() {
     let note =
         mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;
 
-    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // Update the state in the other client and ensure the onchain faucet commitment is consistent
     // between clients
     client_2.sync_state().await.unwrap();
 
@@ -177,7 +177,7 @@ async fn test_onchain_accounts() {
     )
     .await;
 
-    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // Update the state in the other client and ensure the onchain faucet commitment is consistent
     // between clients
     client_1.sync_state().await.unwrap();
 
