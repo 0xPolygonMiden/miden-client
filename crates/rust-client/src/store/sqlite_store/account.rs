@@ -351,10 +351,10 @@ fn serialize_account(account: &Account) -> SerializedAccountData {
     let id: String = account.id().to_hex();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
-    let vault_root = account.vault().commitment().to_string();
+    let vault_root = account.vault().root().to_string();
     let committed = account.is_public();
     let nonce = u64_to_value(account.nonce().as_int());
-    let hash = account.hash().to_string();
+    let hash = account.commitment().to_string();
 
     (id, code_root, commitment_root, vault_root, nonce, committed, hash)
 }
@@ -377,7 +377,7 @@ fn serialize_account_storage(account_storage: &AccountStorage) -> SerializedAcco
 
 /// Serialize the provided `asset_vault` into database compatible types.
 fn serialize_account_asset_vault(asset_vault: &AssetVault) -> SerializedAccountVaultData {
-    let commitment = asset_vault.commitment().to_string();
+    let commitment = asset_vault.root().to_string();
     let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
     (commitment, assets)
 }

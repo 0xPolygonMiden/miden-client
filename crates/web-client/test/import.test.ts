@@ -25,7 +25,7 @@ const importWalletFromSeed = async (
       );
       return {
         accountId: account.id().toString(),
-        accountHash: account.hash().toHex(),
+        accountHash: account.commitment().toHex(),
       };
     },
     serializedWalletSeed,

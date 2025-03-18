@@ -61,7 +61,7 @@ pub(crate) fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNot
 
     let recipient = details.recipient();
     let note_script = recipient.script().to_bytes();
-    let note_script_hash = recipient.script().hash().to_hex();
+    let note_script_hash = recipient.script().commitment().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();

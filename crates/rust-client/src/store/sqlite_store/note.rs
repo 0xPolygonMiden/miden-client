@@ -497,7 +497,7 @@ fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNoteData {
     let script = recipient.script().to_bytes();
     let inputs = recipient.inputs().to_bytes();
 
-    let script_hash = recipient.script().hash().to_hex();
+    let script_hash = recipient.script().commitment().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();

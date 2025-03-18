@@ -701,7 +701,7 @@ impl<R: FeltRng> Client<R> {
             // check if this updated account is tracked by the client
             if let Some(account) = current_public_accounts
                 .iter()
-                .find(|acc| *id == acc.id() && *hash != acc.hash())
+                .find(|acc| *id == acc.id() && *hash != acc.commitment())
             {
                 mismatched_public_accounts.push(account);
             }
@@ -731,9 +731,9 @@ impl<R: FeltRng> Client<R> {
 
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let mismatched_account = current_private_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+            let mismatched_account = current_private_accounts.iter().find(|acc| {
+                *remote_account_id == acc.id() && *remote_account_hash != acc.commitment()
+            });
 
             // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.

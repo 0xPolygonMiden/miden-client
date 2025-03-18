@@ -21,7 +21,7 @@ export const getAccountOneMatch =
       const result = await client.getAccount(newAccount.id());
 
       return {
-        hashOfCreatedAccount: newAccount.hash().toHex(),
+        hashOfCreatedAccount: newaccount.commitment().toHex(),
         hashOfGetAccountResult: result.hash().toHex(),
         isAccountType: result instanceof window.Account,
       };

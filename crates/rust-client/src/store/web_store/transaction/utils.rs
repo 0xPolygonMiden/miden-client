@@ -64,8 +64,8 @@ pub(super) fn serialize_transaction_data(
     let transaction_id: String = executed_transaction.id().inner().into();
 
     let account_id_as_str: String = executed_transaction.account_id().to_string();
-    let init_account_state = &executed_transaction.initial_account().hash().to_string();
-    let final_account_state = &executed_transaction.final_account().hash().to_string();
+    let init_account_state = &executed_transaction.initial_account().commitment().to_string();
+    let final_account_state = &executed_transaction.final_account().commitment().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
     let nullifiers: Vec<Digest> = executed_transaction

@@ -476,11 +476,13 @@ impl<R: FeltRng> Client<R> {
         // We also do the check for partial output notes
 
         let tx_note_auth_hashes: BTreeSet<Digest> =
-            notes_from_output(executed_transaction.output_notes()).map(Note::hash).collect();
+            notes_from_output(executed_transaction.output_notes())
+                .map(Note::commitment)
+                .collect();
 
         let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
-            .filter_map(|n| (!tx_note_auth_hashes.contains(&n.hash())).then_some(n.id()))
+            .filter_map(|n| (!tx_note_auth_hashes.contains(&n.commitment())).then_some(n.id()))
             .collect();
 
         if !missing_note_ids.is_empty() {
@@ -566,9 +568,9 @@ impl<R: FeltRng> Client<R> {
         let mut account: Account = account_record.into();
         account.apply_delta(account_delta)?;
 
-        if self.store.get_account_header_by_hash(account.hash()).await?.is_some() {
+        if self.store.get_account_header_by_hash(account.commitment()).await?.is_some() {
             return Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(
-                account.hash(),
+                account.commitment(),
             )));
         }
 
@@ -998,7 +1000,7 @@ fn extend_advice_inputs_for_foreign_account(
 
     // Extend the advice inputs with Merkle store data
     tx_args.extend_merkle_store(
-        merkle_path.inner_nodes(account_id.prefix().as_u64(), account_header.hash())?,
+        merkle_path.inner_nodes(account_id.prefix().as_u64(), account_header.commitment())?,
     );
 
     tx_executor.load_account_code(&account_code);

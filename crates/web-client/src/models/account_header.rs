@@ -9,8 +9,8 @@ pub struct AccountHeader(NativeAccountHeader);
 
 #[wasm_bindgen]
 impl AccountHeader {
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
     pub fn id(&self) -> AccountId {

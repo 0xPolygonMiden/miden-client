@@ -257,7 +257,7 @@ impl AccountProof {
             account_header, storage_header: _, code, ..
         }) = &state_headers
         {
-            if account_header.hash() != account_hash {
+            if account_header.commitment() != account_hash {
                 return Err(AccountProofError::InconsistentAccountHash);
             }
             if account_id != account_header.id() {

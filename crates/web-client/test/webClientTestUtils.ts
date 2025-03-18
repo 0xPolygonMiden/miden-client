@@ -364,7 +364,7 @@ export const setupWalletAndFaucet =
 
       return {
         accountId: account.id().toString(),
-        accountHash: account.hash().toHex(),
+        accountHash: account.commitment().toHex(),
         faucetId: faucetAccount.id().toString(),
       };
     });

@@ -155,7 +155,7 @@ impl<R: FeltRng> Client<R> {
                     // in the network
                     let network_account_hash =
                         self.rpc_api.get_account_details(account.id()).await?.hash();
-                    if network_account_hash != account.hash() {
+                    if network_account_hash != account.commitment() {
                         return Err(ClientError::AccountHashMismatch(network_account_hash));
                     }
                 }
@@ -380,7 +380,7 @@ pub mod tests {
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {
-            assert_eq!(client_acc.0.hash(), expected_acc.hash());
+            assert_eq!(client_acc.0.commitment(), expected_acc.commitment());
         }
     }
 }

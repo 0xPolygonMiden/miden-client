@@ -62,7 +62,7 @@ async fn test_onchain_notes_flow() {
     // Assert that the note is the same
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().hash(), note.hash());
+    assert_eq!(received_note.note().commitment(), note.commitment());
     assert_eq!(received_note.note(), &note);
 
     // consume the note
@@ -165,7 +165,7 @@ async fn test_onchain_accounts() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
+    assert_eq!(client_1_faucet.commitment(), client_2_faucet.commitment());
 
     // Now use the faucet in the second client to mint to its own account
     println!("Second client consuming note");
@@ -205,7 +205,7 @@ async fn test_onchain_accounts() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
+    assert_eq!(client_1_faucet.commitment(), client_2_faucet.commitment());
 
     // Now we'll try to do a p2id transfer from an account of one client to the other one
     let from_account_id = target_account_id;
@@ -344,7 +344,7 @@ async fn test_onchain_notes_sync_with_tag() {
     // Assert that the note is the same
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().hash(), note.hash());
+    assert_eq!(received_note.note().commitment(), note.commitment());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }
@@ -402,7 +402,7 @@ async fn test_import_account_by_id() {
 
     let original_account = client_1.get_account(first_regular_account.id()).await.unwrap().unwrap();
     let imported_account = client_2.get_account(first_regular_account.id()).await.unwrap().unwrap();
-    assert_eq!(imported_account.account().hash(), original_account.account().hash());
+    assert_eq!(imported_account.account().commitment(), original_account.account().commitment());
 
     // Now use the wallet in the second client to consume the generated note
     println!("Second client consuming note");
