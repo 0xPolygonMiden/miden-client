@@ -95,7 +95,8 @@ impl Display for AccountStatus {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
-    /// Node account hashes that don't match the current tracked state for private accounts.
+    /// Network account commitments that don't match the current tracked state for private
+    /// accounts.
     mismatched_private_accounts: Vec<(AccountId, Digest)>,
 }
 

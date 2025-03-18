@@ -9,8 +9,8 @@ pub struct TransactionScript(NativeTransactionScript);
 
 #[wasm_bindgen]
 impl TransactionScript {
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn root(&self) -> RpoDigest {
+        self.0.root().into()
     }
 }
 

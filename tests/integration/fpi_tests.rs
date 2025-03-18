@@ -82,7 +82,7 @@ async fn test_fpi_execute_program() {
         use.miden::tx
         use.miden::account
         begin
-            # push the hash of the `get_fpi_item` account procedure
+            # push the root of the `get_fpi_item` account procedure
             push.{proc_root}
     
             # push the foreign account id
