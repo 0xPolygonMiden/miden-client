@@ -45,7 +45,7 @@ db.version(1).stores({
     "vaultRoot"
   ),
   [Table.Transactions]: indexes("id"),
-  [Table.TransactionScripts]: indexes("scriptCommitment"),
+  [Table.TransactionScripts]: indexes("scriptHash"),
   [Table.InputNotes]: indexes("noteId", "nullifier", "stateDiscriminant"),
   [Table.OutputNotes]: indexes(
     "noteId",
