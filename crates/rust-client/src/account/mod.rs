@@ -17,7 +17,7 @@
 //! # };
 //! # use miden_objects::account::AccountStorageMode;
 //! # async fn add_new_account_example(
-//! #     client: &mut miden_client::Client<impl FeltRng>
+//! #     client: &mut miden_client::Client
 //! # ) -> Result<(), miden_client::ClientError> {
 //! #   let random_seed = Default::default();
 //! let (account, seed) = AccountBuilder::new(random_seed)

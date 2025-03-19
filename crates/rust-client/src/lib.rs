@@ -80,7 +80,7 @@
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let client: Client = Client::new(
 //!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
-//!     rng,
+//!     Box::new(rng),
 //!     store,
 //!     Arc::new(keystore),
 //!     false, // Set to true for debug mode, if needed.
