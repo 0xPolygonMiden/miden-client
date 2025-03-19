@@ -16,7 +16,7 @@ use crate::{
         sqlite_store::{
             account::{lock_account, update_account},
             note::apply_note_updates_tx,
-        }, StoreError, TransactionFilter
+        },
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
