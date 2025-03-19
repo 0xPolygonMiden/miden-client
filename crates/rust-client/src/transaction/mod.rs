@@ -47,8 +47,7 @@
 //!         None, // No recall height
 //!         NoteType::Private,
 //!         client.rng(),
-//!     )?
-//!     .build()?;
+//!     )?;
 //!
 //!     // Execute the transaction. This returns a TransactionResult.
 //!     let tx_result: TransactionResult = client.new_transaction(sender_id, tx_request).await?;
