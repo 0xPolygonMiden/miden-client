@@ -237,10 +237,10 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<(AccountHeader, AccountStatus)>, StoreError>;
 
     /// Returns an [`AccountHeader`] corresponding to the stored account state that matches the
-    /// given hash. If no account state matches the provided hash, `None` is returned.
-    async fn get_account_header_by_hash(
+    /// given commitment. If no account state matches the provided commitment, `None` is returned.
+    async fn get_account_header_by_commitment(
         &self,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError>;
 
     /// Retrieves a full [`AccountRecord`] object, this contains the account's latest state along

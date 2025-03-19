@@ -14,16 +14,13 @@ use miden_client::{
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
     },
     auth::AuthSecretKey,
-    authenticator::{
-        ClientAuthenticator,
-        keystore::{FilesystemKeyStore, KeyStore},
-    },
     crypto::FeltRng,
-    note::{Note, create_p2id_note},
+    keystore::FilesystemKeyStore,
+    note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
     sync::SyncSummary,
-    testing::account_id::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+    testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     transaction::{
         DataStoreError, NoteArgs, TransactionExecutorError, TransactionRequest,
         TransactionRequestBuilder,
@@ -37,13 +34,14 @@ use miden_objects::{
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
 };
-use rand::Rng;
+use rand::{Rng, rngs::StdRng};
 use toml::Table;
 use uuid::Uuid;
 
-pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
+pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE;
 
 pub type TestClient = Client<RpoRandomCoin>;
+pub type TestClientKeyStore = FilesystemKeyStore<StdRng>;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
 /// Creates a `TestClient`.
@@ -55,7 +53,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-clie
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
+pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -70,13 +68,12 @@ pub async fn create_test_client() -> (TestClient, FilesystemKeyStore) {
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
-    let authenticator = ClientAuthenticator::new(rng, keystore.clone());
     (
         TestClient::new(
             Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
             rng,
             store,
-            Arc::new(authenticator),
+            Arc::new(keystore.clone()),
             true,
         ),
         keystore,
@@ -114,7 +111,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 pub async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let mut init_seed = [0u8; 32];
     client.rng().fill_bytes(&mut init_seed);
@@ -125,13 +122,13 @@ pub async fn insert_new_wallet<R: FeltRng>(
 pub async fn insert_new_wallet_with_seed<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
     init_seed: [u8; 32],
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
 
@@ -152,12 +149,12 @@ pub async fn insert_new_wallet_with_seed<R: FeltRng>(
 pub async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> Result<(Account, Word, SecretKey), ClientError> {
     let key_pair = SecretKey::with_rng(client.rng());
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair.clone())).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -316,7 +313,7 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 pub async fn setup_two_wallets_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_account_headers().await.unwrap().is_empty());
