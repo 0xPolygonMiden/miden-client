@@ -1,5 +1,6 @@
 import { transactions, transactionScripts } from "./schema.js";
 
+const IDS_FILTER_PREFIX = "Ids:";
 export async function getTransactions(filter) {
   let transactionRecords;
 
@@ -10,8 +11,8 @@ export async function getTransactions(filter) {
           (tx) => tx.commitHeight === undefined || tx.commitHeight === null
         )
         .toArray();
-    } else if (filter.startsWith("Ids:")) {
-      const idsString = filter.substring(4); // Remove "Ids:" prefix
+    } else if (filter.startsWith(IDS_FILTER_PREFIX)) {
+      const idsString = filter.substring(IDS_FILTER_PREFIX.length);
       const ids = idsString.split(",");
 
       if (ids.length > 0) {
