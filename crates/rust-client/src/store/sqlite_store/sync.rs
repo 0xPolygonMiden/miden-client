@@ -2,9 +2,7 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{
-    account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
-};
+use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -169,44 +167,19 @@ impl SqliteStore {
             &TransactionFilter::Ids(transactions_to_discard.to_vec()),
         )?;
 
-        // Get the outdated accounts, handling potential errors
-        let mut outdated_accounts = Vec::new();
-        for transaction_record in &transactions_records_to_discard {
-            let account = Self::get_account(conn, transaction_record.account_id)
-                .map_err(|err| StoreError::QueryError(format!("Failed to get account: {err}")))?
-                .ok_or_else(|| StoreError::AccountDataNotFound(transaction_record.account_id))?;
-            outdated_accounts.push(account);
-        }
-
         let tx = conn.transaction()?;
 
         apply_note_updates_tx(&tx, note_updates)?;
 
         Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
 
-        // Transaction records have a final_account_state field, which is the hash of the account in
-        // the final state after the transaction is applied. We can use this field to
-        // identify the accounts that are originated from the discarded transactions.
-
-        let mut account_states_to_remove = Vec::new();
-        for tx_record in &transactions_records_to_discard {
-            let final_account_state = tx_record.final_account_state;
-            let account = outdated_accounts
-                .iter()
-                .find(|account| account.account().commitment() == final_account_state)
-                .ok_or_else(|| {
-                    let hex = final_account_state.to_hex();
-                    match AccountId::from_hex(&hex) {
-                        Ok(account_id) => StoreError::AccountDataNotFound(account_id),
-                        Err(err) => StoreError::AccountIdError(err),
-                    }
-                })?;
-
-            account_states_to_remove.push(account.account().commitment());
-        }
+        let final_account_states = transactions_records_to_discard
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
 
         // Remove the accounts that are originated from the discarded transactions
-        undo_account_state(&tx, &account_states_to_remove)?;
+        undo_account_state(&tx, &final_account_states)?;
 
         tx.commit()?;
 
