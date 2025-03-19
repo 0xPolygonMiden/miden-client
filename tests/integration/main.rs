@@ -1378,14 +1378,14 @@ async fn test_discarded_transaction() {
 
     // Store the account state before applying the transaction
     let account_before_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
-    let account_hash_before_tx = account_before_tx.account().hash();
+    let account_hash_before_tx = account_before_tx.account().commitment();
 
     // Apply the transaction
     client_1.testing_apply_transaction(tx_result).await.unwrap();
 
     // Check that the account state has changed after applying the transaction
     let account_after_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
-    let account_hash_after_tx = account_after_tx.account().hash();
+    let account_hash_after_tx = account_after_tx.account().commitment();
 
     assert_ne!(
         account_hash_before_tx, account_hash_after_tx,
@@ -1416,7 +1416,7 @@ async fn test_discarded_transaction() {
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
-    let account_hash_after_sync = account_after_sync.account().hash();
+    let account_hash_after_sync = account_after_sync.account().commitment();
 
     assert_ne!(
         account_hash_after_sync, account_hash_after_tx,
