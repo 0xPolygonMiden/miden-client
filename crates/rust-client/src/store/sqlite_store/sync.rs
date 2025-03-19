@@ -8,7 +8,7 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
-use super::SqliteStore;
+use super::{SqliteStore, account::undo_account_state};
 use crate::{
     note::NoteUpdates,
     store::{
@@ -206,7 +206,7 @@ impl SqliteStore {
         }
 
         // Remove the accounts that are originated from the discarded transactions
-        Self::undo_account_state(&tx, &account_states_to_remove)?;
+        undo_account_state(&tx, &account_states_to_remove)?;
 
         tx.commit()?;
 
