@@ -188,7 +188,7 @@ impl SqliteStore {
         // the final state after the transaction is applied. We can use this field to
         // identify the accounts that are originated from the discarded transactions.
 
-        let mut accounts_to_remove = Vec::new();
+        let mut account_states_to_remove = Vec::new();
         for tx_record in &transactions_records_to_discard {
             let final_account_state = tx_record.final_account_state;
             let account = outdated_accounts
@@ -202,11 +202,11 @@ impl SqliteStore {
                     }
                 })?;
 
-            accounts_to_remove.push(account.account().commitment());
+            account_states_to_remove.push(account.account().commitment());
         }
 
         // Remove the accounts that are originated from the discarded transactions
-        Self::undo_account_state(&tx, &accounts_to_remove)?;
+        Self::undo_account_state(&tx, &account_states_to_remove)?;
 
         tx.commit()?;
 
