@@ -129,7 +129,7 @@ pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), C
 
     let mut table = create_dynamic_table(&[
         "Account ID",
-        "Account Hash",
+        "Account Commitment",
         "Type",
         "Storage mode",
         "Code Commitment",
@@ -139,7 +139,7 @@ pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), C
     ]);
     table.add_row(vec![
         account.id().to_string(),
-        account.hash().to_string(),
+        account.commitment().to_string(),
         account_type_display_name(&account_id)?,
         account_id.storage_mode().to_string(),
         account.code().commitment().to_string(),

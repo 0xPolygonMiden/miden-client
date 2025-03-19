@@ -17,7 +17,7 @@ use super::{
     ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
-use crate::{ClientRng, transaction::TransactionScriptBuilderError};
+use crate::ClientRng;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -272,9 +272,7 @@ impl TransactionRequestBuilder {
             .iter()
             .all(|asset| asset.is_fungible() && asset.unwrap_fungible().amount() == 0)
         {
-            return Err(TransactionRequestError::TransactionScriptBuilderError(
-                TransactionScriptBuilderError::P2IDNoteWithoutAsset,
-            ));
+            return Err(TransactionRequestError::P2IDNoteWithoutAsset);
         }
 
         let created_note = if let Some(recall_height) = recall_height {

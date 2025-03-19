@@ -97,8 +97,8 @@ impl Client {
     /// - If the account is already tracked and `overwrite` is set to `false`.
     /// - If `overwrite` is set to `true` and the `account_data` nonce is lower than the one already
     ///   being tracked.
-    /// - If `overwrite` is set to `true` and the `account_data` hash doesn't match the network's
-    ///   account hash.
+    /// - If `overwrite` is set to `true` and the `account_data` commitment doesn't match the
+    ///   network's account commitment.
     pub async fn add_account(
         &mut self,
         account: &Account,
@@ -149,12 +149,14 @@ impl Client {
                 }
 
                 if tracked_account.is_locked() {
-                    // If the tracked account is locked, check that the account hash matches the one
-                    // in the network
-                    let network_account_hash =
-                        self.rpc_api.get_account_details(account.id()).await?.hash();
-                    if network_account_hash != account.hash() {
-                        return Err(ClientError::AccountHashMismatch(network_account_hash));
+                    // If the tracked account is locked, check that the account commitment matches
+                    // the one in the network
+                    let network_account_commitment =
+                        self.rpc_api.get_account_details(account.id()).await?.commitment();
+                    if network_account_commitment != account.commitment() {
+                        return Err(ClientError::AccountCommitmentMismatch(
+                            network_account_commitment,
+                        ));
                     }
                 }
 
@@ -313,7 +315,7 @@ pub mod tests {
         account::{Account, AccountFile, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         testing::account_id::{
-            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET,
         },
     };
 
@@ -331,9 +333,9 @@ pub mod tests {
     }
 
     pub fn create_initial_accounts_data() -> Vec<AccountFile> {
-        let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
+        let account = create_account_data(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET);
 
-        let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
+        let faucet_account = create_account_data(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET);
 
         // Create Genesis state and save it to a file
         let accounts = vec![account, faucet_account];
@@ -347,7 +349,7 @@ pub mod tests {
         let (mut client, _rpc_api, _) = create_test_client().await;
 
         let account = Account::mock(
-            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
             Felt::new(0),
             TransactionKernel::testing_assembler(),
         );
@@ -378,7 +380,7 @@ pub mod tests {
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {
-            assert_eq!(client_acc.0.hash(), expected_acc.hash());
+            assert_eq!(client_acc.0.commitment(), expected_acc.commitment());
         }
     }
 }

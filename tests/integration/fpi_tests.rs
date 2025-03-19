@@ -4,12 +4,11 @@ use miden_client::{
     auth::AuthSecretKey,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
-    testing::prepare_word,
     transaction::{
         ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
     },
 };
-use miden_lib::account::auth::RpoFalcon512;
+use miden_lib::{account::auth::RpoFalcon512, utils::word_to_masm_push_string};
 use miden_objects::{
     Digest,
     account::{AccountBuilder, AccountComponent, AccountStorageMode, StorageMap},
@@ -46,7 +45,7 @@ async fn test_fpi_execute_program() {
         foreign_account(AccountStorageMode::Public, &anchor_block);
     let foreign_account_id = foreign_account.id();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
     client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
 
     let deployment_tx_script = TransactionScript::compile(
@@ -83,7 +82,7 @@ async fn test_fpi_execute_program() {
         use.miden::tx
         use.miden::account
         begin
-            # push the hash of the `get_fpi_item` account procedure
+            # push the root of the `get_fpi_item` account procedure
             push.{proc_root}
     
             # push the foreign account id
@@ -188,7 +187,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
             call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
         end
         ",
-        fpi_value = prepare_word(&FPI_STORAGE_VALUE),
+        fpi_value = word_to_masm_push_string(&FPI_STORAGE_VALUE),
         account_id_prefix = foreign_account_id.prefix().as_u64(),
         account_id_suffix = foreign_account_id.suffix(),
     );
@@ -270,7 +269,7 @@ pub fn foreign_account(
             swapw dropw
         end
         ",
-            map_key = prepare_word(&MAP_KEY)
+            map_key = word_to_masm_push_string(&MAP_KEY)
         ),
         TransactionKernel::assembler(),
         vec![StorageSlot::Map(storage_map)],

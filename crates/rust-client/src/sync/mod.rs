@@ -319,11 +319,14 @@ impl Client {
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
         let updated_public_accounts = self
-            .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
+            .get_updated_public_accounts(&response.account_commitment_updates, &public_accounts)
             .await?;
 
         let mismatched_private_accounts = self
-            .validate_local_account_hashes(&response.account_hash_updates, &private_accounts)
+            .validate_local_account_commitments(
+                &response.account_commitment_updates,
+                &private_accounts,
+            )
             .await?;
 
         // Build PartialMmr with current data and apply updates
@@ -696,11 +699,11 @@ impl Client {
     ) -> Result<Vec<Account>, ClientError> {
         let mut mismatched_public_accounts = vec![];
 
-        for (id, hash) in account_updates {
+        for (id, commitment) in account_updates {
             // check if this updated account is tracked by the client
             if let Some(account) = current_public_accounts
                 .iter()
-                .find(|acc| *id == acc.id() && *hash != acc.hash())
+                .find(|acc| *id == acc.id() && *commitment != acc.commitment())
             {
                 mismatched_public_accounts.push(account);
             }
@@ -712,36 +715,36 @@ impl Client {
             .map_err(ClientError::RpcError)
     }
 
-    /// Validates account hash updates and returns a vector with all the private account
+    /// Validates account commitment updates and returns a vector with all the private account
     /// mismatches.
     ///
-    /// Private account mismatches happen when the hash account of the local tracked account
-    /// doesn't match the hash account of the account in the node. This would be an anomaly and may
-    /// happen for two main reasons:
+    /// Private account mismatches happen when the commitment account of the local tracked account
+    /// doesn't match the commitment account of the account in the node. This would be an anomaly
+    /// and may happen for two main reasons:
     /// - A different client made a transaction with the account, changing its state.
     /// - The local transaction that modified the local state didn't go through, rendering the local
     ///   account state outdated.
-    async fn validate_local_account_hashes(
+    async fn validate_local_account_commitments(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_private_accounts: &[AccountHeader],
     ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
         let mut mismatched_accounts = vec![];
 
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // ensure that if we track that account, it has the same hash
-            let mismatched_account = current_private_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        for (remote_account_id, remote_account_commitment) in account_updates {
+            // ensure that if we track that account, it has the same commitment
+            let mismatched_account = current_private_accounts.iter().find(|acc| {
+                *remote_account_id == acc.id() && *remote_account_commitment != acc.commitment()
+            });
 
             // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_account.is_some() {
-                let account_by_hash =
-                    self.store.get_account_header_by_hash(*remote_account_hash).await?;
+                let account_by_commitment =
+                    self.store.get_account_header_by_commitment(*remote_account_commitment).await?;
 
-                if account_by_hash.is_none() {
-                    mismatched_accounts.push((*remote_account_id, *remote_account_hash));
+                if account_by_commitment.is_none() {
+                    mismatched_accounts.push((*remote_account_id, *remote_account_commitment));
                 }
             }
         }

@@ -83,8 +83,8 @@ impl NotesCmd {
 
 struct CliNoteSummary {
     id: String,
-    script_hash: String,
-    assets_hash: String,
+    script_root: String,
+    assets_commitment: String,
     inputs_commitment: String,
     serial_num: String,
     note_type: String,
@@ -161,8 +161,8 @@ async fn show_note(client: Client, note_id: String) -> Result<(), CliError> {
 
     let CliNoteSummary {
         id,
-        mut script_hash,
-        assets_hash,
+        mut script_root,
+        assets_commitment,
         inputs_commitment,
         serial_num,
         note_type,
@@ -172,16 +172,16 @@ async fn show_note(client: Client, note_id: String) -> Result<(), CliError> {
         exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
-    match script_hash.clone().as_str() {
-        P2ID => script_hash += " (P2ID)",
-        P2IDR => script_hash += " (P2IDR)",
-        SWAP => script_hash += " (SWAP)",
+    match script_root.clone().as_str() {
+        P2ID => script_root += " (P2ID)",
+        P2IDR => script_root += " (P2IDR)",
+        SWAP => script_root += " (SWAP)",
         _ => {},
     };
 
-    table.add_row(vec![Cell::new("Script Hash"), Cell::new(script_hash)]);
-    table.add_row(vec![Cell::new("Assets Hash"), Cell::new(assets_hash)]);
-    table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
+    table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
+    table.add_row(vec![Cell::new("Assets Commitment"), Cell::new(assets_commitment)]);
+    table.add_row(vec![Cell::new("Inputs Commitment"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
     table.add_row(vec![Cell::new("State"), Cell::new(state)]);
@@ -336,19 +336,19 @@ fn note_summary(
         .or(output_note_record.map(OutputNoteRecord::id))
         .expect("One of the two records should be Some");
 
-    let assets_hash_str = input_note_record
+    let assets_commitment_str = input_note_record
         .map(|record| record.assets().commitment().to_string())
         .or(output_note_record.map(|record| record.assets().commitment().to_string()))
         .expect("One of the two records should be Some");
 
-    let (inputs_commitment_str, serial_num, script_hash_str) =
+    let (inputs_commitment_str, serial_num, script_root_str) =
         match (input_note_record, output_note_record) {
             (Some(record), _) => {
                 let details = record.details();
                 (
                     details.inputs().commitment().to_string(),
                     Digest::new(details.serial_num()).to_string(),
-                    details.script().hash().to_string(),
+                    details.script().root().to_string(),
                 )
             },
             (None, Some(record)) if record.recipient().is_some() => {
@@ -356,7 +356,7 @@ fn note_summary(
                 (
                     recipient.inputs().commitment().to_string(),
                     Digest::new(recipient.serial_num()).to_string(),
-                    recipient.script().hash().to_string(),
+                    recipient.script().root().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -386,8 +386,8 @@ fn note_summary(
 
     CliNoteSummary {
         id: note_id.inner().to_string(),
-        script_hash: script_hash_str,
-        assets_hash: assets_hash_str,
+        script_root: script_root_str,
+        assets_commitment: assets_commitment_str,
         inputs_commitment: inputs_commitment_str,
         serial_num,
         note_type,

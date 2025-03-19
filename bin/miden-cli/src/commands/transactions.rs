@@ -35,7 +35,7 @@ where
         "ID",
         "Status",
         "Account ID",
-        "Script Hash",
+        "Script Root",
         "Input Notes Count",
         "Output Notes Count",
     ]);
@@ -45,7 +45,7 @@ where
             tx.id.to_string(),
             tx.transaction_status.to_string(),
             tx.account_id.to_string(),
-            tx.transaction_script.as_ref().map_or("-".to_string(), |x| x.hash().to_string()),
+            tx.transaction_script.as_ref().map_or("-".to_string(), |x| x.root().to_string()),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),
         ]);

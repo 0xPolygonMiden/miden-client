@@ -18,7 +18,7 @@ use miden_client::{
     },
     rpc::{Endpoint, TonicRpcClient},
     store::sqlite_store::SqliteStore,
-    testing::account_id::ACCOUNT_ID_OFF_CHAIN_SENDER,
+    testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
 };
@@ -163,7 +163,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     // Let's try and mint
     mint_cli(
         &temp_dir,
-        &AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap().to_hex(),
+        &AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap().to_hex(),
         &fungible_faucet_account_id,
     );
 
@@ -233,7 +233,7 @@ async fn test_cli_export_import_note() {
     consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);
 
     // Test send command
-    let mock_target_id: AccountId = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+    let mock_target_id: AccountId = AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap();
     send_cli(
         &temp_dir_2,
         &first_basic_account_id,

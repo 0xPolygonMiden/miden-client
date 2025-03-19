@@ -28,10 +28,10 @@ pub enum StoreError {
     AccountError(#[from] AccountError),
     #[error("account id error")]
     AccountIdError(#[from] AccountIdError),
-    #[error("account hash {0} already exists")]
-    AccountHashAlreadyExists(Digest),
-    #[error("account hash mismatch for account {0}")]
-    AccountHashMismatch(AccountId),
+    #[error("account commitment {0} already exists")]
+    AccountCommitmentAlreadyExists(Digest),
+    #[error("account commitment mismatch for account {0}")]
+    AccountCommitmentMismatch(AccountId),
     #[error("public key {0} not found")]
     AccountKeyNotFound(String),
     #[error("account storage data with root {0} not found")]
