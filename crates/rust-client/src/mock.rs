@@ -226,8 +226,9 @@ impl NodeRpcClient for MockRpcApi {
         Ok(response.try_into().unwrap())
     }
 
-    /// Creates and executes a [GetBlockHeaderByNumberRequest].
-    /// Only used for retrieving genesis block right now so that's the only case we need to cover.
+    /// Creates and executes a [GetBlockHeaderByNumberRequest]. Will retrieve the block header
+    /// for the specified block number. If the block number is not provided, the chain tip block
+    /// header will be returned.
     async fn get_block_header_by_number(
         &mut self,
         mut block_num: Option<BlockNumber>,
