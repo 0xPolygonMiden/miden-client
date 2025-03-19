@@ -19,8 +19,8 @@ impl NoteHeader {
         self.0.metadata().into()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 }
 

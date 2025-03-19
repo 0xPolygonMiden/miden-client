@@ -40,7 +40,7 @@ extern "C" {
         assets: Vec<u8>,
         serial_number: Vec<u8>,
         inputs: Vec<u8>,
-        note_script_hash: String,
+        note_script_root: String,
         serialized_note_script: Vec<u8>,
         nullifier: String,
         serialized_created_at: String,

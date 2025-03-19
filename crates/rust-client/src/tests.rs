@@ -1,9 +1,13 @@
 use alloc::vec::Vec;
+use std::collections::BTreeSet;
 
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    account::{
+        auth::RpoFalcon512, faucets::BasicFungibleFaucet, interface::AccountInterfaceError,
+        wallets::BasicWallet,
+    },
     note::utils,
     transaction::TransactionKernel,
 };
@@ -20,36 +24,35 @@ use miden_objects::{
         NoteType,
     },
     testing::account_id::{
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
-        ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,
+        ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
     },
     transaction::OutputNote,
+    vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use rand::rngs::StdRng;
 
 use crate::{
     Client, ClientError,
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
+    keystore::FilesystemKeyStore,
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transaction::{
-        PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
-        TransactionScriptBuilderError,
-    },
+    transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
 };
 
 async fn insert_new_wallet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     let mut init_seed = [0u8; 32];
     client.rng.fill_bytes(&mut init_seed);
@@ -73,12 +76,12 @@ async fn insert_new_wallet<R: FeltRng>(
 async fn insert_new_fungible_faucet<R: FeltRng>(
     client: &mut Client<R>,
     storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
     let key_pair = SecretKey::with_rng(&mut client.rng);
     let pub_key = key_pair.public_key();
 
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).await.unwrap();
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(key_pair)).unwrap();
 
     // we need to use an initial seed to create the wallet account
     let mut init_seed = [0u8; 32];
@@ -230,7 +233,7 @@ async fn insert_same_account_twice_fails() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+        ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,
         Felt::new(2),
         TransactionKernel::testing_assembler(),
     );
@@ -245,7 +248,7 @@ async fn test_account_code() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
         Felt::ZERO,
         TransactionKernel::testing_assembler(),
     );
@@ -268,7 +271,7 @@ async fn test_get_account_by_id() {
     let (mut client, _rpc_api, _) = create_test_client().await;
 
     let account = Account::mock(
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
         Felt::new(10),
         TransactionKernel::assembler(),
     );
@@ -283,7 +286,7 @@ async fn test_get_account_by_id() {
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
-    let invalid_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
+    let invalid_id = AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2).unwrap();
     assert!(client.get_account_header_by_id(invalid_id).await.unwrap().is_none());
 }
 
@@ -353,10 +356,10 @@ async fn test_sync_state_mmr() {
     let latest_block = client.get_sync_height().await.unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        rpc_api.blocks.last().unwrap().hash(),
+        rpc_api.blocks.last().unwrap().commitment(),
         client.test_store().get_block_headers(&[latest_block]).await.unwrap()[0]
             .0
-            .hash()
+            .commitment()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
@@ -372,11 +375,11 @@ async fn test_sync_state_mmr() {
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
     let (block_1, _) = rpc_api.get_block_header_by_number(Some(1.into()), false).await.unwrap();
-    partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
+    partial_mmr.peaks().verify(block_1.commitment(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     let (block_4, _) = rpc_api.get_block_header_by_number(Some(4.into()), false).await.unwrap();
-    partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
+    partial_mmr.peaks().verify(block_4.commitment(), mmr_proof).unwrap();
 }
 
 #[tokio::test]
@@ -432,7 +435,7 @@ async fn test_mint_transaction() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -460,7 +463,7 @@ async fn test_get_output_notes() {
     // Test submitting a mint transaction
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -523,7 +526,7 @@ async fn test_transaction_request_expiration() {
 
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
+        AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
@@ -631,7 +634,7 @@ async fn test_no_nonce_change_transaction_request() {
 
     assert!(matches!(
         result,
-        Err(ClientError::StoreError(StoreError::AccountHashAlreadyExists(_)))
+        Err(ClientError::StoreError(StoreError::AccountCommitmentAlreadyExists(_)))
     ));
 }
 
@@ -686,11 +689,9 @@ async fn test_note_without_asset() {
 
     assert!(matches!(
         error,
-        ClientError::TransactionRequestError(
-            TransactionRequestError::TransactionScriptBuilderError(
-                TransactionScriptBuilderError::FaucetNoteWithoutAsset
-            )
-        )
+        ClientError::TransactionRequestError(TransactionRequestError::AccountInterfaceError(
+            AccountInterfaceError::FaucetNoteWithoutAsset
+        ))
     ));
 
     let error = TransactionRequestBuilder::pay_to_id(
@@ -701,12 +702,7 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
     let error = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(
@@ -720,10 +716,40 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
+}
+
+#[tokio::test]
+async fn test_execute_program() {
+    let (mut client, _, keystore) = create_test_client().await;
+
+    let (wallet, _seed) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
+        .await
+        .unwrap();
+
+    let code = "
+        use.std::sys
+
+        begin
+            push.16
+            repeat.16
+                dup push.1 sub
+            end
+            exec.sys::truncate_stack
+        end
+        ";
+
+    let tx_script = client.compile_tx_script(vec![], code).unwrap();
+
+    let output_stack = client
+        .execute_program(wallet.id(), tx_script, AdviceInputs::default(), BTreeSet::new())
+        .await
+        .unwrap();
+
+    let mut expected_stack = [Felt::new(0); 16];
+    for (i, element) in expected_stack.iter_mut().enumerate() {
+        *element = Felt::new(i as u64);
+    }
+
+    assert_eq!(output_stack, expected_stack);
 }

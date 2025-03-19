@@ -10,15 +10,15 @@ impl From<&BlockHeader> for block::BlockHeader {
     fn from(header: &BlockHeader) -> Self {
         Self {
             version: header.version(),
-            prev_hash: Some(header.prev_hash().into()),
+            prev_hash: Some(header.prev_block_commitment().into()),
             block_num: header.block_num().as_u32(),
-            chain_root: Some(header.chain_root().into()),
+            chain_root: Some(header.chain_commitment().into()),
             account_root: Some(header.account_root().into()),
             nullifier_root: Some(header.nullifier_root().into()),
             note_root: Some(header.note_root().into()),
-            tx_hash: Some(header.tx_hash().into()),
-            kernel_root: Some(header.kernel_root().into()),
-            proof_hash: Some(header.proof_hash().into()),
+            tx_hash: Some(header.tx_commitment().into()),
+            kernel_root: Some(header.tx_kernel_commitment().into()),
+            proof_hash: Some(header.proof_commitment().into()),
             timestamp: header.timestamp(),
         }
     }

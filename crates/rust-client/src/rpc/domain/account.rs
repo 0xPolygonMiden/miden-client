@@ -46,10 +46,10 @@ impl AccountDetails {
         }
     }
 
-    // Returns the account update summary hash
-    pub fn hash(&self) -> Digest {
+    // Returns the account update summary commitment
+    pub fn commitment(&self) -> Digest {
         match self {
-            Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
+            Self::Private(_, summary) | Self::Public(_, summary) => summary.commitment,
         }
     }
 
@@ -67,16 +67,16 @@ impl AccountDetails {
 
 /// Contains public updated information about the account requested.
 pub struct AccountUpdateSummary {
-    /// Hash of the account, that represents a commitment to its updated state.
-    pub hash: Digest,
+    /// Commitment of the account, that represents a commitment to its updated state.
+    pub commitment: Digest,
     /// Block number of last account update.
     pub last_block_num: u32,
 }
 
 impl AccountUpdateSummary {
     /// Creates a new [`AccountUpdateSummary`].
-    pub fn new(hash: Digest, last_block_num: u32) -> Self {
-        Self { hash, last_block_num }
+    pub fn new(commitment: Digest, last_block_num: u32) -> Self {
+        Self { commitment, last_block_num }
     }
 }
 
@@ -240,8 +240,8 @@ pub struct AccountProof {
     account_id: AccountId,
     /// Authentication path from the `account_root` of the block header to the account.
     merkle_proof: MerklePath,
-    /// Account hash for the current state.
-    account_hash: Digest,
+    /// Account commitment for the current state.
+    account_commitment: Digest,
     /// State headers of public accounts.
     state_headers: Option<StateHeaders>,
 }
@@ -250,15 +250,15 @@ impl AccountProof {
     pub fn new(
         account_id: AccountId,
         merkle_proof: MerklePath,
-        account_hash: Digest,
+        account_commitment: Digest,
         state_headers: Option<StateHeaders>,
     ) -> Result<Self, AccountProofError> {
         if let Some(StateHeaders {
             account_header, storage_header: _, code, ..
         }) = &state_headers
         {
-            if account_header.hash() != account_hash {
-                return Err(AccountProofError::InconsistentAccountHash);
+            if account_header.commitment() != account_commitment {
+                return Err(AccountProofError::InconsistentAccountCommitment);
             }
             if account_id != account_header.id() {
                 return Err(AccountProofError::InconsistentAccountId);
@@ -271,7 +271,7 @@ impl AccountProof {
         Ok(Self {
             account_id,
             merkle_proof,
-            account_hash,
+            account_commitment,
             state_headers,
         })
     }
@@ -300,8 +300,8 @@ impl AccountProof {
         self.account_code().map(AccountCode::commitment)
     }
 
-    pub fn account_hash(&self) -> Digest {
-        self.account_hash
+    pub fn account_commitment(&self) -> Digest {
+        self.account_commitment
     }
 
     pub fn merkle_proof(&self) -> &MerklePath {
@@ -310,7 +310,7 @@ impl AccountProof {
 
     /// Deconstructs `AccountProof` into its individual parts.
     pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
-        (self.account_id, self.merkle_proof, self.account_hash, self.state_headers)
+        (self.account_id, self.merkle_proof, self.account_commitment, self.state_headers)
     }
 }
 
@@ -382,8 +382,10 @@ impl Deserializable for AccountStorageRequirements {
 
 #[derive(Debug, Error)]
 pub enum AccountProofError {
-    #[error("the received account hash doesn't match the received account header's hash")]
-    InconsistentAccountHash,
+    #[error(
+        "the received account commitment doesn't match the received account header's commitment"
+    )]
+    InconsistentAccountCommitment,
     #[error("the received account id doesn't match the received account header's id")]
     InconsistentAccountId,
     #[error(

@@ -144,7 +144,7 @@ impl<R: FeltRng> Client<R> {
                 .await?
                 .expect("Current block should be in the store");
 
-            current_partial_mmr.add(current_block.hash(), has_client_notes);
+            current_partial_mmr.add(current_block.commitment(), has_client_notes);
         }
 
         Ok(current_partial_mmr)
@@ -182,7 +182,7 @@ impl<R: FeltRng> Client<R> {
         let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
 
         current_partial_mmr
-            .track(block_num.as_usize(), block_header.hash(), &merkle_path)
+            .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
@@ -281,7 +281,7 @@ pub(crate) fn apply_mmr_changes(
 
     // First, apply curent_block to the Mmr
     let new_authentication_nodes = partial_mmr
-        .add(current_block_header.hash(), current_block_has_relevant_notes)
+        .add(current_block_header.commitment(), current_block_has_relevant_notes)
         .into_iter();
 
     // Apply the Mmr delta to bring Mmr to forest equal to chain tip

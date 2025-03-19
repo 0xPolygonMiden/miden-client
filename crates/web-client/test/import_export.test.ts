@@ -27,14 +27,14 @@ const getAccount = async (accountId: string) => {
     const account = await client.getAccount(accountId);
     return {
       accountId: account?.id().toString(),
-      accountHash: account?.hash().toHex(),
+      accountCommitment: account?.commitment().toHex(),
     };
   }, accountId);
 };
 
 describe("export and import the db", () => {
   it("export db with an account, find the account when re-importing", async () => {
-    const { accountHash: initialAccountHash, accountId } =
+    const { accountCommitment: initialAccountCommitment, accountId } =
       await setupWalletAndFaucet();
     const dbDump = await exportDb();
 
@@ -42,8 +42,8 @@ describe("export and import the db", () => {
 
     await importDb(dbDump);
 
-    const { accountHash } = await getAccount(accountId);
+    const { accountCommitment } = await getAccount(accountId);
 
-    expect(accountHash).to.equal(initialAccountHash);
+    expect(accountCommitment).to.equal(initialAccountCommitment);
   });
 });
