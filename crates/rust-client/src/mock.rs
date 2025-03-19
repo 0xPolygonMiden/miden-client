@@ -18,7 +18,7 @@ use miden_objects::{
     },
     note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
-        account_id::{ACCOUNT_ID_PRIVATE_NON_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
+        account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
@@ -85,7 +85,7 @@ impl MockRpcApi {
         .unwrap();
 
         let note_second = NoteBuilder::new(
-            ACCOUNT_ID_PRIVATE_NON_FUNGIBLE_FAUCET.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])

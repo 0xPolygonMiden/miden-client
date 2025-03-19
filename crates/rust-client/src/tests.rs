@@ -4,7 +4,10 @@ use std::collections::BTreeSet;
 // TESTS
 // ================================================================================================
 use miden_lib::{
-    account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet, wallets::BasicWallet},
+    account::{
+        auth::RpoFalcon512, faucets::BasicFungibleFaucet, interface::AccountInterfaceError,
+        wallets::BasicWallet,
+    },
     note::utils,
     transaction::TransactionKernel,
 };
@@ -38,10 +41,7 @@ use crate::{
     mock::create_test_client,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transaction::{
-        PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
-        TransactionScriptBuilderError,
-    },
+    transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
 };
 
 async fn insert_new_wallet<R: FeltRng>(
@@ -689,11 +689,9 @@ async fn test_note_without_asset() {
 
     assert!(matches!(
         error,
-        ClientError::TransactionRequestError(
-            TransactionRequestError::TransactionScriptBuilderError(
-                TransactionScriptBuilderError::FaucetNoteWithoutAsset
-            )
-        )
+        ClientError::TransactionRequestError(TransactionRequestError::AccountInterfaceError(
+            AccountInterfaceError::FaucetNoteWithoutAsset
+        ))
     ));
 
     let error = TransactionRequestBuilder::pay_to_id(
@@ -704,12 +702,7 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
     let error = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(
@@ -723,12 +716,7 @@ async fn test_note_without_asset() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        TransactionRequestError::TransactionScriptBuilderError(
-            TransactionScriptBuilderError::P2IDNoteWithoutAsset
-        )
-    ));
+    assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 }
 
 #[tokio::test]
