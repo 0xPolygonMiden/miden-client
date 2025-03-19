@@ -417,7 +417,7 @@ pub(crate) fn undo_account_state(
     tx: &Transaction<'_>,
     account_hashes: &[Digest],
 ) -> Result<(), StoreError> {
-    const QUERY: &str = "DELETE FROM accounts WHERE account_hash = ?";
+    const QUERY: &str = "DELETE FROM accounts WHERE account_commitment = ?";
     for account_id in account_hashes {
         tx.execute(QUERY, params![account_id.to_hex()])?;
     }
