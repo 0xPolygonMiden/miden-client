@@ -74,6 +74,7 @@ export async function getTransactions(filter) {
           commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
+          discarded: transactionRecord.discarded,
         };
 
         return data;
@@ -157,6 +158,7 @@ export async function insertProvenTransactionData(
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
+      discarded: false,
     };
 
     await transactions.add(data);

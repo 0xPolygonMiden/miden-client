@@ -27,8 +27,8 @@ use crate::{
 
 mod js_bindings;
 use js_bindings::{
-    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_get_note_tags, idxdb_get_sync_height,
-    idxdb_remove_note_tag,
+    idxdb_add_note_tag, idxdb_apply_state_sync, idxdb_discard_transactions, idxdb_get_note_tags,
+    idxdb_get_sync_height, idxdb_remove_note_tag,
 };
 
 mod models;
@@ -115,8 +115,7 @@ impl WebStore {
             new_authentication_nodes,
             updated_accounts,
             block_has_relevant_notes,
-            transactions_to_discard: _transactions_to_discard, /* TODO: Add support for discarded
-                                                                * transactions in web store */
+            transactions_to_discard,
             tags_to_remove,
         } = state_sync_update;
 
@@ -161,6 +160,8 @@ impl WebStore {
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
+        let transactions_to_discard_as_str: Vec<String> =
+            transactions_to_discard.iter().map(TransactionId::to_string).collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
@@ -182,6 +183,7 @@ impl WebStore {
             note_tags_to_remove_as_str,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
+            transactions_to_discard_as_str,
         );
         JsFuture::from(promise).await.unwrap();
 
@@ -191,8 +193,15 @@ impl WebStore {
     pub(super) async fn apply_nullifiers(
         &self,
         note_updates: NoteUpdates,
-        _transactions_to_discard: Vec<TransactionId>,
+        transactions_to_discard: Vec<TransactionId>,
     ) -> Result<(), StoreError> {
-        apply_note_updates_tx(&note_updates).await
+        apply_note_updates_tx(&note_updates).await?;
+        let transactions_ids_as_str: Vec<String> =
+            transactions_to_discard.iter().map(ToString::to_string).collect();
+
+        let promise = idxdb_discard_transactions(transactions_ids_as_str);
+        JsFuture::from(promise).await.unwrap();
+
+        Ok(())
     }
 }
