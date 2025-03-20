@@ -296,7 +296,7 @@ impl WebStore {
         account_states: &[Digest],
     ) -> Result<(), StoreError> {
         let account_commitments =
-            account_states.iter().map(|account| account.to_string()).collect::<Vec<_>>();
+            account_states.iter().map(ToString::to_string).collect::<Vec<_>>();
         let promise = idxdb_undo_account_states(account_commitments);
         let _ = JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("Failed to undo account states: {js_error:?}"))

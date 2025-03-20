@@ -198,7 +198,7 @@ impl WebStore {
         // First we need the `transaction` entries from the `transactions` table that matches the
         // `transactions_to_discard`
         let transactions_records_to_discard = self
-            .get_transactions(TransactionFilter::Ids(transactions_to_discard.to_vec()))
+            .get_transactions(TransactionFilter::Ids(transactions_to_discard.clone()))
             .await?;
 
         apply_note_updates_tx(&note_updates).await?;
