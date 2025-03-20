@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::sync::Arc;
+use std::fmt::Write;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
@@ -105,11 +106,11 @@ fn js_error_with_context<T>(err: T, context: &str) -> JsValue
 where
     T: core::error::Error,
 {
-    let mut messages = vec![context.to_string()];
+    let mut error_string = context.to_string();
     let mut source = Some(&err as &dyn core::error::Error);
     while let Some(err) = source {
-        messages.push(err.to_string());
+        write!(error_string, ": {err}").expect("writing to string should always succeeds");
         source = err.source();
     }
-    messages.join(": ").into()
+    JsValue::from(error_string)
 }

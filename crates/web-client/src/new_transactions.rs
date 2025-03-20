@@ -297,7 +297,8 @@ impl WebClient {
         let transaction_execution_result =
             self.new_transaction(account_id, transaction_request).await.map_err(|err| {
                 JsValue::from_str(&format!(
-                    "failed to execute {transaction_type} transaction: {err:?}"
+                    "failed to create {transaction_type} transaction: {}",
+                    err.as_string().expect("error message should be a string")
                 ))
             })?;
 
@@ -305,7 +306,8 @@ impl WebClient {
             .await
             .map_err(|err| {
                 JsValue::from_str(&format!(
-                    "failed to submit {transaction_type} transaction: {err:?}"
+                    "failed to submit {transaction_type} transaction: {}",
+                    err.as_string().expect("error message should be a string")
                 ))
             })?;
 

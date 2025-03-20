@@ -78,9 +78,10 @@ impl WebClient {
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
                 .with_component(RpoFalcon512::new(pub_key))
-                .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
-                    |err| JsValue::from_str(format!("Failed to create new faucet: {err}").as_str()),
-                )?)
+                .with_component(
+                    BasicFungibleFaucet::new(symbol, decimals, max_supply)
+                        .map_err(|err| js_error_with_context(err, "failed to create new faucet"))?,
+                )
                 .build()
             {
                 Ok(result) => result,
