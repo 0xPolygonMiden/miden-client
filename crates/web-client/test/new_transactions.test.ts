@@ -7,7 +7,7 @@ import {
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
-import { TransactionRecord } from "../dist/crates/miden_client_web";
+import { Account, TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -577,6 +577,9 @@ describe("use custom transaction prover per request", () => {
 
 interface DiscardedTransactionResult {
   discardedTransactions: TransactionRecord[];
+  accountStateBeforeTx: Account | undefined;
+  accountStateAfterTx: Account | undefined;
+  accountStateAfterDiscardedTx: Account | undefined;
 }
 
 export const discardedTransaction =
@@ -703,11 +706,11 @@ describe("discarded_transaction tests", () => {
     const result = await discardedTransaction();
 
     expect(result.discardedTransactions.length).to.equal(1);
-    expect(result.accountStateBeforeTx.commitment()).to.equal(
-      result.accountStateAfterDiscardedTx.commitment()
+    expect(result.accountStateBeforeTx?.commitment()).to.equal(
+      result.accountStateAfterDiscardedTx?.commitment()
     );
-    expect(result.accountStateAfterTx.commitment()).to.not.equal(
-      result.accountStateAfterDiscardedTx.commitment()
+    expect(result.accountStateAfterTx?.commitment()).to.not.equal(
+      result.accountStateAfterDiscardedTx?.commitment()
     );
   });
 });
