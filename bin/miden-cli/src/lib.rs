@@ -107,8 +107,8 @@ impl Cli {
             .map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.r#gen();
+        let mut rng = rand::rng();
+        let coin_seed: [u64; 4] = rng.random();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let keystore = CliKeyStore::new(cli_config.secret_keys_directory.clone())

@@ -644,8 +644,8 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
         std::sync::Arc::new(sqlite_store)
     };
 
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.r#gen();
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 

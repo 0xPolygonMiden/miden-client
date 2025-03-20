@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="399888dfea24322604f0ce5a720628dc368edbbc"
+NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -34,7 +34,7 @@ PROVER_PORT=50051
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
+	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
 fix: ## Run Fix with configs
@@ -42,7 +42,7 @@ fix: ## Run Fix with configs
 
 .PHONY: fix-wasm
 fix-wasm: ## Run Fix for the miden-client-web package
-	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
+	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
 
 .PHONY: format
 format: ## Run format using nightly toolchain
@@ -161,7 +161,7 @@ build: ## Build the CLI binary and client library in release mode
 	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 
@@ -171,4 +171,4 @@ check: ## Build the CLI binary and client library in release mode
 
 .PHONY: check-wasm
 check-wasm: ## Build the client library for wasm32
-	cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
