@@ -34,7 +34,7 @@ PROVER_PORT=50051
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
+	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
 fix: ## Run Fix with configs
@@ -42,7 +42,7 @@ fix: ## Run Fix with configs
 
 .PHONY: fix-wasm
 fix-wasm: ## Run Fix for the miden-client-web package
-	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
+	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
 
 .PHONY: format
 format: ## Run format using nightly toolchain
@@ -121,7 +121,7 @@ build-node: update-node-branch ## Update dependencies and build the node binary 
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 500 --batch.interval 200
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover
@@ -161,7 +161,7 @@ build: ## Build the CLI binary and client library in release mode
 	CODEGEN=1 cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 build-wasm: ## Build the client library for wasm32
-	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	CODEGEN=1 cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 
@@ -171,4 +171,4 @@ check: ## Build the CLI binary and client library in release mode
 
 .PHONY: check-wasm
 check-wasm: ## Build the client library for wasm32
-	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
+	cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
