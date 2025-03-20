@@ -18,7 +18,7 @@ use miden_objects::{
     },
     note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
-        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
@@ -77,7 +77,7 @@ impl MockRpcApi {
         };
 
         let note_first = NoteBuilder::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_SENDER.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([FungibleAsset::mock(20)])
@@ -85,7 +85,7 @@ impl MockRpcApi {
         .unwrap();
 
         let note_second = NoteBuilder::new(
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
@@ -115,13 +115,13 @@ impl MockRpcApi {
             self.mock_chain.add_nullifier(nullifier);
         }
 
-        let block = self.mock_chain.seal_block(None);
+        let block = self.mock_chain.seal_block(None, None);
         self.blocks.push(block);
     }
 
     /// Returns the current MMR of the blockchain.
     pub fn get_mmr(&self) -> Mmr {
-        self.blocks.iter().map(ProvenBlock::hash).into()
+        self.blocks.iter().map(ProvenBlock::commitment).into()
     }
 
     /// Retrieves the note at the specified position.

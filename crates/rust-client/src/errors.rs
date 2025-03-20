@@ -3,6 +3,7 @@ use alloc::{
     vec::Vec,
 };
 
+use miden_lib::account::interface::AccountInterfaceError;
 use miden_objects::{
     AccountError, AssetError, Digest, NoteError, TransactionScriptError, account::AccountId,
     crypto::merkle::MerkleError, note::NoteId,
@@ -20,7 +21,7 @@ use crate::{
     note::NoteScreenerError,
     rpc::RpcError,
     store::{NoteRecordError, StoreError},
-    transaction::{TransactionRequestError, TransactionScriptBuilderError},
+    transaction::TransactionRequestError,
 };
 
 // CLIENT ERROR
@@ -35,8 +36,8 @@ pub enum ClientError {
     AccountError(#[from] AccountError),
     #[error("account with id {0} is locked")]
     AccountLocked(AccountId),
-    #[error("network account hash {0} doesn't match the imported account hash")]
-    AccountHashMismatch(Digest),
+    #[error("network account commitment {0} doesn't match the imported account commitment")]
+    AccountCommitmentMismatch(Digest),
     #[error("account with id {0} is private")]
     AccountIsPrivate(AccountId),
     #[error("account nonce is too low to import")]
@@ -78,7 +79,7 @@ pub enum ClientError {
     #[error("transaction request error")]
     TransactionRequestError(#[from] TransactionRequestError),
     #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
+    AccountInterfaceError(#[from] AccountInterfaceError),
     #[error("transaction script error")]
     TransactionScriptError(#[source] TransactionScriptError),
     #[error("client initialization error: {0}")]
