@@ -661,6 +661,9 @@ export const discardedTransaction =
 
       await client.forceImportStore(preConsumeStore);
 
+      // Get the account state before the transaction is applied
+      const accountStateBeforeTx = await client.getAccount(targetAccount.id());
+
       // Target tries consuming but the transaction will not be submitted
       let targetTxResult = await client.newTransaction(
         targetAccount.id(),
@@ -668,6 +671,8 @@ export const discardedTransaction =
       );
 
       await client.testingApplyTransaction(targetTxResult);
+      // Get the account state after the transaction is applied
+      const accountStateAfterTx = await client.getAccount(targetAccount.id());
 
       await client.syncState();
 
@@ -679,8 +684,16 @@ export const discardedTransaction =
         tx.transactionStatus().isDiscarded()
       );
 
+      // Get the account state after the discarded transactions are applied
+      const accountStateAfterDiscardedTx = await client.getAccount(
+        targetAccount.id()
+      );
+
       return {
         discardedTransactions: discardedTransactions,
+        accountStateBeforeTx: accountStateBeforeTx,
+        accountStateAfterTx: accountStateAfterTx,
+        accountStateAfterDiscardedTx: accountStateAfterDiscardedTx,
       };
     });
   };
@@ -690,5 +703,11 @@ describe("discarded_transaction tests", () => {
     const result = await discardedTransaction();
 
     expect(result.discardedTransactions.length).to.equal(1);
+    expect(result.accountStateBeforeTx.commitment()).to.equal(
+      result.accountStateAfterDiscardedTx.commitment()
+    );
+    expect(result.accountStateAfterTx.commitment()).to.not.equal(
+      result.accountStateAfterDiscardedTx.commitment()
+    );
   });
 });

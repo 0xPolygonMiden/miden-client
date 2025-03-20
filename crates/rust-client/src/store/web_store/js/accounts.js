@@ -470,6 +470,17 @@ export async function lockAccount(accountId) {
   }
 }
 
+// Delete functions
+
+export async function undoAccountStates(accountHashes) {
+  try {
+    await accounts.where("accountCommitment").anyOf(accountHashes).delete();
+  } catch (error) {
+    console.error(`Error undoing account states: ${accountIds}:`, error);
+    throw error; // Rethrow the error to handle it further up the call chain if needed
+  }
+}
+
 function uint8ArrayToBase64(bytes) {
   const binary = bytes.reduce(
     (acc, byte) => acc + String.fromCharCode(byte),

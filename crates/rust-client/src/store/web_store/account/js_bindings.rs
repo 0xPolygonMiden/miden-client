@@ -81,4 +81,10 @@ extern "C" {
 
     #[wasm_bindgen(js_name = lockAccount)]
     pub fn idxdb_lock_account(account_id: String) -> js_sys::Promise;
+
+    // DELETES
+    // ================================================================================================
+
+    #[wasm_bindgen(js_name = undoAccountStates)]
+    pub fn idxdb_undo_account_states(account_hashes: Vec<String>) -> js_sys::Promise;
 }
