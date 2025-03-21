@@ -18,7 +18,6 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteTag, Nullifier},
-    transaction::TransactionId,
 };
 use rusqlite::{Connection, types::Value, vtab::array};
 use tonic::async_trait;
@@ -28,7 +27,6 @@ use super::{
     OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
-    note::NoteUpdates,
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
@@ -328,17 +326,6 @@ impl Store for SqliteStore {
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         self.interact_with_connection(SqliteStore::get_unspent_input_note_nullifiers)
             .await
-    }
-
-    async fn apply_nullifiers(
-        &self,
-        note_updates: NoteUpdates,
-        transactions_to_discard: Vec<TransactionId>,
-    ) -> Result<(), StoreError> {
-        self.interact_with_connection(move |conn| {
-            SqliteStore::apply_nullifiers(conn, &note_updates, &transactions_to_discard)
-        })
-        .await
     }
 }
 

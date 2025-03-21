@@ -363,7 +363,7 @@ async fn test_sync_state_mmr() {
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
+    let partial_mmr = client.build_current_partial_mmr().await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_some()); // Account anchor block
     assert!(partial_mmr.open(1).unwrap().is_some());
