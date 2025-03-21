@@ -97,6 +97,11 @@ async fn test_fpi_execute_program() {
     );
 
     let tx_script = client.compile_tx_script(vec![], &code).unwrap();
+    _ = client.sync_state().await.unwrap();
+
+    // Wait for a couple of blocks so that the account gets committed
+    _ = wait_for_blocks(&mut client, 2).await;
+
     let storage_requirements =
         AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
 
@@ -196,7 +201,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         TransactionScript::compile(tx_script, vec![], TransactionKernel::assembler()).unwrap();
     _ = client.sync_state().await.unwrap();
 
-    // Wait for a couple of blocks to enforce a sync
+    // Wait for a couple of blocks so that the account gets committed
     _ = wait_for_blocks(&mut client, 2).await;
 
     // Before the transaction there are no cached foreign accounts
