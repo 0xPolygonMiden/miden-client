@@ -406,6 +406,24 @@ pub(super) fn parse_account_columns(
     Ok((id, nonce, account_seed, code, storage, assets, locked))
 }
 
+/// Removes account states with the specified hashes from the database.
+///
+/// This is used to rollback account changes when a transaction is discarded,
+/// effectively undoing the account state changes that were applied by the transaction.
+///
+/// Note: This is not part of the Store trait and is only used internally by the `SQLite` store
+/// implementation to handle transaction rollbacks.
+pub(crate) fn undo_account_state(
+    tx: &Transaction<'_>,
+    account_hashes: &[Digest],
+) -> Result<(), StoreError> {
+    const QUERY: &str = "DELETE FROM accounts WHERE account_commitment = ?";
+    for account_id in account_hashes {
+        tx.execute(QUERY, params![account_id.to_hex()])?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use miden_objects::{

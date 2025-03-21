@@ -1,4 +1,7 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     Digest,
@@ -33,6 +36,11 @@ impl WebStore {
         let filter_as_str = match filter {
             TransactionFilter::All => "All",
             TransactionFilter::Uncomitted => "Uncomitted",
+            TransactionFilter::Ids(ids) => &{
+                let ids_str =
+                    ids.iter().map(ToString::to_string).collect::<Vec<String>>().join(",");
+                format!("Ids:{ids_str}")
+            },
         };
 
         let promise = idxdb_get_transactions(filter_as_str.to_string());
