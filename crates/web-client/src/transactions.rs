@@ -7,7 +7,7 @@ use super::models::{
     transaction_filter::TransactionFilter, transaction_record::TransactionRecord,
     transaction_script::TransactionScript,
 };
-use crate::WebClient;
+use crate::{WebClient, js_error_with_context};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -20,7 +20,7 @@ impl WebClient {
             let transaction_records: Vec<NativeTransactionRecord> = client
                 .get_transactions(transaction_filter.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get transactions: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to get transactions"))?;
 
             Ok(transaction_records.into_iter().map(Into::into).collect())
         } else {
@@ -33,7 +33,7 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let native_tx_script: NativeTransactionScript =
                 client.compile_tx_script(vec![], script).map_err(|err| {
-                    JsValue::from_str(&format!("Failed to compile transaction script: {err}"))
+                    js_error_with_context(err, "failed to compile transaction script")
                 })?;
             Ok(native_tx_script.into())
         } else {

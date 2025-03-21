@@ -5,7 +5,8 @@ use wasm_bindgen::prelude::*;
 
 use super::models::account::Account;
 use crate::{
-    WebClient, helpers::generate_wallet, models::account_storage_mode::AccountStorageMode,
+    WebClient, helpers::generate_wallet, js_error_with_context,
+    models::account_storage_mode::AccountStorageMode,
 };
 
 #[wasm_bindgen]
@@ -14,7 +15,8 @@ impl WebClient {
     pub async fn import_account(&mut self, account_bytes: JsValue) -> Result<JsValue, JsValue> {
         let keystore = self.keystore.clone();
         if let Some(client) = self.get_mut_inner() {
-            let account_bytes_result: Vec<u8> = from_value(account_bytes).unwrap();
+            let account_bytes_result: Vec<u8> =
+                from_value(account_bytes).map_err(|err| err.to_string())?;
             let account_data = AccountFile::read_from_bytes(&account_bytes_result)
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
@@ -32,10 +34,7 @@ impl WebClient {
                     let message = format!("Imported account with ID: {account_id}");
                     Ok(JsValue::from_str(&message))
                 },
-                Err(err) => {
-                    let error_message = format!("Failed to import account: {err:?}");
-                    Err(JsValue::from_str(&error_message))
-                },
+                Err(err) => Err(js_error_with_context(err, "failed to import account")),
             }
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -62,10 +61,10 @@ impl WebClient {
             .map_err(|err| err.to_string())?;
 
         let account_id = generated_acct.id();
-        client.import_account_by_id(account_id).await.map_err(|err| {
-            let error_message = format!("Failed to import account: {err:?}");
-            JsValue::from_str(&error_message)
-        })?;
+        client
+            .import_account_by_id(account_id)
+            .await
+            .map_err(|err| js_error_with_context(err, "failed to import account"))?;
 
         Ok(Account::from(generated_acct))
     }
@@ -73,18 +72,18 @@ impl WebClient {
     #[wasm_bindgen(js_name = "importNote")]
     pub async fn import_note(&mut self, note_bytes: JsValue) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let note_bytes_result: Vec<u8> = from_value(note_bytes).unwrap();
+            let note_bytes_result: Vec<u8> =
+                from_value(note_bytes).map_err(|err| err.to_string())?;
 
             let note_file =
                 NoteFile::read_from_bytes(&note_bytes_result).map_err(|err| err.to_string())?;
 
-            match client.import_note(note_file).await {
-                Ok(note_id) => Ok(JsValue::from_str(note_id.to_string().as_str())),
-                Err(err) => {
-                    let error_message = format!("Failed to import note: {err:?}");
-                    Err(JsValue::from_str(&error_message))
-                },
-            }
+            Ok(client
+                .import_note(note_file)
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to import note"))?
+                .to_string()
+                .into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -99,7 +98,7 @@ impl WebClient {
         store
             .force_import_store(store_dump)
             .await
-            .map_err(|err| JsValue::from_str(&format!("{err}")))?;
+            .map_err(|err| js_error_with_context(err, "failed to force import store"))?;
 
         Ok(JsValue::from_str("Store imported successfully"))
     }
