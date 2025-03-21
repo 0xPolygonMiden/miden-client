@@ -820,7 +820,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
-    /// retrieve it.
+    /// retrieve it, this implies a state sync call which may update the client in other ways.
     ///
     /// # Errors
     /// - Returns a [`ClientError::RecencyConditionError`] if the foreign account proofs are too far
@@ -843,12 +843,6 @@ impl<R: FeltRng> Client<R> {
         // Fetch account proofs
         let (block_num, account_proofs) =
             self.rpc_api.get_account_proofs(&foreign_accounts, known_account_codes).await?;
-
-        if block_num > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
-            return Err(ClientError::RecencyConditionError(
-                "Foreign account proofs are too far in the future".to_string(),
-            ));
-        }
 
         let mut account_proofs: BTreeMap<AccountId, AccountProof> =
             account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
