@@ -35,7 +35,7 @@ pub(crate) async fn generate_wallet(
                 .try_into()
                 .map_err(|_| JsValue::from_str("Seed must be exactly 32 bytes"))?;
             let mut std_rng = StdRng::from_seed(seed_array);
-            let coin_seed: [u64; 4] = std_rng.r#gen();
+            let coin_seed: [u64; 4] = std_rng.random();
             &mut (Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new))) as Box<dyn FeltRng>)
         },
         None => client.rng().inner_mut(),

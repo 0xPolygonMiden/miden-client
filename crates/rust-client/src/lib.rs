@@ -69,8 +69,8 @@
 //! let store = Arc::new(sqlite_store);
 //!
 //! // Generate a random seed for the RpoRandomCoin.
-//! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.r#gen();
+//! let mut rng = rand::rng();
+//! let coin_seed: [u64; 4] = rng.random();
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
@@ -191,7 +191,7 @@ use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
     DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
 };
-use rand::{Error, RngCore};
+use rand::RngCore;
 use rpc::NodeRpcClient;
 use store::{Store, data_store::ClientDataStore};
 use tracing::info;
@@ -324,10 +324,6 @@ impl RngCore for ClientRng {
 
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         self.0.fill_bytes(dest);
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.0.try_fill_bytes(dest)
     }
 }
 

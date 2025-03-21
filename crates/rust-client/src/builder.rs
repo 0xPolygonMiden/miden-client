@@ -196,8 +196,8 @@ impl ClientBuilder {
         let rng = if let Some(user_rng) = self.rng {
             user_rng
         } else {
-            let mut seed_rng = rand::thread_rng();
-            let coin_seed: [u64; 4] = seed_rng.r#gen();
+            let mut seed_rng = rand::rng();
+            let coin_seed: [u64; 4] = seed_rng.random();
             Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
         };
 
@@ -212,8 +212,8 @@ impl ClientBuilder {
                 #[cfg(not(feature="std"))]
                 let keystore = {
                     _ = path;
-                    let mut seed_rng = rand::thread_rng();
-                    let coin_seed: [u64; 4] = seed_rng.r#gen();
+                    let mut seed_rng = rand::rng();
+                    let coin_seed: [u64; 4] = seed_rng.random();
                     WebKeyStore::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
                 };
 

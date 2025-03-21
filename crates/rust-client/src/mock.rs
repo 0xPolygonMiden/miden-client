@@ -336,8 +336,8 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.r#gen();
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
