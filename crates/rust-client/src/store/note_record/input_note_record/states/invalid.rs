@@ -3,7 +3,7 @@ use alloc::string::ToString;
 use miden_objects::{
     Digest,
     block::BlockHeader,
-    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_hash},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_commitment},
     transaction::TransactionId,
 };
 
@@ -51,7 +51,7 @@ impl NoteStateHandler for InvalidNoteState {
             .note_path()
             .verify(
                 self.invalid_inclusion_proof.location().node_index_in_block().into(),
-                compute_note_hash(note_id, &self.metadata),
+                compute_note_commitment(note_id, &self.metadata),
                 &block_header.note_root(),
             )
             .is_ok()

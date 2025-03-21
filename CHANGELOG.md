@@ -6,6 +6,7 @@
 
 * Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
+* Added support for script execution in the `Client` and CLI (#777).
 
 ### Changes
 
@@ -18,6 +19,9 @@
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
 * [BREAKING] Updated client to Rust 2024 edition (#778).
+* [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
+* [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
+* [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
 
 ### Fixes
 

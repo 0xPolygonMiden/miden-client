@@ -274,7 +274,13 @@ mod test {
     async fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
             .map(|block_num| {
-                BlockHeader::mock(block_num, None, None, &[], TransactionKernel::kernel_root())
+                BlockHeader::mock(
+                    block_num,
+                    None,
+                    None,
+                    &[],
+                    TransactionKernel::kernel_commitment(),
+                )
             })
             .collect();
 

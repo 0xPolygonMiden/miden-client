@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::{BlockHeader, BlockNumber},
-    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_hash},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_commitment},
     transaction::TransactionId,
 };
 
@@ -48,7 +48,7 @@ impl NoteStateHandler for UnverifiedNoteState {
             .note_path()
             .verify(
                 self.inclusion_proof.location().node_index_in_block().into(),
-                compute_note_hash(note_id, &self.metadata),
+                compute_note_commitment(note_id, &self.metadata),
                 &block_header.note_root(),
             )
             .is_ok()

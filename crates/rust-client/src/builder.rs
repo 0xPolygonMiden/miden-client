@@ -3,41 +3,34 @@ use alloc::{
     sync::Arc,
 };
 
-use miden_objects::crypto::rand::RpoRandomCoin;
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
 
 use crate::{
-    Client, ClientError, Felt,
-    authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
+    Client, ClientError,
+    keystore::FilesystemKeyStore,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
     store::{Store, sqlite_store::SqliteStore},
 };
 
-/// Represents the configuration for a keystore.
+/// Represents the configuration for an authenticator.
 ///
-/// The purpose of this enum is to delay the actual instantiation of the keystore until the build
-/// phase. This allows the builder to accept either:
+/// This enum defers authenticator instantiation until the build phase. The builder can accept
+/// either:
 ///
-/// - A direct instance of a `FilesystemKeyStore`, or
-/// - A keystore path as a string which is then used to initialize the keystore during `build()`.
-///
-/// Without this enum, we are forced to perform the initialization immediately, which would
-/// require unwrapping (and potentially panicking) if initialization fails. By deferring it, we
-/// allow error handling during `build()`.
-enum KeystoreConfig {
+/// - A direct instance of an authenticator, or
+/// - A keystore path as a string which is then used as an authenticator.
+enum AuthenticatorConfig {
     Path(String),
-    Instance(FilesystemKeyStore),
+    Instance(Arc<dyn TransactionAuthenticator>),
 }
 
 /// A builder for constructing a Miden client.
 ///
 /// This builder allows you to configure the various components required by the client, such as the
-/// RPC endpoint, store, and RNG. It provides flexibility by letting you supply your own
-/// implementations or falling back to default implementations (e.g. using a default `SQLite` store
-/// and `RpoRandomCoin` for randomness) when the respective feature flags are enabled.
-///
-/// This builder **only exists** if the `std` feature is enabled. Otherwise,
-/// it's completely ignored and never compiled.
+/// RPC endpoint, store, RNG, and keystore. It is generic over the keystore type. By default, it
+/// uses `FilesystemKeyStore<rand::rngs::StdRng>`.
 pub struct ClientBuilder {
     /// An optional RPC endpoint.
     rpc_endpoint: Option<Endpoint>,
@@ -52,7 +45,7 @@ pub struct ClientBuilder {
     /// The store path to use when no store is directly provided via `with_store()`.
     store_path: String,
     /// The keystore configuration provided by the user.
-    keystore: Option<KeystoreConfig>,
+    keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
 }
@@ -79,9 +72,14 @@ impl ClientBuilder {
         Self::default()
     }
 
+    /// Enable or disable debug mode.
+    #[must_use]
+    pub fn in_debug_mode(mut self, debug: bool) -> Self {
+        self.in_debug_mode = debug;
+        self
+    }
+
     /// Sets a custom RPC client directly.
-    ///
-    /// This method overrides any previously set RPC endpoint.
     #[must_use]
     pub fn with_rpc(mut self, client: Arc<dyn NodeRpcClient + Send>) -> Self {
         self.rpc_api = Some(client);
@@ -89,10 +87,6 @@ impl ClientBuilder {
     }
 
     /// Sets the RPC endpoint.
-    ///
-    /// Note: The RPC client is not constructed immediately. Instead, the endpoint is stored and
-    /// used during the build process, together with the timeout. This means that any call to
-    /// `with_timeout` will be effective as long as it happens before `build()`.
     #[must_use]
     pub fn with_tonic_rpc(mut self, endpoint: Endpoint) -> Self {
         self.rpc_endpoint = Some(endpoint);
@@ -100,8 +94,6 @@ impl ClientBuilder {
     }
 
     /// Optionally set a custom timeout (in milliseconds) for the RPC client.
-    ///
-    /// This value will be used when constructing the RPC client (if one is built via `with_rpc`).
     #[must_use]
     pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = timeout_ms;
@@ -109,7 +101,6 @@ impl ClientBuilder {
     }
 
     /// Optionally set a custom store path.
-    /// Used when no store is directly provided via `with_store()`.
     #[must_use]
     pub fn with_sqlite_store(mut self, path: &str) -> Self {
         self.store_path = path.to_string();
@@ -130,31 +121,24 @@ impl ClientBuilder {
         self
     }
 
-    /// Optionally provide a custom keystore instance.
-    ///
-    /// This implementation accepts an already constructed `FilesystemKeyStore` and stores it for
-    /// later use during client initialization.
+    /// Optionally provide a custom authenticator instance.
     #[must_use]
-    pub fn with_keystore(mut self, keystore: FilesystemKeyStore) -> Self {
-        self.keystore = Some(KeystoreConfig::Instance(keystore));
+    pub fn with_authenticator(mut self, authenticator: Arc<dyn TransactionAuthenticator>) -> Self {
+        self.keystore = Some(AuthenticatorConfig::Instance(authenticator));
         self
     }
+}
 
+/// Methods that only make sense when using the default keystore type,
+/// i.e. `FilesystemKeyStore<rand::rngs::StdRng>`.
+impl ClientBuilder {
     /// **Required:** Provide the keystore path as a string.
     ///
-    /// This method stores the keystore path as a configuration option so that the actual keystore
-    /// initialization is deferred until `build()`. This prevents the need to unwrap errors during
-    /// builder chaining.
+    /// This stores the keystore path as a configuration option so that actual keystore
+    /// initialization is deferred until `build()`. This avoids panicking during builder chaining.
     #[must_use]
     pub fn with_filesystem_keystore(mut self, keystore_path: &str) -> Self {
-        self.keystore = Some(KeystoreConfig::Path(keystore_path.to_string()));
-        self
-    }
-
-    /// Enable or disable debug mode.
-    #[must_use]
-    pub fn in_debug_mode(mut self, debug: bool) -> Self {
-        self.in_debug_mode = debug;
+        self.keystore = Some(AuthenticatorConfig::Path(keystore_path.to_string()));
         self
     }
 
@@ -173,7 +157,7 @@ impl ClientBuilder {
             Arc::new(TonicRpcClient::new(&endpoint, self.timeout_ms))
         } else {
             return Err(ClientError::ClientInitializationError(
-                "RPC client or endpoint is required. Call `.with_rpc(...)` or `.with_rpc_client(...)`."
+                "RPC client or endpoint is required. Call `.with_rpc(...)` or `.with_tonic_rpc(...)`."
                     .into(),
             ));
         };
@@ -192,16 +176,20 @@ impl ClientBuilder {
         let rng = if let Some(user_rng) = self.rng {
             user_rng
         } else {
-            let mut seed_rng = rand::thread_rng();
-            let coin_seed: [u64; 4] = seed_rng.r#gen();
+            let mut seed_rng = rand::rng();
+            let coin_seed: [u64; 4] = seed_rng.random();
             RpoRandomCoin::new(coin_seed.map(Felt::new))
         };
 
-        // Require a keystore to be specified.
-        let keystore = match self.keystore {
-            Some(KeystoreConfig::Instance(k)) => k,
-            Some(KeystoreConfig::Path(ref path)) => FilesystemKeyStore::new(path.into())
-                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?,
+        // Initialize the authenticator.
+        let authenticator = match self.keystore {
+            Some(AuthenticatorConfig::Instance(authenticator)) => authenticator,
+            Some(AuthenticatorConfig::Path(ref path)) => {
+                let fs_keystore = FilesystemKeyStore::new(path.into())
+                    .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
+
+                Arc::new(fs_keystore)
+            },
             None => {
                 return Err(ClientError::ClientInitializationError(
                     "Keystore must be specified. Call `.with_keystore(...)` or `.with_filesystem_keystore(...)` with a keystore path."
@@ -210,14 +198,6 @@ impl ClientBuilder {
             }
         };
 
-        let authenticator = ClientAuthenticator::new(rng, keystore);
-
-        Ok(Client::new(
-            rpc_api,
-            rng,
-            arc_store,
-            Arc::new(authenticator),
-            self.in_debug_mode,
-        ))
+        Ok(Client::new(rpc_api, rng, arc_store, authenticator, self.in_debug_mode))
     }
 }
