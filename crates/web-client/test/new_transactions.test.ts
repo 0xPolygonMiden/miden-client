@@ -9,6 +9,7 @@ import {
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
+import { TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -547,4 +548,125 @@ describe("use custom transaction prover per request", () => {
     async () => {
       await expect(customTransaction("0", true)).to.be.fulfilled;
     };
+});
+
+// DISCARDED TRANSACTIONS TESTS
+// ================================================================================================
+
+interface DiscardedTransactionResult {
+  discardedTransactions: TransactionRecord[];
+}
+
+export const discardedTransaction =
+  async (): Promise<DiscardedTransactionResult> => {
+    return await testingPage.evaluate(async () => {
+      const client = window.client;
+
+      const senderAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const targetAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const faucetAccount = await client.newFaucet(
+        window.AccountStorageMode.private(),
+        false,
+        "DAG",
+        8,
+        BigInt(10000000)
+      );
+      await client.syncState();
+
+      let mintTransactionResult = await client.newMintTransaction(
+        senderAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(1000)
+      );
+      let createdNotes = mintTransactionResult.createdNotes().notes();
+      let createdNoteIds = createdNotes.map((note) => note.id().toString());
+      await window.helpers.waitForTransaction(
+        mintTransactionResult.executedTransaction().id().toHex()
+      );
+
+      const senderConsumeTransactionResult = await client.newConsumeTransaction(
+        senderAccount.id(),
+        createdNoteIds
+      );
+      await window.helpers.waitForTransaction(
+        senderConsumeTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let sendTransactionResult = await client.newSendTransaction(
+        senderAccount.id(),
+        targetAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(100),
+        1
+      );
+      let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
+      let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
+        note.id().toString()
+      );
+
+      await window.helpers.waitForTransaction(
+        sendTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        sendCreatedNotes[0].id(),
+        null
+      );
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      const consumeTransactionRequest = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .build();
+
+      let preConsumeStore = await client.exportStore();
+
+      // Sender retrieves the note
+      let senderTxResult = await client.newConsumeTransaction(
+        senderAccount.id(),
+        sendCreatedNoteIds
+      );
+
+      await window.helpers.waitForTransaction(
+        senderTxResult.executedTransaction().id().toHex()
+      );
+
+      await client.forceImportStore(preConsumeStore);
+
+      // Target tries consuming but the transaction will not be submitted
+      let targetTxResult = await client.newTransaction(
+        targetAccount.id(),
+        consumeTransactionRequest
+      );
+
+      await client.testingApplyTransaction(targetTxResult);
+
+      await client.syncState();
+
+      const allTransactions = await client.getTransactions(
+        window.TransactionFilter.all()
+      );
+
+      const discardedTransactions = allTransactions.filter((tx) =>
+        tx.transactionStatus().isDiscarded()
+      );
+
+      return {
+        discardedTransactions: discardedTransactions,
+      };
+    });
+  };
+
+describe("discarded_transaction tests", () => {
+  it("transaction gets discarded", async () => {
+    const result = await discardedTransaction();
+
+    expect(result.discardedTransactions.length).to.equal(1);
+  });
 });

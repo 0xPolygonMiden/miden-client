@@ -20,6 +20,7 @@ pub struct TransactionIdxdbObject {
     pub tx_script: Option<Vec<u8>>,
     pub block_num: String,             // usually u32
     pub commit_height: Option<String>, // usually Option<u32>
+    pub discarded: bool,
 }
 
 fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>

@@ -61,11 +61,13 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .account_id
                 .ok_or(RpcError::ExpectedDataMissing("AccountCommitmentUpdate.AccountId".into()))?
                 .try_into()?;
-            let account_hash = update
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountCommitmentUpdate.AccountHash".into()))?
+            let account_commitment = update
+                .account_commitment
+                .ok_or(RpcError::ExpectedDataMissing(
+                    "AccountCommitmentUpdate.AccountCommitment".into(),
+                ))?
                 .try_into()?;
-            account_commitment_updates.push((account_id, account_hash));
+            account_commitment_updates.push((account_id, account_commitment));
         }
 
         // Validate and convert account note inclusions into an (AccountId, Digest) tuple

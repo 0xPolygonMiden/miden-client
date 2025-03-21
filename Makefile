@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="next"
+NODE_BRANCH="tomyrd-fix-renaming"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -115,16 +115,15 @@ setup-miden-node: ## Clone the miden-node repository if it doesn't exist
 
 .PHONY: update-node-branch
 update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
-	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && sed -i.bak -e 's/const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_secs(5);/const SERVER_BLOCK_FREQUENCY: Duration = Duration::from_millis(500);/' \
-    -e 's/const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_secs(2);/const SERVER_BUILD_BATCH_FREQUENCY: Duration = Duration::from_millis(200);/' -- "$(NODE_PARAM_FILE)" && rm -- "$(NODE_PARAM_FILE).bak"
+	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features
-	cd $(NODE_DIR) && rm -rf miden-store.sqlite3* && cargo run --locked --bin miden-node -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+	cd $(NODE_DIR) && rm -rf data accounts && mkdir data accounts && cargo run --locked --bin miden-node $(NODE_FEATURES_TESTING) -- bundled bootstrap --data-directory data --accounts-directory accounts
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- start --config ../tests/config/miden-node.toml node
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 500 --batch.interval 200
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover

@@ -16,7 +16,7 @@ use miden_client::{
     auth::AuthSecretKey,
     crypto::FeltRng,
     keystore::FilesystemKeyStore,
-    note::create_p2id_note,
+    note::{Note, create_p2id_note},
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
     sync::SyncSummary,
@@ -61,8 +61,8 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
         std::sync::Arc::new(sqlite_store)
     };
 
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.r#gen();
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
@@ -344,7 +344,7 @@ pub async fn setup_two_wallets_and_faucet(
 pub async fn setup_wallet_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
-    keystore: &FilesystemKeyStore,
+    keystore: &TestClientKeyStore,
 ) -> (Account, Account) {
     // Enusre clean state
     assert!(client.get_account_headers().await.unwrap().is_empty());
