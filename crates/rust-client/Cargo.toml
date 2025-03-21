@@ -21,12 +21,12 @@ workspace = true
 [features]
 concurrent = ["miden-tx/concurrent", "std"]
 default = ["std", "tonic/channel"]
-idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde"]
+idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde", "dep:getrandom"]
 sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
 std = ["miden-objects/std","miden-proving-service-client/std"]
 testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
 tonic = ["std", "tonic/transport", "tonic/tls", "tonic/tls-native-roots"]
-web-tonic = ["dep:tonic-web-wasm-client"]
+web-tonic = ["dep:tonic-web-wasm-client", "dep:getrandom"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -49,6 +49,10 @@ tonic-web-wasm-client = { version = "0.6", optional = true, default-features = f
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+getrandom = { version = "0.3", optional = true, features = ["wasm_js"] }
+
+[package.metadata.cargo-machete]
+ignored = ["getrandom"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["console", "Window", "Storage"] }
@@ -62,7 +66,7 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
 
 [build-dependencies]
-miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
+miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "tomyrd-fix-renaming" }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miette = { workspace = true }

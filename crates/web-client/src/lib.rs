@@ -67,9 +67,9 @@ impl WebClient {
                     return Err(JsValue::from_str("Seed must be exactly 32 bytes"));
                 }
             },
-            None => StdRng::from_entropy(),
+            None => StdRng::from_os_rng(),
         };
-        let coin_seed: [u64; 4] = rng.r#gen();
+        let coin_seed: [u64; 4] = rng.random();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()
