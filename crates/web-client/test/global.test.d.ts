@@ -37,6 +37,8 @@ import {
   TransactionScriptInputPairArray,
   Word,
   WebClient,
+  NoteAndArgs,
+  NoteAndArgsArray,
 } from "../dist/index";
 
 declare global {
@@ -54,6 +56,8 @@ declare global {
     FeltArray: typeof FeltArray;
     FungibleAsset: typeof FungibleAsset;
     Note: typeof Note;
+    NoteAndArgs: typeof NoteAndArgs;
+    NoteAndArgsArray: typeof NoteAndArgsArray;
     NoteAssets: typeof NoteAssets;
     NoteConsumability: typeof NoteConsumability;
     NoteExecutionHint: typeof NoteExecutionHint;

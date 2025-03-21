@@ -2,7 +2,9 @@ import { expect } from "chai";
 import { testingPage } from "./mocha.global.setup.mjs";
 import {
   consumeTransaction,
+  mintAndConsumeTransaction,
   mintTransaction,
+  sendTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
@@ -29,8 +31,10 @@ describe("new_mint_transactions tests", () => {
 describe("new_consume_transaction tests", () => {
   it("new_consume_transaction completes successfully", async () => {
     const { faucetId, accountId } = await setupWalletAndFaucet();
-    const { createdNoteId } = await mintTransaction(accountId, faucetId);
-    const result = await consumeTransaction(accountId, faucetId, createdNoteId);
+    const { consumeResult: result } = await mintAndConsumeTransaction(
+      accountId,
+      faucetId
+    );
 
     expect(result.transactionId).to.not.be.empty;
     expect(result.nonce).to.equal("1");
@@ -47,91 +51,65 @@ interface SendTransactionResult {
   changedTargetBalance: string;
 }
 
-export const sendTransaction = async (): Promise<SendTransactionResult> => {
-  return await testingPage.evaluate(async () => {
-    const client = window.client;
+export const sendTransactionTest = async (
+  senderAccount: string,
+  targetAccount: string,
+  faucetAccount: string
+): Promise<SendTransactionResult> => {
+  return await testingPage.evaluate(
+    async (
+      _senderAccount: string,
+      _targetAccount: string,
+      _faucetAccount: string
+    ) => {
+      const targetAccountId = window.AccountId.fromHex(_targetAccount);
+      const senderAccountId = window.AccountId.fromHex(_senderAccount);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccount);
 
-    const senderAccount = await client.newWallet(
-      window.AccountStorageMode.private(),
-      true
-    );
-    const targetAccount = await client.newWallet(
-      window.AccountStorageMode.private(),
-      true
-    );
-    const faucetAccount = await client.newFaucet(
-      window.AccountStorageMode.private(),
-      false,
-      "DAG",
-      8,
-      BigInt(10000000)
-    );
-    await client.syncState();
+      const client = window.client;
+      const changedSenderAccount = await client.getAccount(senderAccountId);
+      const changedTargetAccount = await client.getAccount(targetAccountId);
 
-    let mintTransactionResult = await client.newMintTransaction(
-      senderAccount.id(),
-      faucetAccount.id(),
-      window.NoteType.private(),
-      BigInt(1000)
-    );
-    let createdNotes = mintTransactionResult.createdNotes().notes();
-    let createdNoteIds = createdNotes.map((note) => note.id().toString());
-    await window.helpers.waitForTransaction(
-      mintTransactionResult.executedTransaction().id().toHex()
-    );
-
-    const senderConsumeTransactionResult = await client.newConsumeTransaction(
-      senderAccount.id(),
-      createdNoteIds
-    );
-    await window.helpers.waitForTransaction(
-      senderConsumeTransactionResult.executedTransaction().id().toHex()
-    );
-
-    let sendTransactionResult = await client.newSendTransaction(
-      senderAccount.id(),
-      targetAccount.id(),
-      faucetAccount.id(),
-      window.NoteType.private(),
-      BigInt(100)
-    );
-    let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
-    let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
-      note.id().toString()
-    );
-    await window.helpers.waitForTransaction(
-      sendTransactionResult.executedTransaction().id().toHex()
-    );
-
-    const targetConsumeTransactionResult = await client.newConsumeTransaction(
-      targetAccount.id(),
-      sendCreatedNoteIds
-    );
-    await window.helpers.waitForTransaction(
-      targetConsumeTransactionResult.executedTransaction().id().toHex()
-    );
-
-    const changedSenderAccount = await client.getAccount(senderAccount.id());
-    const changedTargetAccount = await client.getAccount(targetAccount.id());
-
-    return {
-      senderAccountBalance: changedSenderAccount
-        .vault()
-        .getBalance(faucetAccount.id())
-        .toString(),
-      changedTargetBalance: changedTargetAccount
-        .vault()
-        .getBalance(faucetAccount.id())
-        .toString(),
-    };
-  });
+      return {
+        senderAccountBalance: changedSenderAccount
+          .vault()
+          .getBalance(faucetAccountId)
+          .toString(),
+        changedTargetBalance: changedTargetAccount
+          .vault()
+          .getBalance(faucetAccountId)
+          .toString(),
+      };
+    },
+    senderAccount,
+    targetAccount,
+    faucetAccount
+  );
 };
 
 describe("new_send_transaction tests", () => {
   it("new_send_transaction completes successfully", async () => {
-    const result = await sendTransaction();
+    const { accountId: senderAccountId, faucetId } =
+      await setupWalletAndFaucet();
+    const { accountId: targetAccountId } = await setupWalletAndFaucet();
+    const recallHeight = 100;
+    let createdSendNotes = await sendTransaction(
+      senderAccountId,
+      targetAccountId,
+      faucetId,
+      100,
+      recallHeight
+    );
 
-    expect(result.senderAccountBalance).to.equal("900");
+    await consumeTransaction(targetAccountId, faucetId, createdSendNotes[0]);
+
+    const result = await sendTransactionTest(
+      senderAccountId,
+      targetAccountId,
+      faucetId
+    );
+
+    expect(result.senderAccountBalance).to.equal("0");
     expect(result.changedTargetBalance).to.equal("100");
   });
 });
