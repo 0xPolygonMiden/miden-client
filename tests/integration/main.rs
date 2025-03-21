@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    ClientBuilder, ClientError, ONE,
+    ClientBuilder, ClientError, ONE, ZERO,
     account::Account,
     note::NoteRelevance,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
@@ -11,10 +11,11 @@ use miden_client::{
     },
     sync::NoteTagSource,
     transaction::{
-        PaymentTransactionData, TransactionExecutorError, TransactionProver,
+        OutputNote, PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
+use miden_lib::note::create_p2id_note;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -106,8 +107,6 @@ async fn test_added_notes() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     println!("Running Mint tx...");
     execute_tx_and_sync(&mut client, faucet_account_header.id(), tx_request).await;
@@ -143,8 +142,6 @@ async fn test_multiple_tx_on_same_block() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     let tx_request_2 = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
@@ -152,8 +149,6 @@ async fn test_multiple_tx_on_same_block() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     println!("Running P2ID tx...");
@@ -237,8 +232,6 @@ async fn test_p2id_transfer() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let note = tx_request.expected_output_notes().next().unwrap().clone();
@@ -273,7 +266,7 @@ async fn test_p2id_transfer() {
 
     // Consume P2ID note
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).unwrap();
     execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
 
     // Ensure we have nothing else to consume
@@ -335,8 +328,6 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_failing_tx(
         &mut client,
@@ -418,8 +409,6 @@ async fn test_p2idr_transfer_consumed_by_target() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_tx_and_sync(&mut client, from_account_id, tx_request.clone()).await;
 
@@ -431,7 +420,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     // Make the `to_account_id` consume P2IDR note
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_id]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_id]).unwrap();
     execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
     let regular_account = client.get_account(from_account_id).await.unwrap().unwrap();
 
@@ -497,8 +486,6 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
 
@@ -509,7 +496,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
     // Check that it's still too early to consume
     println!("Consuming Note (too early)...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).unwrap();
     let transaction_execution_result = client.new_transaction(from_account_id, tx_request).await;
     assert!(transaction_execution_result.is_err_and(|err| {
         matches!(
@@ -530,7 +517,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
     // Consume the note with the sender account
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).unwrap();
     execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
 
     let regular_account = client.get_account(from_account_id).await.unwrap().unwrap();
@@ -589,8 +576,6 @@ async fn test_get_consumable_notes() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
 
@@ -658,8 +643,6 @@ async fn test_get_output_notes() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let output_note_id = tx_request.expected_output_notes().next().unwrap().id();
@@ -694,8 +677,6 @@ async fn test_import_expected_notes() {
         NoteType::Public,
         client_2.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
     client_2.sync_state().await.unwrap();
@@ -729,8 +710,6 @@ async fn test_import_expected_notes() {
         NoteType::Private,
         client_2.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
@@ -781,8 +760,6 @@ async fn test_import_expected_note_uncommitted() {
         NoteType::Public,
         client_1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
@@ -823,8 +800,6 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
         NoteType::Public,
         client_1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
@@ -930,8 +905,6 @@ async fn test_sync_detail_values() {
         NoteType::Public,
         client1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
     execute_tx_and_sync(&mut client1, from_account_id, tx_request).await;
@@ -944,7 +917,7 @@ async fn test_sync_detail_values() {
     assert_eq!(new_details.updated_accounts.len(), 0);
 
     // Consume the note with the second account
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_id]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_id]).unwrap();
     execute_tx_and_sync(&mut client2, to_account_id, tx_request).await;
 
     // First client sync should have a new nullifier as the note was consumed
@@ -978,8 +951,6 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             NoteType::Private,
             client.rng(),
         )
-        .unwrap()
-        .build()
         .unwrap();
 
         println!("Executing transaction...");
@@ -1006,8 +977,6 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             NoteType::Private,
             client.rng(),
         )
-        .unwrap()
-        .build()
         .unwrap();
 
         println!("Executing transaction...");
@@ -1044,8 +1013,6 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             NoteType::Private,
             client.rng(),
         )
-        .unwrap()
-        .build()
         .unwrap();
 
         println!("Executing transaction...");
@@ -1151,19 +1118,17 @@ async fn test_consume_multiple_expected_notes() {
         expected_notes.partition(|note| client_notes_ids.contains(&note.id()));
 
     // Create and execute transactions
-    let tx_request_1 = TransactionRequestBuilder::consume_notes(
-        client_owned_notes.iter().map(|note| note.id()).collect(),
-    )
-    .with_authenticated_input_notes(client_owned_notes.iter().map(|note| (note.id(), None)))
-    .build()
-    .unwrap();
+    let tx_request_1 = TransactionRequestBuilder::new()
+        .with_authenticated_input_notes(client_owned_notes.iter().map(|note| (note.id(), None)))
+        .build()
+        .unwrap();
 
-    let tx_request_2 = TransactionRequestBuilder::consume_notes(
-        unauth_owned_notes.iter().map(|note| note.id()).collect(),
-    )
-    .with_unauthenticated_input_notes(unauth_owned_notes.iter().map(|note| ((*note).clone(), None)))
-    .build()
-    .unwrap();
+    let tx_request_2 = TransactionRequestBuilder::new()
+        .with_unauthenticated_input_notes(
+            unauth_owned_notes.iter().map(|note| ((*note).clone(), None)),
+        )
+        .build()
+        .unwrap();
 
     let tx_id_1 = execute_tx(&mut client, to_account_ids[0], tx_request_1).await;
     let tx_id_2 = execute_tx(&mut unauth_client, to_account_ids[1], tx_request_2).await;
@@ -1235,8 +1200,6 @@ async fn test_import_consumed_note_with_proof() {
         NoteType::Private,
         client_1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     let note = client_1
@@ -1250,7 +1213,7 @@ async fn test_import_consumed_note_with_proof() {
     // Consume the note with the sender account
 
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
 
     // Import the consumed note
@@ -1295,8 +1258,6 @@ async fn test_import_consumed_note_with_id() {
         NoteType::Public,
         client_1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     let note = client_1
@@ -1310,7 +1271,7 @@ async fn test_import_consumed_note_with_id() {
     // Consume the note with the sender account
 
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     client_2.sync_state().await.unwrap();
 
@@ -1354,8 +1315,6 @@ async fn test_discarded_transaction() {
         NoteType::Public,
         client_1.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
@@ -1369,7 +1328,7 @@ async fn test_discarded_transaction() {
         .clone();
 
     println!("Consuming Note...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).unwrap();
 
     // Consume the note in client 1 but dont submit it to the node
     let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).await.unwrap();
@@ -1436,8 +1395,6 @@ async fn test_custom_transaction_prover() {
         NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let transaction_execution_result =
@@ -1541,16 +1498,22 @@ async fn test_expired_transaction_fails() {
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        fungible_asset,
+
+    let mint_note = create_p2id_note(
+        faucet_account_id,
         from_account_id,
+        vec![fungible_asset.into()],
         NoteType::Public,
+        ZERO,
         client.rng(),
     )
-    .unwrap()
-    .with_expiration_delta(expiration_delta)
-    .build()
     .unwrap();
+
+    let tx_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(mint_note)])
+        .with_expiration_delta(expiration_delta)
+        .build()
+        .unwrap();
 
     println!("Executing transaction...");
     let transaction_execution_result =

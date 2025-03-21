@@ -47,8 +47,7 @@
 //!         None, // No recall height
 //!         NoteType::Private,
 //!         client.rng(),
-//!     )?
-//!     .build()?;
+//!     )?;
 //!
 //!     // Execute the transaction. This returns a TransactionResult.
 //!     let tx_result: TransactionResult = client.new_transaction(sender_id, tx_request).await?;
@@ -1103,8 +1102,6 @@ mod test {
             NoteType::Private,
             client.rng(),
         )
-        .unwrap()
-        .build()
         .unwrap();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
