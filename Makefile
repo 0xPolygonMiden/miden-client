@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="tomyrd-fix-renaming"
+NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -55,13 +55,17 @@ format-check: ## Run format using nightly toolchain but only in check mode
 .PHONY: lint
 lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)
 
-# --- Rust documentation --------------------------------------------------------------------------
+# --- Documentation --------------------------------------------------------------------------
 
 .PHONY: doc
 doc: ## Generate & check rust documentation. You'll need `jq` in order for this to run.
 	@cd crates/rust-client && \
 	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic" and . != "idxdb")' | tr '\n' ',') && \
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
+
+.PHONY: book
+book: ## Builds the book & serves documentation site
+	mdbook serve --open docs
 
 # --- Testing -------------------------------------------------------------------------------------
 
