@@ -7,7 +7,6 @@
 - [Features](./features.md)
 - [Design](./design.md)
 - [Examples](./examples.md)
-- [API](./api-docs.md)
 
 ---
 
