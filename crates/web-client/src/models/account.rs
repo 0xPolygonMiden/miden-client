@@ -19,8 +19,8 @@ impl Account {
         self.0.id().into()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
     pub fn nonce(&self) -> Felt {

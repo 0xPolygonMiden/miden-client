@@ -297,7 +297,7 @@ async fn test_onchain_notes_sync_with_tag() {
     // Assert that the note is the same
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().hash(), note.hash());
+    assert_eq!(received_note.note().commitment(), note.commitment());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }

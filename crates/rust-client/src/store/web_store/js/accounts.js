@@ -118,16 +118,16 @@ export async function getAccountHeader(accountId) {
   }
 }
 
-export async function getAccountHeaderByHash(accountHash) {
+export async function getAccountHeaderByCommitment(accountCommitment) {
   try {
-    // Fetch all records matching the given hash
+    // Fetch all records matching the given commitment
     const allMatchingRecords = await accounts
-      .where("accountHash")
-      .equals(accountHash)
+      .where("accountCommitment")
+      .equals(accountCommitment)
       .toArray();
 
     if (allMatchingRecords.length === 0) {
-      console.log("No account header record found for given hash.");
+      console.log("No account header record found for given commitment.");
       return null;
     }
 
@@ -355,7 +355,7 @@ export async function insertAccountRecord(
   nonce,
   committed,
   accountSeed,
-  hash
+  commitment
 ) {
   try {
     let accountSeedBlob = null;
@@ -372,7 +372,7 @@ export async function insertAccountRecord(
       nonce: nonce,
       committed: committed,
       accountSeed: accountSeedBlob,
-      accountHash: hash,
+      accountCommitment: commitment,
       locked: false,
     };
 

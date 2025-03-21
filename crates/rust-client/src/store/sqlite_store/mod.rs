@@ -284,12 +284,12 @@ impl Store for SqliteStore {
             .await
     }
 
-    async fn get_account_header_by_hash(
+    async fn get_account_header_by_commitment(
         &self,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::get_account_header_by_hash(conn, account_hash)
+            SqliteStore::get_account_header_by_commitment(conn, account_commitment)
         })
         .await
     }

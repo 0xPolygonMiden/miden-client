@@ -152,7 +152,7 @@ async fn build_partial_mmr_with_paths(
 
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
-            .track(header.block_num().as_usize(), header.hash(), path)
+            .track(header.block_num().as_usize(), header.commitment(), path)
             .map_err(|err| DataStoreError::other(format!("error constructing MMR: {err}")))?;
     }
 

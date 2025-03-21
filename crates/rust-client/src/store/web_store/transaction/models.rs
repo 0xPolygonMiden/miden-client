@@ -15,11 +15,12 @@ pub struct TransactionIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub output_notes: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
-    pub script_hash: Option<Vec<u8>>,
+    pub script_root: Option<Vec<u8>>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub tx_script: Option<Vec<u8>>,
     pub block_num: String,             // usually u32
     pub commit_height: Option<String>, // usually Option<u32>
+    pub discarded: bool,
 }
 
 fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>

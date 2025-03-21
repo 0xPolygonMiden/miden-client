@@ -115,7 +115,7 @@ impl SqliteStore {
             // Mismatched digests may be due to stale network data. If the mismatched digest is
             // tracked in the db and corresponds to the mismatched account, it means we
             // got a past update and shouldn't lock the account.
-            if let Some(account) = Self::get_account_header_by_hash(conn, *digest)? {
+            if let Some(account) = Self::get_account_header_by_commitment(conn, *digest)? {
                 if account.id() == *account_id {
                     continue;
                 }

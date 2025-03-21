@@ -1398,27 +1398,27 @@ async fn test_discarded_transaction() {
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
 }
 
+struct AlwaysFailingProver;
+
+impl AlwaysFailingProver {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[maybe_async_trait]
+impl TransactionProver for AlwaysFailingProver {
+    #[maybe_async]
+    fn prove(
+        &self,
+        _tx_witness: TransactionWitness,
+    ) -> Result<ProvenTransaction, TransactionProverError> {
+        return Err(TransactionProverError::other("This prover always fails"));
+    }
+}
+
 #[tokio::test]
 async fn test_custom_transaction_prover() {
-    struct AlwaysFailingProver;
-
-    impl AlwaysFailingProver {
-        pub fn new() -> Self {
-            Self
-        }
-    }
-
-    #[maybe_async_trait]
-    impl TransactionProver for AlwaysFailingProver {
-        #[maybe_async]
-        fn prove(
-            &self,
-            _tx_witness: TransactionWitness,
-        ) -> Result<ProvenTransaction, TransactionProverError> {
-            return Err(TransactionProverError::other("This prover always fails"));
-        }
-    }
-
     let (mut client, authenticator) = create_test_client().await;
     let (first_regular_account, _, faucet_account_header) =
         setup(&mut client, AccountStorageMode::Private, &authenticator).await;

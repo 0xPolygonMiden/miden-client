@@ -19,7 +19,7 @@ use crate::store::{AccountRecord, AccountStatus, StoreError};
 mod js_bindings;
 use js_bindings::{
     idxdb_fetch_and_cache_account_auth_by_pub_key, idxdb_get_account_asset_vault,
-    idxdb_get_account_code, idxdb_get_account_header, idxdb_get_account_header_by_hash,
+    idxdb_get_account_code, idxdb_get_account_header, idxdb_get_account_header_by_commitment,
     idxdb_get_account_headers, idxdb_get_account_ids, idxdb_get_account_storage,
     idxdb_get_foreign_account_code, idxdb_lock_account, idxdb_upsert_foreign_account_code,
 };
@@ -102,13 +102,13 @@ impl WebStore {
         }
     }
 
-    pub(crate) async fn get_account_header_by_hash(
+    pub(crate) async fn get_account_header_by_commitment(
         &self,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
-        let account_hash_str = account_hash.to_string();
+        let account_commitment_str = account_commitment.to_string();
 
-        let promise = idxdb_get_account_header_by_hash(account_hash_str);
+        let promise = idxdb_get_account_header_by_commitment(account_commitment_str);
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_header_idxdb: Option<AccountRecordIdxdbObject> = from_value(js_value).unwrap();
 

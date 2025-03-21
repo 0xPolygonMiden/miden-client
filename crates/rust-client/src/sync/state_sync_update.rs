@@ -164,10 +164,10 @@ impl TransactionUpdates {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
-    /// Account hashes received from the network that don't match the currently locally-tracked
-    /// state of the private accounts.
+    /// Account commitments received from the network that don't match the currently
+    /// locally-tracked state of the private accounts.
     ///
-    /// These updates may represent a stale account hash (meaning that the latest local state
+    /// These updates may represent a stale account commitment (meaning that the latest local state
     /// hasn't been committed). If this is not the case, the account may be locked until the state
     /// is restored manually.
     mismatched_private_accounts: Vec<(AccountId, Digest)>,

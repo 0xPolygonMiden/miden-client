@@ -162,7 +162,7 @@ impl StateSync {
         state_sync_update.block_num = new_block_num;
 
         let account_updates =
-            self.account_state_sync(accounts, &response.account_hash_updates).await?;
+            self.account_state_sync(accounts, &response.account_commitment_updates).await?;
 
         state_sync_update.account_updates.extend(account_updates);
 
@@ -208,26 +208,27 @@ impl StateSync {
     ///
     /// The account updates might include:
     /// * Public accounts that have been updated in the node.
-    /// * Private accounts that have been marked as mismatched because the current hash doesn't
-    ///   match the one received from the node. The client will need to handle these cases as they
-    ///   could be a stale account state or a reason to lock the account.
+    /// * Private accounts that have been marked as mismatched because the current commitment
+    ///   doesn't match the one received from the node. The client will need to handle these cases
+    ///   as they could be a stale account state or a reason to lock the account.
     async fn account_state_sync(
         &mut self,
         accounts: &[AccountHeader],
-        account_hash_updates: &[(AccountId, Digest)],
+        account_commitment_updates: &[(AccountId, Digest)],
     ) -> Result<AccountUpdates, ClientError> {
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.iter().partition(|account_header| account_header.id().is_public());
 
-        let updated_public_accounts =
-            self.get_updated_public_accounts(account_hash_updates, &public_accounts).await?;
+        let updated_public_accounts = self
+            .get_updated_public_accounts(account_commitment_updates, &public_accounts)
+            .await?;
 
-        let mismatched_private_accounts = account_hash_updates
+        let mismatched_private_accounts = account_commitment_updates
             .iter()
             .filter(|(account_id, digest)| {
                 private_accounts
                     .iter()
-                    .any(|account| account.id() == *account_id && &account.hash() != digest)
+                    .any(|account| account.id() == *account_id && &account.commitment() != digest)
             })
             .copied()
             .collect::<Vec<_>>();
@@ -244,11 +245,11 @@ impl StateSync {
     ) -> Result<Vec<Account>, ClientError> {
         let mut mismatched_public_accounts = vec![];
 
-        for (id, hash) in account_updates {
+        for (id, commitment) in account_updates {
             // check if this updated account state is tracked by the client
             if let Some(account) = current_public_accounts
                 .iter()
-                .find(|acc| *id == acc.id() && *hash != acc.hash())
+                .find(|acc| *id == acc.id() && *commitment != acc.commitment())
             {
                 mismatched_public_accounts.push(*account);
             }
@@ -399,7 +400,7 @@ fn apply_mmr_changes(
     let new_peaks = current_partial_mmr.peaks();
 
     new_authentication_nodes
-        .append(&mut current_partial_mmr.add(new_block.hash(), new_block_has_relevant_notes));
+        .append(&mut current_partial_mmr.add(new_block.commitment(), new_block_has_relevant_notes));
 
     Ok((new_peaks, new_authentication_nodes))
 }

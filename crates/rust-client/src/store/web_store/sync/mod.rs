@@ -7,6 +7,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
+    transaction::TransactionId,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
@@ -112,7 +113,7 @@ impl WebStore {
             block_num,
             block_updates,
             note_updates,
-            transaction_updates, //TODO: Add support for discarded transactions in web store
+            transaction_updates,
             account_updates,
         } = state_sync_update;
 
@@ -159,6 +160,11 @@ impl WebStore {
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
+        let transactions_to_discard_as_str: Vec<String> = transaction_updates
+            .discarded_transactions()
+            .iter()
+            .map(TransactionId::to_string)
+            .collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
@@ -170,7 +176,7 @@ impl WebStore {
             // Mismatched digests may be due to stale network data. If the mismatched digest is
             // tracked in the db and corresponds to the mismatched account, it means we
             // got a past update and shouldn't lock the account.
-            if let Some(account) = self.get_account_header_by_hash(*digest).await? {
+            if let Some(account) = self.get_account_header_by_commitment(*digest).await? {
                 if account.id() == *account_id {
                     continue;
                 }
@@ -190,6 +196,7 @@ impl WebStore {
             note_tags_to_remove_as_str,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
+            transactions_to_discard_as_str,
         );
         JsFuture::from(promise).await.unwrap();
 

@@ -193,11 +193,11 @@ impl Store for WebStore {
         self.get_account_header(account_id).await
     }
 
-    async fn get_account_header_by_hash(
+    async fn get_account_header_by_commitment(
         &self,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
-        self.get_account_header_by_hash(account_hash).await
+        self.get_account_header_by_commitment(account_commitment).await
     }
 
     async fn get_account(
