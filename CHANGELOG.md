@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3 (TBD)
+
+* Web client: Exposed `assets` iterator for `AssetVault` (#783)
+
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 
 ### Changes
