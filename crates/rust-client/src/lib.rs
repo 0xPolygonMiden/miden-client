@@ -301,6 +301,11 @@ impl Client {
     }
 }
 
+// CLIENT RNG
+// ================================================================================================
+
+/// A wrapper around a [`FeltRng`] that implements the [`RngCore`] trait.
+/// This allows the user to pass their own generic RNG so that it's used by the client.
 pub struct ClientRng(Box<dyn FeltRng>);
 
 impl ClientRng {
