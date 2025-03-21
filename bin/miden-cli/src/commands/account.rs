@@ -16,8 +16,8 @@ use crate::{
 // ACCOUNT COMMAND
 // ================================================================================================
 
-#[derive(Default, Debug, Clone, Parser)]
 /// View and manage accounts. Defaults to `list` command.
+#[derive(Default, Debug, Clone, Parser)]
 #[allow(clippy::option_option)]
 pub struct AccountCmd {
     /// List all accounts monitored by this client (default action).

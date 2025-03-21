@@ -19,7 +19,7 @@ use commands::{
     export::ExportCmd,
     import::ImportCmd,
     init::InitCmd,
-    new_account::{NewFaucetCmd, NewWalletCmd},
+    new_account::{NewAccountCmd, NewWalletCmd},
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     sync::SyncCmd,
@@ -60,7 +60,7 @@ pub struct Cli {
 #[derive(Debug, Parser)]
 pub enum Command {
     Account(AccountCmd),
-    NewFaucet(NewFaucetCmd),
+    NewAccount(NewAccountCmd),
     NewWallet(NewWalletCmd),
     Import(ImportCmd),
     Export(ExportCmd),
@@ -128,8 +128,8 @@ impl Cli {
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client).await,
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client, keystore).await,
             Command::NewWallet(new_wallet) => new_wallet.execute(client, keystore).await,
+            Command::NewAccount(new_account) => new_account.execute(client, keystore).await,
             Command::Import(import) => import.execute(client, keystore).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &cli_config).await,

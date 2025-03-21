@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client output notes")]
+#[clap(about = "Export client output notes, or account data")]
 pub struct ExportCmd {
     /// ID (or a valid prefix) of the output note or account to export.
     #[clap()]

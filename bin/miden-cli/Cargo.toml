@@ -50,3 +50,9 @@ tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
+
+[build-dependencies]
+# TODO: Remove tonic/sqlite in favor of std once the client builder is fixed (issue #759)
+miden-client = { version = "0.8", path = "../../crates/rust-client", features = ["tonic", "sqlite"] } 
+miden-objects = { workspace = true }
+miden-lib = { workspace = true }

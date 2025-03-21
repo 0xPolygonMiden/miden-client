@@ -34,11 +34,13 @@ mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
+    let (_, _, store_config, auth_path) = get_client_config();
+
     let mut client = ClientBuilder::new()
         .with_tonic_rpc(Endpoint::default())
         .with_timeout(10_000)
-        .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_filesystem_keystore(auth_path.to_str().unwrap())
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -54,15 +56,18 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientError> {
-    let endpoint = Endpoint::default();
+    let (_, _, store_config, auth_path) = get_client_config();
+
+    let endpoint =
+        Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
     let rpc_api = Box::new(TonicRpcClient::new(&endpoint, timeout_ms));
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
         .with_timeout(10_000)
-        .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_filesystem_keystore(auth_path.to_str().unwrap())
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -78,10 +83,11 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 
 #[tokio::test]
 async fn test_client_builder_fails_without_keystore() {
+    let (_, _, store_config, _) = get_client_config();
     let result = ClientBuilder::new()
         .with_tonic_rpc(Endpoint::default())
         .with_timeout(10_000)
-        .with_sqlite_store("store.sqlite3")
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await;

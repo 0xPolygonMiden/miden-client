@@ -1611,7 +1611,7 @@ dependencies = [
 [[package]]
 name = "miden-rpc-proto"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomyrd-fix-renaming#6cf23bf00b4576f14659bf52fddbdbe29c8e07fc"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#de60e9d99ee73cead9418e99407bc91ba3d0a664"
 
 [[package]]
 name = "miden-stdlib"
