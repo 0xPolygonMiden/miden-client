@@ -7,7 +7,7 @@ import {
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
-import { TransactionRecord } from "../dist/crates/miden_client_web";
+import { Account, TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -577,6 +577,9 @@ describe("use custom transaction prover per request", () => {
 
 interface DiscardedTransactionResult {
   discardedTransactions: TransactionRecord[];
+  commitmentBeforeTx: string;
+  commitmentAfterTx: string;
+  commitmentAfterDiscardedTx: string;
 }
 
 export const discardedTransaction =
@@ -661,6 +664,14 @@ export const discardedTransaction =
 
       await client.forceImportStore(preConsumeStore);
 
+      // Get the account state before the transaction is applied
+      const accountStateBeforeTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateBeforeTx) {
+        throw new Error("Failed to get account state before transaction");
+      }
+
       // Target tries consuming but the transaction will not be submitted
       let targetTxResult = await client.newTransaction(
         targetAccount.id(),
@@ -668,6 +679,13 @@ export const discardedTransaction =
       );
 
       await client.testingApplyTransaction(targetTxResult);
+      // Get the account state after the transaction is applied
+      const accountStateAfterTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterTx) {
+        throw new Error("Failed to get account state after transaction");
+      }
 
       await client.syncState();
 
@@ -679,8 +697,28 @@ export const discardedTransaction =
         tx.transactionStatus().isDiscarded()
       );
 
+      // Get the account state after the discarded transactions are applied
+      const accountStateAfterDiscardedTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterDiscardedTx) {
+        throw new Error(
+          "Failed to get account state after discarded transaction"
+        );
+      }
+
+      // Perform a `.commitment()` check on each account
+      const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
+      const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx
+        .commitment()
+        .toHex();
+
       return {
         discardedTransactions: discardedTransactions,
+        commitmentBeforeTx,
+        commitmentAfterTx,
+        commitmentAfterDiscardedTx,
       };
     });
   };
@@ -690,5 +728,11 @@ describe("discarded_transaction tests", () => {
     const result = await discardedTransaction();
 
     expect(result.discardedTransactions.length).to.equal(1);
+    expect(result.commitmentBeforeTx).to.equal(
+      result.commitmentAfterDiscardedTx
+    );
+    expect(result.commitmentAfterTx).to.not.equal(
+      result.commitmentAfterDiscardedTx
+    );
   });
 });
