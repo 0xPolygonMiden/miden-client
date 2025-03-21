@@ -3,7 +3,7 @@ use miden_objects::account::Account as NativeAccount;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    WebClient,
+    WebClient, js_error_with_context,
     models::{account::Account, account_header::AccountHeader, account_id::AccountId},
 };
 
@@ -15,7 +15,7 @@ impl WebClient {
             let result = client
                 .get_account_headers()
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get accounts: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to get accounts"))?;
 
             Ok(result.into_iter().map(|(header, _)| header.into()).collect())
         } else {
@@ -32,7 +32,7 @@ impl WebClient {
             let result = client
                 .get_account(account_id.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to get account"))?;
             let account: Option<NativeAccount> = result.map(AccountRecord::into);
 
             Ok(account.map(miden_client::account::Account::into))
@@ -54,7 +54,7 @@ impl WebClient {
             let account_record = client
                 .get_account(account_id.into())
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to get account"))?;
 
             let account: NativeAccount = match account_record {
                 Some(record) => AccountRecord::into(record),
@@ -66,7 +66,7 @@ impl WebClient {
 
             account_storage
                 .get_item(pub_key_index)
-                .map_err(|err| JsValue::from_str(&format!("Failed to get item: {err}")))?
+                .map_err(|err| js_error_with_context(err, "failed to get item"))?
         };
 
         let store =
@@ -75,9 +75,7 @@ impl WebClient {
         let native_auth_secret_key = store
             .fetch_and_cache_account_auth_by_pub_key(account_pub_key.to_hex())
             .await
-            .map_err(|err| {
-                JsValue::from_str(&format!("Failed to fetch and cache account auth: {err}"))
-            })?;
+            .map_err(|err| js_error_with_context(err, "failed to fetch and cache account auth"))?;
 
         Ok(native_auth_secret_key)
     }
