@@ -17,11 +17,6 @@ impl SyncSummary {
         self.0.block_num.as_u32()
     }
 
-    #[wasm_bindgen(js_name = "receivedNotes")]
-    pub fn received_notes(&self) -> Vec<NoteId> {
-        self.0.received_notes.iter().map(Into::into).collect()
-    }
-
     #[wasm_bindgen(js_name = "committedNotes")]
     pub fn committed_notes(&self) -> Vec<NoteId> {
         self.0.committed_notes.iter().map(Into::into).collect()

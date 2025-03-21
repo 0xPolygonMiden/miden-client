@@ -85,11 +85,7 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes
-            .updated_input_notes()
-            .iter()
-            .chain(committed_notes.new_input_notes().iter())
-        {
+        for input_note in committed_notes.updated_input_notes() {
             if !note_screener
                 .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
                 .await?
@@ -152,7 +148,7 @@ impl<R: FeltRng> Client<R> {
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
