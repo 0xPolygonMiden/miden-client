@@ -665,7 +665,9 @@ export const discardedTransaction =
       await client.forceImportStore(preConsumeStore);
 
       // Get the account state before the transaction is applied
-      const accountStateBeforeTx = await client.getAccount(targetAccount.id()) as Account;
+      const accountStateBeforeTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
       if (!accountStateBeforeTx) {
         throw new Error("Failed to get account state before transaction");
       }
@@ -678,7 +680,9 @@ export const discardedTransaction =
 
       await client.testingApplyTransaction(targetTxResult);
       // Get the account state after the transaction is applied
-      const accountStateAfterTx = await client.getAccount(targetAccount.id()) as Account;
+      const accountStateAfterTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
       if (!accountStateAfterTx) {
         throw new Error("Failed to get account state after transaction");
       }
@@ -694,17 +698,21 @@ export const discardedTransaction =
       );
 
       // Get the account state after the discarded transactions are applied
-      const accountStateAfterDiscardedTx = await client.getAccount(
+      const accountStateAfterDiscardedTx = (await client.getAccount(
         targetAccount.id()
-      ) as Account;
+      )) as Account;
       if (!accountStateAfterDiscardedTx) {
-        throw new Error("Failed to get account state after discarded transaction");
+        throw new Error(
+          "Failed to get account state after discarded transaction"
+        );
       }
 
       // Perform a `.commitment()` check on each account
       const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
       const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
-      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx
+        .commitment()
+        .toHex();
 
       return {
         discardedTransactions: discardedTransactions,
