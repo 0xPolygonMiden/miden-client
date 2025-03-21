@@ -472,11 +472,11 @@ export async function lockAccount(accountId) {
 
 // Delete functions
 
-export async function undoAccountStates(accountHashes) {
+export async function undoAccountStates(accountCommitments) {
   try {
-    await accounts.where("accountCommitment").anyOf(accountHashes).delete();
+    await accounts.where("accountCommitment").anyOf(accountCommitments).delete();
   } catch (error) {
-    console.error(`Error undoing account states: ${accountIds}:`, error);
+    console.error(`Error undoing account states: ${accountCommitments}:`, error);
     throw error; // Rethrow the error to handle it further up the call chain if needed
   }
 }

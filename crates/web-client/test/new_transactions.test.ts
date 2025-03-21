@@ -577,9 +577,9 @@ describe("use custom transaction prover per request", () => {
 
 interface DiscardedTransactionResult {
   discardedTransactions: TransactionRecord[];
-  accountStateBeforeTx: Account | undefined;
-  accountStateAfterTx: Account | undefined;
-  accountStateAfterDiscardedTx: Account | undefined;
+  commitmentBeforeTx: string;
+  commitmentAfterTx: string;
+  commitmentAfterDiscardedTx: string;
 }
 
 export const discardedTransaction =
@@ -665,7 +665,10 @@ export const discardedTransaction =
       await client.forceImportStore(preConsumeStore);
 
       // Get the account state before the transaction is applied
-      const accountStateBeforeTx = await client.getAccount(targetAccount.id());
+      const accountStateBeforeTx = await client.getAccount(targetAccount.id()) as Account;
+      if (!accountStateBeforeTx) {
+        throw new Error("Failed to get account state before transaction");
+      }
 
       // Target tries consuming but the transaction will not be submitted
       let targetTxResult = await client.newTransaction(
@@ -675,7 +678,10 @@ export const discardedTransaction =
 
       await client.testingApplyTransaction(targetTxResult);
       // Get the account state after the transaction is applied
-      const accountStateAfterTx = await client.getAccount(targetAccount.id());
+      const accountStateAfterTx = await client.getAccount(targetAccount.id()) as Account;
+      if (!accountStateAfterTx) {
+        throw new Error("Failed to get account state after transaction");
+      }
 
       await client.syncState();
 
@@ -690,13 +696,21 @@ export const discardedTransaction =
       // Get the account state after the discarded transactions are applied
       const accountStateAfterDiscardedTx = await client.getAccount(
         targetAccount.id()
-      );
+      ) as Account;
+      if (!accountStateAfterDiscardedTx) {
+        throw new Error("Failed to get account state after discarded transaction");
+      }
+
+      // Perform a `.commitment()` check on each account
+      const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
+      const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx.commitment().toHex();
 
       return {
         discardedTransactions: discardedTransactions,
-        accountStateBeforeTx: accountStateBeforeTx,
-        accountStateAfterTx: accountStateAfterTx,
-        accountStateAfterDiscardedTx: accountStateAfterDiscardedTx,
+        commitmentBeforeTx,
+        commitmentAfterTx,
+        commitmentAfterDiscardedTx,
       };
     });
   };
@@ -706,11 +720,11 @@ describe("discarded_transaction tests", () => {
     const result = await discardedTransaction();
 
     expect(result.discardedTransactions.length).to.equal(1);
-    expect(result.accountStateBeforeTx?.commitment()).to.equal(
-      result.accountStateAfterDiscardedTx?.commitment()
+    expect(result.commitmentBeforeTx).to.equal(
+      result.commitmentAfterDiscardedTx
     );
-    expect(result.accountStateAfterTx?.commitment()).to.not.equal(
-      result.accountStateAfterDiscardedTx?.commitment()
+    expect(result.commitmentAfterTx).to.not.equal(
+      result.commitmentAfterDiscardedTx
     );
   });
 });
