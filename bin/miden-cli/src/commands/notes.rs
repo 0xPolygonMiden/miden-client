@@ -52,13 +52,13 @@ pub struct NotesCmd {
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
+    /// When using --show, include the note code in the output.
+    #[clap(long, requires = "show")]
+    with_code: bool,
     /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
     /// consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
     account_id: Option<String>,
-    /// When using --show, include the note code in the output.
-    #[clap(long, requires = "show")]
-    with_code: bool,
 }
 
 impl NotesCmd {
