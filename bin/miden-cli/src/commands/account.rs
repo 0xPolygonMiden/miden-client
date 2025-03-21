@@ -3,7 +3,6 @@ use miden_client::{
     Client, ZERO,
     account::{Account, AccountId, AccountType, StorageSlot},
     asset::Asset,
-    crypto::FeltRng,
 };
 
 use crate::{
@@ -37,7 +36,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub async fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         match self {
             AccountCmd {
                 list: false,
@@ -95,7 +94,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
+async fn list_accounts(client: Client) -> Result<(), CliError> {
     let accounts = client.get_account_headers().await?;
 
     let mut table =
@@ -121,10 +120,7 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
     Ok(())
 }
 
-pub async fn show_account<R: FeltRng>(
-    client: Client<R>,
-    account_id: AccountId,
-) -> Result<(), CliError> {
+pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), CliError> {
     let account: Account = client
         .get_account(account_id)
         .await?

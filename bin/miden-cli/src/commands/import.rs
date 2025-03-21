@@ -7,7 +7,6 @@ use std::{
 use miden_client::{
     Client, ClientError,
     account::{AccountFile, AccountId},
-    crypto::FeltRng,
     note::NoteFile,
     utils::Deserializable,
 };
@@ -30,11 +29,7 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute(
-        &self,
-        mut client: Client<impl FeltRng>,
-        keystore: CliKeyStore,
-    ) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client, keystore: CliKeyStore) -> Result<(), CliError> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
@@ -73,7 +68,7 @@ impl ImportCmd {
 // ================================================================================================
 
 async fn import_account(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     keystore: &CliKeyStore,
     account_data_file_contents: &[u8],
     overwrite: bool,

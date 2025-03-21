@@ -10,6 +10,7 @@ use miden_objects::{
     note::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
+use rand::RngCore;
 
 use super::common::*;
 

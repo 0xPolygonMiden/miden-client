@@ -4,15 +4,25 @@ use alloc::{
     sync::Arc,
 };
 
-use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use miden_objects::{
+    Felt,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+};
 use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
 
+#[cfg(feature = "std")]
+use crate::keystore::FilesystemKeyStore;
+#[cfg(not(feature = "std"))]
+use crate::keystore::WebKeyStore;
+#[cfg(feature = "sqlite")]
+use crate::store::sqlite_store::SqliteStore;
+#[cfg(feature = "idxdb")]
+use crate::store::{StoreError, web_store::WebStore};
 use crate::{
     Client, ClientError,
-    keystore::FilesystemKeyStore,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
-    store::{Store, sqlite_store::SqliteStore},
+    store::Store,
 };
 
 /// Represents the configuration for an authenticator.
@@ -42,7 +52,7 @@ pub struct ClientBuilder {
     /// An optional store provided by the user.
     store: Option<Arc<dyn Store>>,
     /// An optional RNG provided by the user.
-    rng: Option<RpoRandomCoin>,
+    rng: Option<Box<dyn FeltRng>>,
     /// The store path to use when no store is directly provided via `with_store()`.
     store_path: String,
     /// The keystore configuration provided by the user.
@@ -117,7 +127,7 @@ impl ClientBuilder {
 
     /// Optionally provide a custom RNG.
     #[must_use]
-    pub fn with_rng(mut self, rng: RpoRandomCoin) -> Self {
+    pub fn with_rng(mut self, rng: Box<dyn FeltRng>) -> Self {
         self.rng = Some(rng);
         self
     }
@@ -150,7 +160,7 @@ impl ClientBuilder {
     /// - Returns an error if no RPC client or endpoint was provided.
     /// - Returns an error if the store cannot be instantiated.
     /// - Returns an error if the keystore is not specified or fails to initialize.
-    pub async fn build(self) -> Result<Client<RpoRandomCoin>, ClientError> {
+    pub async fn build(self) -> Result<Client, ClientError> {
         // Determine the RPC client to use.
         let rpc_api: Box<dyn NodeRpcClient + Send> = if let Some(client) = self.rpc_api {
             client
@@ -167,9 +177,18 @@ impl ClientBuilder {
         let arc_store: Arc<dyn Store> = if let Some(store) = self.store {
             store
         } else {
+            #[cfg(feature = "sqlite")]
             let store = SqliteStore::new(self.store_path.clone().into())
                 .await
                 .map_err(ClientError::StoreError)?;
+
+            #[cfg(feature = "idxdb")]
+            let store = WebStore::new().await.map_err(|_| {
+                ClientError::StoreError(StoreError::DatabaseError(
+                    "Failed to initialize the WebStore.".to_string(),
+                ))
+            })?;
+
             Arc::new(store)
         };
 
@@ -179,17 +198,26 @@ impl ClientBuilder {
         } else {
             let mut seed_rng = rand::rng();
             let coin_seed: [u64; 4] = seed_rng.random();
-            RpoRandomCoin::new(coin_seed.map(Felt::new))
+            Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
         };
 
         // Initialize the authenticator.
         let authenticator = match self.keystore {
             Some(AuthenticatorConfig::Instance(authenticator)) => authenticator,
             Some(AuthenticatorConfig::Path(ref path)) => {
-                let fs_keystore = FilesystemKeyStore::new(path.into())
-                    .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
+                #[cfg(feature="std")]
+                let keystore = FilesystemKeyStore::new(path.into())
+                .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
 
-                Arc::new(fs_keystore)
+                #[cfg(not(feature="std"))]
+                let keystore = {
+                    _ = path;
+                    let mut seed_rng = rand::rng();
+                    let coin_seed: [u64; 4] = seed_rng.random();
+                    WebKeyStore::new(RpoRandomCoin::new(coin_seed.map(Felt::new)))
+                };
+
+                Arc::new(keystore)
             },
             None => {
                 return Err(ClientError::ClientInitializationError(

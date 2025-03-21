@@ -3,7 +3,6 @@ use std::{fs::File, io::Write, path::PathBuf};
 use miden_client::{
     Client, Word,
     account::{Account, AccountFile},
-    crypto::FeltRng,
     store::NoteExportType,
     utils::Serializable,
 };
@@ -55,11 +54,7 @@ impl From<&ExportType> for NoteExportType {
 }
 
 impl ExportCmd {
-    pub async fn execute(
-        &self,
-        mut client: Client<impl FeltRng>,
-        keystore: CliKeyStore,
-    ) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client, keystore: CliKeyStore) -> Result<(), CliError> {
         if self.account {
             export_account(&client, &keystore, self.id.as_str(), self.filename.clone()).await?;
         } else if let Some(export_type) = &self.export_type {
@@ -77,7 +72,7 @@ impl ExportCmd {
 // ================================================================================================
 
 async fn export_account(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     keystore: &CliKeyStore,
     account_id: &str,
     filename: Option<PathBuf>,
@@ -118,7 +113,7 @@ async fn export_account(
 // ================================================================================================
 
 async fn export_note(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: &ExportType,

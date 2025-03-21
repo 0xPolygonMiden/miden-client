@@ -12,7 +12,6 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::BlockNumber,
-    crypto::rand::FeltRng,
     note::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
 
@@ -24,7 +23,7 @@ use crate::{
 };
 
 /// Note importing methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
