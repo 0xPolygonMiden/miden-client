@@ -1694,18 +1694,18 @@ async fn test_old_pending_transactions_discarded() {
 
     // Store the account state before applying the transaction
     let account_before_tx = client.get_account(account_id).await.unwrap().unwrap();
-    let account_hash_before_tx = account_before_tx.account().hash();
+    let account_commitment_before_tx = account_before_tx.account().commitment();
 
     // Apply the transaction
     client.testing_apply_transaction(tx_result).await.unwrap();
 
     // Check that the account state has changed after applying the transaction
     let account_after_tx = client.get_account(account_id).await.unwrap().unwrap();
-    let account_hash_after_tx = account_after_tx.account().hash();
+    let account_commitment_after_tx = account_after_tx.account().commitment();
 
     assert_ne!(
-        account_hash_before_tx, account_hash_after_tx,
-        "Account hash should change after applying the transaction"
+        account_commitment_before_tx, account_commitment_after_tx,
+        "Account commitment should change after applying the transaction"
     );
 
     // Verify the transaction is in pending state
@@ -1734,14 +1734,14 @@ async fn test_old_pending_transactions_discarded() {
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
-    let account_hash_after_sync = account_after_sync.account().hash();
+    let account_commitment_after_sync = account_after_sync.account().commitment();
 
     assert_ne!(
-        account_hash_after_sync, account_hash_after_tx,
-        "Account hash should change after transaction was discarded"
+        account_commitment_after_sync, account_commitment_after_tx,
+        "Account commitment should change after transaction was discarded"
     );
     assert_eq!(
-        account_hash_after_sync, account_hash_before_tx,
-        "Account hash should be rolled back to the value before the transaction"
+        account_commitment_after_sync, account_commitment_before_tx,
+        "Account commitment should be rolled back to the value before the transaction"
     );
 }

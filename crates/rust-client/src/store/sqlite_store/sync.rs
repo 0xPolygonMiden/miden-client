@@ -2,9 +2,7 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{
-    Digest, account::AccountId, block::BlockNumber, note::NoteTag, transaction::TransactionId,
-};
+use miden_objects::{Digest, block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -142,7 +140,8 @@ impl SqliteStore {
         // Delete accounts for old pending transactions
         let account_hashes_to_delete: Vec<Digest> =
             old_pending_transactions.iter().map(|tx| tx.final_account_state).collect();
-        Self::undo_account_state(&tx, &account_hashes_to_delete)?;
+
+        undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
         discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
