@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::sync::Arc;
+use std::fmt::Write;
 
 use console_error_panic_hook::set_once;
 use miden_client::{
@@ -66,9 +67,9 @@ impl WebClient {
                     return Err(JsValue::from_str("Seed must be exactly 32 bytes"));
                 }
             },
-            None => StdRng::from_entropy(),
+            None => StdRng::from_os_rng(),
         };
-        let coin_seed: [u64; 4] = rng.r#gen();
+        let coin_seed: [u64; 4] = rng.random();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()
@@ -96,4 +97,20 @@ impl WebClient {
 
         Ok(JsValue::from_str("Client created successfully"))
     }
+}
+
+// ERROR HANDLING HELPERS
+// ================================================================================================
+
+fn js_error_with_context<T>(err: T, context: &str) -> JsValue
+where
+    T: core::error::Error,
+{
+    let mut error_string = context.to_string();
+    let mut source = Some(&err as &dyn core::error::Error);
+    while let Some(err) = source {
+        write!(error_string, ": {err}").expect("writing to string should always succeeds");
+        source = err.source();
+    }
+    JsValue::from(error_string)
 }

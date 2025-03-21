@@ -131,7 +131,7 @@ describe("compile_tx_script tests", () => {
     const script = "fakeScript";
 
     await expect(compileTxScript(script)).to.be.rejectedWith(
-      /Failed to compile transaction script:/
+      /failed to compile transaction script:/
     );
   });
 });

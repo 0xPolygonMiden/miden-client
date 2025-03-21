@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust toolchain
         run: rustup update --no-self-update
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - build
         run: make build
   build-wasm:
@@ -24,5 +26,7 @@ jobs:
         run: rustup update --no-self-update
       - name: Add wasm32-unknown-unknown target
         run: rustup target add wasm32-unknown-unknown
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - build-wasm
         run: make build-wasm

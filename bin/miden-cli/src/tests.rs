@@ -106,7 +106,7 @@ async fn test_mint_with_untracked_account() {
 // ================================================================================================
 
 // Only one faucet is being created on the genesis block
-const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["faucet.mac"];
+const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account_0.mac"];
 
 // This tests that it's possible to import the genesis accounts and interact with them. To do so it:
 //
@@ -645,8 +645,8 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
         std::sync::Arc::new(sqlite_store)
     };
 
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.r#gen();
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
