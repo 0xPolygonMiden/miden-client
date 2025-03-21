@@ -1,6 +1,6 @@
 The following document lists the commands that the CLI currently supports.
 
-> **Note**
+> [!Tip]
 > Use `--help` as a flag on any command for more information.
 
 ## Usage
