@@ -1,4 +1,7 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     Digest,
@@ -33,6 +36,11 @@ impl WebStore {
         let filter_as_str = match filter {
             TransactionFilter::All => "All",
             TransactionFilter::Uncomitted => "Uncomitted",
+            TransactionFilter::Ids(ids) => &{
+                let ids_str =
+                    ids.iter().map(ToString::to_string).collect::<Vec<String>>().join(",");
+                format!("Ids:{ids_str}")
+            },
         };
 
         let promise = idxdb_get_transactions(filter_as_str.to_string());
@@ -58,7 +66,7 @@ impl WebStore {
                 let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
 
                 let transaction_script: Option<TransactionScript> =
-                    if tx_idxdb.script_hash.is_some() {
+                    if tx_idxdb.script_root.is_some() {
                         let tx_script = tx_idxdb
                             .tx_script
                             .map(|script| TransactionScript::read_from_bytes(&script))
@@ -70,8 +78,11 @@ impl WebStore {
                         None
                     };
 
-                let transaction_status =
-                    commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
+                let transaction_status = match (commit_height, tx_idxdb.discarded) {
+                    (_, true) => TransactionStatus::Discarded,
+                    (Some(block_num), false) => TransactionStatus::Committed(block_num),
+                    (None, false) => TransactionStatus::Pending,
+                };
 
                 Ok(TransactionRecord {
                     id: id.into(),

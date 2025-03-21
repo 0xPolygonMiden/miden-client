@@ -8,7 +8,7 @@ use miden_objects::Felt;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::JsValue;
 
-use crate::models::account_storage_mode::AccountStorageMode;
+use crate::{js_error_with_context, models::account_storage_mode::AccountStorageMode};
 
 // HELPERS
 // ================================================================================================
@@ -35,7 +35,7 @@ pub(crate) async fn generate_wallet(
                 .try_into()
                 .map_err(|_| JsValue::from_str("Seed must be exactly 32 bytes"))?;
             let mut std_rng = StdRng::from_seed(seed_array);
-            let coin_seed: [u64; 4] = std_rng.r#gen();
+            let coin_seed: [u64; 4] = std_rng.random();
             &mut RpoRandomCoin::new(coin_seed.map(Felt::new))
         },
         None => client.rng(),
@@ -54,22 +54,20 @@ pub(crate) async fn generate_wallet(
     let anchor_block = client
         .ensure_genesis_in_place()
         .await
-        .map_err(|err| JsValue::from_str(&format!("Failed to create new wallet: {err:?}")))?;
+        .map_err(|err| js_error_with_context(err, "failed to ensure genesis block is in place"))?;
 
-    let (new_account, account_seed) = match AccountBuilder::new(init_seed)
-        .anchor((&anchor_block).try_into().unwrap())
+    let (new_account, account_seed) = AccountBuilder::new(init_seed)
+        .anchor(
+            (&anchor_block)
+                .try_into()
+                .map_err(|err| js_error_with_context(err, "failed to convert anchor block"))?,
+        )
         .account_type(account_type)
         .storage_mode(storage_mode.into())
         .with_component(RpoFalcon512::new(key_pair.public_key()))
         .with_component(BasicWallet)
         .build()
-    {
-        Ok(result) => result,
-        Err(err) => {
-            let error_message = format!("Failed to create new wallet: {err:?}");
-            return Err(JsValue::from_str(&error_message));
-        },
-    };
+        .map_err(|err| js_error_with_context(err, "failed to create new wallet"))?;
 
     Ok((new_account, account_seed, key_pair))
 }

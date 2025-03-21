@@ -1,4 +1,7 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     Digest, Felt, Word,
@@ -7,14 +10,16 @@ use miden_objects::{
     utils::Deserializable,
 };
 use miden_tx::utils::Serializable;
+use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
 use super::{
     js_bindings::{
-        idxdb_insert_account_asset_vault, idxdb_insert_account_code, idxdb_insert_account_record,
+        idxdb_get_account_auth_by_pub_key, idxdb_insert_account_asset_vault,
+        idxdb_insert_account_auth, idxdb_insert_account_code, idxdb_insert_account_record,
         idxdb_insert_account_storage,
     },
-    models::AccountRecordIdxdbObject,
+    models::{AccountAuthIdxdbObject, AccountRecordIdxdbObject},
 };
 use crate::store::{AccountStatus, StoreError};
 
@@ -40,12 +45,29 @@ pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<
 }
 
 pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), ()> {
-    let commitment = asset_vault.commitment().to_string();
+    let commitment = asset_vault.root().to_string();
     let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
 
     let promise = idxdb_insert_account_asset_vault(commitment, assets);
     let _ = JsFuture::from(promise).await;
     Ok(())
+}
+
+pub async fn insert_account_auth(pub_key: String, secret_key: String) -> Result<(), ()> {
+    let promise = idxdb_insert_account_auth(pub_key, secret_key);
+    let _ = JsFuture::from(promise).await;
+
+    Ok(())
+}
+
+pub fn get_account_auth_by_pub_key(pub_key: String) -> Result<String, ()> {
+    let js_value = idxdb_get_account_auth_by_pub_key(pub_key);
+    let account_auth_idxdb: Option<AccountAuthIdxdbObject> = from_value(js_value).unwrap();
+
+    match account_auth_idxdb {
+        Some(account_auth) => Ok(account_auth.secret_key),
+        None => Err(()),
+    }
 }
 
 pub async fn insert_account_record(
@@ -55,11 +77,11 @@ pub async fn insert_account_record(
     let account_id_str = account.id().to_string();
     let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().commitment().to_string();
-    let vault_root = account.vault().commitment().to_string();
+    let vault_root = account.vault().root().to_string();
     let committed = account.is_public();
     let nonce = account.nonce().to_string();
     let account_seed = account_seed.map(|seed| seed.to_bytes());
-    let hash = account.hash().to_string();
+    let commitment = account.commitment().to_string();
 
     let promise = idxdb_insert_account_record(
         account_id_str,
@@ -69,7 +91,7 @@ pub async fn insert_account_record(
         nonce,
         committed,
         account_seed,
-        hash,
+        commitment,
     );
     let _ = JsFuture::from(promise).await;
 

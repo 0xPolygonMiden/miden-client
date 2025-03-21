@@ -1,6 +1,6 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.7.1-next.0",
+  "version": "0.7.5-next.0",
   "description": "Polygon Miden Wasm SDK",
   "collaborators": [
     "Polygon Miden",
@@ -18,7 +18,7 @@
     "../LICENSE.md"
   ],
   "scripts": {
-    "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && node clean.js",
+    "build": "rimraf dist && RUSTFLAGS='--cfg getrandom_backend=\"wasm_js\"' rollup -c rollup.config.js && cpr js/types dist && node clean.js",
     "test": "node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:remote_prover": "npm install && MIDEN_WEB_TESTING=true npm run build && cross-env REMOTE_PROVER=true node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs -g new_mint_transactions tests",
     "test:logs": "cross-env DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
@@ -41,6 +41,7 @@
     "puppeteer": "^23.1.0",
     "rimraf": "^6.0.1",
     "rollup": "^3.27.2",
+    "rollup-plugin-copy": "^3.5.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   },

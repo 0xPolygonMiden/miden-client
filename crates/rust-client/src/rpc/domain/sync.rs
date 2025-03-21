@@ -23,8 +23,8 @@ pub struct StateSyncInfo {
     pub block_header: BlockHeader,
     /// MMR delta that contains data for (`current_block.num`, `incoming_block_header.num-1`).
     pub mmr_delta: MmrDelta,
-    /// Tuples of `AccountId` alongside their new account hashes.
-    pub account_hash_updates: Vec<(AccountId, Digest)>,
+    /// Tuples of `AccountId` alongside their new account commitments.
+    pub account_commitment_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes.
     pub note_inclusions: Vec<CommittedNote>,
     /// List of transaction IDs of transaction that were included in (`request.block_num`,
@@ -54,18 +54,20 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .ok_or(RpcError::ExpectedDataMissing("MmrDelta".into()))?
             .try_into()?;
 
-        // Validate and convert account hash updates into an (AccountId, Digest) tuple
-        let mut account_hash_updates = vec![];
+        // Validate and convert account commitment updates into an (AccountId, Digest) tuple
+        let mut account_commitment_updates = vec![];
         for update in value.accounts {
             let account_id = update
                 .account_id
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountId".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("AccountCommitmentUpdate.AccountId".into()))?
                 .try_into()?;
-            let account_hash = update
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountHash".into()))?
+            let account_commitment = update
+                .account_commitment
+                .ok_or(RpcError::ExpectedDataMissing(
+                    "AccountCommitmentUpdate.AccountCommitment".into(),
+                ))?
                 .try_into()?;
-            account_hash_updates.push((account_id, account_hash));
+            account_commitment_updates.push((account_id, account_commitment));
         }
 
         // Validate and convert account note inclusions into an (AccountId, Digest) tuple
@@ -126,7 +128,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             chain_tip: chain_tip.into(),
             block_header,
             mmr_delta,
-            account_hash_updates,
+            account_commitment_updates,
             note_inclusions,
             transactions,
         })

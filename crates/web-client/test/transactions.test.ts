@@ -85,7 +85,7 @@ describe("get_transactions tests", () => {
 // =======================================================================================================
 
 interface CompileTxScriptResult {
-  scriptHash: string;
+  scriptRoot: string;
 }
 
 export const compileTxScript = async (
@@ -102,7 +102,7 @@ export const compileTxScript = async (
     const compiledScript = await client.compileTxScript(_script);
 
     return {
-      scriptHash: compiledScript.hash().toHex(),
+      scriptRoot: compiledScript.root().toHex(),
     };
   }, script);
 };
@@ -124,14 +124,14 @@ describe("compile_tx_script tests", () => {
         `;
     const result = await compileTxScript(script);
 
-    expect(result.scriptHash).to.not.be.empty;
+    expect(result.scriptRoot).to.not.be.empty;
   });
 
   it("compile_tx_script does not compile script successfully", async () => {
     const script = "fakeScript";
 
     await expect(compileTxScript(script)).to.be.rejectedWith(
-      /Failed to compile transaction script:/
+      /failed to compile transaction script:/
     );
   });
 });

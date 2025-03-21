@@ -19,14 +19,13 @@ const importWalletFromSeed = async (
     async (_serializedWalletSeed, _mutable) => {
       const client = window.client;
       const _walletSeed = new Uint8Array(_serializedWalletSeed);
-
       const account = await client.importPublicAccountFromSeed(
         _walletSeed,
         _mutable
       );
       return {
         accountId: account.id().toString(),
-        accountHash: account.hash().toHex(),
+        accountCommitment: account.commitment().toHex(),
       };
     },
     serializedWalletSeed,
@@ -53,7 +52,9 @@ describe("import from seed", () => {
     const result = await fundAccountFromFaucet(initialWallet.id, faucet.id);
     const initialBalance = result.targetAccountBalanace;
 
-    const { hash: initialHash } = await getAccount(initialWallet.id);
+    const { commitment: initialCommitment } = await getAccount(
+      initialWallet.id
+    );
 
     // Deleting the account
     await clearStore();
@@ -65,7 +66,9 @@ describe("import from seed", () => {
 
     expect(restoredAccountId).to.equal(initialWallet.id);
 
-    const { hash: restoredAccountHash } = await getAccount(initialWallet.id);
+    const { commitment: restoredAccountCommitment } = await getAccount(
+      initialWallet.id
+    );
 
     const restoredBalance = await getAccountBalance(
       initialWallet.id,
@@ -73,6 +76,6 @@ describe("import from seed", () => {
     );
 
     expect(restoredBalance.toString()).to.equal(initialBalance);
-    expect(restoredAccountHash).to.equal(initialHash);
+    expect(restoredAccountCommitment).to.equal(initialCommitment);
   });
 });

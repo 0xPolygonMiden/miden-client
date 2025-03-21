@@ -13,18 +13,18 @@ impl BlockHeader {
         self.0.version()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
-    #[wasm_bindgen(js_name = "subHash")]
-    pub fn sub_hash(&self) -> RpoDigest {
-        self.0.sub_hash().into()
+    #[wasm_bindgen(js_name = "subCommitment")]
+    pub fn sub_commitment(&self) -> RpoDigest {
+        self.0.sub_commitment().into()
     }
 
-    #[wasm_bindgen(js_name = "prevHash")]
-    pub fn prev_hash(&self) -> RpoDigest {
-        self.0.prev_hash().into()
+    #[wasm_bindgen(js_name = "prevBlockCommitment")]
+    pub fn prev_block_commitment(&self) -> RpoDigest {
+        self.0.prev_block_commitment().into()
     }
 
     #[wasm_bindgen(js_name = "blockNum")]
@@ -32,9 +32,9 @@ impl BlockHeader {
         self.0.block_num().as_u32()
     }
 
-    #[wasm_bindgen(js_name = "chainRoot")]
-    pub fn chain_root(&self) -> RpoDigest {
-        self.0.chain_root().into()
+    #[wasm_bindgen(js_name = "chainCommitment")]
+    pub fn chain_commitment(&self) -> RpoDigest {
+        self.0.chain_commitment().into()
     }
 
     #[wasm_bindgen(js_name = "accountRoot")]
@@ -52,19 +52,19 @@ impl BlockHeader {
         self.0.note_root().into()
     }
 
-    #[wasm_bindgen(js_name = "txHash")]
-    pub fn tx_hash(&self) -> RpoDigest {
-        self.0.tx_hash().into()
+    #[wasm_bindgen(js_name = "txCommitment")]
+    pub fn tx_commitment(&self) -> RpoDigest {
+        self.0.tx_commitment().into()
     }
 
-    #[wasm_bindgen(js_name = "kernelRoot")]
-    pub fn kernel_root(&self) -> RpoDigest {
-        self.0.kernel_root().into()
+    #[wasm_bindgen(js_name = "txKernelCommitment")]
+    pub fn tx_kernel_commitment(&self) -> RpoDigest {
+        self.0.tx_kernel_commitment().into()
     }
 
-    #[wasm_bindgen(js_name = "proofHash")]
-    pub fn proof_hash(&self) -> RpoDigest {
-        self.0.proof_hash().into()
+    #[wasm_bindgen(js_name = "proofCommitment")]
+    pub fn proof_commitment(&self) -> RpoDigest {
+        self.0.proof_commitment().into()
     }
 
     pub fn timestamp(&self) -> u32 {

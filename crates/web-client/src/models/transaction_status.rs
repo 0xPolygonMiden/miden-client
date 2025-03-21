@@ -15,6 +15,10 @@ impl TransactionStatus {
         TransactionStatus(NativeTransactionStatus::Committed(block_num.into()))
     }
 
+    pub fn discarded() -> TransactionStatus {
+        TransactionStatus(NativeTransactionStatus::Discarded)
+    }
+
     #[wasm_bindgen(js_name = "isPending")]
     pub fn is_pending(&self) -> bool {
         matches!(self.0, NativeTransactionStatus::Pending)
@@ -23,6 +27,11 @@ impl TransactionStatus {
     #[wasm_bindgen(js_name = "isCommitted")]
     pub fn is_committed(&self) -> bool {
         matches!(self.0, NativeTransactionStatus::Committed(_))
+    }
+
+    #[wasm_bindgen(js_name = "isDiscarded")]
+    pub fn is_discarded(&self) -> bool {
+        matches!(self.0, NativeTransactionStatus::Discarded)
     }
 
     #[wasm_bindgen(js_name = "getBlockNum")]

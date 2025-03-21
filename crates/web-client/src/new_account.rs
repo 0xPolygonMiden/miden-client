@@ -2,15 +2,14 @@ use miden_client::{
     Felt,
     account::{AccountBuilder, AccountType},
     auth::AuthSecretKey,
-    authenticator::keystore::KeyStore,
     crypto::SecretKey,
 };
 use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
-use miden_objects::asset::TokenSymbol;
+use miden_objects::{AccountIdError, asset::TokenSymbol};
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};
-use crate::{WebClient, helpers::generate_wallet};
+use crate::{WebClient, helpers::generate_wallet, js_error_with_context};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -29,15 +28,15 @@ impl WebClient {
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .await
                 .map_err(|err| err.to_string())?;
 
-            match client.add_account(&new_account, Some(account_seed), false).await {
-                Ok(_) => Ok(new_account.into()),
-                Err(err) => {
-                    let error_message = format!("Failed to insert new wallet: {err:?}");
-                    Err(JsValue::from_str(&error_message))
-                },
-            }
+            client
+                .add_account(&new_account, Some(account_seed), false)
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to insert new wallet"))?;
+
+            Ok(new_account.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -69,16 +68,20 @@ impl WebClient {
             let max_supply = Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element");
 
-            let anchor_block = client.get_latest_epoch_block().await.unwrap();
+            let anchor_block = client
+                .get_latest_epoch_block()
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to get latest epoch block"))?;
 
             let (new_account, seed) = match AccountBuilder::new(init_seed)
-                .anchor((&anchor_block).try_into().unwrap())
+                .anchor((&anchor_block).try_into().map_err(|err: AccountIdError| err.to_string())?)
                 .account_type(AccountType::FungibleFaucet)
                 .storage_mode(storage_mode.into())
                 .with_component(RpoFalcon512::new(pub_key))
-                .with_component(BasicFungibleFaucet::new(symbol, decimals, max_supply).map_err(
-                    |err| JsValue::from_str(format!("Failed to create new faucet: {err}").as_str()),
-                )?)
+                .with_component(
+                    BasicFungibleFaucet::new(symbol, decimals, max_supply)
+                        .map_err(|err| js_error_with_context(err, "failed to create new faucet"))?,
+                )
                 .build()
             {
                 Ok(result) => result,
@@ -91,6 +94,7 @@ impl WebClient {
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
+                .await
                 .map_err(|err| err.to_string())?;
 
             match client.add_account(&new_account, Some(seed), false).await {

@@ -7,6 +7,7 @@ import {
 } from "./webClientTestUtils";
 import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
+import { Account, TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
@@ -328,7 +329,7 @@ export const customTransaction = async (
         ])
       );
 
-      const serialNum = window.Word.new_from_u64s(
+      const serialNum = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
       let noteRecipient = new window.NoteRecipient(
@@ -353,10 +354,7 @@ export const customTransaction = async (
       );
 
       if (_withCustomProver) {
-        await client.submitTransactionWithProver(
-          transactionResult,
-          await selectProver()
-        );
+        await client.submitTransaction(transactionResult, await selectProver());
       } else {
         await client.submitTransaction(transactionResult);
       }
@@ -408,7 +406,7 @@ export const customTransaction = async (
       );
 
       if (_withCustomProver) {
-        await client.submitTransactionWithProver(
+        await client.submitTransaction(
           transactionResult2,
           await selectProver()
         );
@@ -464,10 +462,10 @@ const customTxWithMultipleNotes = async (
         undefined
       );
 
-      let serialNum1 = window.Word.new_from_u64s(
+      let serialNum1 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
-      let serialNum2 = window.Word.new_from_u64s(
+      let serialNum2 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(5), BigInt(6), BigInt(7), BigInt(8)])
       );
 
@@ -572,4 +570,169 @@ describe("use custom transaction prover per request", () => {
     async () => {
       await expect(customTransaction("0", true)).to.be.fulfilled;
     };
+});
+
+// DISCARDED TRANSACTIONS TESTS
+// ================================================================================================
+
+interface DiscardedTransactionResult {
+  discardedTransactions: TransactionRecord[];
+  commitmentBeforeTx: string;
+  commitmentAfterTx: string;
+  commitmentAfterDiscardedTx: string;
+}
+
+export const discardedTransaction =
+  async (): Promise<DiscardedTransactionResult> => {
+    return await testingPage.evaluate(async () => {
+      const client = window.client;
+
+      const senderAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const targetAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const faucetAccount = await client.newFaucet(
+        window.AccountStorageMode.private(),
+        false,
+        "DAG",
+        8,
+        BigInt(10000000)
+      );
+      await client.syncState();
+
+      let mintTransactionResult = await client.newMintTransaction(
+        senderAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(1000)
+      );
+      let createdNotes = mintTransactionResult.createdNotes().notes();
+      let createdNoteIds = createdNotes.map((note) => note.id().toString());
+      await window.helpers.waitForTransaction(
+        mintTransactionResult.executedTransaction().id().toHex()
+      );
+
+      const senderConsumeTransactionResult = await client.newConsumeTransaction(
+        senderAccount.id(),
+        createdNoteIds
+      );
+      await window.helpers.waitForTransaction(
+        senderConsumeTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let sendTransactionResult = await client.newSendTransaction(
+        senderAccount.id(),
+        targetAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(100),
+        1
+      );
+      let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
+      let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
+        note.id().toString()
+      );
+
+      await window.helpers.waitForTransaction(
+        sendTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        sendCreatedNotes[0].id(),
+        null
+      );
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      const consumeTransactionRequest = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .build();
+
+      let preConsumeStore = await client.exportStore();
+
+      // Sender retrieves the note
+      let senderTxResult = await client.newConsumeTransaction(
+        senderAccount.id(),
+        sendCreatedNoteIds
+      );
+
+      await window.helpers.waitForTransaction(
+        senderTxResult.executedTransaction().id().toHex()
+      );
+
+      await client.forceImportStore(preConsumeStore);
+
+      // Get the account state before the transaction is applied
+      const accountStateBeforeTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateBeforeTx) {
+        throw new Error("Failed to get account state before transaction");
+      }
+
+      // Target tries consuming but the transaction will not be submitted
+      let targetTxResult = await client.newTransaction(
+        targetAccount.id(),
+        consumeTransactionRequest
+      );
+
+      await client.testingApplyTransaction(targetTxResult);
+      // Get the account state after the transaction is applied
+      const accountStateAfterTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterTx) {
+        throw new Error("Failed to get account state after transaction");
+      }
+
+      await client.syncState();
+
+      const allTransactions = await client.getTransactions(
+        window.TransactionFilter.all()
+      );
+
+      const discardedTransactions = allTransactions.filter((tx) =>
+        tx.transactionStatus().isDiscarded()
+      );
+
+      // Get the account state after the discarded transactions are applied
+      const accountStateAfterDiscardedTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterDiscardedTx) {
+        throw new Error(
+          "Failed to get account state after discarded transaction"
+        );
+      }
+
+      // Perform a `.commitment()` check on each account
+      const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
+      const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx
+        .commitment()
+        .toHex();
+
+      return {
+        discardedTransactions: discardedTransactions,
+        commitmentBeforeTx,
+        commitmentAfterTx,
+        commitmentAfterDiscardedTx,
+      };
+    });
+  };
+
+describe("discarded_transaction tests", () => {
+  it("transaction gets discarded", async () => {
+    const result = await discardedTransaction();
+
+    expect(result.discardedTransactions.length).to.equal(1);
+    expect(result.commitmentBeforeTx).to.equal(
+      result.commitmentAfterDiscardedTx
+    );
+    expect(result.commitmentAfterTx).to.not.equal(
+      result.commitmentAfterDiscardedTx
+    );
+  });
 });

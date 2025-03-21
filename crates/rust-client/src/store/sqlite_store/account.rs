@@ -76,16 +76,16 @@ impl SqliteStore {
             .transpose()
     }
 
-    pub(crate) fn get_account_header_by_hash(
+    pub(crate) fn get_account_header_by_commitment(
         conn: &mut Connection,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
-        let account_hash_str: String = account_hash.to_string();
+        let account_commitment_str: String = account_commitment.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed, locked \
-            FROM accounts WHERE account_hash = ?";
+            FROM accounts WHERE account_commitment = ?";
 
         conn.prepare(QUERY)?
-            .query_map(params![account_hash_str], parse_accounts_columns)?
+            .query_map(params![account_commitment_str], parse_accounts_columns)?
             .map(|result| {
                 let result = result?;
                 Ok(parse_accounts(result)?.0)
@@ -228,15 +228,24 @@ pub(super) fn insert_account_record(
     account: &Account,
     account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
-    let (id, code_root, storage_root, vault_root, nonce, committed, hash) =
+    let (id, code_root, storage_root, vault_root, nonce, committed, commitment) =
         serialize_account(account);
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str = "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
+    const QUERY: &str = "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_commitment, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, false)";
     tx.execute(
         QUERY,
-        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
+        params![
+            id,
+            code_root,
+            storage_root,
+            vault_root,
+            nonce,
+            committed,
+            account_seed,
+            commitment
+        ],
     )?;
     Ok(())
 }
@@ -351,12 +360,12 @@ fn serialize_account(account: &Account) -> SerializedAccountData {
     let id: String = account.id().to_hex();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
-    let vault_root = account.vault().commitment().to_string();
+    let vault_root = account.vault().root().to_string();
     let committed = account.is_public();
     let nonce = u64_to_value(account.nonce().as_int());
-    let hash = account.hash().to_string();
+    let commitment = account.commitment().to_string();
 
-    (id, code_root, commitment_root, vault_root, nonce, committed, hash)
+    (id, code_root, commitment_root, vault_root, nonce, committed, commitment)
 }
 
 /// Serialize the provided `account_code` into database compatible types.
@@ -377,7 +386,7 @@ fn serialize_account_storage(account_storage: &AccountStorage) -> SerializedAcco
 
 /// Serialize the provided `asset_vault` into database compatible types.
 fn serialize_account_asset_vault(asset_vault: &AssetVault) -> SerializedAccountVaultData {
-    let commitment = asset_vault.commitment().to_string();
+    let commitment = asset_vault.root().to_string();
     let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
     (commitment, assets)
 }
@@ -395,6 +404,24 @@ pub(super) fn parse_account_columns(
     let locked: bool = row.get(6)?;
 
     Ok((id, nonce, account_seed, code, storage, assets, locked))
+}
+
+/// Removes account states with the specified hashes from the database.
+///
+/// This is used to rollback account changes when a transaction is discarded,
+/// effectively undoing the account state changes that were applied by the transaction.
+///
+/// Note: This is not part of the Store trait and is only used internally by the `SQLite` store
+/// implementation to handle transaction rollbacks.
+pub(crate) fn undo_account_state(
+    tx: &Transaction<'_>,
+    account_hashes: &[Digest],
+) -> Result<(), StoreError> {
+    const QUERY: &str = "DELETE FROM accounts WHERE account_commitment = ?";
+    for account_id in account_hashes {
+        tx.execute(QUERY, params![account_id.to_hex()])?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

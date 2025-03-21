@@ -55,13 +55,13 @@
 //!
 //! use miden_client::{
 //!     Client, Felt,
-//!     authenticator::{ClientAuthenticator, keystore::FilesystemKeyStore},
 //!     crypto::RpoRandomCoin,
+//!     keystore::FilesystemKeyStore,
 //!     rpc::{Endpoint, TonicRpcClient},
 //!     store::{Store, sqlite_store::SqliteStore},
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
-//! use rand::Rng;
+//! use rand::{Rng, rngs::StdRng};
 //!
 //! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the SQLite store from the client configuration.
@@ -69,16 +69,12 @@
 //! let store = Arc::new(sqlite_store);
 //!
 //! // Generate a random seed for the RpoRandomCoin.
-//! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.r#gen();
+//! let mut rng = rand::rng();
+//! let coin_seed: [u64; 4] = rng.random();
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-//!
 //! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
-//!
-//! // Create a authenticator with the keystore and random coin.
-//! let authenticator = ClientAuthenticator::new(rng, keystore);
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
@@ -86,7 +82,7 @@
 //!     Box::new(TonicRpcClient::new(&endpoint, 10_000)),
 //!     rng,
 //!     store,
-//!     Arc::new(authenticator),
+//!     Arc::new(keystore),
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!
@@ -108,7 +104,7 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
-pub mod authenticator;
+pub mod keystore;
 pub mod note;
 pub mod rpc;
 pub mod store;
@@ -172,7 +168,7 @@ pub mod crypto {
     };
 }
 
-pub use errors::{ClientError, IdPrefixFetchError};
+pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
@@ -182,6 +178,7 @@ pub mod utils {
     pub use miden_tx::utils::{
         ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
         bytes_to_hex_string,
+        sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
     };
 }
 

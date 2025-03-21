@@ -1375,7 +1375,22 @@ async fn test_discarded_transaction() {
     let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).await.unwrap();
     let tx_id = tx_result.executed_transaction().id();
     client_1.testing_prove_transaction(&tx_result).await.unwrap();
+
+    // Store the account state before applying the transaction
+    let account_before_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_before_tx = account_before_tx.account().commitment();
+
+    // Apply the transaction
     client_1.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Check that the account state has changed after applying the transaction
+    let account_after_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_after_tx = account_after_tx.account().commitment();
+
+    assert_ne!(
+        account_hash_before_tx, account_hash_after_tx,
+        "Account hash should change after applying the transaction"
+    );
 
     let note_record = client_1.get_input_note(note.id()).await.unwrap().unwrap();
     assert!(matches!(note_record.state(), InputNoteState::ProcessingAuthenticated(_)));
@@ -1398,29 +1413,42 @@ async fn test_discarded_transaction() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+
+    // Check that the account state has been rolled back after the transaction was discarded
+    let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_after_sync = account_after_sync.account().commitment();
+
+    assert_ne!(
+        account_hash_after_sync, account_hash_after_tx,
+        "Account hash should change after transaction was discarded"
+    );
+    assert_eq!(
+        account_hash_after_sync, account_hash_before_tx,
+        "Account hash should be rolled back to the value before the transaction"
+    );
+}
+
+struct AlwaysFailingProver;
+
+impl AlwaysFailingProver {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[maybe_async_trait]
+impl TransactionProver for AlwaysFailingProver {
+    #[maybe_async]
+    fn prove(
+        &self,
+        _tx_witness: TransactionWitness,
+    ) -> Result<ProvenTransaction, TransactionProverError> {
+        return Err(TransactionProverError::other("This prover always fails"));
+    }
 }
 
 #[tokio::test]
 async fn test_custom_transaction_prover() {
-    struct AlwaysFailingProver;
-
-    impl AlwaysFailingProver {
-        pub fn new() -> Self {
-            Self
-        }
-    }
-
-    #[maybe_async_trait]
-    impl TransactionProver for AlwaysFailingProver {
-        #[maybe_async]
-        fn prove(
-            &self,
-            _tx_witness: TransactionWitness,
-        ) -> Result<ProvenTransaction, TransactionProverError> {
-            return Err(TransactionProverError::other("This prover always fails"));
-        }
-    }
-
     let (mut client, authenticator) = create_test_client().await;
     let (first_regular_account, _, faucet_account_header) =
         setup(&mut client, AccountStorageMode::Private, &authenticator).await;

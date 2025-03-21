@@ -1,9 +1,13 @@
 use miden_objects::account::{Account as NativeAccount, AccountType as NativeAccountType};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys::Uint8Array;
 
-use super::{
-    account_code::AccountCode, account_id::AccountId, account_storage::AccountStorage,
-    asset_vault::AssetVault, felt::Felt, rpo_digest::RpoDigest,
+use crate::{
+    models::{
+        account_code::AccountCode, account_id::AccountId, account_storage::AccountStorage,
+        asset_vault::AssetVault, felt::Felt, rpo_digest::RpoDigest,
+    },
+    utils::{deserialize_from_uint8array, serialize_to_uint8array},
 };
 
 #[wasm_bindgen]
@@ -15,8 +19,8 @@ impl Account {
         self.0.id().into()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
     pub fn nonce(&self) -> Felt {
@@ -58,6 +62,14 @@ impl Account {
     #[wasm_bindgen(js_name = "isNew")]
     pub fn is_new(&self) -> bool {
         self.0.is_new()
+    }
+
+    pub fn serialize(&self) -> Uint8Array {
+        serialize_to_uint8array(&self.0)
+    }
+
+    pub fn deserialize(bytes: &Uint8Array) -> Result<Account, JsValue> {
+        deserialize_from_uint8array::<NativeAccount>(bytes).map(Account)
     }
 }
 

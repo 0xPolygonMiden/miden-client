@@ -36,16 +36,16 @@ db.version(1).stores({
   [Table.AccountCode]: indexes("root"),
   [Table.AccountStorage]: indexes("root"),
   [Table.AccountVaults]: indexes("root"),
-  [Table.AccountAuth]: indexes("accountId", "pubKey"),
+  [Table.AccountAuth]: indexes("pubKey"),
   [Table.Accounts]: indexes(
-    "&accountHash",
+    "&accountCommitment",
     "id",
     "codeRoot",
     "storageRoot",
     "vaultRoot"
   ),
   [Table.Transactions]: indexes("id"),
-  [Table.TransactionScripts]: indexes("scriptHash"),
+  [Table.TransactionScripts]: indexes("scriptRoot"),
   [Table.InputNotes]: indexes("noteId", "nullifier", "stateDiscriminant"),
   [Table.OutputNotes]: indexes(
     "noteId",
@@ -53,7 +53,7 @@ db.version(1).stores({
     "stateDiscriminant",
     "nullifier"
   ),
-  [Table.NotesScripts]: indexes("scriptHash"),
+  [Table.NotesScripts]: indexes("scriptRoot"),
   [Table.StateSync]: indexes("id"),
   [Table.BlockHeaders]: indexes("blockNum", "hasClientNotes"),
   [Table.ChainMmrNodes]: indexes("id"),
@@ -73,6 +73,7 @@ db.on("populate", () => {
 const accountCodes = db.table(Table.AccountCode);
 const accountStorages = db.table(Table.AccountStorage);
 const accountVaults = db.table(Table.AccountVaults);
+const accountAuths = db.table(Table.AccountAuth);
 const accounts = db.table(Table.Accounts);
 const transactions = db.table(Table.Transactions);
 const transactionScripts = db.table(Table.TransactionScripts);
@@ -90,6 +91,7 @@ export {
   accountCodes,
   accountStorages,
   accountVaults,
+  accountAuths,
   accounts,
   transactions,
   transactionScripts,

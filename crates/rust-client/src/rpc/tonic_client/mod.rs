@@ -259,8 +259,8 @@ impl NodeRpcClient for TonicRpcClient {
     /// This function will return an error if:
     ///
     /// - There was an error sending the request to the node.
-    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
-    ///   details).
+    /// - The answer had a `None` for one of the expected fields (account, summary,
+    ///   account_commitment, details).
     /// - There is an error during [Account] deserialization.
     async fn get_account_details(
         &mut self,
@@ -285,8 +285,8 @@ impl NodeRpcClient for TonicRpcClient {
             "GetAccountDetails response's account should have a `summary`".to_string(),
         ))?;
 
-        let hash = account_summary.account_hash.ok_or(RpcError::ExpectedDataMissing(
-            "GetAccountDetails response's account should have an `account_hash`".to_string(),
+        let hash = account_summary.account_commitment.ok_or(RpcError::ExpectedDataMissing(
+            "GetAccountDetails response's account should have an `account_commitment`".to_string(),
         ))?;
 
         let hash = hash.try_into()?;
@@ -369,9 +369,9 @@ impl NodeRpcClient for TonicRpcClient {
                 .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
                 .try_into()?;
 
-            let account_hash = account
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountHash".to_string()))?
+            let account_commitment = account
+                .account_commitment
+                .ok_or(RpcError::ExpectedDataMissing("AccountCommitment".to_string()))?
                 .try_into()?;
 
             let account_id: AccountId = account
@@ -392,7 +392,7 @@ impl NodeRpcClient for TonicRpcClient {
                 None
             };
 
-            let proof = AccountProof::new(account_id, merkle_proof, account_hash, headers)
+            let proof = AccountProof::new(account_id, merkle_proof, account_commitment, headers)
                 .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
             account_proofs.push(proof);
         }

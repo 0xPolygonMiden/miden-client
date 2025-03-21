@@ -13,7 +13,6 @@ use miden_client::{
         component::COMPONENT_TEMPLATE_EXTENSION,
     },
     auth::AuthSecretKey,
-    authenticator::keystore::{FilesystemKeyStore, KeyStore},
     crypto::{FeltRng, SecretKey},
     utils::Deserializable,
 };
@@ -23,8 +22,8 @@ use miden_objects::account::{
 };
 
 use crate::{
-    CLIENT_BINARY_NAME, commands::account::maybe_set_default_account, errors::CliError,
-    utils::load_config_file,
+    CLIENT_BINARY_NAME, CliKeyStore, commands::account::maybe_set_default_account,
+    errors::CliError, utils::load_config_file,
 };
 
 // CLI TYPES
@@ -97,7 +96,7 @@ impl NewWalletCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore,
+        keystore: CliKeyStore,
     ) -> Result<(), CliError> {
         // Load extra component templates using the helper.
         let extra_components = load_component_templates(&self.extra_components)?;
@@ -173,7 +172,7 @@ impl NewAccountCmd {
     pub async fn execute(
         &self,
         mut client: Client<impl FeltRng>,
-        keystore: FilesystemKeyStore,
+        keystore: CliKeyStore,
     ) -> Result<(), CliError> {
         // Load component templates using the helper.
         let component_templates = load_component_templates(&self.component_templates)?;

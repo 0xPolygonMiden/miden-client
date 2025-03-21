@@ -13,6 +13,7 @@ use miden_objects::{
 /// The account should be stored in the database with its parts normalized. Meaning that the
 /// account header, vault, storage and code are stored separately. This is done to avoid data
 /// duplication as the header can reference the same elements if they have equal roots.
+#[derive(Debug)]
 pub struct AccountRecord {
     /// Full account object.
     account: Account,
@@ -54,6 +55,7 @@ impl From<AccountRecord> for Account {
 /// Represents the status of an account tracked by the client.
 ///
 /// The status of an account may change by local or external factors.
+#[derive(Debug)]
 pub enum AccountStatus {
     /// The account is new and hasn't been used yet. The seed used to create the account is
     /// stored in this state.
@@ -95,7 +97,8 @@ impl Display for AccountStatus {
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
-    /// Node account hashes that don't match the current tracked state for private accounts.
+    /// Network account commitments that don't match the current tracked state for private
+    /// accounts.
     mismatched_private_accounts: Vec<(AccountId, Digest)>,
 }
 
