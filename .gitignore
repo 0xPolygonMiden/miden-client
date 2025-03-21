@@ -20,8 +20,8 @@ package-lock.json
 # Ignore Store files that may be spawned using `cargo run`
 *.sqlite3
 
-# Ignore mkdocs build files
-docs/site
+# Ignore mdbook build files
+book/
 
 # Docs platform ignores
 .vscode
