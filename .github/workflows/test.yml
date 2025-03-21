@@ -40,8 +40,25 @@ jobs:
       - name: Install Rust
         run: rustup update --no-self-update
       - uses: taiki-e/install-action@nextest
-      - run: make clean-node
-      - run: make node
+      
+      # Add cache for the compiled binary
+      - name: Cache miden-node binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            miden-node/target/release/miden-node
+            miden-node/target/release/miden-node.d
+          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miden-node-
+      
+      - name: Build miden-node (if not cached)
+        run: |
+          if [ ! -f "miden-node/target/release/miden-node" ]; then
+            make clean-node
+            make node
+          fi
+      
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - run: make start-node > /dev/null &
@@ -65,8 +82,23 @@ jobs:
           node-version: "20"
       - name: Configure setuid sandbox
         run: . ./scripts/configure-sandbox.sh
-      - run: make clean-node
-      - run: make node
+      # Add cache for the compiled binary
+      - name: Cache miden-node binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            miden-node/target/release/miden-node
+            miden-node/target/release/miden-node.d
+          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miden-node-
+      
+      - name: Build miden-node (if not cached)
+        run: |
+          if [ ! -f "miden-node/target/release/miden-node" ]; then
+            make clean-node
+            make node
+          fi
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - run: make start-node > /dev/null &
@@ -90,8 +122,22 @@ jobs:
           node-version: "20"
       - name: Configure setuid sandbox
         run: . ./scripts/configure-sandbox.sh
-      - run: make clean-node
-      - run: make node
+      # Add cache for the compiled binary
+      - name: Cache miden-node binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            miden-node/target/release/miden-node
+            miden-node/target/release/miden-node.d
+          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miden-node-
+      - name: Build miden-node (if not cached)
+        run: |
+          if [ ! -f "miden-node/target/release/miden-node" ]; then
+            make clean-node
+            make node
+          fi
       - run: make start-node > /dev/null &
       - run: make clean-prover
       - run: make prover
