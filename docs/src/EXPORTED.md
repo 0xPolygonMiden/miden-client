@@ -1,3 +1,5 @@
+<!-- This file is used to represent aggregate documentation for the Miden book -->
+
 # Summary
 
 - [Client](./index.md)
