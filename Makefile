@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="mirko/fix-note-db"
+NODE_BRANCH="tomyrd-fix-renaming"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -121,7 +121,7 @@ build-node: update-node-branch ## Update dependencies and build the node binary 
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 5000 --batch.interval 2000
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover

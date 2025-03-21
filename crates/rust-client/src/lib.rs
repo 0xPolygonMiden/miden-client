@@ -69,8 +69,8 @@
 //! let store = Arc::new(sqlite_store);
 //!
 //! // Generate a random seed for the RpoRandomCoin.
-//! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.r#gen();
+//! let mut rng = rand::rng();
+//! let coin_seed: [u64; 4] = rng.random();
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));

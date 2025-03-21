@@ -17,7 +17,7 @@ use miden_tx::{
     auth::TransactionAuthenticator,
     utils::{Deserializable, Serializable, sync::RwLock},
 };
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 use super::KeyStoreError;
 
@@ -111,8 +111,8 @@ impl<R: Rng> FilesystemKeyStore<R> {
 impl FilesystemKeyStore<rand::rngs::StdRng> {
     /// Creates a new [`FilesystemKeyStore`] using [`rand::rngs::StdRng`] as the RNG.
     pub fn new(keys_directory: PathBuf) -> Result<Self, KeyStoreError> {
-        use rand::{SeedableRng, rngs::StdRng};
-        let rng = StdRng::from_entropy();
+        use rand::rngs::StdRng;
+        let rng = StdRng::from_os_rng();
 
         FilesystemKeyStore::with_rng(keys_directory, rng)
     }
