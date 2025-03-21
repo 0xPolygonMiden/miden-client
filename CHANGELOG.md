@@ -22,6 +22,7 @@
 * [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
 * [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
 * [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
+* [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
 
 ### Fixes
 
