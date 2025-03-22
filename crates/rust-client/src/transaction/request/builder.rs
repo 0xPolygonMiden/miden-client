@@ -116,7 +116,7 @@ impl TransactionRequestBuilder {
         for note in notes {
             if let OutputNote::Full(note) = &note {
                 self.expected_output_notes.insert(note.id(), note.clone());
-            };
+            }
 
             self.own_output_notes.push(note);
         }

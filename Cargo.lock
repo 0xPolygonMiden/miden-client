@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f423b23aa80d8950ef3fd369be860de35088eb32"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#02ad54f347d9530e26895a98310c6c58182f6e50"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f423b23aa80d8950ef3fd369be860de35088eb32"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#02ad54f347d9530e26895a98310c6c58182f6e50"
 dependencies = [
  "bech32",
  "getrandom 0.2.15",
@@ -1597,7 +1597,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f423b23aa80d8950ef3fd369be860de35088eb32"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#02ad54f347d9530e26895a98310c6c58182f6e50"
 dependencies = [
  "async-trait",
  "miden-objects",
@@ -1631,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#f423b23aa80d8950ef3fd369be860de35088eb32"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#02ad54f347d9530e26895a98310c6c58182f6e50"
 dependencies = [
  "async-trait",
  "miden-lib",
