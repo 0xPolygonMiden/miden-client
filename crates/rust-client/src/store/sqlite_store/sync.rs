@@ -2,7 +2,7 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{Digest, block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -110,8 +110,9 @@ impl SqliteStore {
             new_authentication_nodes,
             updated_accounts,
             block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
+            transactions_to_discard: mut discarded_transactions,
             tags_to_remove,
+            old_pending_transactions,
         } = state_sync_update;
 
         let tx = conn.transaction()?;
@@ -136,7 +137,16 @@ impl SqliteStore {
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
 
-        // Marc transactions as discarded
+        // Delete accounts for old pending transactions
+        let account_hashes_to_delete: Vec<Digest> =
+            old_pending_transactions.iter().map(|tx| tx.final_account_state).collect();
+
+        undo_account_state(&tx, &account_hashes_to_delete)?;
+
+        // Combine discarded transactions from sync and old pending transactions
+        discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
+
+        // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update public accounts on the db that have been updated onchain
