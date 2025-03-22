@@ -151,6 +151,9 @@ before(async () => {
 
       // Add the remote prover url to window
       window.remoteProverUrl = proverUrl;
+      if (window.remoteProverUrl) {
+        window.remoteProverInstance = window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+      }
 
       window.helpers.waitForTransaction = async (
         transactionId,

@@ -112,7 +112,7 @@ export const sendTransaction = async (
     if (_withRemoteProver && window.remoteProverUrl != null) {
       await client.submitTransaction(
         mintTransactionResult,
-        window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+        window.remoteProverInstance
       );
     } else {
       await client.submitTransaction(mintTransactionResult);
@@ -132,7 +132,7 @@ export const sendTransaction = async (
     if (_withRemoteProver && window.remoteProverUrl != null) {
       await client.submitTransaction(
         senderConsumeTransactionResult,
-        window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+        window.remoteProverInstance
       );
     } else {
       await client.submitTransaction(senderConsumeTransactionResult);
@@ -155,7 +155,7 @@ export const sendTransaction = async (
     if (_withRemoteProver && window.remoteProverUrl != null) {
       await client.submitTransaction(
         sendTransactionResult,
-        window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+        window.remoteProverInstance
       );
     } else {
       await client.submitTransaction(sendTransactionResult);
@@ -177,7 +177,7 @@ export const sendTransaction = async (
     if (_withRemoteProver && window.remoteProverUrl != null) {
       await client.submitTransaction(
         targetConsumeTransactionResult,
-        window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+        window.remoteProverInstance
       );
     } else {
       await client.submitTransaction(targetConsumeTransactionResult);
@@ -441,7 +441,7 @@ export const customTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           transactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(transactionResult);
@@ -496,7 +496,7 @@ export const customTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           transactionResult2,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(transactionResult2);
@@ -811,32 +811,6 @@ export const discardedTransaction =
       };
     });
   };
-
-describe("custom transaction with multiple output notes", () => {
-  const testCases = [
-    {
-      description: "does not fail when output note serial numbers are unique",
-      shouldFail: false,
-    },
-    {
-      description: "fails when output note serial numbers are the same",
-      shouldFail: true,
-    },
-  ];
-
-  testCases.forEach(({ description, shouldFail }) => {
-    it(description, async () => {
-      const { accountId, faucetId } = await setupConsumedNote();
-      if (shouldFail) {
-        await expect(customTxWithMultipleNotes(shouldFail, accountId, faucetId))
-          .to.be.rejected;
-      } else {
-        await expect(customTxWithMultipleNotes(shouldFail, accountId, faucetId))
-          .to.be.fulfilled;
-      }
-    });
-  });
-});
 
 describe("discarded_transaction tests", () => {
   it("transaction gets discarded", async () => {

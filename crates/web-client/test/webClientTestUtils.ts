@@ -42,7 +42,7 @@ export const mintTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           mintTransactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(mintTransactionResult);
@@ -108,7 +108,7 @@ export const sendTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           mintTransactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(mintTransactionResult);
@@ -128,7 +128,7 @@ export const sendTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           consumeTransactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(consumeTransactionResult);
@@ -152,7 +152,7 @@ export const sendTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           sendTransactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(sendTransactionResult);
@@ -368,7 +368,7 @@ export const consumeTransaction = async (
       if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           consumeTransactionResult,
-          window.TransactionProver.newRemoteProver(window.remoteProverUrl)
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(consumeTransactionResult);
