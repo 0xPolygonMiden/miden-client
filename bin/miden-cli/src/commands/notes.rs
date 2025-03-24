@@ -11,6 +11,7 @@ use miden_client::{
     },
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
 };
+use miden_objects::PrettyPrint;
 
 use crate::{
     Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
@@ -51,6 +52,9 @@ pub struct NotesCmd {
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
+    /// When using --show, include the note code in the output.
+    #[clap(long, requires = "show")]
+    with_code: bool,
     /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
     /// consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
@@ -71,7 +75,7 @@ impl NotesCmd {
                 .await?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned()).await?;
+                show_note(client, id.to_owned(), self.with_code).await?;
             },
             _ => {
                 list_notes(client, ClientNoteFilter::All).await?;
@@ -122,7 +126,11 @@ async fn list_notes(
 // SHOW NOTE
 // ================================================================================================
 #[allow(clippy::too_many_lines)]
-async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), CliError> {
+async fn show_note(
+    client: Client<impl FeltRng>,
+    note_id: String,
+    with_code: bool,
+) -> Result<(), CliError> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
@@ -208,8 +216,9 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     };
 
     let assets = input_note_record
+        .clone()
         .map(|record| record.assets().clone())
-        .or(output_note_record.map(|record| record.assets().clone()))
+        .or(output_note_record.clone().map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
 
     // print note vault
@@ -257,6 +266,23 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         inputs.values().iter().enumerate().for_each(|(idx, input)| {
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
+        println!("{table}");
+    }
+
+    if with_code {
+        let mut table = create_dynamic_table(&["Note Code"]);
+        let code = match (&input_note_record, &output_note_record) {
+            (Some(record), _) => record.details().script().to_pretty_string(),
+            (_, Some(record)) => {
+                record.state().recipient().map_or("Code unavailable".to_string(), |recipient| {
+                    recipient.script().to_pretty_string()
+                })
+            },
+            (None, None) => {
+                panic!("One of the two records should be Some")
+            },
+        };
+        table.add_row(vec![Cell::new(code)]);
         println!("{table}");
     }
 
