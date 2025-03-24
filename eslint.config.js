@@ -4,6 +4,7 @@ module.exports = [
     ignores: [
       "crates/web-client/dist/**/*",
       "target/**/*",
+      "**/target/**/*",
       "miden-node/**/*",
       "**/*.d.ts",
     ],
