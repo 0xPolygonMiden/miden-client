@@ -317,7 +317,7 @@ impl OutputNoteState {
     /// Returns a unique identifier for each note state.
     pub fn discriminant(&self) -> u8 {
         match self {
-            OutputNoteState::ExpectedPartial { .. } => Self::STATE_EXPECTED_PARTIAL,
+            OutputNoteState::ExpectedPartial => Self::STATE_EXPECTED_PARTIAL,
             OutputNoteState::ExpectedFull { .. } => Self::STATE_EXPECTED_FULL,
             OutputNoteState::CommittedPartial { .. } => Self::STATE_COMMITTED_PARTIAL,
             OutputNoteState::CommittedFull { .. } => Self::STATE_COMMITTED_FULL,
@@ -347,7 +347,7 @@ impl OutputNoteState {
         inclusion_proof: NoteInclusionProof,
     ) -> Result<Option<OutputNoteState>, NoteRecordError> {
         match self {
-            OutputNoteState::ExpectedPartial { .. } => {
+            OutputNoteState::ExpectedPartial => {
                 Ok(Some(OutputNoteState::CommittedPartial { inclusion_proof }))
             },
             OutputNoteState::ExpectedFull { recipient, .. } => {
@@ -385,7 +385,7 @@ impl OutputNoteState {
                     recipient: recipient.clone(),
                 }))
             },
-            OutputNoteState::ExpectedPartial { .. } | OutputNoteState::CommittedPartial { .. } => {
+            OutputNoteState::ExpectedPartial | OutputNoteState::CommittedPartial { .. } => {
                 Err(NoteRecordError::InvalidStateTransition(
                     "Cannot nullify note without recipient".to_string(),
                 ))

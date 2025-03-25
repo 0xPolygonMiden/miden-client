@@ -258,7 +258,7 @@ impl Client {
         loop {
             if request_block_num > current_block_num {
                 return Ok(None);
-            };
+            }
 
             let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
 
@@ -278,7 +278,7 @@ impl Client {
 
                 if note_block_num > current_block_num {
                     return Ok(None);
-                };
+                }
 
                 let note_inclusion_proof = NoteInclusionProof::new(
                     note_block_num,
