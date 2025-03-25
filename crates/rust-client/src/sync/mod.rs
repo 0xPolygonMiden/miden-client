@@ -378,7 +378,7 @@ impl<R: FeltRng> Client<R> {
             .await?;
 
         old_pending_transactions.retain(|tx| {
-            transactions_to_commit
+            !transactions_to_commit
                 .iter()
                 .map(|tx| tx.transaction_id)
                 .collect::<Vec<_>>()
