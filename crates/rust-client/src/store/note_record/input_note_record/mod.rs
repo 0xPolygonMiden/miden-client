@@ -261,10 +261,7 @@ impl TryFrom<OutputNote> for InputNoteRecord {
     fn try_from(value: OutputNote) -> Result<Self, Self::Error> {
         match value {
             OutputNote::Full(note) => Ok(note.into()),
-            OutputNote::Partial(_) => {
-                Err(NoteRecordError::ConversionError("note details missing".into()))
-            },
-            OutputNote::Header(_) => {
+            OutputNote::Partial(_) | OutputNote::Header(_) => {
                 Err(NoteRecordError::ConversionError("note details missing".into()))
             },
         }

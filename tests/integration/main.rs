@@ -1174,11 +1174,7 @@ async fn test_consume_multiple_expected_notes() {
     let tx_request_2 = TransactionRequestBuilder::consume_notes(
         unauth_owned_notes.iter().map(|note| note.id()).collect(),
     )
-    .with_unauthenticated_input_notes(
-        unauth_owned_notes
-            .iter()
-            .map(|note| ((*note).clone().try_into().unwrap(), None)),
-    )
+    .with_unauthenticated_input_notes(unauth_owned_notes.iter().map(|note| ((*note).clone(), None)))
     .build()
     .unwrap();
 

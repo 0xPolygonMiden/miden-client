@@ -170,7 +170,7 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Inserts notes into the set of notes which may be created when this transaction's output 
+    /// Inserts notes into the set of notes which may be created when this transaction's output
     /// notes are consumed.
     ///
     /// For example, after a SWAP note is consumed, a payback note is expected to be created. This

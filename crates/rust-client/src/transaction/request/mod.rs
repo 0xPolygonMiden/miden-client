@@ -169,8 +169,7 @@ impl TransactionRequest {
 
         let full_output_notes = expected_output_notes.into_values().filter_map(|n| match n {
             OutputNote::Full(note) => Some(note),
-            OutputNote::Partial(_) => None,
-            OutputNote::Header(_) => None,
+            OutputNote::Partial(_) | OutputNote::Header(_) => None,
         });
         tx_args.extend_expected_output_notes(full_output_notes);
         tx_args.extend_merkle_store(merkle_store.inner_nodes());
