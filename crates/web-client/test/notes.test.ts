@@ -143,7 +143,6 @@ describe("get_consumable_notes", () => {
       senderAccountId,
       targetAccountId,
       faucetId,
-      100,
       recallHeight
     );
 

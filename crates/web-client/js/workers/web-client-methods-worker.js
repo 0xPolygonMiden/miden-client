@@ -50,7 +50,7 @@ const methodHandlers = {
       mutable,
       seed
     );
-    const serializedWallet = await wallet.serialize();
+    const serializedWallet = wallet.serialize();
     return serializedWallet.buffer;
   },
   [MethodName.NEW_FAUCET]: async (args) => {
@@ -71,7 +71,7 @@ const methodHandlers = {
       decimals,
       maxSupply
     );
-    const serializedFaucet = await faucet.serialize();
+    const serializedFaucet = faucet.serialize();
     return serializedFaucet.buffer;
   },
   [MethodName.NEW_TRANSACTION]: async (args) => {
@@ -85,60 +85,7 @@ const methodHandlers = {
       accountId,
       transactionRequest
     );
-    const serializedTransactionResult = await transactionResult.serialize();
-    return serializedTransactionResult.buffer;
-  },
-  [MethodName.NEW_MINT_TRANSACTION]: async (args) => {
-    const [targetAccountIdStr, faucetIdStr, noteTypeBytes, amountStr] = args;
-    const targetAccountId = wasm.AccountId.fromHex(targetAccountIdStr);
-    const faucetId = wasm.AccountId.fromHex(faucetIdStr);
-    const noteType = wasm.NoteType.deserialize(new Uint8Array(noteTypeBytes));
-    const amount = BigInt(amountStr);
-
-    const transactionResult = await wasmWebClient.newMintTransaction(
-      targetAccountId,
-      faucetId,
-      noteType,
-      amount
-    );
-    const serializedTransactionResult = await transactionResult.serialize();
-    return serializedTransactionResult.buffer;
-  },
-  [MethodName.NEW_CONSUME_TRANSACTION]: async (args) => {
-    const [targetAccountIdStr, noteId] = args;
-    const targetAccountId = wasm.AccountId.fromHex(targetAccountIdStr);
-
-    const transactionResult = await wasmWebClient.newConsumeTransaction(
-      targetAccountId,
-      noteId
-    );
-    const serializedTransactionResult = await transactionResult.serialize();
-    return serializedTransactionResult.buffer;
-  },
-  [MethodName.NEW_SEND_TRANSACTION]: async (args) => {
-    const [
-      senderAccountIdStr,
-      receiverAccountIdStr,
-      faucetIdStr,
-      noteTypeBytes,
-      amountStr,
-      recallHeight,
-    ] = args;
-    const senderAccountId = wasm.AccountId.fromHex(senderAccountIdStr);
-    const receiverAccountId = wasm.AccountId.fromHex(receiverAccountIdStr);
-    const faucetId = wasm.AccountId.fromHex(faucetIdStr);
-    const noteType = wasm.NoteType.deserialize(new Uint8Array(noteTypeBytes));
-    const amount = BigInt(amountStr);
-
-    const transactionResult = await wasmWebClient.newSendTransaction(
-      senderAccountId,
-      receiverAccountId,
-      faucetId,
-      noteType,
-      amount,
-      recallHeight
-    );
-    const serializedTransactionResult = await transactionResult.serialize();
+    const serializedTransactionResult = transactionResult.serialize();
     return serializedTransactionResult.buffer;
   },
   [MethodName.SUBMIT_TRANSACTION]: async (args) => {
@@ -168,7 +115,7 @@ const methodHandlers = {
   },
   [MethodName.SYNC_STATE]: async () => {
     const syncSummary = await wasmWebClient.syncState();
-    const serializedSyncSummary = await syncSummary.serialize();
+    const serializedSyncSummary = syncSummary.serialize();
     return serializedSyncSummary.buffer;
   },
 };

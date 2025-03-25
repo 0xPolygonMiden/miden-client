@@ -60,6 +60,7 @@ describe("get_transactions tests", () => {
     const { transactionId: mintTransactionId } = await mintTransaction(
       accountId,
       faucetId,
+      false,
       false
     );
 

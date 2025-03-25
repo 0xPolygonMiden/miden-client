@@ -1,6 +1,6 @@
 use std::{
     env::{self, temp_dir},
-    fs::File,
+    fs::{self, File},
     io::{Read, Write},
     path::{Path, PathBuf},
 };
@@ -303,7 +303,7 @@ fn test_cli_empty_commands() {
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
     assert_command_fails_but_does_not_panic(
-        create_faucet_cmd.args(["new-faucet"]).current_dir(&temp_dir),
+        create_faucet_cmd.args(["new-account"]).current_dir(&temp_dir),
     );
 
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
@@ -412,6 +412,7 @@ async fn debug_mode_outputs_logs() {
     let note = Note::new(note_assets, note_metadata, note_recipient);
 
     // Send transaction and wait for it to be committed
+    client.sync_state().await.unwrap();
     let transaction_request = TransactionRequestBuilder::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
         .build()
@@ -583,17 +584,28 @@ fn consume_note_cli(cli_path: &Path, account_id: &str, note_ids: &[&str]) {
 
 /// Creates a new faucet account using the CLI given by `cli_path`.
 fn new_faucet_cli(cli_path: &Path, storage_mode: AccountStorageMode) -> String {
+    const INIT_DATA_FILENAME: &str = "init_data.toml";
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
+
+    // Create a TOML file with the InitStorageData
+    let init_storage_data_toml = r#"
+        token_metadata.decimals=10
+        token_metadata.max_supply=10000000
+        token_metadata.ticker="BTC"
+        "#;
+    let file_path = cli_path.join(INIT_DATA_FILENAME);
+    fs::write(&file_path, init_storage_data_toml).unwrap();
+
     create_faucet_cmd.args([
-        "new-faucet",
+        "new-account",
         "-s",
         storage_mode.to_string().as_str(),
-        "-t",
-        "BTC",
-        "-d",
-        "8",
-        "-m",
-        "1000000000000",
+        "--account-type",
+        "fungible-faucet",
+        "-c",
+        "basic-fungible-faucet",
+        "-i",
+        INIT_DATA_FILENAME,
     ]);
     create_faucet_cmd.current_dir(cli_path).assert().success();
 

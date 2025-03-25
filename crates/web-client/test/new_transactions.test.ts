@@ -7,39 +7,60 @@ import {
   sendTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
-import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
-import { TransactionRecord } from "../dist/crates/miden_client_web";
+import { Account, TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
 
-describe("new_mint_transactions tests", () => {
-  it("new_mint_transaction completes successfully", async () => {
-    const { faucetId, accountId } = await setupWalletAndFaucet();
-    const result = await mintTransaction(accountId, faucetId);
+describe("mint transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "mint transaction completes successfully" },
+    {
+      flag: true,
+      description: "mint transaction with remote prover completes successfully",
+    },
+  ];
 
-    expect(result.transactionId).to.not.be.empty;
-    expect(result.numOutputNotesCreated).to.equal(1);
-    expect(result.nonce).to.equal("1");
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const { faucetId, accountId } = await setupWalletAndFaucet();
+      const result = await mintTransaction(accountId, faucetId, flag);
+
+      expect(result.transactionId).to.not.be.empty;
+      expect(result.numOutputNotesCreated).to.equal(1);
+      expect(result.nonce).to.equal("1");
+    });
   });
 });
 
 // NEW_CONSUME_TRANSACTION TESTS
 // =======================================================================================================
 
-describe("new_consume_transaction tests", () => {
-  it("new_consume_transaction completes successfully", async () => {
-    const { faucetId, accountId } = await setupWalletAndFaucet();
-    const { consumeResult: result } = await mintAndConsumeTransaction(
-      accountId,
-      faucetId
-    );
+describe("consume transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "consume transaction completes successfully" },
+    {
+      flag: true,
+      description:
+        "consume transaction with remote prover completes successfully",
+    },
+  ];
 
-    expect(result.transactionId).to.not.be.empty;
-    expect(result.nonce).to.equal("1");
-    expect(result.numConsumedNotes).to.equal(1);
-    expect(result.targetAccountBalanace).to.equal("1000");
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const { faucetId, accountId } = await setupWalletAndFaucet();
+      const { consumeResult: result } = await mintAndConsumeTransaction(
+        accountId,
+        faucetId,
+        flag
+      );
+
+      expect(result.transactionId).to.not.be.empty;
+      expect(result.nonce).to.equal("1");
+      expect(result.numConsumedNotes).to.equal(1);
+      expect(result.targetAccountBalanace).to.equal("1000");
+    });
   });
 });
 
@@ -62,11 +83,14 @@ export const sendTransactionTest = async (
       _targetAccount: string,
       _faucetAccount: string
     ) => {
+      const client = window.client;
+
+      await client.syncState();
+
       const targetAccountId = window.AccountId.fromHex(_targetAccount);
       const senderAccountId = window.AccountId.fromHex(_senderAccount);
       const faucetAccountId = window.AccountId.fromHex(_faucetAccount);
 
-      const client = window.client;
       const changedSenderAccount = await client.getAccount(senderAccountId);
       const changedTargetAccount = await client.getAccount(targetAccountId);
 
@@ -87,30 +111,39 @@ export const sendTransactionTest = async (
   );
 };
 
-describe("new_send_transaction tests", () => {
-  it("new_send_transaction completes successfully", async () => {
-    const { accountId: senderAccountId, faucetId } =
-      await setupWalletAndFaucet();
-    const { accountId: targetAccountId } = await setupWalletAndFaucet();
-    const recallHeight = 100;
-    let createdSendNotes = await sendTransaction(
-      senderAccountId,
-      targetAccountId,
-      faucetId,
-      100,
-      recallHeight
-    );
+describe("send transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "send transaction completes successfully" },
+    {
+      flag: true,
+      description: "send transaction with remote prover completes successfully",
+    },
+  ];
 
-    await consumeTransaction(targetAccountId, faucetId, createdSendNotes[0]);
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const { accountId: senderAccountId, faucetId } =
+        await setupWalletAndFaucet();
+      const { accountId: targetAccountId } = await setupWalletAndFaucet();
+      const recallHeight = 100;
+      let createdSendNotes = await sendTransaction(
+        senderAccountId,
+        targetAccountId,
+        faucetId,
+        recallHeight,
+        flag
+      );
 
-    const result = await sendTransactionTest(
-      senderAccountId,
-      targetAccountId,
-      faucetId
-    );
+      await consumeTransaction(targetAccountId, faucetId, createdSendNotes[0]);
+      const result = await sendTransactionTest(
+        senderAccountId,
+        targetAccountId,
+        faucetId
+      );
 
-    expect(result.senderAccountBalance).to.equal("0");
-    expect(result.changedTargetBalance).to.equal("100");
+      expect(result.senderAccountBalance).to.equal("900");
+      expect(result.changedTargetBalance).to.equal("100");
+    });
   });
 });
 
@@ -119,10 +152,10 @@ describe("new_send_transaction tests", () => {
 
 export const customTransaction = async (
   assertedValue: string,
-  withCustomProver: boolean
+  withRemoteProver: boolean
 ): Promise<void> => {
   return await testingPage.evaluate(
-    async (_assertedValue: string, _withCustomProver: boolean) => {
+    async (_assertedValue: string, _withRemoteProver: boolean) => {
       const client = window.client;
 
       const walletAccount = await client.newWallet(
@@ -331,8 +364,11 @@ export const customTransaction = async (
         transactionRequest
       );
 
-      if (_withCustomProver) {
-        await client.submitTransaction(transactionResult, await selectProver());
+      if (_withRemoteProver && window.remoteProverUrl != null) {
+        await client.submitTransaction(
+          transactionResult,
+          window.remoteProverInstance
+        );
       } else {
         await client.submitTransaction(transactionResult);
       }
@@ -383,10 +419,10 @@ export const customTransaction = async (
         transactionRequest2
       );
 
-      if (_withCustomProver) {
+      if (_withRemoteProver && window.remoteProverUrl != null) {
         await client.submitTransaction(
           transactionResult2,
-          await selectProver()
+          window.remoteProverInstance
         );
       } else {
         await client.submitTransaction(transactionResult2);
@@ -397,7 +433,7 @@ export const customTransaction = async (
       );
     },
     assertedValue,
-    withCustomProver
+    withRemoteProver
   );
 };
 
@@ -504,6 +540,10 @@ describe("custom transaction tests", () => {
   it("custom transaction fails", async () => {
     await expect(customTransaction("1", false)).to.be.rejected;
   });
+
+  it("custom transaction with remote prover completes successfully", async () => {
+    await expect(customTransaction("0", true)).to.be.fulfilled;
+  });
 });
 
 describe("custom transaction with multiple output notes", () => {
@@ -532,29 +572,14 @@ describe("custom transaction with multiple output notes", () => {
   });
 });
 
-// CUSTOM PROVERS TEST
-// ================================================================================================
-
-export const selectProver = async (): Promise<TransactionProver> => {
-  if (window.remoteProverUrl != null) {
-    return window.TransactionProver.newRemoteProver(window.remoteProverUrl);
-  } else {
-    return window.TransactionProver.newLocalProver();
-  }
-};
-
-describe("use custom transaction prover per request", () => {
-  it("custom transaction prover completes successfully"),
-    async () => {
-      await expect(customTransaction("0", true)).to.be.fulfilled;
-    };
-});
-
 // DISCARDED TRANSACTIONS TESTS
 // ================================================================================================
 
 interface DiscardedTransactionResult {
   discardedTransactions: TransactionRecord[];
+  commitmentBeforeTx: string;
+  commitmentAfterTx: string;
+  commitmentAfterDiscardedTx: string;
 }
 
 export const discardedTransaction =
@@ -579,27 +604,35 @@ export const discardedTransaction =
       );
       await client.syncState();
 
-      let mintTransactionResult = await client.newMintTransaction(
+      let mintTransactionRequest = client.newMintTransactionRequest(
         senderAccount.id(),
         faucetAccount.id(),
         window.NoteType.private(),
         BigInt(1000)
       );
+      let mintTransactionResult = await client.newTransaction(
+        faucetAccount.id(),
+        mintTransactionRequest
+      );
+      await client.submitTransaction(mintTransactionResult);
       let createdNotes = mintTransactionResult.createdNotes().notes();
       let createdNoteIds = createdNotes.map((note) => note.id().toString());
       await window.helpers.waitForTransaction(
         mintTransactionResult.executedTransaction().id().toHex()
       );
 
-      const senderConsumeTransactionResult = await client.newConsumeTransaction(
+      const senderConsumeTransactionRequest =
+        client.newConsumeTransactionRequest(createdNoteIds);
+      let senderConsumeTransactionResult = await client.newTransaction(
         senderAccount.id(),
-        createdNoteIds
+        senderConsumeTransactionRequest
       );
+      await client.submitTransaction(senderConsumeTransactionResult);
       await window.helpers.waitForTransaction(
         senderConsumeTransactionResult.executedTransaction().id().toHex()
       );
 
-      let sendTransactionResult = await client.newSendTransaction(
+      let sendTransactionRequest = client.newSendTransactionRequest(
         senderAccount.id(),
         targetAccount.id(),
         faucetAccount.id(),
@@ -607,6 +640,11 @@ export const discardedTransaction =
         BigInt(100),
         1
       );
+      let sendTransactionResult = await client.newTransaction(
+        senderAccount.id(),
+        sendTransactionRequest
+      );
+      await client.submitTransaction(sendTransactionResult);
       let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
       let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
         note.id().toString()
@@ -628,16 +666,26 @@ export const discardedTransaction =
       let preConsumeStore = await client.exportStore();
 
       // Sender retrieves the note
-      let senderTxResult = await client.newConsumeTransaction(
+      let senderTxRequest =
+        await client.newConsumeTransactionRequest(sendCreatedNoteIds);
+      let senderTxResult = await client.newTransaction(
         senderAccount.id(),
-        sendCreatedNoteIds
+        senderTxRequest
       );
-
+      await client.submitTransaction(senderTxResult);
       await window.helpers.waitForTransaction(
         senderTxResult.executedTransaction().id().toHex()
       );
 
       await client.forceImportStore(preConsumeStore);
+
+      // Get the account state before the transaction is applied
+      const accountStateBeforeTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateBeforeTx) {
+        throw new Error("Failed to get account state before transaction");
+      }
 
       // Target tries consuming but the transaction will not be submitted
       let targetTxResult = await client.newTransaction(
@@ -646,6 +694,13 @@ export const discardedTransaction =
       );
 
       await client.testingApplyTransaction(targetTxResult);
+      // Get the account state after the transaction is applied
+      const accountStateAfterTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterTx) {
+        throw new Error("Failed to get account state after transaction");
+      }
 
       await client.syncState();
 
@@ -657,8 +712,28 @@ export const discardedTransaction =
         tx.transactionStatus().isDiscarded()
       );
 
+      // Get the account state after the discarded transactions are applied
+      const accountStateAfterDiscardedTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterDiscardedTx) {
+        throw new Error(
+          "Failed to get account state after discarded transaction"
+        );
+      }
+
+      // Perform a `.commitment()` check on each account
+      const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
+      const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx
+        .commitment()
+        .toHex();
+
       return {
         discardedTransactions: discardedTransactions,
+        commitmentBeforeTx,
+        commitmentAfterTx,
+        commitmentAfterDiscardedTx,
       };
     });
   };
@@ -668,5 +743,11 @@ describe("discarded_transaction tests", () => {
     const result = await discardedTransaction();
 
     expect(result.discardedTransactions.length).to.equal(1);
+    expect(result.commitmentBeforeTx).to.equal(
+      result.commitmentAfterDiscardedTx
+    );
+    expect(result.commitmentAfterTx).to.not.equal(
+      result.commitmentAfterDiscardedTx
+    );
   });
 });

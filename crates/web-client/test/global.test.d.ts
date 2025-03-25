@@ -45,6 +45,7 @@ declare global {
   interface Window {
     client: WebClient;
     remoteProverUrl: string;
+    remoteProverInstance: TransactionProver;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountId: typeof AccountId;
