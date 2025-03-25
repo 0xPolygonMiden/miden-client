@@ -21,7 +21,7 @@ use super::{
 };
 use crate::{
     note::NoteUpdates,
-    store::StoreError,
+    store::{StoreError, TransactionFilter},
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -199,11 +199,26 @@ impl WebStore {
         note_updates: NoteUpdates,
         transactions_to_discard: Vec<TransactionId>,
     ) -> Result<(), StoreError> {
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+        let transactions_records_to_discard = self
+            .get_transactions(TransactionFilter::Ids(transactions_to_discard.clone()))
+            .await?;
+
         apply_note_updates_tx(&note_updates).await?;
         let transactions_ids_as_str: Vec<String> =
             transactions_to_discard.iter().map(ToString::to_string).collect();
 
         let promise = idxdb_discard_transactions(transactions_ids_as_str);
+
+        let final_account_states = transactions_records_to_discard
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
+
+        // Remove the account states that are originated from the discarded transactions
+        self.undo_account_states(&final_account_states).await?;
+
         JsFuture::from(promise).await.unwrap();
 
         Ok(())

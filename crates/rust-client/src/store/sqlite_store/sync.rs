@@ -6,11 +6,11 @@ use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionI
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
-use super::SqliteStore;
+use super::{SqliteStore, account::undo_account_state};
 use crate::{
     note::NoteUpdates,
     store::{
-        StoreError,
+        StoreError, TransactionFilter,
         sqlite_store::{
             account::{lock_account, update_account},
             note::apply_note_updates_tx,
@@ -158,11 +158,27 @@ impl SqliteStore {
         note_updates: &NoteUpdates,
         transactions_to_discard: &[TransactionId],
     ) -> Result<(), StoreError> {
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+
+        let transactions_records_to_discard = Self::get_transactions(
+            conn,
+            &TransactionFilter::Ids(transactions_to_discard.to_vec()),
+        )?;
+
         let tx = conn.transaction()?;
 
         apply_note_updates_tx(&tx, note_updates)?;
 
         Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
+
+        let final_account_states = transactions_records_to_discard
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
+
+        // Remove the accounts that are originated from the discarded transactions
+        undo_account_state(&tx, &final_account_states)?;
 
         tx.commit()?;
 

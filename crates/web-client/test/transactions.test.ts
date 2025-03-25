@@ -61,6 +61,7 @@ describe("get_transactions tests", () => {
     const { transactionId: mintTransactionId } = await mintTransaction(
       accountId,
       faucetId,
+      false,
       false
     );
 
@@ -131,7 +132,7 @@ describe("compile_tx_script tests", () => {
     const script = "fakeScript";
 
     await expect(compileTxScript(script)).to.be.rejectedWith(
-      /Failed to compile transaction script:/
+      /failed to compile transaction script:/
     );
   });
 });

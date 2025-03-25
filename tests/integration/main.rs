@@ -33,11 +33,13 @@ mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
+    let (_, _, store_config, auth_path) = get_client_config();
+
     let mut client = ClientBuilder::new()
         .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
         .with_timeout(10_000)
-        .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_filesystem_keystore(auth_path.to_str().unwrap())
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -53,6 +55,8 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientError> {
+    let (_, _, store_config, auth_path) = get_client_config();
+
     let endpoint =
         Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
@@ -61,8 +65,8 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
         .with_timeout(10_000)
-        .with_filesystem_keystore("keystore")
-        .with_sqlite_store("store.sqlite3")
+        .with_filesystem_keystore(auth_path.to_str().unwrap())
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await?;
@@ -78,10 +82,11 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 
 #[tokio::test]
 async fn test_client_builder_fails_without_keystore() {
+    let (_, _, store_config, _) = get_client_config();
     let result = ClientBuilder::new()
         .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
         .with_timeout(10_000)
-        .with_sqlite_store("store.sqlite3")
+        .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
         .await;
@@ -1373,7 +1378,22 @@ async fn test_discarded_transaction() {
     let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).await.unwrap();
     let tx_id = tx_result.executed_transaction().id();
     client_1.testing_prove_transaction(&tx_result).await.unwrap();
+
+    // Store the account state before applying the transaction
+    let account_before_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_before_tx = account_before_tx.account().commitment();
+
+    // Apply the transaction
     client_1.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Check that the account state has changed after applying the transaction
+    let account_after_tx = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_after_tx = account_after_tx.account().commitment();
+
+    assert_ne!(
+        account_hash_before_tx, account_hash_after_tx,
+        "Account hash should change after applying the transaction"
+    );
 
     let note_record = client_1.get_input_note(note.id()).await.unwrap().unwrap();
     assert!(matches!(note_record.state(), InputNoteState::ProcessingAuthenticated(_)));
@@ -1396,6 +1416,19 @@ async fn test_discarded_transaction() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
     assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+
+    // Check that the account state has been rolled back after the transaction was discarded
+    let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
+    let account_hash_after_sync = account_after_sync.account().commitment();
+
+    assert_ne!(
+        account_hash_after_sync, account_hash_after_tx,
+        "Account hash should change after transaction was discarded"
+    );
+    assert_eq!(
+        account_hash_after_sync, account_hash_before_tx,
+        "Account hash should be rolled back to the value before the transaction"
+    );
 }
 
 struct AlwaysFailingProver;

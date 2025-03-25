@@ -104,7 +104,7 @@ use crate::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
     },
-    sync::NoteTagRecord,
+    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
 };
 
 mod request;
@@ -816,14 +816,24 @@ impl<R: FeltRng> Client<R> {
 
     /// Validates that the specified transaction request can be executed by the specified account.
     ///
-    /// This function checks that the account has enough balance to cover the outgoing assets. This
-    /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
-    /// transactions that are guaranteed to fail.
+    /// This does't guarantee that the transaction will succeed, but it's useful to avoid submitting
+    /// transactions that are guaranteed to fail. Some of the validations include:
+    /// - That the account has enough balance to cover the outgoing assets.
+    /// - That the client is not too far behind the chain tip.
     pub async fn validate_request(
-        &self,
+        &mut self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
+        let current_chain_tip =
+            self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
+
+        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+            return Err(ClientError::RecencyConditionError(
+                "The client is too far behind the chain tip to execute the transaction".to_string(),
+            ));
+        }
+
         let account: Account = self.try_get_account(account_id).await?.into();
 
         if account.is_faucet() {
@@ -852,7 +862,11 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
-    /// retrieve it.
+    /// retrieve it, this implies a state sync call which may update the client in other ways.
+    ///
+    /// # Errors
+    /// - Returns a [`ClientError::RecencyConditionError`] if the foreign account proofs are too far
+    ///   in the future.
     async fn inject_foreign_account_inputs(
         &mut self,
         foreign_accounts: BTreeSet<ForeignAccount>,
