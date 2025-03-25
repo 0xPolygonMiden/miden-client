@@ -390,8 +390,8 @@ mod tests {
         let tx_request = TransactionRequestBuilder::new()
             .with_authenticated_input_notes(vec![(notes.pop().unwrap().id(), None)])
             .with_unauthenticated_input_notes(vec![(notes.pop().unwrap(), None)])
-            .with_expected_output_notes(vec![OutputNote::Full(notes.pop().unwrap())])
-            .with_expected_future_notes(vec![(
+            .extend_expected_output_notes(vec![OutputNote::Full(notes.pop().unwrap())])
+            .extend_expected_future_notes(vec![(
                 notes.pop().unwrap().into(),
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])

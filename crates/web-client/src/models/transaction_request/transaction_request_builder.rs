@@ -68,7 +68,7 @@ impl TransactionRequestBuilder {
         let native_notes: Vec<NativeNote> = notes.into();
         let native_output_notes = native_notes.into_iter().map(NativeOutputNote::Full);
         // TODO: Change this API into accepting OutputNotes instead of a list of Notes
-        self.0 = self.0.clone().with_expected_output_notes(native_output_notes);
+        self.0 = self.0.clone().extend_expected_output_notes(native_output_notes);
         self
     }
 
@@ -79,7 +79,7 @@ impl TransactionRequestBuilder {
     ) -> Self {
         let native_note_details_and_tag: Vec<(NativeNoteDetails, NativeNoteTag)> =
             note_details_and_tag.into();
-        self.0 = self.0.clone().with_expected_future_notes(native_note_details_and_tag);
+        self.0 = self.0.clone().extend_expected_future_notes(native_note_details_and_tag);
         self
     }
 

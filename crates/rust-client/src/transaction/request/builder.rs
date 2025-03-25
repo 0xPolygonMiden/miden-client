@@ -160,7 +160,7 @@ impl TransactionRequestBuilder {
     /// transaction. That is, the transaction must create all the specified expected notes, but it
     /// may also create other notes which aren't included in the set of expected notes.
     #[must_use]
-    pub fn with_expected_output_notes(
+    pub fn extend_expected_output_notes(
         mut self,
         notes: impl IntoIterator<Item = OutputNote>,
     ) -> Self {
@@ -176,7 +176,7 @@ impl TransactionRequestBuilder {
     /// For example, after a SWAP note is consumed, a payback note is expected to be created. This
     /// allows the client to track this note accordingly.
     #[must_use]
-    pub fn with_expected_future_notes(
+    pub fn extend_expected_future_notes(
         mut self,
         notes: impl IntoIterator<Item = (NoteDetails, NoteTag)>,
     ) -> Self {
@@ -334,7 +334,7 @@ impl TransactionRequestBuilder {
             NoteTag::from_account_id(swap_data.account_id(), NoteExecutionMode::Local)?;
 
         Ok(Self::new()
-            .with_expected_future_notes(vec![(payback_note_details, payback_tag)])
+            .extend_expected_future_notes(vec![(payback_note_details, payback_tag)])
             .with_own_output_notes(vec![OutputNote::Full(created_note)]))
     }
 
