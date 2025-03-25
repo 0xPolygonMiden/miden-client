@@ -702,7 +702,8 @@ async fn test_import_expected_notes() {
     .unwrap()
     .build()
     .unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let note: InputNoteRecord =
+        tx_request.expected_output_notes().next().unwrap().clone().try_into().unwrap();
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
@@ -737,7 +738,8 @@ async fn test_import_expected_notes() {
     .unwrap()
     .build()
     .unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let note: InputNoteRecord =
+        tx_request.expected_output_notes().next().unwrap().clone().try_into().unwrap();
 
     // Import an uncommited note without verification
     client_2.add_note_tag(note.metadata().unwrap().tag()).await.unwrap();
@@ -790,7 +792,8 @@ async fn test_import_expected_note_uncommitted() {
     .build()
     .unwrap();
 
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let note: InputNoteRecord =
+        tx_request.expected_output_notes().next().unwrap().clone().try_into().unwrap();
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
@@ -831,7 +834,8 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
     .unwrap()
     .build()
     .unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let note: InputNoteRecord =
+        tx_request.expected_output_notes().next().unwrap().clone().try_into().unwrap();
 
     let block_height_before = client_1.get_sync_height().await.unwrap();
 
@@ -1148,7 +1152,11 @@ async fn test_consume_multiple_expected_notes() {
     unauth_client.sync_state().await.unwrap();
 
     // Filter notes by ownership
-    let expected_notes = mint_tx_request.expected_output_notes();
+    let expected_notes = mint_tx_request.expected_output_notes().filter_map(|n| match n {
+        miden_client::transaction::OutputNote::Full(note) => Some(note),
+        miden_client::transaction::OutputNote::Partial(_) => None,
+        miden_client::transaction::OutputNote::Header(_) => None,
+    });
     let client_notes: Vec<_> = client.get_input_notes(NoteFilter::All).await.unwrap();
     let client_notes_ids: Vec<_> = client_notes.iter().map(|note| note.id()).collect();
 
@@ -1166,7 +1174,11 @@ async fn test_consume_multiple_expected_notes() {
     let tx_request_2 = TransactionRequestBuilder::consume_notes(
         unauth_owned_notes.iter().map(|note| note.id()).collect(),
     )
-    .with_unauthenticated_input_notes(unauth_owned_notes.iter().map(|note| ((*note).clone(), None)))
+    .with_unauthenticated_input_notes(
+        unauth_owned_notes
+            .iter()
+            .map(|note| ((*note).clone().try_into().unwrap(), None)),
+    )
     .build()
     .unwrap();
 

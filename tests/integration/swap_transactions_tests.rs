@@ -1,7 +1,7 @@
 use miden_client::{
     account::Account,
-    note::{Note, build_swap_tag},
-    transaction::{SwapTransactionData, TransactionRequestBuilder},
+    note::build_swap_tag,
+    transaction::{OutputNote, SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -135,7 +135,8 @@ async fn test_swap_fully_onchain() {
     .build()
     .unwrap();
 
-    let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
+    let expected_output_notes: Vec<OutputNote> =
+        tx_request.expected_output_notes().cloned().collect();
     let expected_payback_note_details: Vec<NoteDetails> =
         tx_request.expected_future_notes().cloned().map(|(n, _)| n).collect();
     assert_eq!(expected_output_notes.len(), 1);
@@ -356,7 +357,8 @@ async fn test_swap_private() {
     .build()
     .unwrap();
 
-    let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
+    let expected_output_notes: Vec<OutputNote> =
+        tx_request.expected_output_notes().cloned().collect();
     let expected_payback_note_details =
         tx_request.expected_future_notes().cloned().map(|(n, _)| n).collect::<Vec<_>>();
     assert_eq!(expected_output_notes.len(), 1);

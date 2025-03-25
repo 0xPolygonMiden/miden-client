@@ -438,7 +438,7 @@ impl<R: FeltRng> Client<R> {
 
         let note_ids = transaction_request.get_input_note_ids();
 
-        let output_notes: Vec<Note> =
+        let output_notes: Vec<OutputNote> =
             transaction_request.expected_output_notes().cloned().collect();
 
         let future_notes: Vec<(NoteDetails, NoteTag)> =
@@ -661,10 +661,11 @@ impl<R: FeltRng> Client<R> {
             },
             _ => BTreeMap::default(),
         };
+
         // Get transaction output notes assets
         let mut output_notes_assets = transaction_request
             .expected_output_notes()
-            .map(|note| (note.id(), note.assets()))
+            .filter_map(|note| note.assets().map(|assets| (note.id(), assets)))
             .collect::<BTreeMap<_, _>>();
 
         // Merge with own notes assets and delete duplicates

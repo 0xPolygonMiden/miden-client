@@ -16,8 +16,7 @@ use crate::models::{
     note::NotesArray,
     output_note::OutputNotesArray,
     transaction_request::{
-        TransactionRequest, note_and_args::NoteAndArgsArray,
-        note_details_and_tag::NoteDetailsAndTagArray, note_id_and_args::NoteIdAndArgsArray,
+        note_and_args::NoteAndArgsArray, note_details_and_tag::NoteDetailsAndTagArray, note_id_and_args::NoteIdAndArgsArray, TransactionRequest
     },
     transaction_script::TransactionScript,
 };
@@ -66,7 +65,9 @@ impl TransactionRequestBuilder {
     #[wasm_bindgen(js_name = "withExpectedOutputNotes")]
     pub fn with_expected_output_notes(mut self, notes: &NotesArray) -> Self {
         let native_notes: Vec<NativeNote> = notes.into();
-        self.0 = self.0.clone().with_expected_output_notes(native_notes);
+        let native_output_notes = native_notes.into_iter().map(|n| NativeOutputNote::Full(n));
+        // TODO: Change this API into accepting OutputNotes instead of a list of Notes
+        self.0 = self.0.clone().with_expected_output_notes(native_output_notes);
         self
     }
 

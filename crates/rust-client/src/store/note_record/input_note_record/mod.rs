@@ -5,7 +5,7 @@ use miden_objects::{
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     note::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
-    transaction::{InputNote, TransactionId},
+    transaction::{InputNote, OutputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
 };
 
@@ -252,8 +252,25 @@ impl Deserializable for InputNoteRecord {
     }
 }
 
-// CONVERSION
+// CONVERSIONS
 // ================================================================================================
+
+impl TryFrom<OutputNote> for InputNoteRecord {
+    type Error = NoteRecordError;
+
+    fn try_from(value: OutputNote) -> Result<Self, Self::Error> {
+        match value {
+            OutputNote::Full(note) => Ok(note.into()),
+            OutputNote::Partial(_) => {
+                Err(NoteRecordError::ConversionError("note details missing".into()))
+            },
+            OutputNote::Header(_) => {
+                Err(NoteRecordError::ConversionError("note details missing".into()))
+            },
+        }
+    }
+}
+
 impl From<Note> for InputNoteRecord {
     fn from(value: Note) -> Self {
         let metadata = *value.metadata();

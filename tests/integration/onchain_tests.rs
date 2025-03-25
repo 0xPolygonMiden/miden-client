@@ -63,7 +63,6 @@ async fn test_onchain_notes_flow() {
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().commitment(), note.commitment());
-    assert_eq!(received_note.note(), &note);
 
     // consume the note
     consume_notes(&mut client_2, basic_wallet_1.id(), &[received_note]).await;
@@ -119,6 +118,7 @@ async fn test_onchain_accounts() {
     let (mut client_1, keystore_1) = create_test_client().await;
     let (mut client_2, keystore_2) = create_test_client().await;
     wait_for_node(&mut client_2).await;
+    client_1.sync_state().await.unwrap();
 
     let (faucet_account_header, _, secret_key) =
         insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
@@ -147,7 +147,6 @@ async fn test_onchain_accounts() {
 
     // First Mint necesary token
     println!("First client consuming note");
-    client_1.sync_state().await.unwrap();
     let note =
         mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;
 
@@ -346,7 +345,6 @@ async fn test_onchain_notes_sync_with_tag() {
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().commitment(), note.commitment());
-    assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }
 
