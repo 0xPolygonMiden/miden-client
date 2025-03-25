@@ -23,6 +23,8 @@ jobs:
         run: |
           rustup update --no-self-update 
           rustup component add clippy
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - clippy
         run: make clippy
   
@@ -36,6 +38,8 @@ jobs:
           rustup update --no-self-update 
           rustup target add wasm32-unknown-unknown
           rustup component add clippy
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - clippy-wasm
         run: make clippy-wasm
 
@@ -48,6 +52,8 @@ jobs:
         run: |
           rustup update --no-self-update nightly
           rustup +nightly component add rustfmt
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: Install prettier
         run: yarn install
       - name: make - format-check
@@ -60,5 +66,7 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust
         run: rustup update --no-self-update
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - doc
         run: make doc

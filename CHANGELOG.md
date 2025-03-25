@@ -4,14 +4,18 @@
 
 ### Features
 
+* Added Delegated Proving Support to All Transaction Types in Web Client (#792).
 * Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
+* [BREAKING] Generalized `miden new-account` CLI command (#728).
+* Added `ClientBuilder` for client initialization (#741).
 * Added support for script execution in the `Client` and CLI (#777).
+* Added note code to `miden notes --show` command (#790).
 
 ### Changes
 
-* Added wallet generation from seed & import from seed on web SDK (#710)
-* Add check for empty pay to id notes (#714).
+* Added wallet generation from seed & import from seed on web SDK (#710).
+* Add check for empty pay to ID notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
 * Added import/export for web client db (#740).
 * Re-exported RemoteTransactionProver in `rust-client` (#752).
@@ -22,6 +26,7 @@
 * [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
 * [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
 * [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
+* Added recency validations for the client (#776).
 * [BREAKING] `TransactionRequestBuilder` for known transaction now returns a built request (#791).
 
 ### Fixes

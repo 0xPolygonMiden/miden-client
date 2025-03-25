@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{WebClient, models::sync_summary::SyncSummary};
+use crate::{WebClient, js_error_with_context, models::sync_summary::SyncSummary};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -10,7 +10,7 @@ impl WebClient {
             let sync_summary = client
                 .sync_state()
                 .await
-                .map_err(|err| JsValue::from_str(&format!("Failed to sync state: {err}")))?;
+                .map_err(|err| js_error_with_context(err, "failed to sync state"))?;
 
             Ok(sync_summary.into())
         } else {

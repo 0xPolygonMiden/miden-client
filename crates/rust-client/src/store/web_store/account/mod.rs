@@ -21,7 +21,8 @@ use js_bindings::{
     idxdb_fetch_and_cache_account_auth_by_pub_key, idxdb_get_account_asset_vault,
     idxdb_get_account_code, idxdb_get_account_header, idxdb_get_account_header_by_commitment,
     idxdb_get_account_headers, idxdb_get_account_ids, idxdb_get_account_storage,
-    idxdb_get_foreign_account_code, idxdb_lock_account, idxdb_upsert_foreign_account_code,
+    idxdb_get_foreign_account_code, idxdb_lock_account, idxdb_undo_account_states,
+    idxdb_upsert_foreign_account_code,
 };
 
 mod models;
@@ -288,6 +289,20 @@ impl WebStore {
             .collect::<Result<BTreeMap<AccountId, AccountCode>, StoreError>>()?;
 
         Ok(foreign_account_code)
+    }
+
+    pub(crate) async fn undo_account_states(
+        &self,
+        account_states: &[Digest],
+    ) -> Result<(), StoreError> {
+        let account_commitments =
+            account_states.iter().map(ToString::to_string).collect::<Vec<_>>();
+        let promise = idxdb_undo_account_states(account_commitments);
+        let _ = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("Failed to undo account states: {js_error:?}"))
+        })?;
+
+        Ok(())
     }
 }
 
