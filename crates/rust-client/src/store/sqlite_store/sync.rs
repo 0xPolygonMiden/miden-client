@@ -6,10 +6,10 @@ use miden_objects::{block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
-use super::SqliteStore;
+use super::{SqliteStore, account::undo_account_state};
 use crate::{
     store::{
-        StoreError,
+        StoreError, TransactionFilter,
         sqlite_store::{
             account::{lock_account, update_account},
             note::apply_note_updates_tx,
@@ -124,6 +124,14 @@ impl SqliteStore {
             locked_accounts.push(*account_id);
         }
 
+        let account_states_to_rollback = Self::get_transactions(
+            conn,
+            &TransactionFilter::Ids(transaction_updates.discarded_transactions().to_vec()),
+        )?
+        .iter()
+        .map(|tx_record| tx_record.final_account_state)
+        .collect::<Vec<_>>();
+
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -156,6 +164,9 @@ impl SqliteStore {
 
         // Marc transactions as discarded
         Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
+
+        // Remove the accounts that are originated from the discarded transactions
+        undo_account_state(&tx, &account_states_to_rollback)?;
 
         // Update public accounts on the db that have been updated onchain
         for account in account_updates.updated_public_accounts() {

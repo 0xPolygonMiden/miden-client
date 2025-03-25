@@ -20,7 +20,7 @@ use super::{
     note::utils::apply_note_updates_tx,
 };
 use crate::{
-    store::StoreError,
+    store::{StoreError, TransactionFilter},
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -184,6 +184,18 @@ impl WebStore {
 
             lock_account(account_id).await.unwrap();
         }
+
+        let account_states_to_rollback = self
+            .get_transactions(TransactionFilter::Ids(
+                transaction_updates.discarded_transactions().to_vec(),
+            ))
+            .await?
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
+
+        // Remove the account states that are originated from the discarded transactions
+        self.undo_account_states(&account_states_to_rollback).await?;
 
         let promise = idxdb_apply_state_sync(
             block_num.to_string(),

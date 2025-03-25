@@ -57,6 +57,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::max;
 
+pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
 use miden_objects::{
     account::AccountId,
     block::BlockNumber,
@@ -67,7 +68,6 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
 use crate::{Client, ClientError, store::NoteFilter};
-
 mod block_header;
 
 mod tag;

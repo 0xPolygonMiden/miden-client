@@ -1,0 +1,16 @@
+[book]
+authors      = ["Miden contributors"]
+description  = "Manual for the Miden client the software facilitating the interaction with the Miden rollup"
+language     = "en"
+multilingual = false
+title        = "The Miden client"
+
+[output.html]
+git-repository-url = "https://github.com/0xPolygonMiden/miden-client"
+
+[preprocessor.katex]
+after = ["links"]
+
+[preprocessor.alerts]
+
+[output.linkcheck]
