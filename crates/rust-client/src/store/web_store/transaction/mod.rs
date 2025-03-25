@@ -41,7 +41,7 @@ impl WebStore {
                     ids.iter().map(ToString::to_string).collect::<Vec<String>>().join(",");
                 format!("Ids:{ids_str}")
             },
-            TransactionFilter::ExpiredPending(block_number) => {
+            TransactionFilter::ExpiredBefore(block_number) => {
                 &format!("ExpiredPending:{block_number}")
             },
         };

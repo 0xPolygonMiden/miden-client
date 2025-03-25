@@ -374,7 +374,7 @@ impl<R: FeltRng> Client<R> {
         // Retain old pending transactions
         let mut old_pending_transactions: Vec<TransactionRecord> = self
             .store
-            .get_transactions(TransactionFilter::ExpiredPending(graceful_block_num))
+            .get_transactions(TransactionFilter::ExpiredBefore(graceful_block_num))
             .await?;
 
         old_pending_transactions.retain(|tx| {
