@@ -1388,9 +1388,9 @@ dependencies = [
  "hex",
  "miden-client",
  "miden-lib",
+ "miden-node-proto-build",
  "miden-objects",
  "miden-proving-service-client",
- "miden-rpc-proto",
  "miden-tx",
  "miette",
  "prost",
@@ -1548,6 +1548,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-node-proto-build"
+version = "0.8.0"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomasarrachea-remove-rpc#8fd7ea17f28c3435d358e40792bc6e79994507ad"
+dependencies = [
+ "anyhow",
+ "prost",
+ "protox",
+ "tonic-build",
+]
+
+[[package]]
 name = "miden-objects"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1615,11 +1626,6 @@ dependencies = [
  "tonic-build",
  "tonic-web-wasm-client",
 ]
-
-[[package]]
-name = "miden-rpc-proto"
-version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#94d9269e1811cbd1441a122dd4547fc0630598dd"
 
 [[package]]
 name = "miden-stdlib"
