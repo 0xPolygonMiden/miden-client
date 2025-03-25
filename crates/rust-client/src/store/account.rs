@@ -69,7 +69,7 @@ pub enum AccountStatus {
 
 impl AccountStatus {
     pub fn is_locked(&self) -> bool {
-        matches!(self, AccountStatus::Locked { .. })
+        matches!(self, AccountStatus::Locked)
     }
 
     pub fn seed(&self) -> Option<&Word> {
