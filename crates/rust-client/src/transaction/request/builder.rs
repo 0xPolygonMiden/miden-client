@@ -213,7 +213,7 @@ impl TransactionRequestBuilder {
     // STANDARDIZED REQUESTS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new [`TransactionRequestBuilder`] for a transaction to consume the specified
+    /// Returns a new built [`TransactionRequest`] for a transaction to consume the specified
     /// notes.
     ///
     /// - `note_ids` is a list of note IDs to be consumed.
@@ -224,7 +224,7 @@ impl TransactionRequestBuilder {
         Self::new().with_authenticated_input_notes(input_notes).build()
     }
 
-    /// Returns a new [`TransactionRequestBuilder`] for a transaction to mint fungible assets. This
+    /// Returns a new built [`TransactionRequest`] for a transaction to mint fungible assets. This
     /// request must be executed against a fungible faucet account.
     ///
     /// - `asset` is the fungible asset to be minted.
@@ -250,7 +250,7 @@ impl TransactionRequestBuilder {
         Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)]).build()
     }
 
-    /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a P2ID or P2IDR note.
+    /// Returns a new built [`TransactionRequest`] for a transaction to send a P2ID or P2IDR note.
     /// This request must be executed against the wallet sender account.
     ///
     /// - `payment_data` is the data for the payment transaction that contains the asset to be
@@ -303,7 +303,7 @@ impl TransactionRequestBuilder {
         Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)]).build()
     }
 
-    /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a SWAP note. This
+    /// Returns a new built [`TransactionRequest`] for a transaction to send a SWAP note. This
     /// request must be executed against the wallet sender account.
     ///
     /// - `swap_data` is the data for the swap transaction that contains the sender account ID, the
