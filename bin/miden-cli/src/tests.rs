@@ -50,7 +50,7 @@ mod config;
 
 #[test]
 fn test_init_without_params() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli("devnet").1;
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
@@ -60,7 +60,7 @@ fn test_init_without_params() {
 
 #[test]
 fn test_init_with_params() {
-    let (store_path, temp_dir) = init_cli("localhost");
+    let (store_path, temp_dir) = init_cli("devnet");
 
     // Assert the config file contains the specified contents
     let mut config_path = temp_dir.clone();
@@ -70,11 +70,11 @@ fn test_init_with_params() {
     config_file.read_to_string(&mut config_file_str).unwrap();
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
-    assert!(config_file_str.contains("localhost"));
+    assert!(config_file_str.contains("devnet"));
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "devnet", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
@@ -84,7 +84,7 @@ fn test_init_with_params() {
 /// This test tries to run a mint TX using the CLI for an account that isn't tracked.
 #[tokio::test]
 async fn test_mint_with_untracked_account() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli("devnet").1;
 
     // Create faucet account
     let fungible_faucet_account_id = new_faucet_cli(&temp_dir, AccountStorageMode::Private);
@@ -117,7 +117,7 @@ const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account_0.mac"];
 #[tokio::test]
 #[ignore = "import genesis test gets ignored by default so integration tests can be ran with dockerized and remote nodes where we might not have the genesis data"]
 async fn test_import_genesis_accounts_can_be_used_for_transactions() {
-    let (store_path, temp_dir) = init_cli("localhost");
+    let (store_path, temp_dir) = init_cli("devnet");
 
     for genesis_account_filename in GENESIS_ACCOUNTS_FILENAMES {
         let mut new_file_path = temp_dir.clone();
@@ -181,8 +181,8 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 async fn test_cli_export_import_note() {
     const NOTE_FILENAME: &str = "test_note.mno";
 
-    let temp_dir_1 = init_cli("localhost").1;
-    let temp_dir_2 = init_cli("localhost").1;
+    let temp_dir_1 = init_cli("devnet").1;
+    let temp_dir_2 = init_cli("devnet").1;
 
     // Create wallet account
     let first_basic_account_id = new_wallet_cli(&temp_dir_2, AccountStorageMode::Private);
@@ -247,8 +247,8 @@ async fn test_cli_export_import_account() {
     const FAUCET_FILENAME: &str = "test_faucet.mac";
     const WALLET_FILENAME: &str = "test_wallet.wal";
 
-    let temp_dir_1 = init_cli("localhost").1;
-    let (store_path_2, temp_dir_2) = init_cli("localhost");
+    let temp_dir_1 = init_cli("devnet").1;
+    let (store_path_2, temp_dir_2) = init_cli("devnet");
 
     // Create faucet account
     let faucet_id = new_faucet_cli(&temp_dir_1, AccountStorageMode::Private);
@@ -299,7 +299,7 @@ async fn test_cli_export_import_account() {
 
 #[test]
 fn test_cli_empty_commands() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli("devnet").1;
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
     assert_command_fails_but_does_not_panic(
@@ -321,7 +321,7 @@ fn test_cli_empty_commands() {
 
 #[tokio::test]
 async fn test_consume_unauthenticated_note() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli("devnet").1;
 
     // Create wallet account
     let wallet_account_id = new_wallet_cli(&temp_dir, AccountStorageMode::Public);
@@ -427,7 +427,7 @@ async fn debug_mode_outputs_logs() {
     };
 
     // Import the note into the CLI
-    let temp_dir = init_cli_with_store_path("localhost", &store_path);
+    let temp_dir = init_cli_with_store_path("devnet", &store_path);
     let note_path = temp_dir.join(NOTE_FILENAME);
     let mut file = File::create(note_path.clone()).unwrap();
     file.write_all(&note_file.to_bytes()).unwrap();
