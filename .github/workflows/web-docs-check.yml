@@ -1,4 +1,4 @@
-name: Check Documentation Up-to-date
+name: Web Client Docs
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 jobs:
   docs-check:
+    name: Check that web client documentation is up-to-date
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +18,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
+      
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Install Dependencies
         working-directory: crates/web-client
@@ -32,5 +36,4 @@ jobs:
         run: yarn typedoc
 
       - name: Verify Documentation is Up-to-date
-        working-directory: crates/web-client
-        run: git diff --exit-code docs
+        run: git diff --exit-code docs/src/web-client/api
