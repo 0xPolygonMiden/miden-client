@@ -1,0 +1,8 @@
+{
+    "compilerOptions": {
+      "skipLibCheck": true
+    },
+    "files": [
+      "./dist/crates/miden_client_web.d.ts"
+    ]
+  }

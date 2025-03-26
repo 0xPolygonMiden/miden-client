@@ -1,0 +1,9 @@
+{
+    "entryPoints": ["./dist/crates/miden_client_web.d.ts"],
+    "tsconfig": "./tsconfig.docs.json",
+    "readme": "none",
+    "out": "docs",
+    "plugin": ["typedoc-plugin-markdown"],
+    "hideSources": true,
+  }
+  

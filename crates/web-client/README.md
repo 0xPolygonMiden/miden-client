@@ -1,449 +1,116 @@
 # @demox-labs/miden-sdk
-The @demox-labs/miden-sdk is a toolkit designed for interacting with the Miden virtual machine. It offers essential tools and functionalities for developers aiming to integrate or utilize Miden VM capabilities in their applications.
+The @demox-labs/miden-sdk is a toolkit designed for interacting with the Miden virtual machine via web browser. It offers essential tools and functionalities for developers aiming to integrate or utilize Miden VM capabilities in their web applications.
 
 ## Installation
-To install the package via npm, run the following command:
+
+### Stable Version
+To install the latest stable version of the package via npm, run:
 
 ```javascript
 npm i @demox-labs/miden-sdk
 ```
 
-For yarn:
+Or using Yarn:
 ```javascript
 yarn add @demox-labs/miden-sdk
 ```
 
+### Pre-release ("next") Version
+A non-stable version is also maintained. To install the pre-release version, run:
+
+```javascript
+npm i @demox-labs/miden-sdk@next
+```
+
+Or with Yarn:
+```javascript
+yarn add @demox-labs/miden-sdk@next
+```
+
+> **Note:** The next version must be used in conjunction with a locally running Miden node (instructions can be found [here](https://github.com/0xPolygonMiden/miden-node/tree/next)). Additionally, if you plan to leverage delegated proving in your application, you may need to run a local prover (see [Proving Service instructions](https://github.com/0xPolygonMiden/miden-base/tree/next/bin/proving-service)).
+
 ## Usage
 
+The following are just a few simple examples to get started. For more details, see the [API Reference](./docs/README.md).
+
+### Create a New Wallet
+
 ```typescript
-import { WebClient } from "@demox-labs/miden-sdk";
+import { 
+    AccountStorageMode,
+    WebClient
+} from "@demox-labs/miden-sdk";
 
-const webClient = new WebClient();
-await webClient.create_client();
+// Instantiate web client object
+const webClient = await WebClient.createClient()
 
-// Use WebClient to create accounts, notes, transactions, etc.
-// This will create a mutable, private account and store it in IndexedDB
-const accountId = await webClient.new_wallet("Private", true);
+// Set up newWallet params
+const accountStorageMode = AccountStorageMode.private();
+const mutable = true;
+
+// Create new wallet
+const account = await webClient.newWallet(accountStorageMode, mutable);
+
+console.log(account.id().toString()); // account id as hex
+console.log(account.isPublic()); // false
+console.log(account.isFaucet()); // false
 ```
 
-## Examples
-### The WebClient
-The WebClient is your gateway to creating and interacting with anything miden vm related.
-Example:
-```typescript
-// Creates a new WebClient instance which can then be configured after
-const webClient = new WebClient();
+### Create a New Faucet
 
-// Creates the internal client of a previously instantiated WebClient.
-// Can provide `node_url` as an optional parameter. Defaults to the tesnet RPC URL.
-await webClient.create_client();
-```
-Example specifying a specific node URL:
-```typescript
-const webClient = new WebClient();
+```typescript // Set up newFaucet params
+const faucetAccountStorageMode = AccountStorageMode.public();
+const nonFungible = false;
+const tokenSymbol = "MID";
+const decimals = 8;
+const maxSupply = BigInt(10000000);
 
-let remote_node_url = "http://18.203.155.106:57291"
-await webClient.create_client(remote_node_url);
-```
+// Create new faucet
+const faucet = await webClient.newFaucet(
+    faucetAccountStorageMode,
+    nonFungible,
+    tokenSymbol,
+    decimals,
+    maxSupply
+)
 
-### Accounts
-You can use the WebClient to create and retrieve account information.
-```typescript
-const webClient = new WebClient();
-await webClient.create_client();
-
-/**
- * Creates a new wallet account.
- * 
- * @param storage_mode String. Either "Private" or "Public".
- * @param mutable Boolean. Whether the wallet code is mutable or not
- * 
- * Returns: Wallet Id
- */
-const walletId = await webClient.new_wallet("Private", true);
-
-/**
- * Creates a new faucet account.
- * 
- * @param storage_mode String. Either "Private" or "Public".
- * @param non_fungible Boolean. Whether the faucet is non_fungible or not. NOTE: Non-fungible faucets are not supported yet
- * @param token_symbol String. Token symbol of the token the faucet creates
- * @param decimals String. Decimal precision of token.
- * @param max_supply String. Maximum token supply
- */ 
-const faucetId = await webClient.new_faucet("Private", true, "TOK", 6, 1_000_000)
-
-/**
- * Returns all accounts. Both wallets and faucets. Returns the following object per account
- * {
- *   id: string
- *   nonce: string
- *   vault_root: string
- *   storage_root: string
- *   code_root: string
- * }/
-const accounts = await webClient.get_accounts()
-console.log(accounts[0].id) // Prints account id of first account retrieved as hex value
-
-// Gets a single account by id
-const account = await webClient.get_account("0x9258fec00ad6d9bc");
-
-// Imports an account. This example adds a simple button to an HTML page, creates a listener for an account file selection, serializes that file into bytes, then calls the client to import it. 
-<label for="accountFileInput" class="custom-file-upload">
-    Choose Account File
-</label>
-<input type="file" id="accountFileInput" style="display: none;">
-document.getElementById('accountFileInput').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-
-        reader.onload = async function(e) {
-            let webClient = await createMidenWebClient();
-            const arrayBuffer = e.target.result;
-            const byteArray = new Uint8Array(arrayBuffer);
-
-            await webClient.importAccount(accountAsBytes);
-        };
-
-        reader.readAsArrayBuffer(file);
-    }
-});
+console.log(faucet.id().toString()); // faucet id as hex
+console.log(faucet.isPublic()); // true
+console.log(faucet.isFaucet()); // true
 ```
 
-### Transactions
-You can use the WebClient to facilitate transactions between accounts.
+### Create and Execute a New Consume Transaction
 
-Let's mint some tokens for our wallet from our faucet:
+Using https://faucet.testnet.miden.io/, send some public test tokens using the account id logged during the new wallet creation. Consume these tokens like this:
+
 ```typescript
-const webClient = new WebClient();
-await webClient.create_client();
-const walletId = await webClient.new_wallet("Private", true);
-const faucetId = await webClient.new_faucet("Private", true, "TOK", 6, 1_000_000);
+// Once the faucet finishes minting the tokens, you need to call syncState() so the client knows there is a note available to be consumed. In an actual application, this may need to be in a loop to constantly discover claimable notes.
+await webClient.syncState();
 
-// Syncs web client with node state.
-await webClient.sync_state();
+// Query the client for consumable notes, and retrieve the id of the new note to be consumed
+let consumableNotes = await webClient.getConsumableNotes(account);
+const noteIdToConsume = consumableNotes[0].inputNoteRecord().id();
 
-/**
- * Mints 10_000 tokens for the previously created wallet via a Private Note and returns a transaction the following result object:
- * {
- *   transaction_id: string
- *   created_note_ids: string[]
- * }
- */
-const newTxnResult = await webClient.new_mint_transaction(walletId, faucetId, "Private", 10_000);
-console.log(newTxnResult.created_note_ids); // Prints the list of note ids created from this transaction
+// Create a consume transaction request object
+const consumeTransactionRequest = webClient.newConsumeTransactionRequest([
+    noteIdToConsume,
+]);
 
-// Sync state again
-await webClient.sync_state();
-
-/**
- * Gets all of your existing transactions
- * Returns string[] of transaction ids
- */
-const transactions = await webClient.get_transactions()
-```
-
-### Notes
-You can use the WebClient to query for existing notes, export notes, and import notes
-
-Here is an example of how to import a note from a file (generated, say, from the faucet at https://testnet.miden.io/ for a given account). This code exposes a simple button on an HTML page for a user to select a file. A listener is setup to capture this event, serialize the note file, and import it.
-```typescript
-let webClient = await createMidenWebClient();
-let walletAccount = await webClient.new_wallet("Private", true); // The second argument defines that the wallet has mutable code.
-console.log(walletAccount); // Prints the id that can be used to plug in to the deployed Miden faucet.
-
-<label for="noteFileInput" class="custom-file-upload">
-    Choose Note File
-</label>
-<input type="file" id="noteFileInput" style="display: none;">
-document.getElementById('noteFileInput').addEventListener('change', async function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-
-        reader.onload = async function(e) {
-            let webClient = await createMidenWebClient();
-
-            const arrayBuffer = e.target.result;
-            const byteArray = new Uint8Array(arrayBuffer);
-
-            await webClient.import_note(byteArray, true); // imports the file generated from the faucet previously
-        };
-
-        reader.readAsArrayBuffer(file);
-    }
-});
-```
-
-Example of exporting a note:
-```typescript
-console.log("testExportNote started");
-
-let webClient = await createMidenWebClient();
-
-// Create a faucet and mint a mint transaction
-let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
-await syncState(webClient);
-await new Promise(r => setTimeout(r, 20000)); // Artificial delays to ensure sync is processed on remote node before continuing 
-
-let mintTransactionResult = await createNewMintTransaction(
-    webClient,
-    "0x9186b96f559e852f", // Insert target account id here
-    faucetId,
-    "Private",
-    "1000"
+// Execute and prove the transaction client side
+const consumeTransactionResult = await webClient.newTransaction(
+    account,
+    consumeTransactionRequest
 );
-await new Promise(r => setTimeout(r, 20000));
-await syncState(webClient);
 
-// Take the note created from the mint transaction, serialize it, and download it via the browser immediately
-let result = await exportNote(webClient, mintTransactionResult.created_note_ids[0]);
+// Submit the transaction to the node
+await webClient.submitTransaction(consumeTransactionResult);
 
-const blob = new Blob([result], {type: 'application/octet-stream'});
+// Need to sync state again (in a loop) until the node verifies the transaction
+await syncState()
 
-// Create a URL for the Blob
-const url = URL.createObjectURL(blob);
-
-// Create a temporary anchor element
-const a = document.createElement('a');
-a.href = url;
-a.download = 'exportNoteTest.mno'; // Specify the file name
-
-// Append the anchor to the document
-document.body.appendChild(a);
-
-// Programmatically click the anchor to trigger the download
-a.click();
-
-// Remove the anchor from the document
-document.body.removeChild(a);
-
-// Revoke the object URL to free up resources
-URL.revokeObjectURL(url);
-```
-
-Get All Input Notes Example:
-```typescript
-let webClient = await createMidenWebClient();
-
-/**
- * get_input_notes takes a filter to retrieve notes based on a specific status. The options are the following:
- *  "All",
- *  "Consumed",
- *  "Committed",
- *  "Expected",
- *  "Processing",
- *  "List",
- *  "Unique",
- *  "Nullifiers",
- *  "Unverified",
- */
-const notes = await webClient.get_input_notes("All")
-```
-
-## API Reference
-
-```typescript
-/**
- * @returns {Promise<SerializedAccountHeader>}
- * 
- * Example of returned object:
- * {
- *   id: string,
- *   nonce: string,
- *   vault_root: string,
- *   storage_root: string,
- *   code_root: string
- * }
- */
-get_accounts(): Promise<SerializedAccountHeader>;
-
-/**
- * @param {string} account_id
- * @returns {Promise<any>}
- */
-get_account(account_id: string): Promise<any>;
-
-/**
- * @param {string} note_id
- * @param {string} export_type
- * @returns {Promise<any>}
- * 
- * export_type can be any of the following:
- * 
- * "Full"
- * "Partial"
- * "Id"
- */
-export_note(note_id: string, export_type: string): Promise<any>;
-
-/**
- * @param {any} account_bytes
- * @returns created account id as {Promise<string>}
- * 
- */
-import_account(account_bytes: any): Promise<string>;
-
-/**
- * @param {string} note_bytes
- * @param {boolean} verify
- * @returns {Promise<any>}
- */
-import_note(note_bytes: string, verify: boolean): Promise<any>;
-
-/**
- * @param {string} storage_mode
- * @param {boolean} mutable
- * @returns {Promise<any>}
- */
-new_wallet(storage_mode: string, mutable: boolean): Promise<any>;
-
-/**
- * @param {string} storage_mode
- * @param {boolean} non_fungible
- * @param {string} token_symbol
- * @param {string} decimals
- * @param {string} max_supply
- * @returns {Promise<any>}
- */
-new_faucet(storage_mode: string, non_fungible: boolean, token_symbol: string, decimals: string, max_supply: string): Promise<any>;
-
-/**
- * @param {string} target_account_id
- * @param {string} faucet_id
- * @param {string} note_type
- * @param {string} amount
- * @returns {Promise<NewTransactionResult>}
- * 
- * Example of a NewTransactionResult object:
- * {
- *   transaction_id: string,
- *   created_note_ids: string[]
- * }
- */
-new_mint_transaction(target_account_id: string, faucet_id: string, note_type: string, amount: string): Promise<NewTransactionResult>;
-
-/**
- * @param {string} sender_account_id
- * @param {string} target_account_id
- * @param {string} faucet_id
- * @param {string} note_type
- * @param {string} amount
- * @param {string | undefined} [recall_height]
- * @returns {Promise<NewTransactionResult>}
- * 
- * Example of a NewTransactionResult object:
- * {
- *   transaction_id: string,
- *   created_note_ids: string[]
- * }
- */
-new_send_transaction(sender_account_id: string, target_account_id: string, faucet_id: string, note_type: string, amount: string, recall_height?: string): Promise<NewTransactionResult>;
-
-/**
- * @param {string} account_id
- * @param {(string)[]} list_of_notes
- * @returns {Promise<NewTransactionResult>}
- * 
- * Example of a NewTransactionResult object:
- * {
- *   transaction_id: string,
- *   created_note_ids: string[]
- * }
- */
-new_consume_transaction(account_id: string, list_of_notes: (string)[]): Promise<NewTransactionResult>;
-
-/**
- * @param {string} sender_account_id
- * @param {string} offered_asset_faucet_id
- * @param {string} offered_asset_amount
- * @param {string} requested_asset_faucet_id
- * @param {string} requested_asset_amount
- * @param {string} note_type
- * @returns {Promise<NewSwapTransactionResult>}
- * 
- * Example of a NewSwapTransactionResult object:
- * {
- *   transaction_id: string,
- *   expected_output_note_ids: string[],
- *.  expected_partial_note_ids: string[],
- *   payback_note_tag: string,
- * }
- */
-new_swap_transaction(sender_account_id: string, offered_asset_faucet_id: string, offered_asset_amount: string, requested_asset_faucet_id: string, requested_asset_amount: string, note_type: string): Promise<NewSwapTransactionResult>;
-
-/**
- * @param {any} filter
- * @returns {Promise<any>}
- * 
- * Examples of valid filters:
- *  "All",
- *  "Consumed",
- *  "Committed",
- *  "Expected",
- *  "Processing",
- *  "List",
- *  "Unique",
- *  "Nullifiers",
- *  "Unverified",
- */
-get_input_notes(filter: any): Promise<any>;
-
-/**
- * @param {string} note_id
- * @returns note id as {Promise<any>}
- */
-get_input_note(note_id: string): Promise<any>;
-
-/**
- * @param {any} filter
- * @returns {Promise<any>}
- * 
- * Examples of valid filters:
- *  "All",
- *  "Consumed",
- *  "Committed",
- *  "Expected",
- *  "Processing",
- *  "List",
- *  "Unique",
- *  "Nullifiers",
- *  "Unverified",
- */
-get_output_notes(filter: any): Promise<any>;
-
-/**
- * @param {string} note_id
- * @returns {Promise<any>}
- */
-get_output_note(note_id: string): Promise<any>;
-
-/**
- * @returns block number of latest block you synced to {Promise<any>}
- */
-sync_state(): Promise<any>;
-
-/**
- * @returns list of existing transaction ids {Promise<string[]>}
- */
-get_transactions(): Promise<string[]>;
-
-/**
- * @param {string} tag
- * @returns {Promise<any>}
- */
-add_tag(tag: string): Promise<any>;
-
-/**
- */
-constructor();
-
-/**
- * @param {string | undefined} [node_url]
- * @returns {Promise<any>}
- */
-create_client(node_url?: string): Promise<any>;
+// Check new account balance
+const accountBalance = account.vault().getBalance(/* id of remote faucet */).toString();
+console.log(accountBalance);
 ```
 
 ## License

@@ -1,0 +1,36 @@
+name: Check Documentation Up-to-date
+
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install Dependencies
+        working-directory: crates/web-client
+        run: yarn install
+
+      - name: Build Project
+        working-directory: crates/web-client
+        run: yarn build
+
+      - name: Generate Documentation
+        working-directory: crates/web-client
+        run: yarn typedoc
+
+      - name: Verify Documentation is Up-to-date
+        working-directory: crates/web-client
+        run: git diff --exit-code docs
