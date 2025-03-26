@@ -26,8 +26,6 @@ PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
-NODE_PARAM_FILE="crates/block-producer/src/lib.rs"
-
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy

@@ -236,8 +236,7 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             break;
         }
 
-        // 100_000_000 ns = 0.1s
-        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
+        std::thread::sleep(Duration::from_millis(100));
     }
 
     // Log wait time in a file if the env var is set
@@ -272,8 +271,7 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
             return summary;
         }
 
-        // 100_000_000 ns = 0.1s
-        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use miden_client::{
     ClientBuilder, ClientError, ONE,
@@ -30,6 +30,10 @@ mod custom_transactions_tests;
 mod fpi_tests;
 mod onchain_tests;
 mod swap_transactions_tests;
+
+/// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
+/// too low, some tests might fail due to expected recall failures not happening.
+const RECALL_HEIGHT_DELTA: u32 = 50;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -421,7 +425,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
-        Some(current_block_num + 50),
+        Some(current_block_num + RECALL_HEIGHT_DELTA),
         NoteType::Private,
         client.rng(),
     )
@@ -499,7 +503,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
-        Some(current_block_num + 50),
+        Some(current_block_num + RECALL_HEIGHT_DELTA),
         NoteType::Private,
         client.rng(),
     )
@@ -528,12 +532,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 
     // Wait to consume with the sender account
     println!("Waiting for note to be consumable by sender");
-    let current_block_num = client.get_sync_height().await.unwrap();
-
-    while client.get_sync_height().await.unwrap() < current_block_num + 50 {
-        client.sync_state().await.unwrap();
-        std::thread::sleep(std::time::Duration::new(0, 100_000_000));
-    }
+    wait_for_blocks(&mut client, RECALL_HEIGHT_DELTA).await;
 
     // Consume the note with the sender account
     println!("Consuming Note...");
@@ -1022,7 +1021,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             .unwrap()
             .is_empty()
         {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            std::thread::sleep(Duration::from_secs(3));
         }
         client.submit_transaction(transaction_execution_result).await.unwrap();
 
@@ -1060,7 +1059,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             .unwrap()
             .is_empty()
         {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            std::thread::sleep(Duration::from_secs(3));
         }
         client.submit_transaction(transaction_execution_result).await.unwrap();
 
@@ -1075,7 +1074,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         .unwrap()
         .is_empty()
     {
-        std::thread::sleep(std::time::Duration::from_secs(3));
+        std::thread::sleep(Duration::from_secs(3));
     }
 
     client.sync_state().await.unwrap();
