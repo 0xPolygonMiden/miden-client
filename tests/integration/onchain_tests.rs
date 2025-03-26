@@ -44,7 +44,7 @@ async fn test_onchain_notes_flow() {
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+    let tx_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
@@ -74,7 +74,7 @@ async fn test_onchain_notes_flow() {
     .await;
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
-    let tx_request = TransactionRequestBuilder::pay_to_id(
+    let tx_request = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(
             vec![p2id_asset.into()],
             basic_wallet_1.id(),
@@ -231,7 +231,7 @@ async fn test_onchain_accounts() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
 
     println!("Running P2ID tx...");
-    let tx_request = TransactionRequestBuilder::pay_to_id(
+    let tx_request = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Public,
@@ -250,7 +250,7 @@ async fn test_onchain_accounts() {
 
     // Consume the note
     println!("Consuming note on second client...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).unwrap();
+    let tx_request = TransactionRequestBuilder::build_consume_notes(vec![notes[0].id()]).unwrap();
     execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
 
     // sync on first client
@@ -308,7 +308,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+    let tx_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,

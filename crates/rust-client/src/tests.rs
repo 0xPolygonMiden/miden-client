@@ -433,7 +433,7 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
@@ -459,7 +459,7 @@ async fn test_get_output_notes() {
             .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
@@ -560,7 +560,7 @@ async fn test_import_processing_note_returns_error() {
             .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
         miden_objects::note::NoteType::Private,
@@ -693,7 +693,7 @@ async fn test_note_without_asset() {
         ))
     ));
 
-    let error = TransactionRequestBuilder::pay_to_id(
+    let error = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(vec![], faucet.id(), wallet.id()),
         None,
         NoteType::Public,
@@ -703,7 +703,7 @@ async fn test_note_without_asset() {
 
     assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
-    let error = TransactionRequestBuilder::pay_to_id(
+    let error = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(
             vec![Asset::Fungible(FungibleAsset::new(faucet.id(), 0).unwrap())],
             faucet.id(),

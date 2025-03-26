@@ -89,7 +89,7 @@ impl WebClient {
                 JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-            NativeTransactionRequestBuilder::mint_fungible_asset(
+            NativeTransactionRequestBuilder::build_mint_fungible_asset(
                 fungible_asset,
                 target_account_id.into(),
                 note_type.into(),
@@ -128,7 +128,7 @@ impl WebClient {
             })?;
 
             if let Some(recall_height) = recall_height {
-                NativeTransactionRequestBuilder::pay_to_id(
+                NativeTransactionRequestBuilder::build_pay_to_id(
                     payment_transaction,
                     Some(BlockNumber::from(recall_height)),
                     note_type.into(),
@@ -141,7 +141,7 @@ impl WebClient {
                     )
                 })?
             } else {
-                NativeTransactionRequestBuilder::pay_to_id(
+                NativeTransactionRequestBuilder::build_pay_to_id(
                     payment_transaction,
                     None,
                     note_type.into(),
@@ -167,9 +167,9 @@ impl WebClient {
                 .map(|note_id| NativeNoteId::try_from_hex(note_id.as_str()).unwrap())
                 .collect();
 
-            NativeTransactionRequestBuilder::consume_notes(native_note_ids).map_err(|err| {
-                js_error_with_context(err, "failed to create consume transaction request")
-            })?
+            NativeTransactionRequestBuilder::build_consume_notes(native_note_ids).map_err(
+                |err| js_error_with_context(err, "failed to create consume transaction request"),
+            )?
         };
 
         Ok(consume_transaction_request.into())
@@ -217,7 +217,7 @@ impl WebClient {
             .await?;
 
         if let Some(client) = self.get_mut_inner() {
-            let swap_transaction_request = NativeTransactionRequestBuilder::swap(
+            let swap_transaction_request = NativeTransactionRequestBuilder::build_swap(
                 &swap_transaction,
                 note_type.into(),
                 client.rng(),

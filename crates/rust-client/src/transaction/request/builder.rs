@@ -217,7 +217,7 @@ impl TransactionRequestBuilder {
     /// notes.
     ///
     /// - `note_ids` is a list of note IDs to be consumed.
-    pub fn consume_notes(
+    pub fn build_consume_notes(
         note_ids: Vec<NoteId>,
     ) -> Result<TransactionRequest, TransactionRequestError> {
         let input_notes = note_ids.into_iter().map(|id| (id, None));
@@ -232,7 +232,7 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn mint_fungible_asset(
+    pub fn build_mint_fungible_asset(
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
@@ -260,7 +260,7 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn pay_to_id(
+    pub fn build_pay_to_id(
         payment_data: PaymentTransactionData,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
@@ -311,7 +311,7 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn swap(
+    pub fn build_swap(
         swap_data: &SwapTransactionData,
         note_type: NoteType,
         rng: &mut impl FeltRng,

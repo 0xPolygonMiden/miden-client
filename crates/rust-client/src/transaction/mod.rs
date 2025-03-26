@@ -42,7 +42,7 @@
 //!     let asset = FungibleAsset::new(faucet_id, 100)?;
 //!
 //!     // Build a transaction request for a pay-to-id transaction.
-//!     let tx_request = TransactionRequestBuilder::pay_to_id(
+//!     let tx_request = TransactionRequestBuilder::build_pay_to_id(
 //!         PaymentTransactionData::new(vec![asset.into()], sender_id, target_id),
 //!         None, // No recall height
 //!         NoteType::Private,
@@ -1106,7 +1106,7 @@ mod test {
 
         client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
-        let tx_request = TransactionRequestBuilder::pay_to_id(
+        let tx_request = TransactionRequestBuilder::build_pay_to_id(
             PaymentTransactionData::new(
                 vec![asset_1, asset_2],
                 account.id(),
