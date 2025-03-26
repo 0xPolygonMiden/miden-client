@@ -31,8 +31,9 @@
 
 ### Fixes
 
-* Fix Web Keystore (#779).
+* Fixed Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+* Fixed case where the `CheckNullifiersByPrefix` response contained nullifiers after the client's sync height (#784).
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 
