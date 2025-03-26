@@ -28,6 +28,7 @@
 * [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
 * Added recency validations for the client (#776).
 * [BREAKING] Changed parameter of `with_expected_output_notes` to accept any type of `OutputNote` (#806).
+* Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
 
 ### Fixes
 

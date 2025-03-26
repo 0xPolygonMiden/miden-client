@@ -22,7 +22,7 @@ NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
@@ -143,8 +143,8 @@ update-prover-branch: setup-miden-base ## Checkout and update the specified bran
 	cd $(PROVER_DIR) && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
 
 .PHONY: build-prover
-build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
-	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
+build-prover: update-prover-branch ## Build the prover binary with specified features
+	cd $(PROVER_DIR) && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
