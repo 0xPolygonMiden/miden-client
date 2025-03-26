@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "miden-node-proto-build"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=tomasarrachea-remove-rpc#8fd7ea17f28c3435d358e40792bc6e79994507ad"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ac49ae324f3d9f4e425ebec6eda909274412630a"
 dependencies = [
  "anyhow",
  "prost",
