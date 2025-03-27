@@ -104,13 +104,15 @@ use alloc::boxed::Box;
 extern crate std;
 
 pub mod account;
-pub mod builder;
 pub mod keystore;
 pub mod note;
 pub mod rpc;
 pub mod store;
 pub mod sync;
 pub mod transaction;
+
+#[cfg(feature = "std")]
+pub mod builder;
 
 #[cfg(test)]
 pub mod mock;

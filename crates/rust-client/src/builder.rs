@@ -11,12 +11,11 @@ use miden_objects::{
 use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
 
-#[cfg(feature = "std")]
-use crate::keystore::FilesystemKeyStore;
 #[cfg(feature = "sqlite")]
 use crate::store::sqlite_store::SqliteStore;
 use crate::{
     Client, ClientError,
+    keystore::FilesystemKeyStore,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
     store::Store,
 };
@@ -50,7 +49,7 @@ pub struct ClientBuilder {
     /// An optional RNG provided by the user.
     rng: Option<Box<dyn FeltRng>>,
     /// The store path to use when no store is directly provided via `with_store()`.
-    store_path: String,
+    store_path: Option<String>,
     /// The keystore configuration provided by the user.
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
@@ -59,13 +58,19 @@ pub struct ClientBuilder {
 
 impl Default for ClientBuilder {
     fn default() -> Self {
+        let store_path = if cfg!(feature = "sqlite") {
+            Some("store.sqlite3".to_string())
+        } else {
+            None
+        };
+
         Self {
             rpc_endpoint: None,
             rpc_api: None,
             timeout_ms: 10_000,
             store: None,
             rng: None,
-            store_path: "store.sqlite3".into(),
+            store_path,
             keystore: None,
             in_debug_mode: false,
         }
@@ -108,9 +113,10 @@ impl ClientBuilder {
     }
 
     /// Optionally set a custom store path.
+    #[cfg(feature = "sqlite")]
     #[must_use]
     pub fn with_sqlite_store(mut self, path: &str) -> Self {
-        self.store_path = path.to_string();
+        self.store_path = Some(path.to_string());
         self
     }
 
@@ -173,20 +179,15 @@ impl ClientBuilder {
         // If no store was provided, create a SQLite store from the given path.
         let arc_store: Arc<dyn Store> = if let Some(store) = self.store {
             store
+        } else if let Some(store_path) = self.store_path {
+            let store =
+                SqliteStore::new(store_path.into()).await.map_err(ClientError::StoreError)?;
+            Arc::new(store)
         } else {
-            #[cfg(feature = "sqlite")]
-            {
-                let store = SqliteStore::new(self.store_path.clone().into())
-                    .await
-                    .map_err(ClientError::StoreError)?;
-                Arc::new(store)
-            }
-            #[cfg(not(feature = "sqlite"))]
-            {
-                return Err(ClientError::ClientInitializationError(
-                "`sqlite` feature must be enabled to use the default store. Call .with_store(...) to specify a different store.".into(),
+            return Err(ClientError::ClientInitializationError(
+                "Store must be specified. Call `.with_store(...)` or `.with_sqlite_store(...)` with a store path if `sqlite` is enabled."
+                    .into(),
             ));
-            }
         };
 
         // Use the provided RNG, or create a default one.
@@ -202,19 +203,9 @@ impl ClientBuilder {
         let authenticator = match self.keystore {
             Some(AuthenticatorConfig::Instance(authenticator)) => authenticator,
             Some(AuthenticatorConfig::Path(ref path)) => {
-                #[cfg(feature = "std")]
-                {
-                    let keystore = FilesystemKeyStore::new(path.into())
-                        .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
-                    Arc::new(keystore)
-                }
-                #[cfg(not(feature = "std"))]
-                {
-                    _ = path; // We don't use the path, but we need to silence the unused warning for no-std.
-                    return Err(ClientError::ClientInitializationError(
-                        "`std` feature must be enabled to use .with_filesystem_keystore(...)".into(),
-                    ));
-                }
+                let keystore = FilesystemKeyStore::new(path.into())
+                    .map_err(|err| ClientError::ClientInitializationError(err.to_string()))?;
+                Arc::new(keystore)
             },
             None => {
                 return Err(ClientError::ClientInitializationError(
