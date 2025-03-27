@@ -7,6 +7,7 @@ use std::{
 };
 
 use assert_cmd::Command;
+use config::RpcConfig;
 use miden_cli::CliKeyStore;
 use miden_client::{
     self, Client, Felt,
@@ -698,7 +699,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
 
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(&endpoint, 10000)),
+            Box::new(TonicRpcClient::new(&endpoint, RpcConfig::default().timeout_ms)),
             rng,
             store,
             std::sync::Arc::new(keystore.clone()),
