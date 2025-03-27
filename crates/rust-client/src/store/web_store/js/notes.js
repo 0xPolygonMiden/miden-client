@@ -22,7 +22,7 @@ export async function getOutputNotes(states) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -43,7 +43,7 @@ export async function getInputNotes(states) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -57,7 +57,7 @@ export async function getInputNotesFromIds(noteIds) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -71,7 +71,7 @@ export async function getInputNotesFromNullifiers(nullifiers) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -85,7 +85,7 @@ export async function getOutputNotesFromNullifiers(nullifiers) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get output notes: ", err);
+    console.error("Failed to get output notes: ", err.toString());
     throw err;
   }
 }
@@ -99,7 +99,7 @@ export async function getOutputNotesFromIds(noteIds) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -114,7 +114,10 @@ export async function getUnspentInputNoteNullifiers() {
 
     return nullifiers;
   } catch (err) {
-    console.error("Failed to get unspent input note nullifiers: ", err);
+    console.error(
+      "Failed to get unspent input note nullifiers: ",
+      err.toString()
+    );
     throw err;
   }
 }
@@ -164,9 +167,9 @@ export async function upsertInputNote(
       };
 
       await tx.notesScripts.put(noteScriptData);
-    } catch {
+    } catch (error) {
       console.error(`Error inserting note: ${noteId}:`, error);
-      throw error; // Rethrow the error to handle it further up the call chain if needed
+      throw error;
     }
   });
 }
@@ -201,9 +204,9 @@ export async function upsertOutputNote(
 
       // Perform the insert using Dexie
       await tx.outputNotes.put(data);
-    } catch {
+    } catch (error) {
       console.error(`Error inserting note: ${noteId}:`, error);
-      throw error; // Rethrow the error to handle it further up the call chain if needed
+      throw error;
     }
   });
 }
