@@ -27,6 +27,7 @@ use super::{
     ForeignAccount, NoteArgs, OwnNoteTemplate, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
+use crate::ClientRng;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -248,7 +249,7 @@ impl TransactionRequestBuilder {
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         let payment_transaction_data =
             PaymentNoteDescription::new(vec![Asset::Fungible(asset)], target_id, None, rng)?;
@@ -274,7 +275,7 @@ impl TransactionRequestBuilder {
         target_account_id: AccountId,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         if assets
             .iter()
@@ -300,7 +301,7 @@ impl TransactionRequestBuilder {
         offered_asset: Asset,
         requested_asset: Asset,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
+        rng: &mut ClientRng,
     ) -> Result<Self, TransactionRequestError> {
         let swap_data = SwapNoteDescription::new(offered_asset, requested_asset, rng);
 

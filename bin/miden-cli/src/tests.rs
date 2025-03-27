@@ -674,7 +674,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub type TestClient = Client<RpoRandomCoin>;
+pub type TestClient = Client;
 
 /// Creates a new [`Client`] with a given store. Also returns the keystore associated with it.
 async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, CliKeyStore) {
@@ -699,7 +699,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
     let mut rng = rand::rng();
     let coin_seed: [u64; 4] = rng.random();
 
-    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+    let rng = Box::new(RpoRandomCoin::new(coin_seed.map(Felt::new)));
 
     let keystore = CliKeyStore::new(temp_dir()).unwrap();
 

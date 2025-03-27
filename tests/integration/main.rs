@@ -3,6 +3,7 @@ use std::sync::Arc;
 use miden_client::{
     ClientBuilder, ClientError, Felt, ONE,
     account::Account,
+    builder::ClientBuilder,
     note::NoteRelevance,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
     store::{
@@ -39,8 +40,7 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
     let (_, _, store_config, auth_path) = get_client_config();
 
     let mut client = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -67,7 +67,6 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
-        .with_timeout(10_000)
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -87,8 +86,7 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 async fn test_client_builder_fails_without_keystore() {
     let (_, _, store_config, _) = get_client_config();
     let result = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
