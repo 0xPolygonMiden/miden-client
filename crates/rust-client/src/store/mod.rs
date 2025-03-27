@@ -348,8 +348,8 @@ pub enum TransactionFilter {
     /// [`BlockNumber`]. Transactions created after the provided block number are not
     /// considered.
     ///
-    /// A transaction is considered expired if is uncommitted and the difference between the
-    /// chain tip and the transaction's block number is greater than the provided limit.
+    /// A transaction is considered expired if is uncommitted and the transaction's block number
+    /// is less than the provided block number.
     ExpiredBefore(BlockNumber),
 }
 
