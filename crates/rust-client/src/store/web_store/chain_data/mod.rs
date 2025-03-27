@@ -48,7 +48,9 @@ impl WebStore {
             serialized_data.chain_mmr_peaks,
             serialized_data.has_client_notes,
         );
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
+        })?;
 
         Ok(())
     }
@@ -63,9 +65,11 @@ impl WebStore {
             .collect();
 
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let block_headers_idxdb: Vec<Option<BlockHeaderIdxdbObject>> =
-            from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get block headers: {js_error:?}",))
+        })?;
+        let block_headers_idxdb: Vec<Option<BlockHeaderIdxdbObject>> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         // Transform the list of Option<BlockHeaderIdxdbObject> to a list of results
         let results: Result<Vec<(BlockHeader, bool)>, StoreError> = block_headers_idxdb
@@ -85,8 +89,11 @@ impl WebStore {
 
     pub(crate) async fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         let promise = idxdb_get_tracked_block_headers();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let block_headers_idxdb: Vec<BlockHeaderIdxdbObject> = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get tracked block headers: {js_error:?}",))
+        })?;
+        let block_headers_idxdb: Vec<BlockHeaderIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let results: Result<Vec<BlockHeader>, StoreError> = block_headers_idxdb
             .into_iter()
@@ -107,7 +114,11 @@ impl WebStore {
         match filter {
             ChainMmrNodeFilter::All => {
                 let promise = idxdb_get_chain_mmr_nodes_all();
-                let js_value = JsFuture::from(promise).await.unwrap();
+                let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+                    StoreError::DatabaseError(format!(
+                        "failed to get all chain MMR nodes: {js_error:?}",
+                    ))
+                })?;
                 process_chain_mmr_nodes_from_js_value(js_value)
             },
             ChainMmrNodeFilter::List(ids) => {
@@ -115,7 +126,11 @@ impl WebStore {
                     ids.iter().map(|id| (Into::<u64>::into(*id)).to_string()).collect();
 
                 let promise = idxdb_get_chain_mmr_nodes(formatted_list);
-                let js_value = JsFuture::from(promise).await.unwrap();
+                let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+                    StoreError::DatabaseError(format!(
+                        "failed to get chain MMR nodes: {js_error:?}",
+                    ))
+                })?;
                 process_chain_mmr_nodes_from_js_value(js_value)
             },
         }
@@ -128,8 +143,13 @@ impl WebStore {
         let block_num_as_str = block_num.to_string();
 
         let promise = idxdb_get_chain_mmr_peaks_by_block_num(block_num_as_str);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let mmr_peaks_idxdb: MmrPeaksIdxdbObject = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!(
+                "failed to get chain MMR peaks by block number: {js_error:?}",
+            ))
+        })?;
+        let mmr_peaks_idxdb: MmrPeaksIdxdbObject = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         if let Some(peaks) = mmr_peaks_idxdb.peaks {
             let mmr_peaks_nodes: Vec<Digest> = Vec::<Digest>::read_from_bytes(&peaks)?;
@@ -154,7 +174,9 @@ impl WebStore {
         }
 
         let promise = idxdb_insert_chain_mmr_nodes(serialized_node_ids, serialized_nodes);
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to insert chain MMR nodes: {js_error:?}",))
+        })?;
 
         Ok(())
     }
@@ -178,7 +200,9 @@ impl WebStore {
             serialized_data.chain_mmr_peaks,
             serialized_data.has_client_notes,
         );
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
+        })?;
 
         Ok(())
     }
