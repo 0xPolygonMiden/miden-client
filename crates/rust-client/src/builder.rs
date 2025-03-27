@@ -11,14 +11,11 @@ use miden_objects::{
 use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
 
+#[cfg(feature = "tonic")]
+use crate::rpc::{Endpoint, TonicRpcClient};
 #[cfg(feature = "sqlite")]
 use crate::store::sqlite_store::SqliteStore;
-use crate::{
-    Client, ClientError,
-    keystore::FilesystemKeyStore,
-    rpc::{Endpoint, NodeRpcClient, TonicRpcClient},
-    store::Store,
-};
+use crate::{Client, ClientError, keystore::FilesystemKeyStore, rpc::NodeRpcClient, store::Store};
 
 /// Represents the configuration for an authenticator.
 ///
@@ -38,18 +35,15 @@ enum AuthenticatorConfig {
 /// RPC endpoint, store, RNG, and keystore. It is generic over the keystore type. By default, it
 /// uses `FilesystemKeyStore<rand::rngs::StdRng>`.
 pub struct ClientBuilder {
-    /// An optional RPC endpoint.
-    rpc_endpoint: Option<Endpoint>,
     /// An optional custom RPC client. If provided, this takes precedence over `rpc_endpoint`.
     rpc_api: Option<Box<dyn NodeRpcClient + Send>>,
-    /// The timeout (in milliseconds) used when constructing the RPC client.
-    timeout_ms: u64,
     /// An optional store provided by the user.
     store: Option<Arc<dyn Store>>,
     /// An optional RNG provided by the user.
     rng: Option<Box<dyn FeltRng>>,
     /// The store path to use when no store is directly provided via `with_store()`.
-    store_path: Option<String>,
+    #[cfg(feature = "sqlite")]
+    store_path: String,
     /// The keystore configuration provided by the user.
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
@@ -58,19 +52,12 @@ pub struct ClientBuilder {
 
 impl Default for ClientBuilder {
     fn default() -> Self {
-        let store_path = if cfg!(feature = "sqlite") {
-            Some("store.sqlite3".to_string())
-        } else {
-            None
-        };
-
         Self {
-            rpc_endpoint: None,
             rpc_api: None,
-            timeout_ms: 10_000,
             store: None,
             rng: None,
-            store_path,
+            #[cfg(feature = "sqlite")]
+            store_path: "store.sqlite3".to_string(),
             keystore: None,
             in_debug_mode: false,
         }
@@ -98,17 +85,11 @@ impl ClientBuilder {
         self
     }
 
-    /// Sets the RPC endpoint.
+    /// Sets the a tonic RPC client from the endpoint and optional timeout.
+    #[cfg(feature = "tonic")]
     #[must_use]
-    pub fn with_tonic_rpc(mut self, endpoint: Endpoint) -> Self {
-        self.rpc_endpoint = Some(endpoint);
-        self
-    }
-
-    /// Optionally set a custom timeout (in milliseconds) for the RPC client.
-    #[must_use]
-    pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
-        self.timeout_ms = timeout_ms;
+    pub fn with_tonic_rpc_client(mut self, endpoint: &Endpoint, timeout_ms: Option<u64>) -> Self {
+        self.rpc_api = Some(Box::new(TonicRpcClient::new(endpoint, timeout_ms.unwrap_or(10_000))));
         self
     }
 
@@ -116,7 +97,7 @@ impl ClientBuilder {
     #[cfg(feature = "sqlite")]
     #[must_use]
     pub fn with_sqlite_store(mut self, path: &str) -> Self {
-        self.store_path = Some(path.to_string());
+        self.store_path = path.to_string();
         self
     }
 
@@ -162,27 +143,29 @@ impl ClientBuilder {
     /// - Returns an error if no RPC client or endpoint was provided.
     /// - Returns an error if the store cannot be instantiated.
     /// - Returns an error if the keystore is not specified or fails to initialize.
-    #[allow(clippy::unused_async)]
-    pub async fn build(self) -> Result<Client, ClientError> {
+    #[allow(clippy::unused_async, unused_mut)]
+    pub async fn build(mut self) -> Result<Client, ClientError> {
         // Determine the RPC client to use.
         let rpc_api: Box<dyn NodeRpcClient + Send> = if let Some(client) = self.rpc_api {
             client
-        } else if let Some(endpoint) = self.rpc_endpoint {
-            Box::new(TonicRpcClient::new(&endpoint, self.timeout_ms))
         } else {
             return Err(ClientError::ClientInitializationError(
-                "RPC client or endpoint is required. Call `.with_rpc(...)` or `.with_tonic_rpc(...)`."
+                "RPC client or endpoint is required. Call `.with_rpc(...)` or `.with_tonic_rpc_client(...)` if `tonic` is enabled."
                     .into(),
             ));
         };
 
+        #[cfg(feature = "sqlite")]
+        if self.store.is_none() {
+            let store = SqliteStore::new(self.store_path.into())
+                .await
+                .map_err(ClientError::StoreError)?;
+            self.store = Some(Arc::new(store));
+        }
+
         // If no store was provided, create a SQLite store from the given path.
         let arc_store: Arc<dyn Store> = if let Some(store) = self.store {
             store
-        } else if let Some(store_path) = self.store_path {
-            let store =
-                SqliteStore::new(store_path.into()).await.map_err(ClientError::StoreError)?;
-            Arc::new(store)
         } else {
             return Err(ClientError::ClientInitializationError(
                 "Store must be specified. Call `.with_store(...)` or `.with_sqlite_store(...)` with a store path if `sqlite` is enabled."
