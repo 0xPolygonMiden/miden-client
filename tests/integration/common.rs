@@ -220,11 +220,14 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
         client.sync_state().await.unwrap();
 
         // Check if executed transaction got committed by the node
-        let uncommited_transactions =
-            client.get_transactions(TransactionFilter::Uncomitted).await.unwrap();
-        let is_tx_committed = uncommited_transactions
-            .iter()
-            .all(|uncommited_tx| uncommited_tx.id != transaction_id);
+        let tracked_transaction = client
+            .get_transactions(TransactionFilter::Ids(vec![transaction_id]))
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        let is_tx_committed =
+            matches!(tracked_transaction.transaction_status, TransactionStatus::Committed(_));
 
         if is_tx_committed {
             break;

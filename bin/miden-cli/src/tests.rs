@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     env::{self, temp_dir},
     fs::{self, File},
@@ -24,9 +25,12 @@ use miden_client::{
     },
     utils::Serializable,
 };
-use miden_client_tests::common::{ACCOUNT_ID_REGULAR, execute_tx_and_sync, insert_new_wallet};
+use miden_client_tests::common::{
+    ACCOUNT_ID_REGULAR, TEST_CLIENT_RPC_CONFIG_FILE, execute_tx_and_sync, insert_new_wallet,
+};
 use predicates::str::contains;
 use rand::Rng;
+use toml::Table;
 use uuid::Uuid;
 
 mod config;
@@ -52,7 +56,7 @@ mod config;
 
 #[test]
 fn test_init_without_params() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli().1;
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
@@ -62,7 +66,8 @@ fn test_init_without_params() {
 
 #[test]
 fn test_init_with_params() {
-    let (store_path, temp_dir) = init_cli("localhost");
+    let store_path = create_test_store_path();
+    let temp_dir = init_cli_with_store_path("devnet", &store_path);
 
     // Assert the config file contains the specified contents
     let mut config_path = temp_dir.clone();
@@ -72,11 +77,11 @@ fn test_init_with_params() {
     config_file.read_to_string(&mut config_file_str).unwrap();
 
     assert!(config_file_str.contains(store_path.to_str().unwrap()));
-    assert!(config_file_str.contains("localhost"));
+    assert!(config_file_str.contains("devnet"));
 
     // Trying to init twice should result in an error
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--network", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--network", "devnet", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
@@ -86,7 +91,7 @@ fn test_init_with_params() {
 /// This test tries to run a mint TX using the CLI for an account that isn't tracked.
 #[tokio::test]
 async fn test_mint_with_untracked_account() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli().1;
 
     // Create faucet account
     let fungible_faucet_account_id = new_faucet_cli(&temp_dir, AccountStorageMode::Private);
@@ -119,7 +124,7 @@ const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account_0.mac"];
 #[tokio::test]
 #[ignore = "import genesis test gets ignored by default so integration tests can be ran with dockerized and remote nodes where we might not have the genesis data"]
 async fn test_import_genesis_accounts_can_be_used_for_transactions() {
-    let (store_path, temp_dir) = init_cli("localhost");
+    let (store_path, temp_dir) = init_cli();
 
     for genesis_account_filename in GENESIS_ACCOUNTS_FILENAMES {
         let mut new_file_path = temp_dir.clone();
@@ -183,8 +188,8 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 async fn test_cli_export_import_note() {
     const NOTE_FILENAME: &str = "test_note.mno";
 
-    let temp_dir_1 = init_cli("localhost").1;
-    let temp_dir_2 = init_cli("localhost").1;
+    let temp_dir_1 = init_cli().1;
+    let temp_dir_2 = init_cli().1;
 
     // Create wallet account
     let first_basic_account_id = new_wallet_cli(&temp_dir_2, AccountStorageMode::Private);
@@ -249,8 +254,8 @@ async fn test_cli_export_import_account() {
     const FAUCET_FILENAME: &str = "test_faucet.mac";
     const WALLET_FILENAME: &str = "test_wallet.wal";
 
-    let temp_dir_1 = init_cli("localhost").1;
-    let (store_path_2, temp_dir_2) = init_cli("localhost");
+    let temp_dir_1 = init_cli().1;
+    let (store_path_2, temp_dir_2) = init_cli();
 
     // Create faucet account
     let faucet_id = new_faucet_cli(&temp_dir_1, AccountStorageMode::Private);
@@ -301,7 +306,7 @@ async fn test_cli_export_import_account() {
 
 #[test]
 fn test_cli_empty_commands() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli().1;
 
     let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
     assert_command_fails_but_does_not_panic(
@@ -323,7 +328,7 @@ fn test_cli_empty_commands() {
 
 #[tokio::test]
 async fn test_consume_unauthenticated_note() {
-    let temp_dir = init_cli("localhost").1;
+    let temp_dir = init_cli().1;
 
     // Create wallet account
     let wallet_account_id = new_wallet_cli(&temp_dir, AccountStorageMode::Public);
@@ -345,7 +350,7 @@ async fn test_consume_unauthenticated_note() {
 
 #[tokio::test]
 async fn test_init_with_devnet() {
-    let temp_dir = init_cli("devnet").1;
+    let temp_dir = init_cli_with_store_path("devnet", &create_test_store_path());
 
     // Check in the config file that the network is devnet
     let mut config_path = temp_dir.clone();
@@ -359,7 +364,7 @@ async fn test_init_with_devnet() {
 
 #[tokio::test]
 async fn test_init_with_testnet() {
-    let temp_dir = init_cli("testnet").1;
+    let temp_dir = init_cli_with_store_path("testnet", &create_test_store_path());
 
     // Check in the config file that the network is testnet
     let mut config_path = temp_dir.clone();
@@ -437,7 +442,7 @@ async fn debug_mode_outputs_logs() {
     };
 
     // Import the note into the CLI
-    let temp_dir = init_cli_with_store_path("localhost", &store_path);
+    let temp_dir = init_cli_with_store_path(get_network_from_rpc_config().as_str(), &store_path);
     let note_path = temp_dir.join(NOTE_FILENAME);
     let mut file = File::create(note_path.clone()).unwrap();
     file.write_all(&note_file.to_bytes()).unwrap();
@@ -467,11 +472,29 @@ async fn debug_mode_outputs_logs() {
 // HELPERS
 // ================================================================================================
 
-/// Initializes a CLI with the given network and returns the store path and the temp directory
-/// where the CLI is running.
-fn init_cli(network: &str) -> (PathBuf, PathBuf) {
+/// Derives the network name for the `init` command from the RPC test config file.
+fn get_network_from_rpc_config() -> String {
+    let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
+    let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
+
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+
+    if host.contains("devnet") {
+        "devnet".to_string()
+    } else if host.contains("localhost") {
+        "localhost".to_string()
+    } else if host.contains("testnet") {
+        "testnet".to_string()
+    } else {
+        panic!("Unknown network")
+    }
+}
+
+/// Initializes a CLI with the network in the config file and returns the store path and the temp
+/// directory where the CLI is running.
+fn init_cli() -> (PathBuf, PathBuf) {
     let store_path = create_test_store_path();
-    let temp_dir = init_cli_with_store_path(network, &store_path);
+    let temp_dir = init_cli_with_store_path(get_network_from_rpc_config().as_str(), &store_path);
 
     (store_path, temp_dir)
 }
@@ -659,7 +682,18 @@ pub type TestClient = Client<RpoRandomCoin>;
 
 /// Creates a new [`Client`] with a given store. Also returns the keystore associated with it.
 async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, CliKeyStore) {
-    let rpc_config = RpcConfig::default();
+    let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
+    let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
+
+    let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
+    let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
+    let port = if rpc_endpoint_toml.contains_key("port") {
+        rpc_endpoint_toml["port"].as_integer().map(|port| u16::try_from(port).unwrap())
+    } else {
+        None
+    };
+
+    let endpoint = Endpoint::new(protocol, host, port);
 
     let store = {
         let sqlite_store = SqliteStore::new(PathBuf::from(store_path)).await.unwrap();
@@ -675,7 +709,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
 
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(&rpc_config.endpoint.into(), rpc_config.timeout_ms)),
+            Box::new(TonicRpcClient::new(&endpoint, RpcConfig::default().timeout_ms)),
             rng,
             store,
             std::sync::Arc::new(keystore.clone()),
