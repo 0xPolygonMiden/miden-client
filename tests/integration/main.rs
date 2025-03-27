@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    ClientBuilder, ClientError, Felt, ONE,
+    ClientError, Felt, ONE,
     account::Account,
     builder::ClientBuilder,
     note::NoteRelevance,

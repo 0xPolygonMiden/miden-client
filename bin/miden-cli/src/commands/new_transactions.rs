@@ -5,7 +5,7 @@ use miden_client::{
     Client, RemoteTransactionProver,
     account::AccountId,
     asset::{Asset, FungibleAsset, NonFungibleDeltaAction},
-    crypto::{Digest, FeltRng},
+    crypto::Digest,
     note::{BlockNumber, NoteType as MidenNoteType, build_swap_tag, get_input_note_with_id_prefix},
     store::NoteRecordError,
     transaction::{

@@ -17,7 +17,7 @@ use miden_objects::{
         AccountType, AuthSecretKey,
     },
     asset::{Asset, FungibleAsset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    crypto::dsa::rpo_falcon512::SecretKey,
     note::{NoteFile, NoteTag, NoteType},
     testing::account_id::{
         ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,

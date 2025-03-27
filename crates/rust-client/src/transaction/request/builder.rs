@@ -358,6 +358,9 @@ impl TransactionRequestBuilder {
 ///
 /// This struct is a sender-agnostic description of an own note that can be output as part of a
 /// [`TransactionRequest`].
+///
+/// If a `recall_height` is set, a P2IDR (Pay-to-ID with recall) note script will be generated.
+/// Otherwise, a P2ID (Pay-to-ID) note script is output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PaymentNoteDescription {
     /// Assets that are meant to be sent to the target account.

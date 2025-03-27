@@ -132,6 +132,7 @@ impl WebClient {
             if let Some(recall_height) = recall_height {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
+                    target_account_id,
                     Some(BlockNumber::from(recall_height)),
                     note_type.into(),
                     client.rng(),
@@ -146,6 +147,7 @@ impl WebClient {
             } else {
                 NativeTransactionRequestBuilder::pay_to_id(
                     payment_transaction,
+                    target_account_id,
                     None,
                     note_type.into(),
                     client.rng(),
