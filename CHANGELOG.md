@@ -27,11 +27,13 @@
 * [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
 * [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
 * Added recency validations for the client (#776).
+* Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
 
 ### Fixes
 
-* Fix Web Keystore (#779).
+* Fixed Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+* Fixed case where the `CheckNullifiersByPrefix` response contained nullifiers after the client's sync height (#784).
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 
