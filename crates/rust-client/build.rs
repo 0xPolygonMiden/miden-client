@@ -1,15 +1,13 @@
 use std::{
-    env,
     fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use miden_lib::{account::auth::RpoFalcon512, note::well_known_note::WellKnownNote};
+use miden_node_proto_build::rpc_api_descriptor;
 use miden_objects::{EMPTY_WORD, account::AccountComponent, crypto::dsa::rpo_falcon512::PublicKey};
-use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
-use prost::Message;
 
 const STD_PROTO_OUT_DIR: &str = "src/rpc/generated/std";
 const NO_STD_PROTO_OUT_DIR: &str = "src/rpc/generated/nostd";
@@ -25,11 +23,7 @@ fn main() -> miette::Result<()> {
         return Ok(());
     }
 
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
-    let dest_path = PathBuf::from(out_dir);
-
-    write_proto(&dest_path).map_err(miette::Report::msg)?;
-    compile_tonic_client_proto(&dest_path)?;
+    compile_tonic_client_proto()?;
     replace_no_std_types();
     generate_known_script_roots().into_diagnostic()?;
     generate_known_procedure_roots().into_diagnostic()
@@ -37,17 +31,9 @@ fn main() -> miette::Result<()> {
 // NODE RPC CLIENT PROTO CODEGEN
 // ===============================================================================================
 
-/// Compiles the protobuf files into a file descriptor used to generate Rust types.
-fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
-    // Compute the compiler's target file path.
-    let out = env::var("OUT_DIR").into_diagnostic()?;
-    let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
-
-    // Compile the proto file
-    let protos = &[proto_dir.join("rpc.proto")];
-    let includes = &[proto_dir];
-    let file_descriptors = protox::compile(protos, includes)?;
-    fs::write(&file_descriptor_path, file_descriptors.encode_to_vec()).into_diagnostic()?;
+/// Generates the Rust protobuf bindings for the RPC client.
+fn compile_tonic_client_proto() -> miette::Result<()> {
+    let file_descriptors = rpc_api_descriptor();
 
     let mut prost_config = prost_build::Config::new();
     prost_config.skip_debug(["AccountId", "Digest"]);
@@ -59,18 +45,14 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     tonic_build::configure()
         .build_transport(false)
         .build_server(false)
-        .file_descriptor_set_path(&file_descriptor_path)
-        .skip_protoc_run()
         .out_dir(NO_STD_PROTO_OUT_DIR)
-        .compile_protos_with_config(web_tonic_prost_config, protos, includes)
+        .compile_fds_with_config(web_tonic_prost_config, file_descriptors.clone())
         .into_diagnostic()?;
 
     tonic_build::configure()
         .build_server(false)
-        .file_descriptor_set_path(&file_descriptor_path)
-        .skip_protoc_run()
         .out_dir(STD_PROTO_OUT_DIR)
-        .compile_protos_with_config(prost_config, protos, includes)
+        .compile_fds_with_config(prost_config, file_descriptors)
         .into_diagnostic()?;
 
     Ok(())
