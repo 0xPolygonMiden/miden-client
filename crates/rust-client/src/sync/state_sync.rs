@@ -21,14 +21,13 @@ use crate::{
 // SYNC CALLBACKS
 // ================================================================================================
 
-/// Callback that gets executed when a new note inclusion is received as part of the sync response.
-/// It receives the committed note received from the network and the input note state and an
-/// optional note record that corresponds to the state of the note in the network (only if the note
-/// is public).
+/// Callback that gets executed when a new note is received as part of the sync response.
 ///
-/// It returns a boolean indicating if the received note update is relevant.
-/// If the return value is `false`, it gets discarded. If it is `true`, the update gets committed to
-/// the client's store.
+/// It receives the committed note received from the network and an optional note record that
+/// corresponds to the state of the note in the network (only if the note is public).
+///
+/// It returns a boolean indicating if the received note update is relevant. If the return value
+/// is `false`, it gets discarded. If it is `true`, the update gets committed to the client's store.
 pub type OnNoteReceived = Box<
     dyn Fn(
         CommittedNote,
@@ -46,7 +45,7 @@ pub type OnNoteReceived = Box<
 ///
 ///
 ///  current state of the client's relevant elements (block, accounts,
-/// notes, etc). It is then used to requset updates from the node and apply them to the relevant
+/// notes, etc). It is then used to request updates from the node and apply them to the relevant
 /// elements. The updates are then returned and can be applied to the store to persist the changes.
 pub struct StateSync {
     /// The RPC client used to communicate with the node.

@@ -28,7 +28,7 @@ impl<R: FeltRng> Client<R> {
         for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
             let block_num = note
                 .inclusion_proof()
-                .expect("Commited notes should have inclusion proofs")
+                .expect("Committed notes should have inclusion proofs")
                 .location()
                 .block_num();
             let block_header = self

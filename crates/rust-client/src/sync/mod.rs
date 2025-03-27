@@ -82,7 +82,7 @@ pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, Trans
 // CONSTANTS
 // ================================================================================================
 
-// Client syncronization methods.
+/// Client synchronization methods.
 impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------

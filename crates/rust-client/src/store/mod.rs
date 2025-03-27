@@ -314,6 +314,7 @@ pub trait Store: Send + Sync {
 
 // CHAIN MMR NODE FILTER
 // ================================================================================================
+
 /// Filters for searching specific MMR nodes.
 // TODO: Should there be filters for specific blocks instead of nodes?
 pub enum ChainMmrNodeFilter {
@@ -333,7 +334,7 @@ pub enum TransactionFilter {
     All,
     /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
-    Uncomitted,
+    Uncommitted,
     /// Return a list of the transaction that matches the provided [`TransactionId`]s.
     Ids(Vec<TransactionId>),
 }
