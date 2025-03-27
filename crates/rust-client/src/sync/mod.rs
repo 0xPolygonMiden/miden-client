@@ -407,10 +407,15 @@ impl<R: FeltRng> Client<R> {
             .map(Nullifier::prefix)
             .collect();
 
-        let nullifiers = self
+        let mut nullifiers = self
             .rpc_api
             .check_nullifiers_by_prefix(&nullifiers_tags, starting_block_num)
             .await?;
+
+        // Discard nullifiers that are newer than the current block (this might happen if the block
+        // changes between the sync_state and the check_nullifier calls)
+        let current_block_num = self.get_sync_height().await?;
+        nullifiers.retain(|update| update.block_num <= current_block_num.as_u32());
 
         // Committed transactions
         let committed_transactions = self
