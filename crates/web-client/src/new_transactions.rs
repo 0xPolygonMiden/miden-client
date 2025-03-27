@@ -120,20 +120,20 @@ impl WebClient {
                 JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-                NativeTransactionRequestBuilder::pay_to_id(
-                    vec![fungible_asset.into()],
-                    target_account_id.into(),
-                    recall_height.map(BlockNumber::from),
-                    note_type.into(),
-                    client.rng(),
+            NativeTransactionRequestBuilder::pay_to_id(
+                vec![fungible_asset.into()],
+                target_account_id.into(),
+                recall_height.map(BlockNumber::from),
+                note_type.into(),
+                client.rng(),
+            )
+            .and_then(NativeTransactionRequestBuilder::build)
+            .map_err(|err| {
+                js_error_with_context(
+                    err,
+                    "failed to create send transaction request with recall height",
                 )
-                .and_then(NativeTransactionRequestBuilder::build)
-                .map_err(|err| {
-                    js_error_with_context(
-                        err,
-                        "failed to create send transaction request with recall height",
-                    )
-                })?
+            })?
         };
 
         Ok(send_transaction_request.into())

@@ -377,7 +377,7 @@ impl PaymentNoteDescription {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [`PaymentTransactionData`].
+    /// Creates a new [`PaymentNoteDescription`].
     pub fn new(
         assets: Vec<Asset>,
         target_account_id: AccountId,
@@ -513,7 +513,7 @@ impl SwapNoteDescription {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [`SwapTransactionData`].
+    /// Creates a new [`SwapNoteDescription`].
     pub fn new(
         offered_asset: Asset,
         requested_asset: Asset,
