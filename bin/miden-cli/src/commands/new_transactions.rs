@@ -9,8 +9,7 @@ use miden_client::{
     note::{BlockNumber, NoteType as MidenNoteType, build_swap_tag, get_input_note_with_id_prefix},
     store::NoteRecordError,
     transaction::{
-        InputNote, OutputNote, TransactionRequest,
-        TransactionRequestBuilder, TransactionResult,
+        InputNote, OutputNote, TransactionRequest, TransactionRequestBuilder, TransactionResult,
     },
 };
 use tracing::info;

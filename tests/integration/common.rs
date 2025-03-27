@@ -1,11 +1,22 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
+    Client, ClientError, Word,
     account::{
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512}, AccountBuilder, AccountType
-    }, auth::AuthSecretKey, crypto::FeltRng, keystore::FilesystemKeyStore, rpc::{Endpoint, RpcError, TonicRpcClient}, store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter}, sync::SyncSummary, testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE, transaction::{
-        DataStoreError, ExecutedTransaction, PaymentTransactionData, SendAssetNoteTemplate, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder
-    }, Client, ClientError, Word
+        AccountBuilder, AccountType,
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
+    },
+    auth::AuthSecretKey,
+    crypto::FeltRng,
+    keystore::FilesystemKeyStore,
+    rpc::{Endpoint, RpcError, TonicRpcClient},
+    store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
+    sync::SyncSummary,
+    testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
+    transaction::{
+        DataStoreError, ExecutedTransaction, PaymentTransactionData, SendAssetNoteTemplate,
+        TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
+    },
 };
 use miden_objects::{
     Felt,
@@ -198,7 +209,7 @@ pub async fn execute_tx_and_sync(
 ) -> ExecutedTransaction {
     let executed_transaction = execute_tx(client, account_id, tx_request).await;
     wait_for_tx(client, executed_transaction.id()).await;
-    
+
     executed_transaction
 }
 

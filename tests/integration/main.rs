@@ -1,12 +1,19 @@
 use std::sync::Arc;
 
 use miden_client::{
-    account::Account, note::NoteRelevance, rpc::{domain::account::AccountDetails, Endpoint, NodeRpcClient, TonicRpcClient}, store::{
-        input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter
-    }, sync::NoteTagSource, transaction::{
-        TransactionExecutorError, TransactionProver,
-        TransactionProverError, TransactionRequestBuilder, TransactionStatus,
-    }, ClientBuilder, ClientError, ONE
+    ClientBuilder, ClientError, ONE,
+    account::Account,
+    note::NoteRelevance,
+    rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
+    store::{
+        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
+        input_note_states::ConsumedAuthenticatedLocalNoteState,
+    },
+    sync::NoteTagSource,
+    transaction::{
+        TransactionExecutorError, TransactionProver, TransactionProverError,
+        TransactionRequestBuilder, TransactionStatus,
+    },
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -135,7 +142,8 @@ async fn test_multiple_tx_on_same_block() {
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_request_1 = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         None,
         NoteType::Private,
     )
@@ -143,7 +151,7 @@ async fn test_multiple_tx_on_same_block() {
     .build()
     .unwrap();
     let tx_request_2 = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], 
+        vec![Asset::Fungible(asset)],
         to_account_id,
         None,
         NoteType::Private,
@@ -228,7 +236,8 @@ async fn test_p2id_transfer() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         None,
         NoteType::Private,
     )
@@ -325,7 +334,8 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
     let asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT + 1).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         None,
         NoteType::Private,
     )
@@ -407,7 +417,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(current_block_num + 50),
         NoteType::Private,
     )
@@ -485,7 +496,8 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(current_block_num + 5),
         NoteType::Private,
     )
@@ -576,7 +588,8 @@ async fn test_get_consumable_notes() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], from_account_id,
+        vec![Asset::Fungible(asset)],
+        from_account_id,
         Some(100.into()),
         NoteType::Private,
     )
@@ -640,8 +653,8 @@ async fn test_get_output_notes() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-            vec![Asset::Fungible(asset)],
-            random_account_id,
+        vec![Asset::Fungible(asset)],
+        random_account_id,
         None,
         NoteType::Private,
     )
@@ -680,7 +693,6 @@ async fn test_get_output_notes() {
 //     .build()
 //     .unwrap();
 
-        
 //     client_2.sync_state().await.unwrap();
 
 //     // If the verification is requested before execution then the import should fail
@@ -703,8 +715,8 @@ async fn test_get_output_notes() {
 //     client_2.sync_state().await.unwrap();
 //     let input_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
 //     assert!(
-//         new_sync_data.block_num > input_note.inclusion_proof().unwrap().location().block_num() + 1
-//     );
+//         new_sync_data.block_num > input_note.inclusion_proof().unwrap().location().block_num() +
+// 1     );
 
 //     // If imported after execution and syncing then the inclusion proof should be Some
 //     assert!(input_note.inclusion_proof().is_some());
@@ -742,14 +754,14 @@ async fn test_get_output_notes() {
 //         tx.output_notes().get_note(0);
 //     client_2.sync_state().await.unwrap();
 
-//     // After sync, the imported note should have inclusion proof even if it's not relevant for its
-//     // accounts.
+//     // After sync, the imported note should have inclusion proof even if it's not relevant for
+// its     // accounts.
 //     let input_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
 //     assert!(input_note.inclusion_proof().is_some());
 
 //     // If inclusion proof is invalid this should panic
-//     consume_notes(&mut client_1, first_basic_account.id(), &[input_note.try_into().unwrap()]).await;
-// }
+//     consume_notes(&mut client_1, first_basic_account.id(),
+// &[input_note.try_into().unwrap()]).await; }
 
 // #[tokio::test]
 // async fn test_import_expected_note_uncommitted() {
@@ -823,7 +835,7 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
 
     let note: InputNoteRecord = match tx.output_notes().get_note(0) {
         miden_client::transaction::OutputNote::Full(note) => note.clone().try_into().unwrap(),
-        _=> panic!(),
+        _ => panic!(),
     };
 
     // Use client 1 to wait until a couple of blocks have passed
@@ -919,14 +931,15 @@ async fn test_sync_detail_values() {
     // Do a transfer with recall from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(new_details.block_num + 5),
         NoteType::Public,
     )
     .unwrap()
     .build()
     .unwrap();
-    let tx =execute_tx_and_sync(&mut client1, from_account_id, tx_request).await;
+    let tx = execute_tx_and_sync(&mut client1, from_account_id, tx_request).await;
 
     let note_id = tx.output_notes().get_note(0).id();
 
@@ -981,7 +994,11 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
-        let note_id = transaction_execution_result.executed_transaction().output_notes().get_note(0).id();
+        let note_id = transaction_execution_result
+            .executed_transaction()
+            .output_notes()
+            .get_note(0)
+            .id();
         client.submit_transaction(transaction_execution_result).await.unwrap();
 
         (note_id, transaction_id)
@@ -1009,7 +1026,11 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 
         println!("Sending transaction to node");
         // May need a few attempts until it gets included
-        let note_id = transaction_execution_result.executed_transaction().output_notes().get_note(0).id();
+        let note_id = transaction_execution_result
+            .executed_transaction()
+            .output_notes()
+            .get_note(0)
+            .id();
         while client
             .test_rpc_api()
             .get_notes_by_id(&[first_note_id])
@@ -1046,7 +1067,11 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 
         println!("Sending transaction to node");
         // May need a few attempts until it gets included
-        let note_id = transaction_execution_result.executed_transaction().output_notes().get_note(0).id();
+        let note_id = transaction_execution_result
+            .executed_transaction()
+            .output_notes()
+            .get_note(0)
+            .id();
         while client
             .test_rpc_api()
             .get_notes_by_id(&[second_note_id])
@@ -1224,7 +1249,8 @@ async fn test_import_consumed_note_with_proof() {
 
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(current_block_num),
         NoteType::Private,
     )
@@ -1283,7 +1309,8 @@ async fn test_import_consumed_note_with_id() {
 
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(current_block_num),
         NoteType::Public,
     )
@@ -1341,7 +1368,8 @@ async fn test_discarded_transaction() {
 
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         Some(current_block_num),
         NoteType::Public,
     )

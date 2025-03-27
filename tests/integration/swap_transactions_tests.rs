@@ -123,8 +123,8 @@ async fn test_swap_fully_onchain() {
 
     println!("Running SWAP tx...");
     let tx_request = TransactionRequestBuilder::swap(
-            Asset::Fungible(offered_asset),
-            Asset::Fungible(requested_asset),
+        Asset::Fungible(offered_asset),
+        Asset::Fungible(requested_asset),
         NoteType::Public,
     )
     .unwrap()
@@ -133,9 +133,8 @@ async fn test_swap_fully_onchain() {
 
     let tx = execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
-    let output_notes:Vec<OutputNote>=
-        tx.output_notes().iter().cloned().collect();
-    
+    let output_notes: Vec<OutputNote> = tx.output_notes().iter().cloned().collect();
+
     // TODO: Re-add future notes?
     assert_eq!(output_notes.len(), 1);
 
@@ -167,10 +166,9 @@ async fn test_swap_fully_onchain() {
     client1.sync_state().await.unwrap();
     println!("Consuming swap payback note on first client...");
 
-    let tx_request =
-        TransactionRequestBuilder::consume_notes(vec![output_notes[0].id()])
-            .build()
-            .unwrap();
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![output_notes[0].id()])
+        .build()
+        .unwrap();
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // At the end we should end up with
@@ -334,8 +332,8 @@ async fn test_swap_fully_onchain() {
 //     // Create ONCHAIN swap note (clientA offers 1 BTC in exchange of 25 ETH)
 //     // check that account now has 1 less BTC
 //     println!("creating swap note with accountA");
-//     let offered_asset = FungibleAsset::new(btc_faucet_account.id(), OFFERED_ASSET_AMOUNT).unwrap();
-//     let requested_asset =
+//     let offered_asset = FungibleAsset::new(btc_faucet_account.id(),
+// OFFERED_ASSET_AMOUNT).unwrap();     let requested_asset =
 //         FungibleAsset::new(eth_faucet_account.id(), REQUESTED_ASSET_AMOUNT).unwrap();
 
 //     println!("Running SWAP tx...");
@@ -350,7 +348,7 @@ async fn test_swap_fully_onchain() {
 
 //     let tx = execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
-//     let output_notes:Vec<OutputNote> = 
+//     let output_notes:Vec<OutputNote> =
 //         tx.output_notes().iter().cloned().collect();
 
 //     // Export note from client 1 to client 2
@@ -469,14 +467,11 @@ async fn mint(
     let fungible_asset = FungibleAsset::new(faucet_account_id, mint_amount).unwrap();
 
     println!("Minting Asset");
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        fungible_asset,
-        basic_account_id,
-        note_type,
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request =
+        TransactionRequestBuilder::mint_fungible_asset(fungible_asset, basic_account_id, note_type)
+            .unwrap()
+            .build()
+            .unwrap();
     let tx = execute_tx_and_sync(client, faucet_account_id, tx_request.clone()).await;
 
     tx.output_notes().get_note(0).id()

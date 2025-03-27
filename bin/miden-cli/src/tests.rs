@@ -9,10 +9,20 @@ use assert_cmd::Command;
 use config::RpcConfig;
 use miden_cli::CliKeyStore;
 use miden_client::{
-    self, account::{AccountId, AccountStorageMode}, crypto::{FeltRng, RpoRandomCoin}, note::{
+    self, Client, Felt,
+    account::{AccountId, AccountStorageMode},
+    crypto::{FeltRng, RpoRandomCoin},
+    note::{
         NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
-    }, rpc::{Endpoint, TonicRpcClient}, store::sqlite_store::SqliteStore, testing::account_id::ACCOUNT_ID_PRIVATE_SENDER, transaction::{OutputNote, PaymentTransactionData, SendAssetNoteTemplate, TransactionRequestBuilder}, utils::Serializable, Client, Felt
+    },
+    rpc::{Endpoint, TonicRpcClient},
+    store::sqlite_store::SqliteStore,
+    testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
+    transaction::{
+        OutputNote, PaymentTransactionData, SendAssetNoteTemplate, TransactionRequestBuilder,
+    },
+    utils::Serializable,
 };
 use miden_client_tests::common::{ACCOUNT_ID_REGULAR, execute_tx_and_sync, insert_new_wallet};
 use predicates::str::contains;
@@ -401,7 +411,10 @@ async fn debug_mode_outputs_logs() {
     .unwrap();
     let note_assets = NoteAssets::new(vec![]).unwrap();
     let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
-    let note = SendAssetNoteTemplate::P2ID(PaymentTransactionData::new(vec![], account.id(), None),NoteType::Private);
+    let note = SendAssetNoteTemplate::P2ID(
+        PaymentTransactionData::new(vec![], account.id(), None),
+        NoteType::Private,
+    );
 
     // Send transaction and wait for it to be committed
     client.sync_state().await.unwrap();

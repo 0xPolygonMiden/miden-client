@@ -43,10 +43,10 @@
 //!
 //!     // Build a transaction request for a pay-to-id transaction.
 //!     let tx_request = TransactionRequestBuilder::pay_to_id(
-//!         PaymentTransactionData::new(vec![asset.into()], sender_id, target_id),
+//!         vec![asset.into()],
+//!         target_id,
 //!         None, // No recall height
 //!         NoteType::Private,
-//!         client.rng(),
 //!     )?
 //!     .build()?;
 //!
@@ -1053,7 +1053,6 @@ mod test {
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    
     use crate::{
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
@@ -1096,8 +1095,8 @@ mod test {
         client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequestBuilder::pay_to_id(
-                vec![asset_1, asset_2],
-                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
+            vec![asset_1, asset_2],
+            ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
             None,
             NoteType::Private,
         )

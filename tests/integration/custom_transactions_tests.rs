@@ -1,5 +1,8 @@
 use miden_client::{
-    note::NoteExecutionHint, transaction::{TransactionRequest, TransactionRequestBuilder}, utils::{Deserializable, Serializable}, ZERO
+    ZERO,
+    note::NoteExecutionHint,
+    transaction::{TransactionRequest, TransactionRequestBuilder},
+    utils::{Deserializable, Serializable},
 };
 use miden_objects::{
     Felt, Word,

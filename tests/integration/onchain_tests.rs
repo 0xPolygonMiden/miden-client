@@ -75,8 +75,8 @@ async fn test_onchain_notes_flow() {
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequestBuilder::pay_to_id(
-            vec![p2id_asset.into()],
-            basic_wallet_2.id(),
+        vec![p2id_asset.into()],
+        basic_wallet_2.id(),
         None,
         NoteType::Public,
     )
@@ -230,7 +230,8 @@ async fn test_onchain_accounts() {
 
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        vec![Asset::Fungible(asset)], to_account_id,
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         None,
         NoteType::Public,
     )
@@ -315,7 +316,7 @@ async fn test_onchain_notes_sync_with_tag() {
     .unwrap()
     .build()
     .unwrap();
-    let tx =execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let tx = execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
     let note = tx.output_notes().get_note(0);
 
     // Load tag into client 2

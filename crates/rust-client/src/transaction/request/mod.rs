@@ -424,17 +424,25 @@ mod tests {
 
     use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
-        account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType}, asset::{Asset, FungibleAsset}, crypto::rand::{FeltRng, RpoRandomCoin}, note::{NoteExecutionMode, NoteTag, NoteType}, testing::{
+        Digest, Felt, ZERO,
+        account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
+        asset::{Asset, FungibleAsset},
+        crypto::rand::{FeltRng, RpoRandomCoin},
+        note::{NoteExecutionMode, NoteTag, NoteType},
+        testing::{
             account_component::AccountMockComponent,
             account_id::{
                 ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
                 ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE, ACCOUNT_ID_SENDER,
             },
-        }, Digest, Felt, ZERO
+        },
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::{PaymentTransactionData, SendAssetNoteTemplate, TransactionRequest, TransactionRequestBuilder};
+    use super::{
+        PaymentTransactionData, SendAssetNoteTemplate, TransactionRequest,
+        TransactionRequestBuilder,
+    };
     use crate::{
         rpc::domain::account::AccountStorageRequirements,
         transaction::{ForeignAccount, ForeignAccountInputs, SwapTransactionData},
@@ -503,8 +511,21 @@ mod tests {
                 .unwrap(),
             ])
             .with_own_output_notes(vec![
-                SendAssetNoteTemplate::P2ID(PaymentTransactionData::new(vec![Asset::Fungible(FungibleAsset::new(faucet_id,100).unwrap())],target_id,Some(123.into())), NoteType::Public),
-                SendAssetNoteTemplate::Swap(SwapTransactionData::new(Asset::Fungible(FungibleAsset::new(faucet_id,100).unwrap()), Asset::Fungible(FungibleAsset::new(faucet_id,100).unwrap())), NoteType::Public)
+                SendAssetNoteTemplate::P2ID(
+                    PaymentTransactionData::new(
+                        vec![Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap())],
+                        target_id,
+                        Some(123.into()),
+                    ),
+                    NoteType::Public,
+                ),
+                SendAssetNoteTemplate::Swap(
+                    SwapTransactionData::new(
+                        Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap()),
+                        Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap()),
+                    ),
+                    NoteType::Public,
+                ),
             ])
             .build()
             .unwrap();
