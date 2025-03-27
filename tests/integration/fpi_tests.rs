@@ -38,6 +38,7 @@ async fn test_standard_fpi_private() {
 #[tokio::test]
 async fn test_fpi_execute_program() {
     let (mut client, keystore) = create_test_client().await;
+    client.sync_state().await.unwrap();
 
     // Add a foreign account
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
