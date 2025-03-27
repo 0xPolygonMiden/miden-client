@@ -112,7 +112,7 @@ impl SqliteStore {
             block_has_relevant_notes,
             transactions_to_discard: mut discarded_transactions,
             tags_to_remove,
-            old_pending_transactions,
+            stale_transactions,
         } = state_sync_update;
 
         let tx = conn.transaction()?;
@@ -139,12 +139,12 @@ impl SqliteStore {
 
         // Delete accounts for old pending transactions
         let account_hashes_to_delete: Vec<Digest> =
-            old_pending_transactions.iter().map(|tx| tx.final_account_state).collect();
+            stale_transactions.iter().map(|tx| tx.final_account_state).collect();
 
         undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
-        discarded_transactions.extend(old_pending_transactions.iter().map(|tx| tx.id));
+        discarded_transactions.extend(stale_transactions.iter().map(|tx| tx.id));
 
         // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;

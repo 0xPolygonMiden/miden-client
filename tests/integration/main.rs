@@ -1662,7 +1662,7 @@ async fn test_unused_rpc_api() {
 }
 
 #[tokio::test]
-async fn test_old_pending_transactions_discarded() {
+async fn test_stale_transactions_discarded() {
     let (mut client, authenticator) = create_test_client().await;
     let (regular_account, _, faucet_account_header) =
         setup(&mut client, AccountStorageMode::Private, &authenticator).await;

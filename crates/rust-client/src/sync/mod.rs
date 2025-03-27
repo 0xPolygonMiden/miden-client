@@ -235,7 +235,11 @@ pub struct StateSyncUpdate {
     /// Tag records that are no longer relevant.
     pub tags_to_remove: Vec<NoteTagRecord>,
     /// Transactions that were pending before the sync and were not committed.
-    pub old_pending_transactions: Vec<TransactionRecord>,
+    ///
+    /// These transactions have been pending for more than [`TX_GRACEFUL_BLOCKS`] blocks and can be
+    /// assumed to have been rejected by the network. They will be marked as discarded in the
+    /// store.
+    pub stale_transactions: Vec<TransactionRecord>,
 }
 
 // CONSTANTS
@@ -372,12 +376,12 @@ impl<R: FeltRng> Client<R> {
         let graceful_block_num =
             response_block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
         // Retain old pending transactions
-        let mut old_pending_transactions: Vec<TransactionRecord> = self
+        let mut stale_transactions: Vec<TransactionRecord> = self
             .store
             .get_transactions(TransactionFilter::ExpiredBefore(graceful_block_num))
             .await?;
 
-        old_pending_transactions.retain(|tx| {
+        stale_transactions.retain(|tx| {
             !transactions_to_commit
                 .iter()
                 .map(|tx| tx.transaction_id)
@@ -399,7 +403,7 @@ impl<R: FeltRng> Client<R> {
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             transactions_to_discard,
             tags_to_remove,
-            old_pending_transactions,
+            stale_transactions,
         };
 
         // Apply received and computed updates to the store

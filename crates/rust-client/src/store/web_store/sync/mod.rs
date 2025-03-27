@@ -117,9 +117,9 @@ impl WebStore {
             block_has_relevant_notes,
             transactions_to_discard,
             tags_to_remove,
-            old_pending_transactions: _old_pending_transactions, /* TODO: Add support for
-                                                                  * discarded
-                                                                  * transactions in web store */
+            stale_transactions: _stale_transactions, /* TODO: Add support for
+                                                      * discarded
+                                                      * transactions in web store */
         } = state_sync_update;
 
         // Serialize data for updating state sync and block header
