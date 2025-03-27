@@ -2,7 +2,6 @@ extern crate alloc;
 use alloc::sync::Arc;
 use std::fmt::Write;
 
-use console_error_panic_hook::set_once;
 use miden_client::{
     Client,
     keystore::WebKeyStore,
@@ -43,7 +42,6 @@ impl Default for WebClient {
 impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        set_once();
         WebClient { inner: None, store: None, keystore: None }
     }
 
