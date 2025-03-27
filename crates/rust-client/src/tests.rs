@@ -29,19 +29,13 @@ use miden_objects::{
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
     },
-    transaction::OutputNote,
     vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rand::rngs::StdRng;
 
 use crate::{
-    Client, ClientError,
-    keystore::FilesystemKeyStore,
-    mock::create_test_client,
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
+    keystore::FilesystemKeyStore, mock::create_test_client, rpc::NodeRpcClient, store::{InputNoteRecord, NoteFilter, Store, StoreError}, transaction::{PaymentTransactionData, SendAssetNoteTemplate, TransactionRequestBuilder, TransactionRequestError}, Client, ClientError
 };
 
 async fn insert_new_wallet<R: FeltRng>(
@@ -437,7 +431,6 @@ async fn test_mint_transaction() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
-        client.rng(),
     )
     .unwrap()
     .build()
@@ -465,7 +458,6 @@ async fn test_get_output_notes() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
-        client.rng(),
     )
     .unwrap()
     .build()
@@ -528,7 +520,6 @@ async fn test_transaction_request_expiration() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
-        client.rng(),
     )
     .unwrap()
     .with_expiration_delta(5)
@@ -563,7 +554,6 @@ async fn test_import_processing_note_returns_error() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
         miden_objects::note::NoteType::Private,
-        client.rng(),
     )
     .unwrap()
     .build()
@@ -571,9 +561,10 @@ async fn test_import_processing_note_returns_error() {
 
     let transaction =
         client.new_transaction(faucet.id(), transaction_request.clone()).await.unwrap();
+    let note_id = transaction.executed_transaction().output_notes().get_note(0).id();
+    
     client.submit_transaction(transaction).await.unwrap();
 
-    let note_id = transaction_request.expected_output_notes().next().unwrap().id();
     let note = client.get_input_note(note_id).await.unwrap().unwrap();
 
     let input = [(note.try_into().unwrap(), None)];
@@ -662,11 +653,9 @@ async fn test_note_without_asset() {
             .unwrap();
     let vault = NoteAssets::new(vec![]).unwrap();
 
-    let note = Note::new(vault.clone(), metadata, recipient.clone());
-
     // Create and execute transaction
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .with_own_output_notes([SendAssetNoteTemplate::P2ID(PaymentTransactionData::new(vec![], wallet.id(), None), NoteType::Public)])
         .build()
         .unwrap();
 
@@ -681,7 +670,7 @@ async fn test_note_without_asset() {
     let note = Note::new(vault, metadata, recipient);
 
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![OutputNote::Full(note)])
+        .with_own_output_notes(vec![SendAssetNoteTemplate::P2ID(PaymentTransactionData::new(vec![], wallet.id(),None), NoteType::Public)])
         .build()
         .unwrap();
 
@@ -695,24 +684,19 @@ async fn test_note_without_asset() {
     ));
 
     let error = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(vec![], faucet.id(), wallet.id()),
+        vec![],  wallet.id(),
         None,
         NoteType::Public,
-        client.rng(),
     )
     .unwrap_err();
 
     assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
     let error = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(
             vec![Asset::Fungible(FungibleAsset::new(faucet.id(), 0).unwrap())],
-            faucet.id(),
             wallet.id(),
-        ),
         None,
         NoteType::Public,
-        client.rng(),
     )
     .unwrap_err();
 

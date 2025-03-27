@@ -2,7 +2,7 @@ use miden_client::{
     account::build_wallet_id,
     auth::AuthSecretKey,
     store::{InputNoteState, NoteFilter},
-    transaction::{PaymentTransactionData, TransactionRequestBuilder},
+    transaction::TransactionRequestBuilder,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -48,13 +48,12 @@ async fn test_onchain_notes_flow() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
-        client_1.rng(),
     )
     .unwrap()
     .build()
     .unwrap();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let tx = execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let note = tx.output_notes().get_note(0);
 
     // Client 2's account should receive the note here:
     client_2.sync_state().await.unwrap();
@@ -76,14 +75,10 @@ async fn test_onchain_notes_flow() {
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(
             vec![p2id_asset.into()],
-            basic_wallet_1.id(),
             basic_wallet_2.id(),
-        ),
         None,
         NoteType::Public,
-        client_2.rng(),
     )
     .unwrap()
     .build()
@@ -235,10 +230,9 @@ async fn test_onchain_accounts() {
 
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        vec![Asset::Fungible(asset)], to_account_id,
         None,
         NoteType::Public,
-        client_1.rng(),
     )
     .unwrap()
     .build()
@@ -317,13 +311,12 @@ async fn test_onchain_notes_sync_with_tag() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,
-        client_1.rng(),
     )
     .unwrap()
     .build()
     .unwrap();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let tx =execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let note = tx.output_notes().get_note(0);
 
     // Load tag into client 2
     client_2

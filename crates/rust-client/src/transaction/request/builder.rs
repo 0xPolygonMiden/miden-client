@@ -3,14 +3,22 @@ use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
 use miden_lib::note::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    account::AccountId, asset::{Asset, FungibleAsset}, block::BlockNumber, crypto::{
+    Digest, Felt, FieldElement, NoteError,
+    account::AccountId,
+    asset::{Asset, FungibleAsset},
+    block::BlockNumber,
+    crypto::{
         merkle::{InnerNodeInfo, MerkleStore},
         rand::FeltRng,
-    }, note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteRecipient, NoteTag, NoteType, PartialNote}, transaction::{OutputNote, TransactionScript}, vm::AdviceMap, Digest, Felt, FieldElement
+    },
+    note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteRecipient, NoteTag, NoteType},
+    transaction::TransactionScript,
+    vm::AdviceMap,
 };
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use super::{
-    ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
+    ForeignAccount, NoteArgs, SendAssetNoteTemplate, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
 
@@ -30,7 +38,7 @@ pub struct TransactionRequestBuilder {
     input_notes: BTreeMap<NoteId, Option<NoteArgs>>,
     /// Notes to be created by the transaction. This includes both full and partial output notes.
     /// The transaction script will be generated based on these notes.
-    own_output_notes: Vec<PaymentTransactionData>,
+    own_output_notes: Vec<SendAssetNoteTemplate>,
     /// A map of expected recipients for notes created by the transaction.
     expected_output_notes: BTreeMap<Digest, NoteRecipient>,
     /// A map of details and tags of notes we expect to be created as part of future transactions
@@ -105,7 +113,10 @@ impl TransactionRequestBuilder {
     /// If a transaction script template is already set (e.g. by calling `with_custom_script`), the
     /// [`TransactionRequestBuilder::build`] method will return an error.
     #[must_use]
-    pub fn with_own_output_notes(mut self, notes: impl IntoIterator<Item = PaymentTransactionData>) -> Self {
+    pub fn with_own_output_notes(
+        mut self,
+        notes: impl IntoIterator<Item = SendAssetNoteTemplate>,
+    ) -> Self {
         for note in notes {
             self.own_output_notes.push(note);
         }
@@ -231,11 +242,14 @@ impl TransactionRequestBuilder {
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
-    ) -> Result<Self, TransactionRequestError> {      
-        let payment_transaction_data = PaymentTransactionData::new(vec![Asset::Fungible(asset)], target_id);
+    ) -> Result<Self, TransactionRequestError> {
+        let payment_transaction_data =
+            PaymentTransactionData::new(vec![Asset::Fungible(asset)], target_id, None);
 
-        Ok(Self::new().with_own_output_notes(vec![payment_transaction_data]))
+        Ok(Self::new().with_own_output_notes(vec![SendAssetNoteTemplate::P2ID(
+            payment_transaction_data,
+            note_type,
+        )]))
     }
 
     /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a P2ID or P2IDR note.
@@ -253,7 +267,6 @@ impl TransactionRequestBuilder {
         target_account_id: AccountId,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
         if assets
             .iter()
@@ -262,42 +275,28 @@ impl TransactionRequestBuilder {
             return Err(TransactionRequestError::P2IDNoteWithoutAsset);
         }
 
-        let payment_data = PaymentTransactionData { assets, target_account_id  };
+        let payment_data = PaymentTransactionData::new(assets, target_account_id, recall_height);
 
-        Ok(Self::new().with_own_output_notes([payment_data]))
+        Ok(Self::new()
+            .with_own_output_notes([SendAssetNoteTemplate::P2ID(payment_data, note_type)]))
     }
 
     /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a SWAP note. This
     /// request must be executed against the wallet sender account.
     ///
-    /// - `swap_data` is the data for the swap transaction that contains the sender account ID, the
-    ///   offered asset, and the requested asset.
+    /// - `offered_asset`: Asset that is offered in the swap.
+    /// - `requested_asset`: Asset that is requested as part of the swap. Once the outgoing note is
+    ///   consumed, a payback note with this asset will be created.
     /// - `note_type` determines the visibility of the note to be created.
-    /// - `rng` is the random number generator used to generate the serial number for the created
-    ///   note.
     pub fn swap(
-        swap_data: &SwapTransactionData,
+        offered_asset: Asset,
+        requested_asset: Asset,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
-        // // The created note is the one that we need as the output of the tx, the other one is the
-        // // one that we expect to receive and consume eventually.
-        // let (created_note, payback_note_details) = create_swap_note(
-        //     swap_data.account_id(),
-        //     swap_data.offered_asset(),
-        //     swap_data.requested_asset(),
-        //     note_type,
-        //     Felt::ZERO,
-        //     rng,
-        // )?;
+        let swap_data = SwapTransactionData::new(offered_asset, requested_asset);
 
-        // let payback_tag =
-        //     NoteTag::from_account_id(swap_data.account_id(), NoteExecutionMode::Local)?;
-
-        // Ok(Self::new()
-        //     .extend_expected_future_notes(vec![(payback_note_details, payback_tag)])
-        //     .with_own_output_notes(vec![OutputNote::Full(created_note)]))
-        todo!()
+        Ok(Self::new()
+            .with_own_output_notes(vec![SendAssetNoteTemplate::Swap(swap_data, note_type)]))
     }
 
     // FINALIZE BUILDER
@@ -325,21 +324,7 @@ impl TransactionRequestBuilder {
 
                 Some(TransactionScriptTemplate::CustomScript(script))
             },
-            (None, false) => {
-                // let partial_notes = self
-                //     .own_output_notes
-                //     .into_iter()
-                //     .map(|note| match note {
-                //         OutputNote::Header(_) => Err(TransactionRequestError::InvalidNoteVariant),
-                //         OutputNote::Partial(note) => Ok(note),
-                //         OutputNote::Full(note) => Ok(note.into()),
-                //     })
-                //     .collect::<Result<Vec<PartialNote>, _>>()?;
-
-                // Some(TransactionScriptTemplate::SendNotes(partial_notes))
-
-                todo!()
-            },
+            (None, false) => Some(TransactionScriptTemplate::SendNotes(self.own_output_notes)),
             (None, true) => None,
         };
 
@@ -361,12 +346,14 @@ impl TransactionRequestBuilder {
 // ================================================================================================
 
 /// Contains information about a payment transaction.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PaymentTransactionData {
     /// Assets that are meant to be sent to the target account.
     assets: Vec<Asset>,
     /// Account ID of the receiver account.
     target_account_id: AccountId,
+    /// Determines at which block height the note could be recalled by the sender.
+    recall_height: Option<BlockNumber>,
 }
 
 impl PaymentTransactionData {
@@ -377,11 +364,9 @@ impl PaymentTransactionData {
     pub fn new(
         assets: Vec<Asset>,
         target_account_id: AccountId,
+        recall_height: Option<BlockNumber>,
     ) -> PaymentTransactionData {
-        PaymentTransactionData {
-            assets,
-            target_account_id,
-        }
+        PaymentTransactionData { assets, target_account_id, recall_height }
     }
 
     /// Returns the target [`AccountId`].
@@ -393,9 +378,64 @@ impl PaymentTransactionData {
     pub fn assets(&self) -> &Vec<Asset> {
         &self.assets
     }
+
+    pub fn recall_height(&self) -> Option<BlockNumber> {
+        self.recall_height
+    }
+
+    pub(crate) fn get_note(
+        &self,
+        account_id: AccountId,
+        note_type: NoteType,
+        rng: &mut impl FeltRng,
+    ) -> Result<Note, NoteError> {
+        if let Some(recall_block_number) = self.recall_height {
+            create_p2idr_note(
+                account_id,
+                self.target_account_id,
+                self.assets().clone(),
+                note_type,
+                Felt::ZERO,
+                recall_block_number,
+                rng,
+            )
+        } else {
+            create_p2id_note(
+                account_id,
+                self.target_account_id,
+                self.assets().clone(),
+                note_type,
+                Felt::ZERO,
+                rng,
+            )
+        }
+    }
 }
 
 // SWAP TRANSACTION DATA
+// ================================================================================================
+
+impl Serializable for PaymentTransactionData {
+    fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
+        target.write(self.assets());
+        target.write(self.target_account_id());
+        target.write(self.recall_height);
+    }
+}
+
+impl Deserializable for PaymentTransactionData {
+    fn read_from<R: miden_tx::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, miden_tx::utils::DeserializationError> {
+        let assets: Vec<Asset> = source.read()?;
+        let target_account_id: AccountId = source.read()?;
+        let recall_height: Option<BlockNumber> = source.read()?;
+
+        Ok(PaymentTransactionData { assets, target_account_id, recall_height })
+    }
+}
+
+// SERIALIZATION
 // ================================================================================================
 
 /// Contains information related to a swap transaction.
@@ -403,10 +443,8 @@ impl PaymentTransactionData {
 /// A swap transaction involves creating a SWAP note, which will carry the offered asset and which,
 /// when consumed, will create a payback note that carries the requested asset taken from the
 /// consumer account's vault.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwapTransactionData {
-    /// Account ID of the sender account.
-    sender_account_id: AccountId,
     /// Asset that is offered in the swap.
     offered_asset: Asset,
     /// Asset that is expected in the payback note generated as a result of the swap.
@@ -418,21 +456,8 @@ impl SwapTransactionData {
     // --------------------------------------------------------------------------------------------
 
     /// Creates a new [`SwapTransactionData`].
-    pub fn new(
-        sender_account_id: AccountId,
-        offered_asset: Asset,
-        requested_asset: Asset,
-    ) -> SwapTransactionData {
-        SwapTransactionData {
-            sender_account_id,
-            offered_asset,
-            requested_asset,
-        }
-    }
-
-    /// Returns the executor [`AccountId`].
-    pub fn account_id(&self) -> AccountId {
-        self.sender_account_id
+    pub fn new(offered_asset: Asset, requested_asset: Asset) -> SwapTransactionData {
+        SwapTransactionData { offered_asset, requested_asset }
     }
 
     /// Returns the transaction offered [`Asset`].
@@ -443,5 +468,41 @@ impl SwapTransactionData {
     /// Returns the transaction requested [`Asset`].
     pub fn requested_asset(&self) -> Asset {
         self.requested_asset
+    }
+
+    /// Returns the swap note and the future payback note.
+    pub fn get_note(
+        &self,
+        account_id: AccountId,
+        note_type: NoteType,
+        rng: &mut impl FeltRng,
+    ) -> Result<(Note, NoteDetails, NoteTag), NoteError> {
+        let (created_note, payback_note_details) = create_swap_note(
+            account_id,
+            self.offered_asset,
+            self.requested_asset,
+            note_type,
+            Felt::ZERO,
+            rng,
+        )?;
+
+        let payback_tag = NoteTag::from_account_id(account_id, NoteExecutionMode::Local)?;
+
+        Ok((created_note, payback_note_details, payback_tag))
+    }
+}
+
+impl Serializable for SwapTransactionData {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        self.offered_asset.write_into(target);
+        self.requested_asset.write_into(target);
+    }
+}
+
+impl Deserializable for SwapTransactionData {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let offered_asset = Asset::read_from(source)?;
+        let requested_asset = Asset::read_from(source)?;
+        Ok(SwapTransactionData { offered_asset, requested_asset })
     }
 }

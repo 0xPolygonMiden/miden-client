@@ -1,30 +1,19 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    Client, ClientError, Word,
     account::{
-        AccountBuilder, AccountType,
-        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
-    },
-    auth::AuthSecretKey,
-    crypto::FeltRng,
-    keystore::FilesystemKeyStore,
-    note::create_p2id_note,
-    rpc::{Endpoint, RpcError, TonicRpcClient},
-    store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
-    sync::SyncSummary,
-    testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
-    transaction::{
-        DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
-    },
+        component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512}, AccountBuilder, AccountType
+    }, auth::AuthSecretKey, crypto::FeltRng, keystore::FilesystemKeyStore, rpc::{Endpoint, RpcError, TonicRpcClient}, store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter}, sync::SyncSummary, testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE, transaction::{
+        DataStoreError, ExecutedTransaction, PaymentTransactionData, SendAssetNoteTemplate, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder
+    }, Client, ClientError, Word
 };
 use miden_objects::{
-    Felt, FieldElement,
+    Felt,
     account::{Account, AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     note::{NoteId, NoteType},
-    transaction::{InputNote, OutputNote, TransactionId},
+    transaction::{InputNote, TransactionId},
 };
 use rand::{Rng, rngs::StdRng};
 use toml::Table;
@@ -185,29 +174,32 @@ pub async fn execute_failing_tx(
     );
 }
 
+/// Executes transaction, submits it to the node and returns the [`ExecutedTransaction`]
 pub async fn execute_tx(
     client: &mut TestClient,
     account_id: AccountId,
     tx_request: TransactionRequest,
-) -> TransactionId {
+) -> ExecutedTransaction {
     println!("Executing transaction...");
     let transaction_execution_result =
         client.new_transaction(account_id, tx_request).await.unwrap();
-    let transaction_id = transaction_execution_result.executed_transaction().id();
+    let transaction = transaction_execution_result.executed_transaction().clone();
 
     println!("Sending transaction to node");
     client.submit_transaction(transaction_execution_result).await.unwrap();
 
-    transaction_id
+    transaction
 }
 
 pub async fn execute_tx_and_sync(
     client: &mut TestClient,
     account_id: AccountId,
     tx_request: TransactionRequest,
-) {
-    let transaction_id = execute_tx(client, account_id, tx_request).await;
-    wait_for_tx(client, transaction_id).await;
+) -> ExecutedTransaction {
+    let executed_transaction = execute_tx(client, account_id, tx_request).await;
+    wait_for_tx(client, executed_transaction.id()).await;
+    
+    executed_transaction
 }
 
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
@@ -324,22 +316,19 @@ pub async fn mint_note(
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        fungible_asset,
-        basic_account_id,
-        note_type,
-        client.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
-    execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
+    let tx_request =
+        TransactionRequestBuilder::mint_fungible_asset(fungible_asset, basic_account_id, note_type)
+            .unwrap()
+            .build()
+            .unwrap();
+    _ = execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
-    let note_id = tx_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).await.unwrap().unwrap();
-    note.try_into().unwrap()
+    let committed_notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert_eq!(committed_notes.len(), 1);
+
+    committed_notes.iter().next().unwrap().clone().try_into().unwrap()
 }
 
 /// Consumes and wait until the transaction gets committed.
@@ -354,7 +343,7 @@ pub async fn consume_notes(
         TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
             .build()
             .unwrap();
-    execute_tx_and_sync(client, account_id, tx_request).await;
+    _ = execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
 pub async fn assert_account_has_single_asset(
@@ -403,24 +392,16 @@ pub fn mint_multiple_fungible_asset(
     asset: FungibleAsset,
     target_id: Vec<AccountId>,
     note_type: NoteType,
-    rng: &mut impl FeltRng,
 ) -> TransactionRequest {
     let notes = target_id
         .iter()
         .map(|account_id| {
-            OutputNote::Full(
-                create_p2id_note(
-                    asset.faucet_id(),
-                    *account_id,
-                    vec![asset.into()],
-                    note_type,
-                    Felt::ZERO,
-                    rng,
-                )
-                .unwrap(),
+            SendAssetNoteTemplate::P2ID(
+                PaymentTransactionData::new(vec![Asset::Fungible(asset)], *account_id, None),
+                note_type,
             )
         })
-        .collect::<Vec<OutputNote>>();
+        .collect::<Vec<SendAssetNoteTemplate>>();
 
     TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
 }

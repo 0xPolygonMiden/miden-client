@@ -5,8 +5,10 @@ use alloc::{
 
 use miden_lib::account::interface::AccountInterfaceError;
 use miden_objects::{
-    AccountError, AssetError, Digest, NoteError, TransactionScriptError, account::AccountId,
-    crypto::merkle::MerkleError, note::NoteId,
+    AccountError, AssetError, Digest, NoteError, TransactionScriptError,
+    account::AccountId,
+    crypto::merkle::MerkleError,
+    note::{NoteId, NoteRecipient},
 };
 // RE-EXPORTS
 // ================================================================================================
@@ -56,8 +58,10 @@ pub enum ClientError {
     AddNewAccountWithoutSeed,
     #[error("error with merkle path")]
     MerkleError(#[from] MerkleError),
-    #[error("the transaction didn't produce the expected notes corresponding to note ids")]
-    MissingOutputNotes(Vec<NoteId>),
+    #[error(
+        "the transaction didn't produce notes with these expected output note recipients: {0:?}"
+    )]
+    MissingOutputNotes(Vec<NoteRecipient>),
     #[error("note error")]
     NoteError(#[from] NoteError),
     #[error("note import error: {0}")]
