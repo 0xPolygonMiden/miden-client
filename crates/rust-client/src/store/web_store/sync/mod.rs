@@ -4,6 +4,7 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
@@ -115,11 +116,9 @@ impl WebStore {
             new_authentication_nodes,
             updated_accounts,
             block_has_relevant_notes,
-            transactions_to_discard,
+            mut transactions_to_discard,
             tags_to_remove,
-            stale_transactions: _stale_transactions, /* TODO: Add support for
-                                                      * discarded
-                                                      * transactions in web store */
+            stale_transactions,
         } = state_sync_update;
 
         // Serialize data for updating state sync and block header
@@ -154,6 +153,11 @@ impl WebStore {
             })
             .collect();
 
+        let account_hashes_to_delete: Vec<Digest> =
+            stale_transactions.iter().map(|tx| tx.final_account_state).collect();
+
+        self.undo_account_states(&account_hashes_to_delete).await?;
+
         // Serialize data for updating committed transactions
         let transactions_to_commit_block_nums_as_str = committed_transactions
             .iter()
@@ -163,6 +167,9 @@ impl WebStore {
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
+
+        transactions_to_discard.extend(stale_transactions.iter().map(|tx| tx.id));
+
         let transactions_to_discard_as_str: Vec<String> =
             transactions_to_discard.iter().map(TransactionId::to_string).collect();
 
