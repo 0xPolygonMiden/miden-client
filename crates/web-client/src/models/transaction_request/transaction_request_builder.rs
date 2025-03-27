@@ -1,12 +1,12 @@
 use miden_client::transaction::{
-    NoteArgs as NativeNoteArgs, TransactionRequestBuilder as NativeTransactionRequestBuilder,
+    NoteArgs as NativeNoteArgs, OutputNote, OwnNoteTemplate, TransactionRequestBuilder as NativeTransactionRequestBuilder
 };
 use miden_objects::{
     note::{
         Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId,
         NoteTag as NativeNoteTag,
     },
-    transaction::{OutputNote as NativeOutputNote, TransactionScript as NativeTransactionScript},
+    transaction::TransactionScript as NativeTransactionScript,
     vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
@@ -16,8 +16,7 @@ use crate::models::{
     note::NotesArray,
     output_note::OutputNotesArray,
     transaction_request::{
-        TransactionRequest, note_and_args::NoteAndArgsArray,
-        note_details_and_tag::NoteDetailsAndTagArray, note_id_and_args::NoteIdAndArgsArray,
+        note_and_args::NoteAndArgsArray, note_details_and_tag::NoteDetailsAndTagArray, note_id_and_args::NoteIdAndArgsArray, TransactionRequest
     },
     transaction_script::TransactionScript,
 };
@@ -51,8 +50,11 @@ impl TransactionRequestBuilder {
 
     #[wasm_bindgen(js_name = "withOwnOutputNotes")]
     pub fn with_own_output_notes(mut self, notes: &OutputNotesArray) -> Self {
-        let native_output_notes: Vec<NativeOutputNote> = notes.into();
-        self.0 = self.0.clone().extend_own_output_notes(native_output_notes);
+        let native_output_notes: Vec<OutputNote> = notes.into();
+        self.0 = self.0.clone().extend_own_output_notes(native_output_notes.iter().filter_map(|n| match n {
+            OutputNote::Full(note) => Some(OwnNoteTemplate::Note(note.clone())),
+            OutputNote::Partial(_) | OutputNote::Header(_)  => None,
+        }));
         self
     }
 
@@ -66,7 +68,7 @@ impl TransactionRequestBuilder {
     #[wasm_bindgen(js_name = "withExpectedOutputNotes")]
     pub fn with_expected_output_notes(mut self, notes: &NotesArray) -> Self {
         let native_notes: Vec<NativeNote> = notes.into();
-        let native_output_notes = native_notes.into_iter().map(NativeOutputNote::Full);
+        let native_output_notes = native_notes.into_iter().map(|n| n.recipient().clone());
         // TODO: Change this API into accepting OutputNotes instead of a list of Notes
         self.0 = self.0.clone().extend_expected_output_notes(native_output_notes);
         self

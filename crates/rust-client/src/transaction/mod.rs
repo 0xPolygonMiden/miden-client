@@ -116,7 +116,7 @@ pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use request::{
     ForeignAccount, ForeignAccountInputs, NoteArgs, OwnNoteTemplate, PaymentNoteDescription,
     SwapNoteDescription, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
-    TransactionScriptTemplate,
+    TransactionScriptTemplate
 };
 
 // TRANSACTION RESULT

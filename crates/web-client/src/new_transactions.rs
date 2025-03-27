@@ -1,7 +1,6 @@
 use miden_client::{
     note::BlockNumber,
     transaction::{
-        PaymentNoteDescription, SwapNoteDescription,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
@@ -107,7 +106,6 @@ impl WebClient {
     #[wasm_bindgen(js_name = "newSendTransactionRequest")]
     pub fn new_send_transaction_request(
         &mut self,
-        sender_account_id: &AccountId,
         target_account_id: &AccountId,
         faucet_id: &AccountId,
         note_type: &NoteType,
@@ -117,23 +115,15 @@ impl WebClient {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
             .map_err(|err| js_error_with_context(err, "failed to create fungible asset"))?;
 
-        let payment_transaction = PaymentNoteDescription::new(
-            vec![fungible_asset.into()],
-            sender_account_id.into(),
-            target_account_id.into(),
-        )
-        .map_err(|err| js_error_with_context(err, "failed to create p2id note description"))?;
-
         let send_transaction_request = {
             let client = self.get_mut_inner().ok_or_else(|| {
                 JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-            if let Some(recall_height) = recall_height {
                 NativeTransactionRequestBuilder::pay_to_id(
-                    payment_transaction,
-                    target_account_id,
-                    Some(BlockNumber::from(recall_height)),
+                    vec![fungible_asset.into()],
+                    target_account_id.into(),
+                    recall_height.map(BlockNumber::from),
                     note_type.into(),
                     client.rng(),
                 )
@@ -144,19 +134,6 @@ impl WebClient {
                         "failed to create send transaction request with recall height",
                     )
                 })?
-            } else {
-                NativeTransactionRequestBuilder::pay_to_id(
-                    payment_transaction,
-                    target_account_id,
-                    None,
-                    note_type.into(),
-                    client.rng(),
-                )
-                .and_then(NativeTransactionRequestBuilder::build)
-                .map_err(|err| {
-                    js_error_with_context(err, "failed to create send transaction request")
-                })?
-            }
         };
 
         Ok(send_transaction_request.into())
@@ -216,19 +193,14 @@ impl WebClient {
                 .map_err(|err| err.to_string())?
                 .into();
 
-        let swap_transaction = SwapNoteDescription::new(
-            sender_account_id,
-            offered_fungible_asset,
-            requested_fungible_asset,
-        );
-
         // TODO: Leaving this alone for now because new_swap_transaction needs a rework anyway
         self.fetch_and_cache_account_auth_by_account_id(&sender_account_id.into())
             .await?;
 
         if let Some(client) = self.get_mut_inner() {
             let swap_transaction_request = NativeTransactionRequestBuilder::swap(
-                &swap_transaction,
+                offered_fungible_asset,
+                requested_fungible_asset,
                 note_type.into(),
                 client.rng(),
             )
@@ -246,8 +218,10 @@ impl WebClient {
                 })?;
             let mut result = NewSwapTransactionResult::new(
                 swap_transaction_execution_result.executed_transaction().id().to_string(),
-                swap_transaction_request
-                    .expected_output_notes()
+                swap_transaction_execution_result
+                    .executed_transaction()
+                    .output_notes()
+                    .iter()
                     .map(|note| note.id().to_string())
                     .collect(),
                 swap_transaction_request
@@ -264,8 +238,8 @@ impl WebClient {
 
             let payback_note_tag_u32: u32 = build_swap_tag(
                 note_type.into(),
-                &swap_transaction.offered_asset(),
-                &swap_transaction.requested_asset(),
+                &offered_fungible_asset,
+                &requested_fungible_asset,
             )
             .map_err(|err| err.to_string())?
             .into();
