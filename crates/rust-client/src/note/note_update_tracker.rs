@@ -18,10 +18,11 @@ use crate::{
 // NOTE UPDATE TRACKER
 // ================================================================================================
 
-/// Contains note changes to apply to the store. This includes new notes that have been created
-/// and existing notes that have been updated. The tracker also lets state changes be applied
-/// to the notes contained, this allows for already updated notes to be further updated as new
-/// information is received.
+/// Contains note changes to apply to the store.
+///
+/// This includes new notes that have been created and existing notes that have been updated. The
+/// tracker also lets state changes be applied to the contained notes, this allows for already
+/// updated notes to be further updated as new information is received.
 #[derive(Clone, Debug, Default)]
 pub struct NoteUpdateTracker {
     /// A map of new and updated input note records to be upserted in the store.
@@ -52,6 +53,7 @@ impl NoteUpdateTracker {
     // --------------------------------------------------------------------------------------------
 
     /// Returns all input note records that have been updated.
+    ///
     /// This may include:
     /// - New notes that have been created that should be inserted.
     /// - Existing tracked notes that should be updated.
@@ -60,6 +62,7 @@ impl NoteUpdateTracker {
     }
 
     /// Returns all output note records that have been updated.
+    ///
     /// This may include:
     /// - New notes that have been created that should be inserted.
     /// - Existing tracked notes that should be updated.
@@ -73,6 +76,7 @@ impl NoteUpdateTracker {
     }
 
     /// Returns the tags of all notes that need to be removed from the store after the state sync.
+    ///
     /// These are the tags of notes that have been committed and no longer need to be tracked.
     pub fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
         self.updated_input_notes
@@ -89,8 +93,9 @@ impl NoteUpdateTracker {
     // UPDATE METHODS
     // --------------------------------------------------------------------------------------------
 
-    /// Inserts new or updated input and output notes. If an update with the same note ID already
-    /// exists, it will be replaced.
+    /// Inserts new or updated input and output notes.
+    ///
+    /// If an update with the same note ID already exists, it will be replaced.
     pub(crate) fn insert_updates(
         &mut self,
         input_note: Option<InputNoteRecord>,
@@ -133,7 +138,9 @@ impl NoteUpdateTracker {
     }
 
     /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
-    /// nullified in a block. For input note records two possible scenarios are considered:
+    /// nullified in a block.
+    ///
+    /// For input note records two possible scenarios are considered:
     /// 1. The note was being processed by a local transaction that just got committed.
     /// 2. The note was consumed by an external transaction. If a local transaction was processing
     ///    the note and it didn't get committed, the transaction should be discarded.

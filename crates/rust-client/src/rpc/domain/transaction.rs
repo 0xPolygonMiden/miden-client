@@ -41,6 +41,6 @@ pub struct TransactionUpdate {
     pub transaction_id: TransactionId,
     /// The number of the block in which the transaction was included.
     pub block_num: u32,
-    /// The account that the transcation was executed against.
+    /// The account that the transaction was executed against.
     pub account_id: AccountId,
 }
