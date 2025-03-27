@@ -1,7 +1,7 @@
 use miden_client::{
     note::BlockNumber,
     transaction::{
-        PaymentTransactionData, SwapTransactionData,
+        PaymentNoteDescription, SwapNoteDescription,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
         TransactionResult as NativeTransactionResult,
     },
@@ -117,11 +117,12 @@ impl WebClient {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
             .map_err(|err| js_error_with_context(err, "failed to create fungible asset"))?;
 
-        let payment_transaction = PaymentTransactionData::new(
+        let payment_transaction = PaymentNoteDescription::new(
             vec![fungible_asset.into()],
             sender_account_id.into(),
             target_account_id.into(),
-        );
+        )
+        .map_err(|err| js_error_with_context(err, "failed to create p2id note description"))?;
 
         let send_transaction_request = {
             let client = self.get_mut_inner().ok_or_else(|| {
@@ -213,7 +214,7 @@ impl WebClient {
                 .map_err(|err| err.to_string())?
                 .into();
 
-        let swap_transaction = SwapTransactionData::new(
+        let swap_transaction = SwapNoteDescription::new(
             sender_account_id,
             offered_fungible_asset,
             requested_fungible_asset,

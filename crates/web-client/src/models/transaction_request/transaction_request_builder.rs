@@ -52,7 +52,7 @@ impl TransactionRequestBuilder {
     #[wasm_bindgen(js_name = "withOwnOutputNotes")]
     pub fn with_own_output_notes(mut self, notes: &OutputNotesArray) -> Self {
         let native_output_notes: Vec<NativeOutputNote> = notes.into();
-        self.0 = self.0.clone().with_own_output_notes(native_output_notes);
+        self.0 = self.0.clone().extend_own_output_notes(native_output_notes);
         self
     }
 

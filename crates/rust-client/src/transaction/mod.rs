@@ -114,8 +114,8 @@ pub use miden_objects::transaction::{
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use request::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, PaymentTransactionData, SendAssetNoteTemplate,
-    SwapTransactionData, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
+    ForeignAccount, ForeignAccountInputs, NoteArgs, OwnNoteTemplate, PaymentNoteDescription,
+    SwapNoteDescription, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
     TransactionScriptTemplate,
 };
 
@@ -182,13 +182,18 @@ impl TransactionResult {
         Ok(tx_result)
     }
 
+    /// Returns the [`TransactionId`].
+    pub fn id(&self) -> TransactionId {
+        self.transaction.id()
+    }
+
     /// Returns the [`ExecutedTransaction`].
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
         &self.transaction
     }
 
     /// Returns the output notes that were generated as a result of the transaction execution.
-    pub fn created_notes(&self) -> &OutputNotes {
+    pub fn output_notes(&self) -> &OutputNotes {
         self.transaction.output_notes()
     }
 
@@ -448,7 +453,7 @@ impl<R: FeltRng> Client<R> {
         {
             let own_future_notes = send_notes_template
                 .iter()
-                .map(|note_template| note_template.get_future_notes(account_id, self.rng()))
+                .map(|note_template| note_template.get_future_notes(account_id))
                 .collect::<Result<Vec<Option<(NoteDetails, NoteTag)>>, NoteError>>()?
                 .into_iter()
                 .flatten();
@@ -459,11 +464,10 @@ impl<R: FeltRng> Client<R> {
         let tx_script = transaction_request.build_transaction_script(
             &self.get_account_interface(account_id).await?,
             self.in_debug_mode,
-            self.rng(),
         )?;
 
         let foreign_accounts = transaction_request.foreign_accounts().clone();
-        let mut tx_args = transaction_request.into_transaction_args(tx_script);
+        let mut tx_args = transaction_request.into_transaction_args(account_id, tx_script);
 
         // Inject state and code of foreign accounts
         let fpi_block_num =
@@ -602,7 +606,7 @@ impl<R: FeltRng> Client<R> {
 
         // Save all output notes
         let created_output_notes = tx_result
-            .created_notes()
+            .output_notes()
             .iter()
             .cloned()
             .filter_map(|output_note| {
@@ -1099,6 +1103,7 @@ mod test {
             ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
             None,
             NoteType::Private,
+            client.rng(),
         )
         .unwrap()
         .build()
@@ -1107,7 +1112,7 @@ mod test {
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(
             tx_result
-                .created_notes()
+                .output_notes()
                 .get_note(0)
                 .assets()
                 .is_some_and(|assets| assets.num_assets() == 2)

@@ -8,21 +8,17 @@ use miden_lib::{
         auth::RpoFalcon512, faucets::BasicFungibleFaucet, interface::AccountInterfaceError,
         wallets::BasicWallet,
     },
-    note::utils,
     transaction::TransactionKernel,
 };
 use miden_objects::{
-    Felt, FieldElement, Word, ZERO,
+    Felt, FieldElement, Word,
     account::{
         Account, AccountBuilder, AccountCode, AccountHeader, AccountId, AccountStorageMode,
         AccountType, AuthSecretKey,
     },
     asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
-    note::{
-        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
-        NoteType,
-    },
+    note::{NoteFile, NoteTag, NoteType},
     testing::account_id::{
         ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1, ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2,
         ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
@@ -41,8 +37,7 @@ use crate::{
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, Store, StoreError},
     transaction::{
-        PaymentTransactionData, SendAssetNoteTemplate, TransactionRequestBuilder,
-        TransactionRequestError,
+        OwnNoteTemplate, PaymentNoteDescription, TransactionRequestBuilder, TransactionRequestError,
     },
 };
 
@@ -439,6 +434,7 @@ async fn test_mint_transaction() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
+        client.rng(),
     )
     .unwrap()
     .build()
@@ -466,6 +462,7 @@ async fn test_get_output_notes() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
+        client.rng(),
     )
     .unwrap()
     .build()
@@ -528,6 +525,7 @@ async fn test_transaction_request_expiration() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
+        client.rng(),
     )
     .unwrap()
     .with_expiration_delta(5)
@@ -562,6 +560,7 @@ async fn test_import_processing_note_returns_error() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
         miden_objects::note::NoteType::Private,
+        client.rng(),
     )
     .unwrap()
     .build()
@@ -652,19 +651,10 @@ async fn test_note_without_asset() {
 
     client.sync_state().await.unwrap();
 
-    // Create note without assets
-    let serial_num = client.rng().draw_word();
-    let recipient = utils::build_p2id_recipient(wallet.id(), serial_num).unwrap();
-    let tag = NoteTag::from_account_id(wallet.id(), NoteExecutionMode::Local).unwrap();
-    let metadata =
-        NoteMetadata::new(wallet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
-            .unwrap();
-    let vault = NoteAssets::new(vec![]).unwrap();
-
     // Create and execute transaction
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes([SendAssetNoteTemplate::P2ID(
-            PaymentTransactionData::new(vec![], wallet.id(), None),
+        .extend_own_output_notes([OwnNoteTemplate::P2ID(
+            PaymentNoteDescription::new(vec![], wallet.id(), None, client.rng()).unwrap(),
             NoteType::Public,
         )])
         .build()
@@ -674,15 +664,9 @@ async fn test_note_without_asset() {
 
     assert!(transaction.is_ok());
 
-    // Create the same transaction for the faucet
-    let metadata =
-        NoteMetadata::new(faucet.id(), NoteType::Private, tag, NoteExecutionHint::always(), ZERO)
-            .unwrap();
-    let note = Note::new(vault, metadata, recipient);
-
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![SendAssetNoteTemplate::P2ID(
-            PaymentTransactionData::new(vec![], wallet.id(), None),
+        .extend_own_output_notes(vec![OwnNoteTemplate::P2ID(
+            PaymentNoteDescription::new(vec![], wallet.id(), None, client.rng()).unwrap(),
             NoteType::Public,
         )])
         .build()
@@ -697,8 +681,14 @@ async fn test_note_without_asset() {
         ))
     ));
 
-    let error = TransactionRequestBuilder::pay_to_id(vec![], wallet.id(), None, NoteType::Public)
-        .unwrap_err();
+    let error = TransactionRequestBuilder::pay_to_id(
+        vec![],
+        wallet.id(),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap_err();
 
     assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
@@ -707,6 +697,7 @@ async fn test_note_without_asset() {
         wallet.id(),
         None,
         NoteType::Public,
+        client.rng(),
     )
     .unwrap_err();
 

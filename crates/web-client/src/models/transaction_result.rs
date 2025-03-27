@@ -22,7 +22,7 @@ impl TransactionResult {
 
     #[wasm_bindgen(js_name = "createdNotes")]
     pub fn created_notes(&self) -> OutputNotes {
-        self.0.created_notes().into()
+        self.0.output_notes().into()
     }
 
     // TODO: relevant_notes

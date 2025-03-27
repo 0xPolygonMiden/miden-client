@@ -14,8 +14,8 @@ use miden_client::{
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     transaction::{
-        DataStoreError, ExecutedTransaction, PaymentTransactionData, SendAssetNoteTemplate,
-        TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
+        DataStoreError, OwnNoteTemplate, PaymentNoteDescription, TransactionExecutorError,
+        TransactionRequest, TransactionRequestBuilder, TransactionResult, TransactionStatus,
     },
 };
 use miden_objects::{
@@ -190,27 +190,26 @@ pub async fn execute_tx(
     client: &mut TestClient,
     account_id: AccountId,
     tx_request: TransactionRequest,
-) -> ExecutedTransaction {
+) -> TransactionResult {
     println!("Executing transaction...");
     let transaction_execution_result =
         client.new_transaction(account_id, tx_request).await.unwrap();
-    let transaction = transaction_execution_result.executed_transaction().clone();
 
     println!("Sending transaction to node");
-    client.submit_transaction(transaction_execution_result).await.unwrap();
+    client.submit_transaction(transaction_execution_result.clone()).await.unwrap();
 
-    transaction
+    transaction_execution_result
 }
 
 pub async fn execute_tx_and_sync(
     client: &mut TestClient,
     account_id: AccountId,
     tx_request: TransactionRequest,
-) -> ExecutedTransaction {
-    let executed_transaction = execute_tx(client, account_id, tx_request).await;
-    wait_for_tx(client, executed_transaction.id()).await;
+) -> TransactionResult {
+    let tx_result = execute_tx(client, account_id, tx_request).await;
+    wait_for_tx(client, tx_result.id()).await;
 
-    executed_transaction
+    tx_result
 }
 
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
@@ -329,20 +328,25 @@ pub async fn mint_note(
 ) -> InputNote {
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    println!("Minting Asset");
-    let tx_request =
-        TransactionRequestBuilder::mint_fungible_asset(fungible_asset, basic_account_id, note_type)
-            .unwrap()
-            .build()
-            .unwrap();
-    _ = execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
+    println!("Minting Asset...");
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        fungible_asset,
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    let tx = execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
-    let committed_notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
-    assert_eq!(committed_notes.len(), 1);
+    let note_id = tx.output_notes().get_note(0).id();
+    let committed_note = &client.get_input_notes(NoteFilter::Unique(note_id)).await.unwrap()[0];
+    assert!(committed_note.is_committed() && committed_note.is_authenticated());
 
-    committed_notes.iter().next().unwrap().clone().try_into().unwrap()
+    committed_note.clone().try_into().unwrap()
 }
 
 /// Consumes and wait until the transaction gets committed.
@@ -406,16 +410,18 @@ pub fn mint_multiple_fungible_asset(
     asset: FungibleAsset,
     target_id: Vec<AccountId>,
     note_type: NoteType,
+    rng: &mut impl FeltRng,
 ) -> TransactionRequest {
     let notes = target_id
         .iter()
         .map(|account_id| {
-            SendAssetNoteTemplate::P2ID(
-                PaymentTransactionData::new(vec![Asset::Fungible(asset)], *account_id, None),
+            OwnNoteTemplate::P2ID(
+                PaymentNoteDescription::new(vec![Asset::Fungible(asset)], *account_id, None, rng)
+                    .unwrap(),
                 note_type,
             )
         })
-        .collect::<Vec<SendAssetNoteTemplate>>();
+        .collect::<Vec<OwnNoteTemplate>>();
 
-    TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
+    TransactionRequestBuilder::new().extend_own_output_notes(notes).build().unwrap()
 }

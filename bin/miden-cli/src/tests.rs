@@ -14,15 +14,13 @@ use miden_client::{
     account::{AccountId, AccountStorageMode},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
-        NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
+        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteInputs, NoteMetadata,
         NoteRecipient, NoteTag, NoteType,
     },
     rpc::{Endpoint, TonicRpcClient},
     store::sqlite_store::SqliteStore,
     testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
-    transaction::{
-        OutputNote, PaymentTransactionData, SendAssetNoteTemplate, TransactionRequestBuilder,
-    },
+    transaction::{OutputNote, OwnNoteTemplate, TransactionRequestBuilder},
     utils::Serializable,
 };
 use miden_client_tests::common::{
@@ -416,22 +414,20 @@ async fn debug_mode_outputs_logs() {
     .unwrap();
     let note_assets = NoteAssets::new(vec![]).unwrap();
     let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
-    let note = SendAssetNoteTemplate::P2ID(
-        PaymentTransactionData::new(vec![], account.id(), None),
-        NoteType::Private,
-    );
+    let note = Note::new(note_assets, note_metadata, note_recipient);
+
+    let note = OwnNoteTemplate::Note(note);
 
     // Send transaction and wait for it to be committed
     client.sync_state().await.unwrap();
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![note])
+        .extend_own_output_notes(vec![note])
         .build()
         .unwrap();
     let tx = execute_tx_and_sync(&mut client, account.id(), transaction_request).await;
 
-    let note = match tx.output_notes().get_note(0) {
-        OutputNote::Full(note) => note,
-        _ => panic!(),
+    let OutputNote::Full(note) = tx.output_notes().get_note(0) else {
+        panic!()
     };
 
     // Export the note

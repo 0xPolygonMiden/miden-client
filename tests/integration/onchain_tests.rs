@@ -48,6 +48,7 @@ async fn test_onchain_notes_flow() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap()
     .build()
@@ -79,6 +80,7 @@ async fn test_onchain_notes_flow() {
         basic_wallet_2.id(),
         None,
         NoteType::Public,
+        client_2.rng(),
     )
     .unwrap()
     .build()
@@ -234,6 +236,7 @@ async fn test_onchain_accounts() {
         to_account_id,
         None,
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap()
     .build()
@@ -312,6 +315,7 @@ async fn test_onchain_notes_sync_with_tag() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap()
     .build()

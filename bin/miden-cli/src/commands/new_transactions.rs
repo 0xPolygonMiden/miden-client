@@ -73,6 +73,7 @@ impl MintCmd {
             fungible_asset,
             target_account_id,
             (&self.note_type).into(),
+            client.rng(),
         )
         .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
@@ -140,6 +141,7 @@ impl SendCmd {
             target_account_id,
             self.recall_height.map(BlockNumber::from),
             (&self.note_type).into(),
+            client.rng(),
         )
         .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
@@ -203,6 +205,7 @@ impl SwapCmd {
             offered_fungible_asset.into(),
             requested_fungible_asset.into(),
             (&self.note_type).into(),
+            client.rng(),
         )
         .and_then(TransactionRequestBuilder::build)
         .map_err(|err| {
@@ -220,8 +223,8 @@ impl SwapCmd {
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
-            &Asset::Fungible(offered_fungible_asset.into()),
-            &Asset::Fungible(requested_fungible_asset.into()),
+            &Asset::Fungible(offered_fungible_asset),
+            &Asset::Fungible(requested_fungible_asset),
         )
         .map_err(|err| CliError::Transaction(err.into(), "Failed to build swap tag".to_string()))?
         .into();
@@ -352,7 +355,7 @@ async fn execute_transaction(
 
     let transaction_id = transaction_execution_result.executed_transaction().id();
     let output_notes = transaction_execution_result
-        .created_notes()
+        .output_notes()
         .iter()
         .map(OutputNote::id)
         .collect::<Vec<_>>();
