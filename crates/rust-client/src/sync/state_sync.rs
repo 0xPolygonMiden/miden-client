@@ -353,10 +353,14 @@ impl StateSync {
             .map(|note| note.nullifier().prefix())
             .collect();
 
-        let new_nullifiers = self
+        let mut new_nullifiers = self
             .rpc_api
             .check_nullifiers_by_prefix(&nullifiers_tags, current_block_num)
             .await?;
+
+        // Discard nullifiers that are newer than the current block (this might happen if the block
+        // changes between the sync_state and the check_nullifier calls)
+        new_nullifiers.retain(|update| update.block_num <= state_sync_update.block_num.as_u32());
 
         // Process nullifiers and track the updates of local tracked transactions that were
         // discarded because the notes that they were processing were nullified by an
