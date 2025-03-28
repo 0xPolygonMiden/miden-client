@@ -38,15 +38,12 @@ pub type OnNoteReceived = Box<
 // STATE SYNC
 // ================================================================================================
 
-/// The state sync components encompasses the client's sync logic.
+/// The state sync components encompasses the client's sync logic. It is then used to requset
+/// updates from the node and apply them to the relevant elements. The updates are then returned and
+/// can be applied to the store to persist the changes.
 ///
-/// When created it receives callbacks that will be executed when a new note inclusion or a
-/// nullifier is received in the sync response.
-///
-///
-///  current state of the client's relevant elements (block, accounts,
-/// notes, etc). It is then used to request updates from the node and apply them to the relevant
-/// elements. The updates are then returned and can be applied to the store to persist the changes.
+/// When created it receives a callback that will be executed when a new note inclusion is received
+/// in the sync response.
 pub struct StateSync {
     /// The RPC client used to communicate with the node.
     rpc_api: Arc<dyn NodeRpcClient + Send>,
@@ -61,7 +58,6 @@ impl StateSync {
     ///
     /// * `rpc_api` - The RPC client used to communicate with the node.
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
-    /// * `on_nullifier_received` - A callback to be executed when a nullifier is received.
     pub fn new(rpc_api: Arc<dyn NodeRpcClient + Send>, on_note_received: OnNoteReceived) -> Self {
         Self { rpc_api, on_note_received }
     }
@@ -74,8 +70,7 @@ impl StateSync {
     ///    account IDs and the tags of notes that might have changed or that might be of interest to
     ///    the client.
     /// 2. A response is received with the current state of the network. The response includes
-    ///    information about new/committed/consumed notes, updated accounts, and committed
-    ///    transactions.
+    ///    information about new and committed notes, updated accounts, and committed transactions.
     /// 3. Tracked public accounts are updated and private accounts are validated against the node
     ///    state.
     /// 4. Tracked notes are updated with their new states. Notes might be committed or nullified
@@ -93,7 +88,7 @@ impl StateSync {
     /// * `unspent_input_notes` - The current state of unspent input notes tracked by the client.
     /// * `unspent_output_notes` - The current state of unspent output notes tracked by the client.
     pub async fn sync_state(
-        mut self,
+        self,
         mut current_partial_mmr: PartialMmr,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
@@ -139,7 +134,7 @@ impl StateSync {
     /// The `sync_state_update` field of the struct will be updated with the new changes from this
     /// step.
     async fn sync_state_step(
-        &mut self,
+        &self,
         state_sync_update: &mut StateSyncUpdate,
         current_partial_mmr: &mut PartialMmr,
         accounts: &[AccountHeader],
@@ -211,7 +206,7 @@ impl StateSync {
     ///   doesn't match the one received from the node. The client will need to handle these cases
     ///   as they could be a stale account state or a reason to lock the account.
     async fn account_state_sync(
-        &mut self,
+        &self,
         accounts: &[AccountHeader],
         account_commitment_updates: &[(AccountId, Digest)],
     ) -> Result<AccountUpdates, ClientError> {
@@ -272,7 +267,7 @@ impl StateSync {
     /// * Tracked notes that were being processed by a transaction that got committed.
     /// * Tracked notes that were nullified by an external transaction.
     async fn note_state_sync(
-        &mut self,
+        &self,
         note_updates: &mut NoteUpdateTracker,
         note_inclusions: Vec<CommittedNote>,
         block_header: &BlockHeader,

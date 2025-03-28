@@ -159,8 +159,8 @@ impl TransactionUpdates {
 // ACCOUNT UPDATES
 // ================================================================================================
 
-#[derive(Debug, Clone, Default)]
 /// Contains account changes to apply to the store after a sync request.
+#[derive(Debug, Clone, Default)]
 pub struct AccountUpdates {
     /// Updated public accounts.
     updated_public_accounts: Vec<Account>,
