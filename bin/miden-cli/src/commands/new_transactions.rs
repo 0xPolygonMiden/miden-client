@@ -39,8 +39,8 @@ impl From<&NoteType> for MidenNoteType {
     }
 }
 
-/// Mint tokens from a fungible faucet to a wallet.
 #[derive(Debug, Parser, Clone)]
+/// Mint tokens from a fungible faucet to a wallet.
 pub struct MintCmd {
     /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
@@ -92,8 +92,8 @@ impl MintCmd {
     }
 }
 
-/// Create a pay-to-id transaction.
 #[derive(Debug, Parser, Clone)]
+/// Create a pay-to-id transaction.
 pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
@@ -165,8 +165,8 @@ impl SendCmd {
     }
 }
 
-/// Create a swap transaction.
 #[derive(Debug, Parser, Clone)]
+/// Create a swap transaction.
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
@@ -247,10 +247,10 @@ impl SwapCmd {
     }
 }
 
+#[derive(Debug, Parser, Clone)]
 /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
 /// If no account ID is provided, the default one is used. If no notes are provided, any notes
 /// that are identified to be owned by the account ID are consumed.
-#[derive(Debug, Parser, Clone)]
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
     /// default account's ID is used instead.

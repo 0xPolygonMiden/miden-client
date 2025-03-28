@@ -1,8 +1,8 @@
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     sync::Arc,
 };
-use std::boxed::Box;
 
 use miden_objects::{
     Felt,
