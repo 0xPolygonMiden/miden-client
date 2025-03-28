@@ -119,6 +119,7 @@ impl TryFrom<ProtoAccountId> for AccountId {
 // ================================================================================================
 
 impl ProtoAccountHeader {
+    #[allow(dead_code)]
     pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
         let ProtoAccountHeader {
             nonce,
@@ -159,6 +160,7 @@ impl ProtoAccountStateHeader {
     /// # Errors
     /// - If account code is missing both on `self` and `known_account_codes`
     /// - If data cannot be correctly deserialized
+    #[allow(dead_code)]
     pub fn into_domain(
         self,
         account_id: AccountId,

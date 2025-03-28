@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
 use clap::Parser;
-use miden_client::{Client, Felt, Word, crypto::FeltRng};
+use miden_client::{Client, Felt, Word};
 use miden_objects::{Digest, vm::AdviceInputs};
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ pub struct ExecCmd {
 }
 
 impl ExecCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), CliError> {
         let script_path = PathBuf::from(&self.script_path);
         if !script_path.exists() {
             return Err(CliError::Exec(

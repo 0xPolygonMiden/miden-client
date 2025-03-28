@@ -12,7 +12,6 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::BlockNumber,
-    crypto::rand::FeltRng,
     note::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
 
@@ -24,7 +23,7 @@ use crate::{
 };
 
 /// Note importing methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -94,7 +93,7 @@ impl<R: FeltRng> Client<R> {
     /// - If the note doesn't exist on the node.
     /// - If the note exists but is private.
     async fn import_note_record_by_id(
-        &mut self,
+        &self,
         previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
@@ -136,7 +135,7 @@ impl<R: FeltRng> Client<R> {
     /// If the note isn't consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
-        &mut self,
+        &self,
         previous_note: Option<InputNoteRecord>,
         note: Note,
         inclusion_proof: NoteInclusionProof,
