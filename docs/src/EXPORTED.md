@@ -4,7 +4,7 @@
 
 - [Client](./index.md)
     - [Installation](./install-and-run.md)
-    - [Get started](./get-started/prerequisites.md)
+    - [Getting started](./get-started/prerequisites.md)
         - [Create account](./get-started/create-account-use-faucet.md)
         - [Peer-to-peer transfer](./get-started/p2p-public.md)
         - [Private peer-to-peer transfer](./get-started/p2p-private.md)
