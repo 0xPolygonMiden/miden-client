@@ -15,68 +15,107 @@ use crate::{
     sync::NoteTagRecord,
 };
 
-/// NOTE UPDATE ENUMS
-/// ================================================================================================
+// NOTE UPDATE
+// ================================================================================================
+
+/// Represents the possible types of updates that can be applied to a note in a
+/// [`NoteUpdateTracker`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoteUpdateType {
+    /// Indicates that the note was already tracked but it was not updated.
+    None,
+    /// Indicates that the note is new and should be inserted in the store.
+    Insert,
+    /// Indicates that the note was already tracked and should be updated.
+    Update,
+}
 
 /// Represents the possible states of an input note record in a [`NoteUpdateTracker`].
 #[derive(Clone, Debug)]
-pub enum InputNoteUpdate {
-    /// Indicates that the note was already tracked but it was not updated.
-    None(InputNoteRecord),
-    /// Indicates that the note is new and should be inserted in the store.
-    Insert(InputNoteRecord),
-    /// Indicates that the note was already tracked and should be updated.
-    Update(InputNoteRecord),
+pub struct InputNoteUpdate {
+    /// Input note being updated.
+    note: InputNoteRecord,
+    /// Type of the note update.
+    update_type: NoteUpdateType,
 }
 
 impl InputNoteUpdate {
-    /// Returns a reference the inner note record.
-    pub fn inner(&self) -> &InputNoteRecord {
-        match self {
-            InputNoteUpdate::None(note)
-            | InputNoteUpdate::Insert(note)
-            | InputNoteUpdate::Update(note) => note,
+    /// Creates a new [`InputNoteUpdate`] with the provided note with a `None` update type.
+    fn none(note: InputNoteRecord) -> Self {
+        Self { note, update_type: NoteUpdateType::None }
+    }
+
+    /// Creates a new [`InputNoteUpdate`] with the provided note with an `Insert` update type.
+    fn insert(note: InputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Insert,
         }
     }
 
-    /// Returns a mutable reference to the inner note record.
+    /// Returns a reference the inner note record.
+    pub fn inner(&self) -> &InputNoteRecord {
+        &self.note
+    }
+
+    /// Returns a mutable reference to the inner note record. If the u
     fn inner_mut(&mut self) -> &mut InputNoteRecord {
-        match self {
-            InputNoteUpdate::None(note)
-            | InputNoteUpdate::Insert(note)
-            | InputNoteUpdate::Update(note) => note,
-        }
+        self.update_type = match self.update_type {
+            NoteUpdateType::None | NoteUpdateType::Update => NoteUpdateType::Update,
+            NoteUpdateType::Insert => NoteUpdateType::Insert,
+        };
+
+        &mut self.note
+    }
+
+    /// Returns the type of the note update.
+    pub fn update_type(&self) -> &NoteUpdateType {
+        &self.update_type
     }
 }
 
 /// Represents the possible states of an output note record in a [`NoteUpdateTracker`].
 #[derive(Clone, Debug)]
-pub enum OutputNoteUpdate {
-    /// Indicates that the note was already tracked but it was not updated.
-    None(OutputNoteRecord),
-    /// Indicates that the note is new and should be inserted in the store.
-    Insert(OutputNoteRecord),
-    /// Indicates that the note was already tracked and should be updated.
-    Update(OutputNoteRecord),
+pub struct OutputNoteUpdate {
+    /// Output note being updated.
+    note: OutputNoteRecord,
+    /// Type of the note update.
+    update_type: NoteUpdateType,
 }
 
 impl OutputNoteUpdate {
-    /// Returns a reference the inner note record.
-    pub fn inner(&self) -> &OutputNoteRecord {
-        match self {
-            OutputNoteUpdate::None(note)
-            | OutputNoteUpdate::Insert(note)
-            | OutputNoteUpdate::Update(note) => note,
+    /// Creates a new [`OutputNoteUpdate`] with the provided note with a `None` update type.
+    fn none(note: OutputNoteRecord) -> Self {
+        Self { note, update_type: NoteUpdateType::None }
+    }
+
+    /// Creates a new [`OutputNoteUpdate`] with the provided note with an `Insert` update type.
+    fn insert(note: OutputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Insert,
         }
     }
 
-    /// Returns a mutable reference to the inner note record.
+    /// Returns a reference the inner note record.
+    pub fn inner(&self) -> &OutputNoteRecord {
+        &self.note
+    }
+
+    /// Returns a mutable reference to the inner note record. If the update type is `None` or
+    /// `Update`, it will be set to `Update`.
     fn inner_mut(&mut self) -> &mut OutputNoteRecord {
-        match self {
-            OutputNoteUpdate::None(note)
-            | OutputNoteUpdate::Insert(note)
-            | OutputNoteUpdate::Update(note) => note,
-        }
+        self.update_type = match self.update_type {
+            NoteUpdateType::None | NoteUpdateType::Update => NoteUpdateType::Update,
+            NoteUpdateType::Insert => NoteUpdateType::Insert,
+        };
+
+        &mut self.note
+    }
+
+    /// Returns the type of the note update.
+    pub fn update_type(&self) -> &NoteUpdateType {
+        &self.update_type
     }
 }
 
@@ -105,11 +144,11 @@ impl NoteUpdateTracker {
         Self {
             input_notes: input_notes
                 .into_iter()
-                .map(|note| (note.id(), InputNoteUpdate::None(note)))
+                .map(|note| (note.id(), InputNoteUpdate::none(note)))
                 .collect(),
             output_notes: output_notes
                 .into_iter()
-                .map(|note| (note.id(), OutputNoteUpdate::None(note)))
+                .map(|note| (note.id(), OutputNoteUpdate::none(note)))
                 .collect(),
         }
     }
@@ -123,9 +162,9 @@ impl NoteUpdateTracker {
     /// - New notes that have been created that should be inserted.
     /// - Existing tracked notes that should be updated.
     pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
-        self.input_notes
-            .values()
-            .filter(|note| matches!(note, InputNoteUpdate::Insert(_) | InputNoteUpdate::Update(_)))
+        self.input_notes.values().filter(|note| {
+            matches!(note.update_type, NoteUpdateType::Insert | NoteUpdateType::Update)
+        })
     }
 
     /// Returns all output note records that have been updated.
@@ -135,7 +174,7 @@ impl NoteUpdateTracker {
     /// - Existing tracked notes that should be updated.
     pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteUpdate> {
         self.output_notes.values().filter(|note| {
-            matches!(note, OutputNoteUpdate::Insert(_) | OutputNoteUpdate::Update(_))
+            matches!(note.update_type, NoteUpdateType::Insert | NoteUpdateType::Update)
         })
     }
 
@@ -179,7 +218,7 @@ impl NoteUpdateTracker {
         if let Some(mut input_note_record) = public_note_data {
             input_note_record.block_header_received(block_header)?;
             self.input_notes
-                .insert(input_note_record.id(), InputNoteUpdate::Insert(input_note_record));
+                .insert(input_note_record.id(), InputNoteUpdate::insert(input_note_record));
         }
 
         if let Some(input_note_record) = self.get_input_note_by_id(*committed_note.note_id()) {

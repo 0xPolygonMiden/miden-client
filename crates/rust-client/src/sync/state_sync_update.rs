@@ -12,7 +12,7 @@ use miden_objects::{
 use super::SyncSummary;
 use crate::{
     account::Account,
-    note::{InputNoteUpdate, NoteUpdateTracker, OutputNoteUpdate},
+    note::{NoteUpdateTracker, NoteUpdateType},
     rpc::domain::transaction::TransactionUpdate,
     transaction::TransactionRecord,
 };
@@ -41,7 +41,8 @@ impl From<&StateSyncUpdate> for SyncSummary {
             .note_updates
             .updated_input_notes()
             .filter_map(|note_update| {
-                if let InputNoteUpdate::Insert(note) = note_update {
+                let note = note_update.inner();
+                if let NoteUpdateType::Insert = note_update.update_type() {
                     Some(note.id())
                 } else {
                     None
@@ -53,14 +54,16 @@ impl From<&StateSyncUpdate> for SyncSummary {
             .note_updates
             .updated_input_notes()
             .filter_map(|note_update| {
-                if let InputNoteUpdate::Update(note) = note_update {
+                let note = note_update.inner();
+                if let NoteUpdateType::Update = note_update.update_type() {
                     note.is_committed().then_some(note.id())
                 } else {
                     None
                 }
             })
             .chain(value.note_updates.updated_output_notes().filter_map(|note_update| {
-                if let OutputNoteUpdate::Update(note) = note_update {
+                let note = note_update.inner();
+                if let NoteUpdateType::Update = note_update.update_type() {
                     note.is_committed().then_some(note.id())
                 } else {
                     None
