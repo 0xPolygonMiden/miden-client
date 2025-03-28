@@ -41,15 +41,23 @@ pub struct InputNoteUpdate {
 
 impl InputNoteUpdate {
     /// Creates a new [`InputNoteUpdate`] with the provided note with a `None` update type.
-    fn none(note: InputNoteRecord) -> Self {
+    fn new_none(note: InputNoteRecord) -> Self {
         Self { note, update_type: NoteUpdateType::None }
     }
 
     /// Creates a new [`InputNoteUpdate`] with the provided note with an `Insert` update type.
-    fn insert(note: InputNoteRecord) -> Self {
+    fn new_insert(note: InputNoteRecord) -> Self {
         Self {
             note,
             update_type: NoteUpdateType::Insert,
+        }
+    }
+
+    /// Creates a new [`InputNoteUpdate`] with the provided note with an `Update` update type.
+    fn new_update(note: InputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Update,
         }
     }
 
@@ -85,12 +93,12 @@ pub struct OutputNoteUpdate {
 
 impl OutputNoteUpdate {
     /// Creates a new [`OutputNoteUpdate`] with the provided note with a `None` update type.
-    fn none(note: OutputNoteRecord) -> Self {
+    fn new_none(note: OutputNoteRecord) -> Self {
         Self { note, update_type: NoteUpdateType::None }
     }
 
     /// Creates a new [`OutputNoteUpdate`] with the provided note with an `Insert` update type.
-    fn insert(note: OutputNoteRecord) -> Self {
+    fn new_insert(note: OutputNoteRecord) -> Self {
         Self {
             note,
             update_type: NoteUpdateType::Insert,
@@ -136,7 +144,7 @@ pub struct NoteUpdateTracker {
 }
 
 impl NoteUpdateTracker {
-    /// Creates a [`NoteUpdateTracker`].
+    /// Creates a [`NoteUpdateTracker`] with already-tracked notes.
     pub fn new(
         input_notes: impl IntoIterator<Item = InputNoteRecord>,
         output_notes: impl IntoIterator<Item = OutputNoteRecord>,
@@ -144,11 +152,40 @@ impl NoteUpdateTracker {
         Self {
             input_notes: input_notes
                 .into_iter()
-                .map(|note| (note.id(), InputNoteUpdate::none(note)))
+                .map(|note| (note.id(), InputNoteUpdate::new_none(note)))
                 .collect(),
             output_notes: output_notes
                 .into_iter()
-                .map(|note| (note.id(), OutputNoteUpdate::none(note)))
+                .map(|note| (note.id(), OutputNoteUpdate::new_none(note)))
+                .collect(),
+        }
+    }
+
+    /// Creates a [`NoteUpdateTracker`] for updates related to transactions.
+    /// 
+    /// A transaction can:
+    /// 
+    /// - Create input notes
+    /// - Update existing input notes (by consuming them)
+    /// - Create output notes
+    pub fn for_transaction_updates(
+        new_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        new_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
+    ) -> Self {
+        Self {
+            input_notes: new_input_notes
+                .into_iter()
+                .map(|note| (note.id(), InputNoteUpdate::new_none(note)))
+                .chain(
+                    updated_input_notes
+                        .into_iter()
+                        .map(|note| (note.id(), InputNoteUpdate::new_update(note))),
+                )
+                .collect(),
+            output_notes: new_output_notes
+                .into_iter()
+                .map(|note| (note.id(), OutputNoteUpdate::new_none(note)))
                 .collect(),
         }
     }
@@ -218,7 +255,7 @@ impl NoteUpdateTracker {
         if let Some(mut input_note_record) = public_note_data {
             input_note_record.block_header_received(block_header)?;
             self.input_notes
-                .insert(input_note_record.id(), InputNoteUpdate::insert(input_note_record));
+                .insert(input_note_record.id(), InputNoteUpdate::new_insert(input_note_record));
         }
 
         if let Some(input_note_record) = self.get_input_note_by_id(*committed_note.note_id()) {
