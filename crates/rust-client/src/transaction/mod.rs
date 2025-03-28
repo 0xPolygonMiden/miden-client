@@ -23,7 +23,7 @@
 //! use miden_client::{
 //!     Client,
 //!     crypto::FeltRng,
-//!     transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionResult},
+//!     transaction::{PaymentNoteDescription, TransactionRequestBuilder, TransactionResult},
 //! };
 //! use miden_objects::{account::AccountId, asset::FungibleAsset, note::NoteType};
 //! # use std::error::Error;
@@ -47,6 +47,7 @@
 //!         target_id,
 //!         None, // No recall height
 //!         NoteType::Private,
+//!         client.rng(),
 //!     )?
 //!     .build()?;
 //!

@@ -142,7 +142,6 @@ export const sendTransaction = async (
     );
 
     let sendTransactionRequest = client.newSendTransactionRequest(
-      senderAccount.id(),
       targetAccount.id(),
       faucetAccount.id(),
       window.NoteType.private(),
@@ -707,7 +706,6 @@ export const discardedTransaction =
       );
 
       let sendTransactionRequest = client.newSendTransactionRequest(
-        senderAccount.id(),
         targetAccount.id(),
         faucetAccount.id(),
         window.NoteType.private(),

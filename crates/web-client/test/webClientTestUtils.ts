@@ -138,7 +138,6 @@ export const sendTransaction = async (
       );
 
       let sendTransactionRequest = client.newSendTransactionRequest(
-        senderAccountId,
         targetAccountId,
         faucetAccountId,
         window.NoteType.public(),
