@@ -125,7 +125,7 @@ build-node: update-node-branch ## Update dependencies and build the node binary 
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 500 --batch.interval 200
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 1000 --batch.interval 400
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover

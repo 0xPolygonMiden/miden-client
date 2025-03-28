@@ -36,8 +36,8 @@ let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
 // Instantiate the client using a Tonic RPC client
 let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-let client: Client<RpoRandomCoin> = Client::new(
-    Box::new(TonicRpcClient::new(&endpoint, 10_000)),
+let client:Client = Client::new(
+    Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
     rng,
     store,
     Arc::new(authenticator),

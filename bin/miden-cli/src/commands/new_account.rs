@@ -13,13 +13,14 @@ use miden_client::{
         component::COMPONENT_TEMPLATE_EXTENSION,
     },
     auth::AuthSecretKey,
-    crypto::{FeltRng, SecretKey},
+    crypto::SecretKey,
     utils::Deserializable,
 };
 use miden_lib::account::{auth::RpoFalcon512, wallets::BasicWallet};
 use miden_objects::account::{
     AccountComponent, AccountComponentTemplate, InitStorageData, StorageValueName,
 };
+use rand::RngCore;
 
 use crate::{
     CLIENT_BINARY_NAME, CliKeyStore, commands::account::maybe_set_default_account,
@@ -93,11 +94,7 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub async fn execute(
-        &self,
-        mut client: Client<impl FeltRng>,
-        keystore: CliKeyStore,
-    ) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client, keystore: CliKeyStore) -> Result<(), CliError> {
         // Load extra component templates using the helper.
         let extra_components = load_component_templates(&self.extra_components)?;
 
@@ -169,11 +166,7 @@ pub struct NewAccountCmd {
 }
 
 impl NewAccountCmd {
-    pub async fn execute(
-        &self,
-        mut client: Client<impl FeltRng>,
-        keystore: CliKeyStore,
-    ) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client, keystore: CliKeyStore) -> Result<(), CliError> {
         // Load component templates using the helper.
         let component_templates = load_component_templates(&self.component_templates)?;
 
@@ -257,7 +250,7 @@ fn load_init_storage_data(path: Option<PathBuf>) -> Result<InitStorageData, CliE
 /// Helper function to create the seed, initialize the account builder, add the given components,
 /// and build the account.
 async fn build_account(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     account_type: AccountType,
     storage_mode: AccountStorageMode,
     account_components: &[AccountComponent],

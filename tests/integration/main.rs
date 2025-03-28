@@ -1,8 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use miden_client::{
-    ClientBuilder, ClientError, ONE,
+    ClientError, ONE,
     account::Account,
+    builder::ClientBuilder,
     note::NoteRelevance,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
     store::{
@@ -40,8 +41,7 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
     let (_, _, store_config, auth_path) = get_client_config();
 
     let mut client = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -64,11 +64,10 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
     let endpoint =
         Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
-    let rpc_api = Box::new(TonicRpcClient::new(&endpoint, timeout_ms));
+    let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, timeout_ms));
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
-        .with_timeout(10_000)
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -88,8 +87,7 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 async fn test_client_builder_fails_without_keystore() {
     let (_, _, store_config, _) = get_client_config();
     let result = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
@@ -884,7 +882,7 @@ async fn test_get_account_update() {
     // [`AccountDetails`] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
     let (endpoint, timeout, ..) = get_client_config();
-    let mut rpc_api = TonicRpcClient::new(&endpoint, timeout);
+    let rpc_api = TonicRpcClient::new(&endpoint, timeout);
     let details1 = rpc_api.get_account_details(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_details(basic_wallet_2.id()).await.unwrap();
 
@@ -934,8 +932,7 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 1);
-    assert_eq!(new_details.committed_notes.len(), 0);
+    assert_eq!(new_details.committed_notes.len(), 1);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 
@@ -945,7 +942,6 @@ async fn test_sync_detail_values() {
 
     // First client sync should have a new nullifier as the note was consumed
     let new_details = client1.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 0);
     assert_eq!(new_details.committed_notes.len(), 0);
     assert_eq!(new_details.consumed_notes.len(), 1);
 }
