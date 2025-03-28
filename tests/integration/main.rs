@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use miden_client::{
-    ClientBuilder, ClientError, ONE, ZERO,
+    ClientError, ONE, ZERO,
     account::Account,
     builder::ClientBuilder,
     note::NoteRelevance,
@@ -1636,14 +1636,12 @@ async fn test_stale_transactions_discarded() {
     // Create a transaction but don't submit it to the node
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
 
-    let tx_request = TransactionRequestBuilder::pay_to_id(
+    let tx_request = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
         None,
         NoteType::Public,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     // Execute the transaction but don't submit it to the node

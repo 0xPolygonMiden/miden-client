@@ -235,7 +235,7 @@ impl TransactionRequestBuilder {
         target_id: AccountId,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_id,
@@ -263,7 +263,7 @@ impl TransactionRequestBuilder {
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         let PaymentTransactionData {
             assets,
             sender_account_id,
@@ -313,7 +313,7 @@ impl TransactionRequestBuilder {
         swap_data: &SwapTransactionData,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually.
         let (created_note, payback_note_details) = create_swap_note(
