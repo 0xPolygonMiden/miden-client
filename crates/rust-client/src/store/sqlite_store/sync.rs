@@ -104,15 +104,13 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
-            note_updates,
-            transactions_to_commit: committed_transactions,
+            block_has_relevant_notes,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: mut discarded_transactions,
+            note_updates,
+            transaction_updates,
+            account_updates,
             tags_to_remove,
-            stale_transactions,
         } = state_sync_update;
 
         let tx = conn.transaction()?;
@@ -135,26 +133,31 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
         // Delete accounts for old pending transactions
-        let account_hashes_to_delete: Vec<Digest> =
-            stale_transactions.iter().map(|tx| tx.final_account_state).collect();
+        let account_hashes_to_delete: Vec<Digest> = transaction_updates
+            .stale_transactions()
+            .iter()
+            .map(|tx| tx.final_account_state)
+            .collect();
 
         undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
-        discarded_transactions.extend(stale_transactions.iter().map(|tx| tx.id));
+        let mut discarded_transactions = transaction_updates.discarded_transactions().to_vec();
+        discarded_transactions
+            .extend(transaction_updates.stale_transactions().iter().map(|tx| tx.id));
 
         // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
+        for (account_id, _) in account_updates.mismatched_private_accounts() {
             lock_account(&tx, *account_id)?;
         }
 
