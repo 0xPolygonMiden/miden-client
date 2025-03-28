@@ -6,9 +6,9 @@ use miden_client::{
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    account::{AccountId, AccountStorageMode},
+    account::AccountStorageMode,
     asset::{Asset, FungibleAsset},
-    note::{NoteFile, NoteTag, NoteType},
+    note::{NoteFile, NoteType},
     transaction::InputNote,
 };
 use rand::RngCore;
