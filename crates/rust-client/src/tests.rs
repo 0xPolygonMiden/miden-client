@@ -33,7 +33,7 @@ use miden_objects::{
     vm::AdviceInputs,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rand::rngs::StdRng;
+use rand::{RngCore, rngs::StdRng};
 
 use crate::{
     Client, ClientError,
@@ -44,8 +44,8 @@ use crate::{
     transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
 };
 
-async fn insert_new_wallet<R: FeltRng>(
-    client: &mut Client<R>,
+async fn insert_new_wallet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
@@ -73,8 +73,8 @@ async fn insert_new_wallet<R: FeltRng>(
     Ok((account, seed))
 }
 
-async fn insert_new_fungible_faucet<R: FeltRng>(
-    client: &mut Client<R>,
+async fn insert_new_fungible_faucet(
+    client: &mut Client,
     storage_mode: AccountStorageMode,
     keystore: &FilesystemKeyStore<StdRng>,
 ) -> Result<(Account, Word), ClientError> {
