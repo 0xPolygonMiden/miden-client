@@ -1,8 +1,9 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{collections::BTreeSet, vec::Vec};
+use std::println;
 
-use miden_objects::{block::BlockNumber, note::NoteTag};
+use miden_objects::{Digest, block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
@@ -162,8 +163,23 @@ impl SqliteStore {
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
-        // Marc transactions as discarded
-        Self::mark_transactions_as_discarded(&tx, transaction_updates.discarded_transactions())?;
+        // Delete accounts for old pending transactions
+        let account_hashes_to_delete: Vec<Digest> = transaction_updates
+            .stale_transactions()
+            .iter()
+            .map(|tx| tx.final_account_state)
+            .collect();
+
+        undo_account_state(&tx, &account_hashes_to_delete)?;
+
+        // Combine discarded transactions from sync and old pending transactions
+        println!("Stale transactions: {:?}", transaction_updates.stale_transactions());
+        let mut discarded_transactions = transaction_updates.discarded_transactions().to_vec();
+        discarded_transactions
+            .extend(transaction_updates.stale_transactions().iter().map(|tx| tx.id));
+
+        // Mark all transactions as discarded in a single call
+        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Remove the accounts that are originated from the discarded transactions
         undo_account_state(&tx, &account_states_to_rollback)?;

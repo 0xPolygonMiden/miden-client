@@ -41,6 +41,9 @@ impl WebStore {
                     ids.iter().map(ToString::to_string).collect::<Vec<String>>().join(",");
                 format!("Ids:{ids_str}")
             },
+            TransactionFilter::ExpiredBefore(block_number) => {
+                &format!("ExpiredPending:{block_number}")
+            },
         };
 
         let promise = idxdb_get_transactions(filter_as_str.to_string());

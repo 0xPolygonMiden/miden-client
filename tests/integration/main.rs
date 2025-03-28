@@ -10,7 +10,7 @@ use miden_client::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::NoteTagSource,
+    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
@@ -1656,4 +1656,89 @@ async fn test_unused_rpc_api() {
 
     assert_eq!(account_delta.nonce(), Some(ONE));
     assert_eq!(*account_delta.vault().fungible().iter().next().unwrap().1, MINT_AMOUNT as i64);
+}
+
+#[tokio::test]
+async fn test_stale_transactions_discarded() {
+    let (mut client, authenticator) = create_test_client().await;
+    let (regular_account, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
+
+    let account_id = regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // Mint a note
+    let note = mint_note(&mut client, account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, account_id, &[note]).await;
+
+    // Create a transaction but don't submit it to the node
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    // Execute the transaction but don't submit it to the node
+    let tx_result = client.new_transaction(account_id, tx_request).await.unwrap();
+    let tx_id = tx_result.executed_transaction().id();
+    client.testing_prove_transaction(&tx_result).await.unwrap();
+
+    // Store the account state before applying the transaction
+    let account_before_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_before_tx = account_before_tx.account().commitment();
+
+    // Apply the transaction
+    client.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Check that the account state has changed after applying the transaction
+    let account_after_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_tx = account_after_tx.account().commitment();
+
+    assert_ne!(
+        account_commitment_before_tx, account_commitment_after_tx,
+        "Account commitment should change after applying the transaction"
+    );
+
+    // Verify the transaction is in pending state
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
+
+    // Sync the state, which should discard the old pending transaction
+    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
+
+    // Verify the transaction is now discarded
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+
+    // Check that the account state has been rolled back after the transaction was discarded
+    let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_sync = account_after_sync.account().commitment();
+
+    assert_ne!(
+        account_commitment_after_sync, account_commitment_after_tx,
+        "Account commitment should change after transaction was discarded"
+    );
+    assert_eq!(
+        account_commitment_after_sync, account_commitment_before_tx,
+        "Account commitment should be rolled back to the value before the transaction"
+    );
 }

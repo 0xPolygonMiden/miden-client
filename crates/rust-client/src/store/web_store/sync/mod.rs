@@ -196,7 +196,9 @@ impl WebStore {
                 }
             }
 
-            lock_account(account_id).await.unwrap();
+            lock_account(account_id).await.map_err(|err| {
+                StoreError::DatabaseError(format!("failed to lock account: {err:?}"))
+            })?;
         }
 
         let account_states_to_rollback = self

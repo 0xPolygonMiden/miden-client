@@ -376,6 +376,12 @@ pub struct TransactionUpdates {
     committed_transactions: Vec<TransactionUpdate>,
     /// Transaction IDs for any transactions that were discarded in the sync.
     discarded_transactions: Vec<TransactionId>,
+    /// Transactions that were pending before the sync and were not committed.
+    ///
+    /// These transactions have been pending for more than [`TX_GRACEFUL_BLOCKS`] blocks and can be
+    /// assumed to have been rejected by the network. They will be marked as discarded in the
+    /// store.
+    stale_transactions: Vec<TransactionRecord>,
 }
 
 impl TransactionUpdates {
@@ -383,10 +389,12 @@ impl TransactionUpdates {
     pub fn new(
         committed_transactions: Vec<TransactionUpdate>,
         discarded_transactions: Vec<TransactionId>,
+        stale_transactions: Vec<TransactionRecord>,
     ) -> Self {
         Self {
             committed_transactions,
             discarded_transactions,
+            stale_transactions,
         }
     }
 
@@ -394,6 +402,7 @@ impl TransactionUpdates {
     pub fn extend(&mut self, other: Self) {
         self.committed_transactions.extend(other.committed_transactions);
         self.discarded_transactions.extend(other.discarded_transactions);
+        self.stale_transactions.extend(other.stale_transactions);
     }
 
     /// Returns a reference to committed transactions.
@@ -409,6 +418,11 @@ impl TransactionUpdates {
     /// Inserts a discarded transaction into the transaction updates.
     pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
         self.discarded_transactions.push(transaction_id);
+    }
+
+    /// Returns a reference to stale transactions.
+    pub fn stale_transactions(&self) -> &[TransactionRecord] {
+        &self.stale_transactions
     }
 }
 

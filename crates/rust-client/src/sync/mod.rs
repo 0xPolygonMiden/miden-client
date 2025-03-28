@@ -66,7 +66,10 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
-use crate::{Client, ClientError, store::NoteFilter};
+use crate::{
+    Client, ClientError,
+    store::{NoteFilter, TransactionFilter},
+};
 mod block_header;
 
 mod tag;
@@ -80,6 +83,9 @@ pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, Trans
 
 // CONSTANTS
 // ================================================================================================
+
+/// The number of blocks that are considered old enough to discard pending transactions.
+pub const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 /// Client synchronization methods.
 impl Client {
@@ -138,6 +144,9 @@ impl Client {
         let unspent_input_notes = self.store.get_input_notes(NoteFilter::Unspent).await?;
         let unspent_output_notes = self.store.get_output_notes(NoteFilter::Unspent).await?;
 
+        let uncommitted_transactions =
+            self.store.get_transactions(TransactionFilter::Uncommitted).await?;
+
         // Get the sync update from the network
         let state_sync_update = state_sync
             .sync_state(
@@ -146,6 +155,7 @@ impl Client {
                 note_tags,
                 unspent_input_notes,
                 unspent_output_notes,
+                uncommitted_transactions,
             )
             .await?;
 

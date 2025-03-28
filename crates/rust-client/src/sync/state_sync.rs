@@ -10,12 +10,15 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
+use super::{
+    AccountUpdates, BlockUpdates, StateSyncUpdate, TX_GRACEFUL_BLOCKS, TransactionUpdates,
+};
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
     rpc::{NodeRpcClient, domain::note::CommittedNote},
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
+    transaction::TransactionRecord,
 };
 
 // SYNC CALLBACKS
@@ -94,6 +97,7 @@ impl StateSync {
         note_tags: Vec<NoteTag>,
         unspent_input_notes: Vec<InputNoteRecord>,
         unspent_output_notes: Vec<OutputNoteRecord>,
+        mut uncommitted_transactions: Vec<TransactionRecord>,
     ) -> Result<StateSyncUpdate, ClientError> {
         let block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
             .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
@@ -120,6 +124,27 @@ impl StateSync {
         }
 
         self.sync_nullifiers(&mut state_sync_update, block_num).await?;
+
+        // Add stale transactions to the state sync update
+        let mut updated_transactions = state_sync_update
+            .transaction_updates
+            .committed_transactions()
+            .iter()
+            .map(|tx| tx.transaction_id)
+            .chain(state_sync_update.transaction_updates.discarded_transactions().iter().copied());
+
+        let graceful_block_num =
+            state_sync_update.block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+
+        uncommitted_transactions.retain(|tx| {
+            tx.block_num < graceful_block_num && !updated_transactions.any(|tx_id| tx_id == tx.id)
+        });
+
+        state_sync_update.transaction_updates.extend(TransactionUpdates::new(
+            vec![],
+            vec![],
+            uncommitted_transactions,
+        ));
 
         Ok(state_sync_update)
     }
@@ -162,9 +187,11 @@ impl StateSync {
 
         // Track the transaction updates for transactions that were committed. Some of these might
         // be tracked by the client and need to be marked as committed.
-        state_sync_update
-            .transaction_updates
-            .extend(TransactionUpdates::new(response.transactions, vec![]));
+        state_sync_update.transaction_updates.extend(TransactionUpdates::new(
+            response.transactions,
+            vec![],
+            vec![],
+        ));
 
         let found_relevant_note = self
             .note_state_sync(
@@ -364,7 +391,7 @@ impl StateSync {
             }
         }
 
-        let transaction_updates = TransactionUpdates::new(vec![], discarded_transactions);
+        let transaction_updates = TransactionUpdates::new(vec![], discarded_transactions, vec![]);
         state_sync_update.transaction_updates.extend(transaction_updates);
 
         Ok(())

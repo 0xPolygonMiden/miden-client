@@ -52,6 +52,12 @@ impl TransactionFilter {
                 // Use SQLite's array parameter binding
                 format!("{QUERY} WHERE tx.id IN rarray(?)")
             },
+            TransactionFilter::ExpiredBefore(block_num) => {
+                format!(
+                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false AND tx.commit_height IS NULL",
+                    block_num.as_u32()
+                )
+            },
         }
     }
 }
