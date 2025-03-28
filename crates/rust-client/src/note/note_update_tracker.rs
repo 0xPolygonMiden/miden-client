@@ -15,14 +15,22 @@ use crate::{
     sync::NoteTagRecord,
 };
 
+/// NOTE UPDATE ENUMS
+/// ================================================================================================
+
+/// Represents the possible states of an input note record in a [`NoteUpdateTracker`].
 #[derive(Clone, Debug)]
 pub enum InputNoteUpdate {
+    /// Indicates that the note was already tracked but it was not updated.
     None(InputNoteRecord),
+    /// Indicates that the note is new and should be inserted in the store.
     Insert(InputNoteRecord),
+    /// Indicates that the note was already tracked and should be updated.
     Update(InputNoteRecord),
 }
 
 impl InputNoteUpdate {
+    /// Returns a reference the inner note record.
     pub fn inner(&self) -> &InputNoteRecord {
         match self {
             InputNoteUpdate::None(note)
@@ -31,6 +39,7 @@ impl InputNoteUpdate {
         }
     }
 
+    /// Returns a mutable reference to the inner note record.
     fn inner_mut(&mut self) -> &mut InputNoteRecord {
         match self {
             InputNoteUpdate::None(note)
@@ -40,14 +49,19 @@ impl InputNoteUpdate {
     }
 }
 
+/// Represents the possible states of an output note record in a [`NoteUpdateTracker`].
 #[derive(Clone, Debug)]
 pub enum OutputNoteUpdate {
+    /// Indicates that the note was already tracked but it was not updated.
     None(OutputNoteRecord),
+    /// Indicates that the note is new and should be inserted in the store.
     Insert(OutputNoteRecord),
+    /// Indicates that the note was already tracked and should be updated.
     Update(OutputNoteRecord),
 }
 
 impl OutputNoteUpdate {
+    /// Returns a reference the inner note record.
     pub fn inner(&self) -> &OutputNoteRecord {
         match self {
             OutputNoteUpdate::None(note)
@@ -56,6 +70,7 @@ impl OutputNoteUpdate {
         }
     }
 
+    /// Returns a mutable reference to the inner note record.
     fn inner_mut(&mut self) -> &mut OutputNoteRecord {
         match self {
             OutputNoteUpdate::None(note)
@@ -102,14 +117,26 @@ impl NoteUpdateTracker {
     // GETTERS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns all existing tracked input notes that have been updated.
+    /// Returns all input note records that have been updated.
+    ///
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
     pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
-        self.input_notes.values()
+        self.input_notes
+            .values()
+            .filter(|note| matches!(note, InputNoteUpdate::Insert(_) | InputNoteUpdate::Update(_)))
     }
 
-    /// Returns all existing tracked output note that have been updated.
+    /// Returns all output note records that have been updated.
+    ///
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
     pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteUpdate> {
-        self.output_notes.values()
+        self.output_notes.values().filter(|note| {
+            matches!(note, OutputNoteUpdate::Insert(_) | OutputNoteUpdate::Update(_))
+        })
     }
 
     /// Returns whether no new note-related information has been retrieved.
