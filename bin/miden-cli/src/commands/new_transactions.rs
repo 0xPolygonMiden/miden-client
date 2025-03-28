@@ -4,13 +4,12 @@ use clap::{Parser, ValueEnum};
 use miden_client::{
     Client, RemoteTransactionProver,
     account::AccountId,
-    asset::{FungibleAsset, NonFungibleDeltaAction},
+    asset::{Asset, FungibleAsset, NonFungibleDeltaAction},
     crypto::Digest,
     note::{BlockNumber, NoteType as MidenNoteType, build_swap_tag, get_input_note_with_id_prefix},
     store::NoteRecordError,
     transaction::{
-        InputNote, OutputNote, PaymentTransactionData, SwapTransactionData, TransactionRequest,
-        TransactionRequestBuilder, TransactionResult,
+        InputNote, OutputNote, TransactionRequest, TransactionRequestBuilder, TransactionResult,
     },
 };
 use tracing::info;
@@ -137,14 +136,9 @@ impl SendCmd {
             get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone()).await?;
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
-        let payment_transaction = PaymentTransactionData::new(
-            vec![fungible_asset.into()],
-            sender_account_id,
-            target_account_id,
-        );
-
         let transaction_request = TransactionRequestBuilder::pay_to_id(
-            payment_transaction,
+            vec![fungible_asset.into()],
+            target_account_id,
             self.recall_height.map(BlockNumber::from),
             (&self.note_type).into(),
             client.rng(),
@@ -207,14 +201,9 @@ impl SwapCmd {
         let sender_account_id =
             get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone()).await?;
 
-        let swap_transaction = SwapTransactionData::new(
-            sender_account_id,
+        let transaction_request = TransactionRequestBuilder::swap(
             offered_fungible_asset.into(),
             requested_fungible_asset.into(),
-        );
-
-        let transaction_request = TransactionRequestBuilder::swap(
-            &swap_transaction,
             (&self.note_type).into(),
             client.rng(),
         )
@@ -234,8 +223,8 @@ impl SwapCmd {
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
-            &swap_transaction.offered_asset(),
-            &swap_transaction.requested_asset(),
+            &Asset::Fungible(offered_fungible_asset),
+            &Asset::Fungible(requested_fungible_asset),
         )
         .map_err(|err| CliError::Transaction(err.into(), "Failed to build swap tag".to_string()))?
         .into();
@@ -366,7 +355,7 @@ async fn execute_transaction(
 
     let transaction_id = transaction_execution_result.executed_transaction().id();
     let output_notes = transaction_execution_result
-        .created_notes()
+        .output_notes()
         .iter()
         .map(OutputNote::id)
         .collect::<Vec<_>>();

@@ -1,6 +1,7 @@
 //! Contains structures and functions related to transaction creation.
 
 use alloc::{
+    boxed::Box,
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
@@ -11,16 +12,19 @@ use miden_objects::{
     Digest, Felt, NoteError, Word,
     account::AccountId,
     assembly::AssemblyError,
+    asset::Asset,
     crypto::merkle::MerkleStore,
-    note::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
+    note::{Note, NoteDetails, NoteId, NoteRecipient, NoteTag, NoteType, PartialNote},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use thiserror::Error;
 
+use crate::transaction::TransactionScriptTemplate::SendNotes;
+
 mod builder;
-pub use builder::{PaymentTransactionData, SwapTransactionData, TransactionRequestBuilder};
+pub use builder::{PaymentNoteDescription, SwapNoteDescription, TransactionRequestBuilder};
 
 mod foreign;
 pub use foreign::{ForeignAccount, ForeignAccountInputs};
@@ -43,7 +47,111 @@ pub enum TransactionScriptTemplate {
     /// It is up to the client to determine how the output notes will be created and this will
     /// depend on the capabilities of the account the transaction request will be applied to.
     /// For example, for Basic Wallets, this may involve invoking `create_note` procedure.
-    SendNotes(Vec<PartialNote>),
+    SendNotes(Vec<OwnNoteTemplate>),
+}
+
+/// Describes the type of own note that should be generated as part of a [`TransactionRequest`].
+///
+/// On execution, a transaction script is generated to output the desired notes, based on data
+/// such as the sender account ID and its account interface.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OwnNoteTemplate {
+    /// Defines a sender-agnostic P2ID note.
+    P2ID(PaymentNoteDescription, NoteType),
+    /// Defines a sender-agnostic swap note.
+    Swap(SwapNoteDescription, NoteType),
+    /// Defines a specific note.
+    Note(Note),
+}
+
+impl OwnNoteTemplate {
+    /// Gets the outgoing assets from the generated note.
+    pub fn outgoing_assets(&self) -> Vec<Asset> {
+        match self {
+            OwnNoteTemplate::P2ID(payment_transaction_data, _) => {
+                payment_transaction_data.assets().clone()
+            },
+            OwnNoteTemplate::Swap(swap_transaction_data, _) => {
+                vec![swap_transaction_data.offered_asset()]
+            },
+            OwnNoteTemplate::Note(partial_note) => partial_note.assets().iter().copied().collect(),
+        }
+    }
+
+    /// Creates the output [`Note`] object based on the sender ID.
+    pub fn get_outgoing_note(&self, sender_account_id: AccountId) -> Note {
+        match self {
+            OwnNoteTemplate::P2ID(payment_transaction_data, note_type) => {
+                payment_transaction_data.get_note(sender_account_id, *note_type)
+            },
+            OwnNoteTemplate::Swap(swap_transaction_data, note_type) => {
+                swap_transaction_data.get_note(sender_account_id, *note_type).0
+            },
+            OwnNoteTemplate::Note(note) => note.clone(),
+        }
+    }
+
+    /// Gets the note details that will be created as part of future transactions.
+    ///
+    /// These future notes are descriptions of notes that this note script output.
+    pub fn get_future_notes(
+        &self,
+        sender_account_id: AccountId,
+    ) -> Result<Option<(NoteDetails, NoteTag)>, NoteError> {
+        match self {
+            OwnNoteTemplate::Swap(swap_transaction_data, note_type) => {
+                let (_, note_details, note_tag) =
+                    swap_transaction_data.get_note(sender_account_id, *note_type);
+                Ok(Some((note_details, note_tag)))
+            },
+            OwnNoteTemplate::P2ID(..) | OwnNoteTemplate::Note(..) => Ok(None),
+        }
+    }
+}
+
+impl Serializable for OwnNoteTemplate {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        match self {
+            OwnNoteTemplate::P2ID(payment_data, note_type) => {
+                target.write_u8(0);
+                payment_data.write_into(target);
+                note_type.write_into(target);
+            },
+            OwnNoteTemplate::Swap(swap_data, note_type) => {
+                target.write_u8(1);
+                swap_data.write_into(target);
+                note_type.write_into(target);
+            },
+            OwnNoteTemplate::Note(note) => {
+                target.write_u8(2);
+                target.write(note);
+            },
+        }
+    }
+}
+
+impl Deserializable for OwnNoteTemplate {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        match source.read_u8()? {
+            0 => {
+                let payment_data = PaymentNoteDescription::read_from(source)?;
+                let note_type = NoteType::read_from(source)?;
+                Ok(OwnNoteTemplate::P2ID(payment_data, note_type))
+            },
+            1 => {
+                let swap_data = SwapNoteDescription::read_from(source)?;
+                let note_type = NoteType::read_from(source)?;
+                Ok(OwnNoteTemplate::Swap(swap_data, note_type))
+            },
+            2 => {
+                let note: Note = Note::read_from(source)?;
+                Ok(OwnNoteTemplate::Note(note))
+            },
+            _ => {
+                Err(DeserializationError::InvalidValue("invalid SendAssetNoteTemplate type".into()))
+            },
+        }
+    }
 }
 
 /// Specifies a transaction request that can be executed by an account.
@@ -60,8 +168,8 @@ pub struct TransactionRequest {
     input_notes: BTreeMap<NoteId, Option<NoteArgs>>,
     /// Template for the creation of the transaction script.
     script_template: Option<TransactionScriptTemplate>,
-    /// A map of notes expected to be generated by the transactions.
-    expected_output_notes: BTreeMap<NoteId, Note>,
+    /// A map of expected recipients for notes created by the transaction.
+    expected_output_notes: BTreeMap<Digest, NoteRecipient>,
     /// A map of details and tags of notes we expect to be created as part of future transactions
     /// with their respective tags.
     ///
@@ -125,7 +233,7 @@ impl TransactionRequest {
     }
 
     /// Returns an iterator over the expected output notes.
-    pub fn expected_output_notes(&self) -> impl Iterator<Item = &Note> {
+    pub fn expected_output_notes(&self) -> impl Iterator<Item = &NoteRecipient> {
         self.expected_output_notes.values()
     }
 
@@ -156,7 +264,11 @@ impl TransactionRequest {
 
     /// Converts the [`TransactionRequest`] into [`TransactionArgs`] in order to be executed by a
     /// Miden host.
-    pub(super) fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
+    pub(super) fn into_transaction_args(
+        self,
+        executor_account_id: AccountId,
+        tx_script: TransactionScript,
+    ) -> TransactionArgs {
         let note_args = self.get_note_args();
         let TransactionRequest {
             expected_output_notes,
@@ -167,7 +279,14 @@ impl TransactionRequest {
 
         let mut tx_args = TransactionArgs::new(Some(tx_script), note_args.into(), advice_map);
 
-        tx_args.extend_expected_output_notes(expected_output_notes.into_values());
+        tx_args.extend_output_note_recipients(expected_output_notes.into_values().map(Box::new));
+        if let Some(SendNotes(own_notes)) = self.script_template {
+            for own_note in own_notes {
+                let note = own_note.get_outgoing_note(executor_account_id);
+                tx_args.add_output_note_recipient(note);
+            }
+        }
+
         tx_args.extend_merkle_store(merkle_store.inner_nodes());
 
         tx_args
@@ -182,8 +301,18 @@ impl TransactionRequest {
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
-            Some(TransactionScriptTemplate::SendNotes(notes)) => Ok(account_interface
-                .build_send_notes_script(notes, self.expiration_delta, in_debug_mode)?),
+            Some(TransactionScriptTemplate::SendNotes(payment_templates)) => {
+                let notes: Vec<PartialNote> = payment_templates
+                    .iter()
+                    .map(|template| template.get_outgoing_note(*account_interface.id()).into())
+                    .collect();
+
+                Ok(account_interface.build_send_notes_script(
+                    &notes,
+                    self.expiration_delta,
+                    in_debug_mode,
+                )?)
+            },
             None => {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
@@ -234,7 +363,7 @@ impl Deserializable for TransactionRequest {
                 Some(TransactionScriptTemplate::CustomScript(transaction_script))
             },
             2 => {
-                let notes = Vec::<PartialNote>::read_from(source)?;
+                let notes = Vec::<OwnNoteTemplate>::read_from(source)?;
                 Some(TransactionScriptTemplate::SendNotes(notes))
             },
             _ => {
@@ -244,7 +373,7 @@ impl Deserializable for TransactionRequest {
             },
         };
 
-        let expected_output_notes = BTreeMap::<NoteId, Note>::read_from(source)?;
+        let expected_output_notes = BTreeMap::<Digest, NoteRecipient>::read_from(source)?;
         let expected_future_notes = BTreeMap::<NoteId, (NoteDetails, NoteTag)>::read_from(source)?;
 
         let mut advice_map = AdviceMap::new();
@@ -325,7 +454,7 @@ mod tests {
     use miden_objects::{
         Digest, Felt, ZERO,
         account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
-        asset::FungibleAsset,
+        asset::{Asset, FungibleAsset},
         crypto::rand::{FeltRng, RpoRandomCoin},
         note::{NoteExecutionMode, NoteTag, NoteType},
         testing::{
@@ -335,14 +464,15 @@ mod tests {
                 ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE, ACCOUNT_ID_SENDER,
             },
         },
-        transaction::OutputNote,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::{TransactionRequest, TransactionRequestBuilder};
+    use super::{
+        OwnNoteTemplate, PaymentNoteDescription, TransactionRequest, TransactionRequestBuilder,
+    };
     use crate::{
         rpc::domain::account::AccountStorageRequirements,
-        transaction::{ForeignAccount, ForeignAccountInputs},
+        transaction::{ForeignAccount, ForeignAccountInputs, SwapNoteDescription},
     };
 
     #[test]
@@ -386,8 +516,8 @@ mod tests {
         let tx_request = TransactionRequestBuilder::new()
             .with_authenticated_input_notes(vec![(notes.pop().unwrap().id(), None)])
             .with_unauthenticated_input_notes(vec![(notes.pop().unwrap(), None)])
-            .with_expected_output_notes(vec![notes.pop().unwrap()])
-            .with_expected_future_notes(vec![(
+            .extend_expected_output_notes([notes.pop().unwrap().recipient().clone()])
+            .extend_expected_future_notes(vec![(
                 notes.pop().unwrap().into(),
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
@@ -407,9 +537,25 @@ mod tests {
                 )
                 .unwrap(),
             ])
-            .with_own_output_notes(vec![
-                OutputNote::Full(notes.pop().unwrap()),
-                OutputNote::Partial(notes.pop().unwrap().into()),
+            .extend_own_output_notes(vec![
+                OwnNoteTemplate::P2ID(
+                    PaymentNoteDescription::new(
+                        vec![Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap())],
+                        target_id,
+                        Some(123.into()),
+                        &mut rng,
+                    )
+                    .unwrap(),
+                    NoteType::Public,
+                ),
+                OwnNoteTemplate::Swap(
+                    SwapNoteDescription::new(
+                        Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap()),
+                        Asset::Fungible(FungibleAsset::new(faucet_id, 100).unwrap()),
+                        &mut rng,
+                    ),
+                    NoteType::Public,
+                ),
             ])
             .build()
             .unwrap();

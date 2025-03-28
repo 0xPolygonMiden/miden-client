@@ -2,7 +2,7 @@ use miden_client::{
     account::build_wallet_id,
     auth::AuthSecretKey,
     store::{InputNoteState, NoteFilter},
-    transaction::{PaymentTransactionData, TransactionRequestBuilder},
+    transaction::TransactionRequestBuilder,
 };
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
@@ -54,8 +54,8 @@ async fn test_onchain_notes_flow() {
     .unwrap()
     .build()
     .unwrap();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let tx = execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let note = tx.output_notes().get_note(0);
 
     // Client 2's account should receive the note here:
     client_2.sync_state().await.unwrap();
@@ -64,7 +64,6 @@ async fn test_onchain_notes_flow() {
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().commitment(), note.commitment());
-    assert_eq!(received_note.note(), &note);
 
     // consume the note
     consume_notes(&mut client_2, basic_wallet_1.id(), &[received_note]).await;
@@ -78,11 +77,8 @@ async fn test_onchain_notes_flow() {
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(
-            vec![p2id_asset.into()],
-            basic_wallet_1.id(),
-            basic_wallet_2.id(),
-        ),
+        vec![p2id_asset.into()],
+        basic_wallet_2.id(),
         None,
         NoteType::Public,
         client_2.rng(),
@@ -120,6 +116,7 @@ async fn test_onchain_accounts() {
     let (mut client_1, keystore_1) = create_test_client().await;
     let (mut client_2, keystore_2) = create_test_client().await;
     wait_for_node(&mut client_2).await;
+    client_1.sync_state().await.unwrap();
 
     let (faucet_account_header, _, secret_key) =
         insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
@@ -148,7 +145,6 @@ async fn test_onchain_accounts() {
 
     // First Mint necesary token
     println!("First client consuming note");
-    client_1.sync_state().await.unwrap();
     let note =
         mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;
 
@@ -237,7 +233,8 @@ async fn test_onchain_accounts() {
 
     println!("Running P2ID tx...");
     let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        vec![Asset::Fungible(asset)],
+        to_account_id,
         None,
         NoteType::Public,
         client_1.rng(),
@@ -324,8 +321,8 @@ async fn test_onchain_notes_sync_with_tag() {
     .unwrap()
     .build()
     .unwrap();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let tx = execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+    let note = tx.output_notes().get_note(0);
 
     // Load tag into client 2
     client_2
@@ -347,7 +344,6 @@ async fn test_onchain_notes_sync_with_tag() {
     let received_note: InputNote =
         client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
     assert_eq!(received_note.note().commitment(), note.commitment());
-    assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }
 

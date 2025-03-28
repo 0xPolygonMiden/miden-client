@@ -1,7 +1,7 @@
 use miden_client::{
     ZERO,
     note::NoteExecutionHint,
-    transaction::{TransactionRequest, TransactionRequestBuilder},
+    transaction::{OwnNoteTemplate, TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
 };
 use miden_objects::{
@@ -17,7 +17,6 @@ use miden_objects::{
         Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
-    transaction::OutputNote,
     vm::AdviceMap,
 };
 
@@ -234,7 +233,7 @@ async fn mint_custom_note(
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![OutputNote::Full(note.clone())])
+        .extend_own_output_notes([OwnNoteTemplate::Note(note.clone())])
         .build()
         .unwrap();
 

@@ -23,7 +23,7 @@
 //! use miden_client::{
 //!     Client,
 //!     crypto::FeltRng,
-//!     transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionResult},
+//!     transaction::{PaymentNoteDescription, TransactionRequestBuilder, TransactionResult},
 //! };
 //! use miden_objects::{account::AccountId, asset::FungibleAsset, note::NoteType};
 //! # use std::error::Error;
@@ -43,7 +43,8 @@
 //!
 //!     // Build a transaction request for a pay-to-id transaction.
 //!     let tx_request = TransactionRequestBuilder::pay_to_id(
-//!         PaymentTransactionData::new(vec![asset.into()], sender_id, target_id),
+//!         vec![asset.into()],
+//!         target_id,
 //!         None, // No recall height
 //!         NoteType::Private,
 //!         client.rng(),
@@ -76,12 +77,12 @@ pub use miden_lib::{
     transaction::TransactionKernel,
 };
 use miden_objects::{
-    AssetError, Digest, Felt, Word, ZERO,
+    AssetError, Digest, Felt, NoteError, Word, ZERO,
     account::{Account, AccountCode, AccountDelta, AccountId},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
     crypto::merkle::MerklePath,
-    note::{Note, NoteDetails, NoteId, NoteTag},
+    note::{Note, NoteDetails, NoteId, NoteRecipient, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     vm::AdviceInputs,
 };
@@ -114,8 +115,8 @@ pub use miden_objects::transaction::{
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use request::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, PaymentTransactionData, SwapTransactionData,
-    TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
+    ForeignAccount, ForeignAccountInputs, NoteArgs, OwnNoteTemplate, PaymentNoteDescription,
+    SwapNoteDescription, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
     TransactionScriptTemplate,
 };
 
@@ -146,7 +147,7 @@ impl TransactionResult {
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
-        for note in notes_from_output(transaction.output_notes()) {
+        for note in full_notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note).await?;
             if !account_relevance.is_empty() {
                 let metadata = *note.metadata();
@@ -182,13 +183,18 @@ impl TransactionResult {
         Ok(tx_result)
     }
 
+    /// Returns the [`TransactionId`].
+    pub fn id(&self) -> TransactionId {
+        self.transaction.id()
+    }
+
     /// Returns the [`ExecutedTransaction`].
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
         &self.transaction
     }
 
     /// Returns the output notes that were generated as a result of the transaction execution.
-    pub fn created_notes(&self) -> &OutputNotes {
+    pub fn output_notes(&self) -> &OutputNotes {
         self.transaction.output_notes()
     }
 
@@ -408,8 +414,7 @@ impl Client {
         self.validate_request(account_id, &transaction_request).await?;
 
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
-        // state). TODO: we should consider refactoring this in a way we can handle this in
-        // `get_transaction_inputs`
+        // state)
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
@@ -426,7 +431,7 @@ impl Client {
             }
         }
 
-        // If tx request contains unauthenticated_input_notes we should insert them
+        // If the request contains unauthenticated_input_notes we should insert them into the store
         let unauthenticated_input_notes = transaction_request
             .unauthenticated_input_notes()
             .iter()
@@ -438,11 +443,24 @@ impl Client {
 
         let note_ids = transaction_request.get_input_note_ids();
 
-        let output_notes: Vec<Note> =
+        let expected_output_note_recipients: Vec<NoteRecipient> =
             transaction_request.expected_output_notes().cloned().collect();
 
-        let future_notes: Vec<(NoteDetails, NoteTag)> =
+        let mut future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
+
+        if let Some(TransactionScriptTemplate::SendNotes(send_notes_template)) =
+            transaction_request.script_template()
+        {
+            let own_future_notes = send_notes_template
+                .iter()
+                .map(|note_template| note_template.get_future_notes(account_id))
+                .collect::<Result<Vec<Option<(NoteDetails, NoteTag)>>, NoteError>>()?
+                .into_iter()
+                .flatten();
+
+            future_notes.extend(own_future_notes);
+        }
 
         let tx_script = transaction_request.build_transaction_script(
             &self.get_account_interface(account_id).await?,
@@ -450,7 +468,7 @@ impl Client {
         )?;
 
         let foreign_accounts = transaction_request.foreign_accounts().clone();
-        let mut tx_args = transaction_request.into_transaction_args(tx_script);
+        let mut tx_args = transaction_request.into_transaction_args(account_id, tx_script);
 
         // Inject state and code of foreign accounts
         let fpi_block_num =
@@ -468,23 +486,18 @@ impl Client {
             .execute_transaction(account_id, block_num, &note_ids, tx_args)
             .await?;
 
-        // Check that the expected output notes matches the transaction outcome.
-        // We compare authentication commitments where possible since that involves note IDs +
-        // metadata (as opposed to just note ID which remains the same regardless of
-        // metadata) We also do the check for partial output notes
-
-        let tx_note_auth_commitments: BTreeSet<Digest> =
-            notes_from_output(executed_transaction.output_notes())
-                .map(Note::commitment)
-                .collect();
-
-        let missing_note_ids: Vec<NoteId> = output_notes
+        // Check that the expected output note recipients match the transaction outcome
+        let missing_note_recipients: Vec<NoteRecipient> = expected_output_note_recipients
             .iter()
-            .filter_map(|n| (!tx_note_auth_commitments.contains(&n.commitment())).then_some(n.id()))
+            .filter(|recipient| {
+                !full_notes_from_output(executed_transaction.output_notes())
+                    .any(|n| n.recipient().digest() == recipient.digest())
+            })
+            .cloned()
             .collect();
 
-        if !missing_note_ids.is_empty() {
-            return Err(ClientError::MissingOutputNotes(missing_note_ids));
+        if !missing_note_recipients.is_empty() {
+            return Err(ClientError::MissingOutputNotes(missing_note_recipients));
         }
 
         let screener = NoteScreener::new(self.store.clone());
@@ -594,7 +607,7 @@ impl Client {
 
         // Save all output notes
         let created_output_notes = tx_result
-            .created_notes()
+            .output_notes()
             .iter()
             .cloned()
             .filter_map(|output_note| {
@@ -655,26 +668,15 @@ impl Client {
         transaction_request: &TransactionRequest,
     ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
         // Get own notes assets
-        let mut own_notes_assets = match transaction_request.script_template() {
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
-            },
-            _ => BTreeMap::default(),
+        let own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => notes
+                .iter()
+                .flat_map(|own_note| own_note.outgoing_assets().clone())
+                .collect::<Vec<_>>(),
+            _ => Vec::default(),
         };
-        // Get transaction output notes assets
-        let mut output_notes_assets = transaction_request
-            .expected_output_notes()
-            .map(|note| (note.id(), note.assets()))
-            .collect::<BTreeMap<_, _>>();
 
-        // Merge with own notes assets and delete duplicates
-        output_notes_assets.append(&mut own_notes_assets);
-
-        // Create a map of the fungible and non-fungible assets in the output notes
-        let outgoing_assets =
-            output_notes_assets.values().flat_map(|note_assets| note_assets.iter());
-
-        collect_assets(outgoing_assets)
+        collect_assets(own_notes_assets.iter())
     }
 
     /// Helper to get the account incoming assets.
@@ -1028,22 +1030,13 @@ fn collect_assets<'a>(
     (fungible_balance_map, non_fungible_set)
 }
 
-/// Extracts notes from [`OutputNotes`].
-/// Used for:
-/// - Checking the relevance of notes to save them as input notes.
-/// - Validate hashes versus expected output notes after a transaction is executed.
-pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
-    output_notes
-        .iter()
-        .filter(|n| matches!(n, OutputNote::Full(_)))
-        .map(|n| match n {
-            OutputNote::Full(n) => n,
-            // The following todo!() applies until we have a way to support flows where we have
-            // partial details of the note
-            OutputNote::Header(_) | OutputNote::Partial(_) => {
-                todo!("For now, all details should be held in OutputNote::Fulls")
-            },
-        })
+/// Returns an iterator over any [`Note`] found on the input [`OutputNotes`].
+/// These
+pub fn full_notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+    output_notes.iter().filter_map(|n| match n {
+        OutputNote::Full(n) => Some(n),
+        OutputNote::Header(_) | OutputNote::Partial(_) => None,
+    })
 }
 
 #[cfg(test)]
@@ -1065,7 +1058,6 @@ mod test {
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::PaymentTransactionData;
     use crate::{
         mock::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
@@ -1108,11 +1100,8 @@ mod test {
         client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequestBuilder::pay_to_id(
-            PaymentTransactionData::new(
-                vec![asset_1, asset_2],
-                account.id(),
-                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
-            ),
+            vec![asset_1, asset_2],
+            ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
             None,
             NoteType::Private,
             client.rng(),
@@ -1124,7 +1113,7 @@ mod test {
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(
             tx_result
-                .created_notes()
+                .output_notes()
                 .get_note(0)
                 .assets()
                 .is_some_and(|assets| assets.num_assets() == 2)

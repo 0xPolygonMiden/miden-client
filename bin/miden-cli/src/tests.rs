@@ -20,7 +20,7 @@ use miden_client::{
     rpc::{Endpoint, TonicRpcClient},
     store::sqlite_store::SqliteStore,
     testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
-    transaction::{OutputNote, TransactionRequestBuilder},
+    transaction::{OutputNote, OwnNoteTemplate, TransactionRequestBuilder},
     utils::Serializable,
 };
 use miden_client_tests::common::{
@@ -416,13 +416,19 @@ async fn debug_mode_outputs_logs() {
     let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
     let note = Note::new(note_assets, note_metadata, note_recipient);
 
+    let note = OwnNoteTemplate::Note(note);
+
     // Send transaction and wait for it to be committed
     client.sync_state().await.unwrap();
     let transaction_request = TransactionRequestBuilder::new()
-        .with_own_output_notes(vec![OutputNote::Full(note.clone())])
+        .extend_own_output_notes(vec![note])
         .build()
         .unwrap();
-    execute_tx_and_sync(&mut client, account.id(), transaction_request).await;
+    let tx = execute_tx_and_sync(&mut client, account.id(), transaction_request).await;
+
+    let OutputNote::Full(note) = tx.output_notes().get_note(0) else {
+        panic!()
+    };
 
     // Export the note
     let note_file: NoteFile = NoteFile::NoteDetails {
