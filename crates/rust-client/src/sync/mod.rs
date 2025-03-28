@@ -74,7 +74,7 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
-    transaction::{TransactionStatus, TransactionUpdates},
+    transaction::{TransactionRecord, TransactionStatus, TransactionUpdates},
 };
 
 mod block_header;
@@ -84,6 +84,8 @@ use block_header::apply_mmr_changes;
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
+/// The number of blocks that are considered old enough to discard pending transactions.
+pub const TX_GRACEFUL_BLOCKS: u32 = 20;
 mod state_sync_update;
 pub use state_sync_update::StateSyncUpdate;
 
@@ -324,13 +326,38 @@ impl Client {
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
         let response_block_num = response.block_header.block_num();
+
+        let transactions_to_discard = vec![];
+
+        // Find old pending transactions before starting the database transaction
+        let graceful_block_num =
+            response_block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+        // Retain old pending transactions
+        let mut stale_transactions: Vec<TransactionRecord> = self
+            .store
+            .get_transactions(TransactionFilter::ExpiredBefore(graceful_block_num))
+            .await?;
+
+        stale_transactions.retain(|tx| {
+            !transactions_to_commit
+                .iter()
+                .map(|tx| tx.transaction_id)
+                .collect::<Vec<_>>()
+                .contains(&tx.id)
+                && !transactions_to_discard.contains(&tx.id)
+        });
+
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             block_has_relevant_notes: incoming_block_has_relevant_notes,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             note_updates,
-            transaction_updates: TransactionUpdates::new(transactions_to_commit, vec![]),
+            transaction_updates: TransactionUpdates::new(
+                transactions_to_commit,
+                transactions_to_discard,
+                stale_transactions,
+            ),
             account_updates: AccountUpdates::new(
                 updated_public_accounts,
                 mismatched_private_accounts,

@@ -344,6 +344,13 @@ pub enum TransactionFilter {
     Uncomitted,
     /// Return a list of the transaction that matches the provided [`TransactionId`]s.
     Ids(Vec<TransactionId>),
+    /// Return a list of the expired transactions that were executed before the provided
+    /// [`BlockNumber`]. Transactions created after the provided block number are not
+    /// considered.
+    ///
+    /// A transaction is considered expired if is uncommitted and the transaction's block number
+    /// is less than the provided block number.
+    ExpiredBefore(BlockNumber),
 }
 
 // NOTE FILTER
