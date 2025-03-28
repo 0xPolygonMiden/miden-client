@@ -47,13 +47,16 @@ impl WebStore {
         };
 
         let promise = idxdb_get_transactions(filter_as_str.to_string());
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let transactions_idxdb: Vec<TransactionIdxdbObject> = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get transactions: {js_error:?}"))
+        })?;
+        let transactions_idxdb: Vec<TransactionIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let transaction_records: Result<Vec<TransactionRecord>, StoreError> = transactions_idxdb
             .into_iter()
             .map(|tx_idxdb| {
-                let native_account_id = AccountId::from_hex(&tx_idxdb.account_id).unwrap();
+                let native_account_id = AccountId::from_hex(&tx_idxdb.account_id)?;
                 let block_num: BlockNumber = tx_idxdb.block_num.parse::<u32>().unwrap().into();
                 let commit_height: Option<BlockNumber> =
                     tx_idxdb.commit_height.map(|height| height.parse::<u32>().unwrap().into());
@@ -112,7 +115,9 @@ impl WebStore {
         insert_proven_transaction_data(tx_update.executed_transaction()).await?;
 
         // Account Data
-        update_account(tx_update.updated_account()).await.unwrap();
+        update_account(tx_update.updated_account()).await.map_err(|err| {
+            StoreError::DatabaseError(format!("failed to update account: {err:?}"))
+        })?;
 
         // Updates for notes
         apply_note_updates_tx(tx_update.note_updates()).await?;

@@ -268,7 +268,7 @@ export class WebClient {
       );
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in newWallet:", error);
+      console.error("INDEX.JS: Error in newWallet:", error.toString());
       throw error;
     }
   }
@@ -297,7 +297,7 @@ export class WebClient {
 
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in newFaucet:", error);
+      console.error("INDEX.JS: Error in newFaucet:", error.toString());
       throw error;
     }
   }
@@ -321,7 +321,7 @@ export class WebClient {
         new Uint8Array(serializedTransactionResultBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in newTransaction:", error);
+      console.error("INDEX.JS: Error in newTransaction:", error.toString());
       throw error;
     }
   }
@@ -345,7 +345,7 @@ export class WebClient {
       // Always call the same worker method.
       await this.callMethodWithWorker(MethodName.SUBMIT_TRANSACTION, ...args);
     } catch (error) {
-      console.error("INDEX.JS: Error in submitTransaction:", error);
+      console.error("INDEX.JS: Error in submitTransaction:", error.toString());
       throw error;
     }
   }
@@ -362,7 +362,7 @@ export class WebClient {
         new Uint8Array(serializedSyncSummaryBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in syncState:", error);
+      console.error("INDEX.JS: Error in syncState:", error.toString());
       throw error;
     }
   }

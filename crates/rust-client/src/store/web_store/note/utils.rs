@@ -96,7 +96,9 @@ pub async fn upsert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreErr
         serialized_data.state_discriminant,
         serialized_data.state,
     );
-    JsFuture::from(promise).await.unwrap();
+    JsFuture::from(promise).await.map_err(|js_error| {
+        StoreError::DatabaseError(format!("failed to upsert input note: {js_error:?}"))
+    })?;
 
     Ok(())
 }
