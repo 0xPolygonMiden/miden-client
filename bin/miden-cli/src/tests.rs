@@ -4,6 +4,7 @@ use std::{
     fs::{self, File},
     io::{Read, Write},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use assert_cmd::Command;
@@ -518,7 +519,7 @@ fn sync_cli(cli_path: &Path) -> u64 {
             let updated_notes = String::from_utf8(output.stdout)
                 .unwrap()
                 .split_whitespace()
-                .skip_while(|&word| word != "updated:")
+                .skip_while(|&word| word != "notes:")
                 .find(|word| word.parse::<u64>().is_ok())
                 .unwrap()
                 .parse()
@@ -699,7 +700,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
 
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(&endpoint, RpcConfig::default().timeout_ms)),
+            Arc::new(TonicRpcClient::new(&endpoint, RpcConfig::default().timeout_ms)),
             rng,
             store,
             std::sync::Arc::new(keystore.clone()),

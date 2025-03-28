@@ -60,7 +60,7 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
     let endpoint =
         Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
-    let rpc_api = Box::new(TonicRpcClient::new(&endpoint, timeout_ms));
+    let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, timeout_ms));
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
@@ -888,7 +888,7 @@ async fn test_get_account_update() {
     // [`AccountDetails`] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
     let (endpoint, timeout, ..) = get_client_config();
-    let mut rpc_api = TonicRpcClient::new(&endpoint, timeout);
+    let rpc_api = TonicRpcClient::new(&endpoint, timeout);
     let details1 = rpc_api.get_account_details(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_details(basic_wallet_2.id()).await.unwrap();
 
@@ -941,8 +941,7 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 1);
-    assert_eq!(new_details.committed_notes.len(), 0);
+    assert_eq!(new_details.committed_notes.len(), 1);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 
@@ -952,7 +951,6 @@ async fn test_sync_detail_values() {
 
     // First client sync should have a new nullifier as the note was consumed
     let new_details = client1.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 0);
     assert_eq!(new_details.committed_notes.len(), 0);
     assert_eq!(new_details.consumed_notes.len(), 1);
 }

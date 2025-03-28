@@ -192,17 +192,11 @@ pub fn parse_output_note_idxdb_object(
 }
 
 pub(crate) async fn apply_note_updates_tx(note_updates: &NoteUpdates) -> Result<(), StoreError> {
-    for input_note in
-        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
-    {
+    for input_note in note_updates.updated_input_notes() {
         upsert_input_note_tx(input_note).await?;
     }
 
-    for output_note in note_updates
-        .new_output_notes()
-        .iter()
-        .chain(note_updates.updated_output_notes())
-    {
+    for output_note in note_updates.updated_output_notes() {
         upsert_output_note_tx(output_note).await?;
     }
 

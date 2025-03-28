@@ -38,7 +38,6 @@
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);
-//! println!("Received notes: {}", sync_summary.received_notes.len());
 //! println!("Committed notes: {}", sync_summary.committed_notes.len());
 //! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
 //! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
@@ -62,7 +61,6 @@ use miden_objects::{
     Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
-    crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
 };
@@ -76,7 +74,7 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
-    transaction::TransactionStatus,
+    transaction::{TransactionStatus, TransactionUpdates},
 };
 
 mod block_header;
@@ -86,13 +84,14 @@ use block_header::apply_mmr_changes;
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
+mod state_sync_update;
+pub use state_sync_update::StateSyncUpdate;
+
 /// Contains stats about the sync operation.
 #[derive(Debug, PartialEq)]
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
-    /// IDs of new notes received.
-    pub received_notes: Vec<NoteId>,
     /// IDs of tracked notes that received inclusion proofs.
     pub committed_notes: Vec<NoteId>,
     /// IDs of notes that have been consumed.
@@ -108,7 +107,6 @@ pub struct SyncSummary {
 impl SyncSummary {
     pub fn new(
         block_num: BlockNumber,
-        received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
@@ -117,7 +115,6 @@ impl SyncSummary {
     ) -> Self {
         Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -129,7 +126,6 @@ impl SyncSummary {
     pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
-            received_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
@@ -139,8 +135,7 @@ impl SyncSummary {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.received_notes.is_empty()
-            && self.committed_notes.is_empty()
+        self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
@@ -149,7 +144,6 @@ impl SyncSummary {
 
     pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.received_notes.append(&mut other.received_notes);
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
@@ -161,7 +155,6 @@ impl SyncSummary {
 impl Serializable for SyncSummary {
     fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
         self.block_num.write_into(target);
-        self.received_notes.write_into(target);
         self.committed_notes.write_into(target);
         self.consumed_notes.write_into(target);
         self.updated_accounts.write_into(target);
@@ -175,7 +168,6 @@ impl Deserializable for SyncSummary {
         source: &mut R,
     ) -> Result<Self, DeserializationError> {
         let block_num = BlockNumber::read_from(source)?;
-        let received_notes = Vec::<NoteId>::read_from(source)?;
         let committed_notes = Vec::<NoteId>::read_from(source)?;
         let consumed_notes = Vec::<NoteId>::read_from(source)?;
         let updated_accounts = Vec::<AccountId>::read_from(source)?;
@@ -184,7 +176,6 @@ impl Deserializable for SyncSummary {
 
         Ok(Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -205,31 +196,6 @@ impl SyncStatus {
             SyncStatus::SyncedToBlock(summary) | SyncStatus::SyncedToLastBlock(summary) => summary,
         }
     }
-}
-
-/// Contains all information needed to apply the update in the store after syncing with the node.
-pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the
-    /// [`StateSyncInfo`](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_header: BlockHeader,
-    /// Information about note changes after the sync.
-    pub note_updates: NoteUpdates,
-    /// Transaction updates for any transaction that was committed between the sync request's
-    /// block number and the response's block number.
-    pub transactions_to_commit: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    pub transactions_to_discard: Vec<TransactionId>,
-    /// New MMR peaks for the locally tracked MMR of the blockchain.
-    pub new_mmr_peaks: MmrPeaks,
-    /// New authentications nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Information abount account changes after the sync.
-    pub updated_accounts: AccountUpdates,
-    /// Whether the block header has notes relevant to the client.
-    pub block_has_relevant_notes: bool,
-    /// Tag records that are no longer relevant.
-    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 // CONSTANTS
@@ -351,7 +317,6 @@ impl Client {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            note_updates.new_input_notes().iter().map(InputNoteRecord::id).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_public_accounts.iter().map(Account::id).collect(),
@@ -361,16 +326,15 @@ impl Client {
         let response_block_num = response.block_header.block_num();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
-            note_updates,
-            transactions_to_commit,
+            block_has_relevant_notes: incoming_block_has_relevant_notes,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_accounts: AccountUpdates::new(
+            note_updates,
+            transaction_updates: TransactionUpdates::new(transactions_to_commit, vec![]),
+            account_updates: AccountUpdates::new(
                 updated_public_accounts,
                 mismatched_private_accounts,
             ),
-            block_has_relevant_notes: incoming_block_has_relevant_notes,
-            transactions_to_discard: vec![],
             tags_to_remove,
         };
 
@@ -441,16 +405,11 @@ impl Client {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             0.into(),
-            consumed_note_updates
-                .new_input_notes()
-                .iter()
-                .map(InputNoteRecord::id)
-                .collect(),
             consumed_note_updates.committed_note_ids().into_iter().collect(),
             consumed_note_updates.consumed_note_ids().into_iter().collect(),
             vec![],
             vec![],
-            vec![],
+            committed_transactions.iter().map(|tx| tx.transaction_id).collect(),
         );
 
         // Apply received and computed updates to the store
@@ -539,9 +498,7 @@ impl Client {
 
         Ok((
             NoteUpdates::new(
-                new_public_notes,
-                vec![],
-                committed_tracked_input_notes,
+                [new_public_notes, committed_tracked_input_notes].concat(),
                 committed_tracked_output_notes,
             ),
             removed_tags,
@@ -640,12 +597,7 @@ impl Client {
         }
 
         Ok((
-            NoteUpdates::new(
-                vec![],
-                vec![],
-                consumed_tracked_input_notes,
-                consumed_tracked_output_notes,
-            ),
+            NoteUpdates::new(consumed_tracked_input_notes, consumed_tracked_output_notes),
             discarded_transactions,
         ))
     }

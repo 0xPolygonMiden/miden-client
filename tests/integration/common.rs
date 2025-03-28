@@ -63,7 +63,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
 
     (
         TestClient::new(
-            Box::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
+            Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
             Box::new(rng),
             store,
             Arc::new(keystore.clone()),

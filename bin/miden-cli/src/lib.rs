@@ -115,8 +115,8 @@ impl Cli {
             .map_err(CliError::KeyStore)?;
 
         let client = Client::new(
-            Box::new(TonicRpcClient::new(
-                &(cli_config.rpc.endpoint.clone().into()),
+            Arc::new(TonicRpcClient::new(
+                &cli_config.rpc.endpoint.clone().into(),
                 cli_config.rpc.timeout_ms,
             )),
             Box::new(rng),

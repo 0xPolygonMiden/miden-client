@@ -83,7 +83,7 @@ impl WebClient {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
         })?;
 
-        let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
+        let web_rpc_client = Arc::new(TonicRpcClient::new(&endpoint, 0));
 
         self.inner = Some(Client::new(
             web_rpc_client,

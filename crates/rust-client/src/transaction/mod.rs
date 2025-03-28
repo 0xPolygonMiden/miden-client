@@ -99,7 +99,7 @@ use super::Client;
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdates},
-    rpc::domain::account::AccountProof,
+    rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
@@ -340,10 +340,8 @@ impl TransactionStoreUpdate {
             executed_transaction,
             updated_account,
             note_updates: NoteUpdates::new(
-                created_input_notes,
+                [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
-                updated_input_notes,
-                vec![],
             ),
             new_tags,
         }
@@ -367,6 +365,50 @@ impl TransactionStoreUpdate {
     /// Returns the new tags that were created as part of the transaction.
     pub fn new_tags(&self) -> &[NoteTagRecord] {
         &self.new_tags
+    }
+}
+
+/// Contains transaction changes to apply to the store.
+#[derive(Default)]
+pub struct TransactionUpdates {
+    /// Transaction updates for any transaction that was committed between the sync request's block
+    /// number and the response's block number.
+    committed_transactions: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync.
+    discarded_transactions: Vec<TransactionId>,
+}
+
+impl TransactionUpdates {
+    /// Creates a new [`TransactionUpdate`]
+    pub fn new(
+        committed_transactions: Vec<TransactionUpdate>,
+        discarded_transactions: Vec<TransactionId>,
+    ) -> Self {
+        Self {
+            committed_transactions,
+            discarded_transactions,
+        }
+    }
+
+    /// Extends the transaction update information with `other`.
+    pub fn extend(&mut self, other: Self) {
+        self.committed_transactions.extend(other.committed_transactions);
+        self.discarded_transactions.extend(other.discarded_transactions);
+    }
+
+    /// Returns a reference to committed transactions.
+    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
+        &self.committed_transactions
+    }
+
+    /// Returns a reference to discarded transactions.
+    pub fn discarded_transactions(&self) -> &[TransactionId] {
+        &self.discarded_transactions
+    }
+
+    /// Inserts a discarded transaction into the transaction updates.
+    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
+        self.discarded_transactions.push(transaction_id);
     }
 }
 
