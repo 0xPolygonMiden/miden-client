@@ -273,3 +273,49 @@ impl Deserializable for SyncSummary {
         })
     }
 }
+#[cfg(test)]
+mod test {
+    use miden_objects::{
+        Digest, account::AccountId, block::BlockNumber, note::NoteId, transaction::TransactionId,
+    };
+    use miden_tx::utils::{Deserializable, Serializable, SliceReader};
+
+    use super::SyncSummary;
+
+    #[test]
+    fn test_sync_summary_serialization_and_deserialization() {
+        let summary = SyncSummary {
+            block_num: BlockNumber::from(100),
+            committed_notes: vec![
+                NoteId::try_from_hex(
+                    "0xa3f91b76d0e24c5f8e7a6b3c92d8e0ff12a47b65c3d9f08e54a21b7f6e8c9d30",
+                )
+                .unwrap(),
+            ],
+            consumed_notes: vec![
+                NoteId::try_from_hex(
+                    "0xf07e1c9a45b2d68f3e10a5b4c27d9e81f6a3b50c2d98e47f01c7a6b35d2e4f89",
+                )
+                .unwrap(),
+            ],
+            updated_accounts: vec![
+                AccountId::from_hex("0xec6eb17da58222800000ba8ef7e353").unwrap(),
+            ],
+            locked_accounts: vec![AccountId::from_hex("0x039613d3c276f1800000f2a56a3d7e").unwrap()],
+            committed_transactions: vec![TransactionId::new(
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+                Digest::default(),
+            )],
+        };
+
+        let mut bytes = vec![];
+        summary.write_into(&mut bytes);
+
+        let deserialized_summary =
+            SyncSummary::read_from(&mut SliceReader::new(bytes.as_slice())).unwrap();
+
+        assert_eq!(summary, deserialized_summary);
+    }
+}
