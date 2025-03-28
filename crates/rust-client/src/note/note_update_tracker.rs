@@ -93,27 +93,12 @@ impl NoteUpdateTracker {
     // UPDATE METHODS
     // --------------------------------------------------------------------------------------------
 
-    /// Inserts new or updated input and output notes.
-    ///
-    /// If an update with the same note ID already exists, it will be replaced.
-    pub(crate) fn insert_updates(
-        &mut self,
-        input_note: Option<InputNoteRecord>,
-        output_note: Option<OutputNoteRecord>,
-    ) {
-        if let Some(input_note) = input_note {
-            self.updated_input_notes.insert(input_note.id(), input_note);
-        }
-        if let Some(output_note) = output_note {
-            self.updated_output_notes.insert(output_note.id(), output_note);
-        }
-    }
-
     /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
     /// committed in a block.
     pub(crate) fn apply_committed_note_state_transitions(
         &mut self,
         committed_note: &CommittedNote,
+        public_note_data: Option<InputNoteRecord>,
         block_header: &BlockHeader,
     ) -> Result<(), ClientError> {
         let inclusion_proof = NoteInclusionProof::new(
@@ -121,6 +106,11 @@ impl NoteUpdateTracker {
             committed_note.note_index(),
             committed_note.merkle_path().clone(),
         )?;
+
+        if let Some(mut input_note_record) = public_note_data {
+            input_note_record.block_header_received(block_header)?;
+            self.updated_input_notes.insert(input_note_record.id(), input_note_record);
+        }
 
         if let Some(input_note_record) = self.get_input_note_by_id(*committed_note.note_id()) {
             // The note belongs to our locally tracked set of input notes

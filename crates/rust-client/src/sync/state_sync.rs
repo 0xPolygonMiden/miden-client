@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, sync::Arc, vec::Vec};
 use core::{future::Future, pin::Pin};
 
 use miden_objects::{
@@ -280,22 +280,18 @@ impl StateSync {
         let mut found_relevant_note = false;
 
         // Process note inclusions
-        let new_public_notes =
-            Arc::new(self.fetch_public_note_details(&public_note_ids, block_header).await?);
+        let new_public_notes = self.fetch_public_note_details(&public_note_ids).await?;
         for committed_note in note_inclusions {
-            let public_note = new_public_notes
-                .iter()
-                .find(|note| &note.id() == committed_note.note_id())
-                .cloned();
+            let public_note = new_public_notes.get(committed_note.note_id()).cloned();
+
             if (self.on_note_received)(committed_note.clone(), public_note.clone()).await? {
                 found_relevant_note = true;
 
-                if let Some(public_note) = public_note {
-                    note_updates.insert_updates(Some(public_note), None);
-                }
-
-                note_updates
-                    .apply_committed_note_state_transitions(&committed_note, block_header)?;
+                note_updates.apply_committed_note_state_transitions(
+                    &committed_note,
+                    public_note,
+                    block_header,
+                )?;
             }
         }
 
@@ -309,20 +305,15 @@ impl StateSync {
     async fn fetch_public_note_details(
         &self,
         query_notes: &[NoteId],
-        block_header: &BlockHeader,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    ) -> Result<BTreeMap<NoteId, InputNoteRecord>, ClientError> {
         if query_notes.is_empty() {
-            return Ok(vec![]);
+            return Ok(BTreeMap::new());
         }
         info!("Getting note details for notes that are not being tracked.");
 
-        let mut return_notes = self.rpc_api.get_public_note_records(query_notes, None).await?;
+        let return_notes = self.rpc_api.get_public_note_records(query_notes, None).await?;
 
-        for note in &mut return_notes {
-            note.block_header_received(block_header)?;
-        }
-
-        Ok(return_notes)
+        Ok(return_notes.into_iter().map(|note| (note.id(), note)).collect())
     }
 
     /// Collects the nullifier tags for the notes that were updated in the sync response and uses
