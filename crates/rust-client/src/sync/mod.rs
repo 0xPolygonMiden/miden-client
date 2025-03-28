@@ -88,7 +88,7 @@ mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
 
 /// The number of blocks that are considered old enough to discard pending transactions.
-pub const TX_GRACEFUL_BLOCKS: u32 = 10;
+pub const TX_GRACEFUL_BLOCKS: u32 = 20;
 
 /// Contains stats about the sync operation.
 #[derive(Debug, PartialEq)]
