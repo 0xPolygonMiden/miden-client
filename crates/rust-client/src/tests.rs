@@ -8,7 +8,7 @@ use miden_lib::{
         auth::RpoFalcon512, faucets::BasicFungibleFaucet, interface::AccountInterfaceError,
         wallets::BasicWallet,
     },
-    note::utils,
+    note::{create_p2id_note, utils},
     transaction::TransactionKernel,
 };
 use miden_objects::{
@@ -433,14 +433,12 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_1).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
@@ -461,14 +459,12 @@ async fn test_get_output_notes() {
             .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     //Before executing transaction, there are no output notes
@@ -524,16 +520,21 @@ async fn test_transaction_request_expiration() {
             .await
             .unwrap();
 
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+    let mint_note = create_p2id_note(
+        faucet.id(),
         AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
+        vec![FungibleAsset::new(faucet.id(), 5u64).unwrap().into()],
         miden_objects::note::NoteType::Private,
+        Felt::ZERO,
         client.rng(),
     )
-    .unwrap()
-    .with_expiration_delta(5)
-    .build()
     .unwrap();
+
+    let transaction_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(mint_note)])
+        .with_expiration_delta(5)
+        .build()
+        .unwrap();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
@@ -559,14 +560,12 @@ async fn test_import_processing_note_returns_error() {
             .unwrap();
 
     // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+    let transaction_request = TransactionRequestBuilder::build_mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
         miden_objects::note::NoteType::Private,
         client.rng(),
     )
-    .unwrap()
-    .build()
     .unwrap();
 
     let transaction =
@@ -694,7 +693,7 @@ async fn test_note_without_asset() {
         ))
     ));
 
-    let error = TransactionRequestBuilder::pay_to_id(
+    let error = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(vec![], faucet.id(), wallet.id()),
         None,
         NoteType::Public,
@@ -704,7 +703,7 @@ async fn test_note_without_asset() {
 
     assert!(matches!(error, TransactionRequestError::P2IDNoteWithoutAsset));
 
-    let error = TransactionRequestBuilder::pay_to_id(
+    let error = TransactionRequestBuilder::build_pay_to_id(
         PaymentTransactionData::new(
             vec![Asset::Fungible(FungibleAsset::new(faucet.id(), 0).unwrap())],
             faucet.id(),

@@ -28,6 +28,7 @@
 * [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
 * Added recency validations for the client (#776).
 * Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
+* [BREAKING] `TransactionRequestBuilder` for known transaction now returns a built request (#791).
 * [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
 
 ### Fixes
