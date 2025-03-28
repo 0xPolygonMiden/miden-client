@@ -1539,7 +1539,8 @@ dependencies = [
 [[package]]
 name = "miden-node-proto-build"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ac49ae324f3d9f4e425ebec6eda909274412630a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cb1d9b312ec25b732b4d3f6f75d37dd6ff1b69dd483e89ec8001be482dcc5fb"
 dependencies = [
  "anyhow",
  "prost",

@@ -4,6 +4,8 @@
 
 ### Features
 
+* Added wallet generation from seed & import from seed on web SDK (#710).
+* Added import/export for web client db (#740).
 * Added Delegated Proving Support to All Transaction Types in Web Client (#792).
 * Added support to import public accounts to `Client` (#733).
 * [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
@@ -14,11 +16,9 @@
 
 ### Changes
 
-* Added wallet generation from seed & import from seed on web SDK (#710).
-* Add check for empty pay to ID notes (#714).
+* Added check for empty pay to ID notes (#714).
 * [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
-* Added import/export for web client db (#740).
-* Re-exported RemoteTransactionProver in `rust-client` (#752).
+* Re-exported `RemoteTransactionProver` in `rust-client` (#752).
 * Moved error handling to the `TransactionRequestBuilder::build()` (#750).
 * [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
 * Added `ClientBuilder` for client initialization (#741).
@@ -36,6 +36,11 @@
 * Fixed Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
 * Fixed case where the `CheckNullifiersByPrefix` response contained nullifiers after the client's sync height (#784).
+
+
+## 0.7.3 (TBD)
+
+* Web client: Exposed `assets` iterator for `AssetVault` (#783)
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 

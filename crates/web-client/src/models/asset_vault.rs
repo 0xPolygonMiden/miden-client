@@ -1,7 +1,7 @@
 use miden_objects::asset::AssetVault as NativeAssetVault;
 use wasm_bindgen::prelude::*;
 
-use super::{account_id::AccountId, rpo_digest::RpoDigest};
+use super::{account_id::AccountId, fungible_asset::FungibleAsset, rpo_digest::RpoDigest};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -16,6 +16,20 @@ impl AssetVault {
     #[wasm_bindgen(js_name = "getBalance")]
     pub fn get_balance(&self, faucet_id: &AccountId) -> u64 {
         self.0.get_balance(faucet_id.into()).unwrap()
+    }
+
+    #[wasm_bindgen(js_name = "fungibleAssets")]
+    pub fn fungible_assets(&self) -> Vec<FungibleAsset> {
+        self.0
+            .assets()
+            .filter_map(|asset| {
+                if asset.is_fungible() {
+                    Some(asset.unwrap_fungible().into())
+                } else {
+                    None // TODO: Support non fungible assets
+                }
+            })
+            .collect()
     }
 }
 
