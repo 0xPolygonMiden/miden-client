@@ -1,5 +1,7 @@
 use miden_client::{
+    account::{AccountId, build_wallet_id},
     auth::AuthSecretKey,
+    note::NoteTag,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
@@ -9,6 +11,7 @@ use miden_objects::{
     note::{NoteFile, NoteType},
     transaction::InputNote,
 };
+use rand::RngCore;
 
 use super::common::*;
 
@@ -312,7 +315,6 @@ async fn test_onchain_accounts() {
     assert_eq!(new_from_account_balance, from_account_balance - TRANSFER_AMOUNT);
     assert_eq!(new_to_account_balance, to_account_balance + TRANSFER_AMOUNT);
 }
-<<<<<<< HEAD
 
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
@@ -440,5 +442,3 @@ async fn test_import_account_by_id() {
     )
     .await;
 }
-=======
->>>>>>> ca6d15ad403ee5790c9ea526a7d4b5e92da70c7d
