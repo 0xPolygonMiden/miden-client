@@ -33,7 +33,7 @@
 //! /// This transaction is executed by `sender_id`, and creates an output note
 //! /// containing 100 tokens of `faucet_id`'s fungible asset.
 //! async fn create_and_submit_transaction<R: rand::Rng>(
-//!     client: &mut Client<impl FeltRng>,
+//!     client: &mut Client,
 //!     sender_id: AccountId,
 //!     target_id: AccountId,
 //!     faucet_id: AccountId,
@@ -95,11 +95,11 @@ use miden_tx::{
 };
 use tracing::info;
 
-use super::{Client, FeltRng};
+use super::Client;
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
-    rpc::domain::account::AccountProof,
+    rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
@@ -368,8 +368,52 @@ impl TransactionStoreUpdate {
     }
 }
 
+/// Contains transaction changes to apply to the store.
+#[derive(Default)]
+pub struct TransactionUpdates {
+    /// Transaction updates for any transaction that was committed between the sync request's block
+    /// number and the response's block number.
+    committed_transactions: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync.
+    discarded_transactions: Vec<TransactionId>,
+}
+
+impl TransactionUpdates {
+    /// Creates a new [`TransactionUpdate`]
+    pub fn new(
+        committed_transactions: Vec<TransactionUpdate>,
+        discarded_transactions: Vec<TransactionId>,
+    ) -> Self {
+        Self {
+            committed_transactions,
+            discarded_transactions,
+        }
+    }
+
+    /// Extends the transaction update information with `other`.
+    pub fn extend(&mut self, other: Self) {
+        self.committed_transactions.extend(other.committed_transactions);
+        self.discarded_transactions.extend(other.discarded_transactions);
+    }
+
+    /// Returns a reference to committed transactions.
+    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
+        &self.committed_transactions
+    }
+
+    /// Returns a reference to discarded transactions.
+    pub fn discarded_transactions(&self) -> &[TransactionId] {
+        &self.discarded_transactions
+    }
+
+    /// Inserts a discarded transaction into the transaction updates.
+    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
+        self.discarded_transactions.push(transaction_id);
+    }
+}
+
 /// Transaction management methods
-impl<R: FeltRng> Client<R> {
+impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -721,7 +765,7 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<(), ClientError> {
         // Get outgoing assets
         let (fungible_balance_map, non_fungible_set) =
-            <Client<R>>::get_outgoing_assets(transaction_request);
+            Client::get_outgoing_assets(transaction_request);
 
         // Get incoming assets
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
@@ -933,7 +977,7 @@ impl<R: FeltRng> Client<R> {
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<R: FeltRng> Client<R> {
+impl Client {
     pub async fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,

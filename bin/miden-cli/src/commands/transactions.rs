@@ -1,6 +1,4 @@
-use miden_client::{
-    Client, crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord,
-};
+use miden_client::{Client, store::TransactionFilter, transaction::TransactionRecord};
 
 use crate::{Parser, create_dynamic_table, errors::CliError};
 
@@ -13,7 +11,7 @@ pub struct TransactionCmd {
 }
 
 impl TransactionCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         list_transactions(client).await?;
         Ok(())
     }
@@ -21,7 +19,7 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-async fn list_transactions(client: Client<impl FeltRng>) -> Result<(), CliError> {
+async fn list_transactions(client: Client) -> Result<(), CliError> {
     let transactions = client.get_transactions(TransactionFilter::All).await?;
     print_transactions_summary(&transactions);
     Ok(())

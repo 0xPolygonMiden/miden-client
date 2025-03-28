@@ -6,7 +6,7 @@ use errors::CliError;
 use miden_client::{
     Client, ClientError, Felt, IdPrefixFetchError,
     account::AccountHeader,
-    crypto::{FeltRng, RpoRandomCoin},
+    crypto::RpoRandomCoin,
     keystore::FilesystemKeyStore,
     rpc::TonicRpcClient,
     store::{NoteFilter as ClientNoteFilter, OutputNoteRecord, Store, sqlite_store::SqliteStore},
@@ -119,7 +119,7 @@ impl Cli {
                 &cli_config.rpc.endpoint.clone().into(),
                 cli_config.rpc.timeout_ms,
             )),
-            rng,
+            Box::new(rng),
             store as Arc<dyn Store>,
             Arc::new(keystore.clone()),
             in_debug_mode,
@@ -171,7 +171,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
 pub(crate) async fn get_output_note_with_id_prefix(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
@@ -217,7 +217,7 @@ pub(crate) async fn get_output_note_with_id_prefix(
 /// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one account found
 ///   where `account_id_prefix` is a prefix of its ID.
 async fn get_account_with_id_prefix(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client

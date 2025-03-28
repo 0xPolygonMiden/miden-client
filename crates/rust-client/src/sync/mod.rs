@@ -30,7 +30,7 @@
 //! # use miden_client::{Client, ClientError};
 //! # use miden_objects::{block::BlockHeader, Felt, Word, StarkField};
 //! # use miden_objects::crypto::rand::FeltRng;
-//! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
+//! # async fn run_sync(client: &mut Client) -> Result<(), ClientError> {
 //! // Attempt to synchronize the client's state with the Miden network.
 //! // The requested data is based on the client's state: it gets updates for accounts, relevant
 //! // notes, etc. For more information on the data that gets requested, see the doc comments for
@@ -61,7 +61,6 @@ pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
 use miden_objects::{
     account::AccountId,
     block::BlockNumber,
-    crypto::rand::FeltRng,
     note::{NoteId, NoteTag},
     transaction::TransactionId,
 };
@@ -83,7 +82,7 @@ pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, Trans
 // ================================================================================================
 
 /// Client synchronization methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

@@ -20,13 +20,13 @@
 //! ```rust
 //! use miden_client::{
 //!     Client,
-//!     note::{get_input_note_with_id_prefix, NoteScreener},
-//!     store::NoteFilter,
 //!     crypto::FeltRng,
+//!     note::{NoteScreener, get_input_note_with_id_prefix},
+//!     store::NoteFilter,
 //! };
 //! use miden_objects::account::AccountId;
 //!
-//! # async fn example(client: &Client<impl FeltRng>) -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 //! // Retrieve all committed input notes
 //! let input_notes = client.get_input_notes(NoteFilter::Committed).await?;
 //! println!("Found {} committed input notes.", input_notes.len());
@@ -59,7 +59,7 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{account::AccountId, crypto::rand::FeltRng};
+use miden_objects::account::AccountId;
 
 use crate::{
     Client, ClientError, IdPrefixFetchError,
@@ -93,7 +93,7 @@ pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScre
 pub use note_update_tracker::NoteUpdateTracker;
 
 /// Note retrieval methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -196,8 +196,8 @@ impl<R: FeltRng> Client<R> {
 ///   `note_id_prefix` is a prefix of its ID.
 /// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
-pub async fn get_input_note_with_id_prefix<R: FeltRng>(
-    client: &Client<R>,
+pub async fn get_input_note_with_id_prefix(
+    client: &Client,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = client

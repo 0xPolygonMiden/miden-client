@@ -4,7 +4,7 @@ use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_objects::{
     Digest,
     block::{BlockHeader, BlockNumber},
-    crypto::{self, merkle::MerklePath, rand::FeltRng},
+    crypto::{self, merkle::MerklePath},
 };
 use tracing::warn;
 
@@ -18,7 +18,7 @@ use crate::{
 pub(crate) const MAX_BLOCK_NUMBER_DELTA: u32 = 256;
 
 /// Network information management methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&self) -> Result<(), ClientError> {
