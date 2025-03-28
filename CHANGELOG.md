@@ -11,6 +11,7 @@
 * Added `ClientBuilder` for client initialization (#741).
 * Added support for script execution in the `Client` and CLI (#777).
 * Added note code to `miden notes --show` command (#790).
+* Added `NoteUpdate` type to the note update tracker to distinguish between different types of updates (#821).
 
 ### Changes
 
