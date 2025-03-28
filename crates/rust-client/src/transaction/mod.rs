@@ -98,7 +98,7 @@ use tracing::info;
 use super::Client;
 use crate::{
     ClientError,
-    note::{NoteScreener, NoteUpdateTracker},
+    note::{NoteScreener, NoteUpdates},
     rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
@@ -321,7 +321,7 @@ pub struct TransactionStoreUpdate {
     /// Updated account state after the [`AccountDelta`] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
-    note_updates: NoteUpdateTracker,
+    note_updates: NoteUpdates,
     /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
@@ -339,7 +339,7 @@ impl TransactionStoreUpdate {
         Self {
             executed_transaction,
             updated_account,
-            note_updates: NoteUpdateTracker::new(
+            note_updates: NoteUpdates::new(
                 [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
             ),
@@ -358,7 +358,7 @@ impl TransactionStoreUpdate {
     }
 
     /// Returns the note updates that need to be applied after the transaction execution.
-    pub fn note_updates(&self) -> &NoteUpdateTracker {
+    pub fn note_updates(&self) -> &NoteUpdates {
         &self.note_updates
     }
 
@@ -949,7 +949,7 @@ impl Client {
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
-                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
                 self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                     .await?;
             }

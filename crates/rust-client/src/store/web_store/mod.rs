@@ -15,6 +15,7 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
+    transaction::TransactionId,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
@@ -25,6 +26,7 @@ use super::{
     OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
+    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -83,6 +85,14 @@ impl Store for WebStore {
 
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
         self.apply_state_sync(state_sync_update).await
+    }
+
+    async fn apply_nullifiers(
+        &self,
+        note_updates: NoteUpdates,
+        transactions_to_discard: Vec<TransactionId>,
+    ) -> Result<(), StoreError> {
+        self.apply_nullifiers(note_updates, transactions_to_discard).await
     }
 
     // TRANSACTIONS

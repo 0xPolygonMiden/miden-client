@@ -1,14 +1,16 @@
 use miden_client::{
+    account::build_wallet_id,
     auth::AuthSecretKey,
     store::{InputNoteState, NoteFilter},
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
-    account::AccountStorageMode,
+    account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
-    note::{NoteFile, NoteType},
+    note::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
+use rand::RngCore;
 
 use super::common::*;
 
@@ -90,34 +92,9 @@ async fn test_onchain_notes_flow() {
     .unwrap();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
-    // Create a note for client 3 that is already consumed before syncing
-    let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(
-            vec![p2id_asset.into()],
-            basic_wallet_1.id(),
-            basic_wallet_2.id(),
-        ),
-        Some(1.into()),
-        NoteType::Public,
-        client_2.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
-
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note.id()]).build().unwrap();
-    execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
-
     // sync client 3 (basic account 2)
     client_3.sync_state().await.unwrap();
-
-    // client 3 should have two notes, the one directed to them and the one consumed by client 2
-    // (which should come from the tag added)
-    assert_eq!(client_3.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
-    assert_eq!(client_3.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
-
+    // client 3 should only have one note
     let note = client_3
         .get_input_notes(NoteFilter::Committed)
         .await
@@ -312,4 +289,132 @@ async fn test_onchain_accounts() {
 
     assert_eq!(new_from_account_balance, from_account_balance - TRANSFER_AMOUNT);
     assert_eq!(new_to_account_balance, to_account_balance + TRANSFER_AMOUNT);
+}
+
+#[tokio::test]
+async fn test_onchain_notes_sync_with_tag() {
+    // Client 1 has an private faucet which will mint an onchain note for client 2
+    let (mut client_1, keystore) = create_test_client().await;
+    // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
+    // whose tag doesn't necessarily match any of its accounts
+    let (mut client_2, _) = create_test_client().await;
+    // Client 3 will be the control client. We won't add any tags and expect the note not to be
+    // fetched
+    let (mut client_3, _) = create_test_client().await;
+    wait_for_node(&mut client_3).await;
+
+    // Create faucet account
+    let (faucet_account, ..) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Private, &keystore)
+            .await
+            .unwrap();
+
+    client_1.sync_state().await.unwrap();
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
+
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        target_account_id,
+        NoteType::Public,
+        client_1.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
+
+    // Load tag into client 2
+    client_2
+        .add_note_tag(
+            NoteTag::from_account_id(
+                target_account_id,
+                miden_objects::note::NoteExecutionMode::Local,
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Client 2's account should receive the note here:
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    // Assert that the note is the same
+    let received_note: InputNote =
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
+    assert_eq!(received_note.note().commitment(), note.commitment());
+    assert_eq!(received_note.note(), &note);
+    assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn test_import_account_by_id() {
+    let (mut client_1, keystore_1) = create_test_client().await;
+    let (mut client_2, keystore_2) = create_test_client().await;
+    wait_for_node(&mut client_1).await;
+
+    let mut user_seed = [0u8; 32];
+    client_1.rng().fill_bytes(&mut user_seed);
+
+    let (faucet_account_header, ..) =
+        insert_new_fungible_faucet(&mut client_1, AccountStorageMode::Public, &keystore_1)
+            .await
+            .unwrap();
+
+    let (first_regular_account, _, secret_key) = insert_new_wallet_with_seed(
+        &mut client_1,
+        AccountStorageMode::Public,
+        &keystore_1,
+        user_seed,
+    )
+    .await
+    .unwrap();
+
+    let target_account_id = first_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // First mint and consume in the first client
+    println!("First client consuming note");
+    let note =
+        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
+
+    consume_notes(&mut client_1, target_account_id, &[note]).await;
+
+    // Mint a note for the second client
+    let note =
+        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
+
+    // Import the public account by id
+    let anchor_block = client_1.get_latest_epoch_block().await.unwrap();
+    let built_wallet_id = build_wallet_id(
+        user_seed,
+        secret_key.public_key(),
+        AccountStorageMode::Public,
+        false,
+        &anchor_block,
+    )
+    .unwrap();
+    assert_eq!(built_wallet_id, first_regular_account.id());
+    client_2.import_account_by_id(built_wallet_id).await.unwrap();
+    keystore_2.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+
+    let original_account = client_1.get_account(first_regular_account.id()).await.unwrap().unwrap();
+    let imported_account = client_2.get_account(first_regular_account.id()).await.unwrap().unwrap();
+    assert_eq!(imported_account.account().commitment(), original_account.account().commitment());
+
+    // Now use the wallet in the second client to consume the generated note
+    println!("Second client consuming note");
+    client_2.sync_state().await.unwrap();
+    consume_notes(&mut client_2, target_account_id, &[note]).await;
+    assert_account_has_single_asset(
+        &client_2,
+        target_account_id,
+        faucet_account_id,
+        MINT_AMOUNT * 2,
+    )
+    .await;
 }
