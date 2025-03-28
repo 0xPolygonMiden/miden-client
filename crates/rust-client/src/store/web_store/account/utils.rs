@@ -11,6 +11,7 @@ use miden_objects::{
 };
 use miden_tx::utils::Serializable;
 use serde_wasm_bindgen::from_value;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 use super::{
@@ -23,57 +24,59 @@ use super::{
 };
 use crate::store::{AccountStatus, StoreError};
 
-pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
+pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), JsValue> {
     let root = account_code.commitment().to_string();
     let code = account_code.to_bytes();
 
     let promise = idxdb_insert_account_code(root, code);
-    let _ = JsFuture::from(promise).await;
+    JsFuture::from(promise).await?;
 
     Ok(())
 }
 
-pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<(), ()> {
+pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<(), JsValue> {
     let root = account_storage.commitment().to_string();
 
     let storage = account_storage.to_bytes();
 
     let promise = idxdb_insert_account_storage(root, storage);
-    let _ = JsFuture::from(promise).await;
+    JsFuture::from(promise).await?;
 
     Ok(())
 }
 
-pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), ()> {
+pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), JsValue> {
     let commitment = asset_vault.root().to_string();
     let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
 
     let promise = idxdb_insert_account_asset_vault(commitment, assets);
-    let _ = JsFuture::from(promise).await;
+    JsFuture::from(promise).await?;
+
     Ok(())
 }
 
-pub async fn insert_account_auth(pub_key: String, secret_key: String) -> Result<(), ()> {
+pub async fn insert_account_auth(pub_key: String, secret_key: String) -> Result<(), JsValue> {
     let promise = idxdb_insert_account_auth(pub_key, secret_key);
-    let _ = JsFuture::from(promise).await;
+    JsFuture::from(promise).await?;
 
     Ok(())
 }
 
-pub fn get_account_auth_by_pub_key(pub_key: String) -> Result<String, ()> {
-    let js_value = idxdb_get_account_auth_by_pub_key(pub_key);
-    let account_auth_idxdb: Option<AccountAuthIdxdbObject> = from_value(js_value).unwrap();
+pub fn get_account_auth_by_pub_key(pub_key: String) -> Result<String, StoreError> {
+    let js_value = idxdb_get_account_auth_by_pub_key(pub_key.clone());
+    let account_auth_idxdb: Option<AccountAuthIdxdbObject> = from_value(js_value)
+        .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
     match account_auth_idxdb {
         Some(account_auth) => Ok(account_auth.secret_key),
-        None => Err(()),
+        None => Err(StoreError::AccountKeyNotFound(pub_key)),
     }
 }
 
 pub async fn insert_account_record(
     account: &Account,
     account_seed: Option<Word>,
-) -> Result<(), ()> {
+) -> Result<(), JsValue> {
     let account_id_str = account.id().to_string();
     let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().commitment().to_string();
@@ -93,7 +96,7 @@ pub async fn insert_account_record(
         account_seed,
         commitment,
     );
-    let _ = JsFuture::from(promise).await;
+    JsFuture::from(promise).await?;
 
     Ok(())
 }
@@ -101,7 +104,7 @@ pub async fn insert_account_record(
 pub fn parse_account_record_idxdb_object(
     account_header_idxdb: AccountRecordIdxdbObject,
 ) -> Result<(AccountHeader, AccountStatus), StoreError> {
-    let native_account_id: AccountId = AccountId::from_hex(&account_header_idxdb.id).unwrap();
+    let native_account_id: AccountId = AccountId::from_hex(&account_header_idxdb.id)?;
     let native_nonce: u64 = account_header_idxdb
         .nonce
         .parse::<u64>()
@@ -128,7 +131,7 @@ pub fn parse_account_record_idxdb_object(
     Ok((account_header, status))
 }
 
-pub async fn update_account(new_account_state: &Account) -> Result<(), ()> {
+pub async fn update_account(new_account_state: &Account) -> Result<(), JsValue> {
     insert_account_storage(new_account_state.storage()).await?;
     insert_account_asset_vault(new_account_state.vault()).await?;
     insert_account_record(new_account_state, None).await

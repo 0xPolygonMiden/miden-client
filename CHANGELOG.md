@@ -29,11 +29,13 @@
 * Added recency validations for the client (#776).
 * Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
 * [BREAKING] Changed parameter of `with_expected_output_notes` to accept any type of `OutputNote` (#806).
+* [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
 
 ### Fixes
 
-* Fix Web Keystore (#779).
+* Fixed Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+* Fixed case where the `CheckNullifiersByPrefix` response contained nullifiers after the client's sync height (#784).
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates
 
@@ -85,6 +87,7 @@
 
 ### Changes
 
+* [BREAKING] Refactored the sync process to use a new `SyncState` component (#650).
 * [BREAKING] Return `None` instead of `Err` when an entity is not found (#632).
 * Add support for notes without assets in transaction requests (#654).
 * Refactored RPC functions and structs to improve code quality (#616).

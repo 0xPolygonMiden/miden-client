@@ -17,7 +17,7 @@ impl NoteAssets {
     }
 
     pub fn push(&mut self, asset: &FungibleAsset) {
-        let _ = self.0.add_asset(asset.into());
+        self.0.add_asset(asset.into()).unwrap();
     }
 
     pub fn assets(&self) -> Vec<FungibleAsset> {

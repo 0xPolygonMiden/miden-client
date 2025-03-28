@@ -1,7 +1,8 @@
 use miden_client::{
     ZERO,
     note::NoteExecutionHint,
-    transaction::{TransactionRequest, TransactionRequestBuilder},
+    store::NoteFilter,
+    transaction::{InputNote, TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
 };
 use miden_objects::{
@@ -222,6 +223,83 @@ async fn test_merkle_store() {
     execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
     client.sync_state().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_onchain_notes_sync_with_tag() {
+    // Client 1 has an private faucet which will mint an onchain note for client 2
+    let (mut client_1, keystore_1) = create_test_client().await;
+    // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
+    // whose tag doesn't necessarily match any of its accounts
+    let (mut client_2, keystore_2) = create_test_client().await;
+    // Client 3 will be the control client. We won't add any tags and expect the note not to be
+    // fetched
+    let (mut client_3, ..) = create_test_client().await;
+    wait_for_node(&mut client_3).await;
+
+    // Create accounts
+    let (basic_account_1, ..) =
+        insert_new_wallet(&mut client_1, AccountStorageMode::Private, &keystore_1)
+            .await
+            .unwrap();
+
+    insert_new_wallet(&mut client_2, AccountStorageMode::Private, &keystore_2)
+        .await
+        .unwrap();
+
+    client_1.sync_state().await.unwrap();
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    // Create the custom note
+    let note_script = "
+            begin
+                push.1 push.1
+                assert_eq
+            end
+            ";
+    let note_script = client_1.compile_note_script(note_script).unwrap();
+    let inputs = NoteInputs::new(vec![]).unwrap();
+    let serial_num = client_1.rng().draw_word();
+    let note_metadata = NoteMetadata::new(
+        basic_account_1.id(),
+        NoteType::Public,
+        NoteTag::from_account_id(basic_account_1.id(), NoteExecutionMode::Local).unwrap(),
+        NoteExecutionHint::None,
+        Default::default(),
+    )
+    .unwrap();
+    let note_assets = NoteAssets::new(vec![]).unwrap();
+    let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
+    let note = Note::new(note_assets, note_metadata, note_recipient);
+
+    // Send transaction and wait for it to be committed
+    let tx_request = TransactionRequestBuilder::new()
+        .with_own_output_notes(vec![OutputNote::Full(note.clone())])
+        .build()
+        .unwrap();
+
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    execute_tx_and_sync(&mut client_1, basic_account_1.id(), tx_request).await;
+
+    // Load tag into client 2
+    client_2
+        .add_note_tag(
+            NoteTag::from_account_id(basic_account_1.id(), NoteExecutionMode::Local).unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Client 2's account should receive the note here:
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    // Assert that the note is the same
+    let received_note: InputNote =
+        client_2.get_input_note(note.id()).await.unwrap().unwrap().try_into().unwrap();
+    assert_eq!(received_note.note().commitment(), note.commitment());
+    assert_eq!(received_note.note(), &note);
+    assert!(client_3.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 }
 
 async fn mint_custom_note(

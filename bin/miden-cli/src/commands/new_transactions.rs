@@ -5,7 +5,7 @@ use miden_client::{
     Client, RemoteTransactionProver,
     account::AccountId,
     asset::{FungibleAsset, NonFungibleDeltaAction},
-    crypto::{Digest, FeltRng},
+    crypto::Digest,
     note::{BlockNumber, NoteType as MidenNoteType, build_swap_tag, get_input_note_with_id_prefix},
     store::NoteRecordError,
     transaction::{
@@ -39,8 +39,8 @@ impl From<&NoteType> for MidenNoteType {
     }
 }
 
-#[derive(Debug, Parser, Clone)]
 /// Mint tokens from a fungible faucet to a wallet.
+#[derive(Debug, Parser, Clone)]
 pub struct MintCmd {
     /// Target account ID or its hex prefix.
     #[clap(short = 't', long = "target")]
@@ -62,7 +62,7 @@ pub struct MintCmd {
 }
 
 impl MintCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), CliError> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
@@ -92,8 +92,8 @@ impl MintCmd {
     }
 }
 
-#[derive(Debug, Parser, Clone)]
 /// Create a pay-to-id transaction.
+#[derive(Debug, Parser, Clone)]
 pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
@@ -125,7 +125,7 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -165,8 +165,8 @@ impl SendCmd {
     }
 }
 
-#[derive(Debug, Parser, Clone)]
 /// Create a swap transaction.
+#[derive(Debug, Parser, Clone)]
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
@@ -193,7 +193,7 @@ pub struct SwapCmd {
 }
 
 impl SwapCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), CliError> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -247,10 +247,10 @@ impl SwapCmd {
     }
 }
 
-#[derive(Debug, Parser, Clone)]
 /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
 /// If no account ID is provided, the default one is used. If no notes are provided, any notes
 /// that are identified to be owned by the account ID are consumed.
+#[derive(Debug, Parser, Clone)]
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
     /// default account's ID is used instead.
@@ -268,7 +268,7 @@ pub struct ConsumeNotesCmd {
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), CliError> {
         let force = self.force;
 
         let mut authenticated_notes = Vec::new();
@@ -337,7 +337,7 @@ impl ConsumeNotesCmd {
 // ================================================================================================
 
 async fn execute_transaction(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,

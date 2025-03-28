@@ -18,7 +18,7 @@ use rusqlite::{Connection, Transaction, named_params, params, params_from_iter, 
 
 use super::SqliteStore;
 use crate::{
-    note::NoteUpdates,
+    note::NoteUpdateTracker,
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         note_record::OutputNoteState,
@@ -587,19 +587,13 @@ fn serialize_output_note(note: &OutputNoteRecord) -> SerializedOutputNoteData {
 
 pub(crate) fn apply_note_updates_tx(
     tx: &Transaction,
-    note_updates: &NoteUpdates,
+    note_updates: &NoteUpdateTracker,
 ) -> Result<(), StoreError> {
-    for input_note in
-        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
-    {
+    for input_note in note_updates.updated_input_notes() {
         upsert_input_note_tx(tx, input_note)?;
     }
 
-    for output_note in note_updates
-        .new_output_notes()
-        .iter()
-        .chain(note_updates.updated_output_notes())
-    {
+    for output_note in note_updates.updated_output_notes() {
         upsert_output_note_tx(tx, output_note)?;
     }
 

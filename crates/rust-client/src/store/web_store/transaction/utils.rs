@@ -39,7 +39,9 @@ pub async fn insert_proven_transaction_data(
 
     if let Some(root) = serialized_data.script_root.clone() {
         let promise = idxdb_insert_transaction_script(root, serialized_data.tx_script);
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to insert script: {js_error:?}"))
+        })?;
     }
 
     let promise = idxdb_insert_proven_transaction_data(
@@ -53,7 +55,9 @@ pub async fn insert_proven_transaction_data(
         serialized_data.block_num,
         serialized_data.commit_height,
     );
-    JsFuture::from(promise).await.unwrap();
+    JsFuture::from(promise).await.map_err(|js_error| {
+        StoreError::DatabaseError(format!("failed to insert transaction data: {js_error:?}"))
+    })?;
 
     Ok(())
 }

@@ -24,7 +24,7 @@ export async function getNoteTags() {
     return processedRecords;
   } catch (error) {
     console.error("Error fetching tag record:", error.toString());
-    return null;
+    throw error;
   }
 }
 
@@ -41,7 +41,7 @@ export async function getSyncHeight() {
     }
   } catch (error) {
     console.error("Error fetching sync height:", error.toString());
-    return null;
+    throw error;
   }
 }
 
@@ -55,7 +55,7 @@ export async function addNoteTag(tag, sourceNoteId, sourceAccountId) {
       sourceAccountId: sourceAccountId ? sourceAccountId : "",
     });
   } catch (err) {
-    console.error("Failed to add note tag: ", err);
+    console.error("Failed to add note tag: ", err.toString());
     throw err;
   }
 }
@@ -72,7 +72,7 @@ export async function removeNoteTag(tag, sourceNoteId, sourceAccountId) {
         sourceAccountId: sourceAccountId ? sourceAccountId : "",
       })
       .delete();
-  } catch {
+  } catch (err) {
     console.log("Failed to remove note tag: ", err.toString());
     throw err;
   }
@@ -80,8 +80,9 @@ export async function removeNoteTag(tag, sourceNoteId, sourceAccountId) {
 
 export async function applyStateSync(
   blockNum,
-  blockHeader,
-  chainMmrPeaks,
+  newBlockHeadersAsFlattenedVec,
+  newBlockNums,
+  chainMmrPeaksAsFlattenedVec,
   hasClientNotes,
   nodeIndexes,
   nodes,
@@ -90,6 +91,11 @@ export async function applyStateSync(
   transactionBlockNums,
   discardTransactionIds
 ) {
+  const newBlockHeaders = reconstructFlattenedVec(
+    newBlockHeadersAsFlattenedVec
+  );
+  const chainMmrPeaks = reconstructFlattenedVec(chainMmrPeaksAsFlattenedVec);
+
   return db.transaction(
     "rw",
     stateSync,
@@ -101,13 +107,15 @@ export async function applyStateSync(
     tags,
     async (tx) => {
       await updateSyncHeight(tx, blockNum);
-      await updateBlockHeader(
-        tx,
-        blockNum,
-        blockHeader,
-        chainMmrPeaks,
-        hasClientNotes
-      );
+      for (let i = 0; i < newBlockHeaders.length; i++) {
+        await updateBlockHeader(
+          tx,
+          newBlockNums[i],
+          newBlockHeaders[i],
+          chainMmrPeaks[i],
+          hasClientNotes[i]
+        );
+      }
       await updateChainMmrNodes(tx, nodeIndexes, nodes);
       await updateCommittedNoteTags(tx, inputNoteIds);
       await updateCommittedTransactions(
@@ -124,7 +132,7 @@ async function updateSyncHeight(tx, blockNum) {
   try {
     await tx.stateSync.update(1, { blockNum: blockNum });
   } catch (error) {
-    console.error("Failed to update sync height: ", error);
+    console.error("Failed to update sync height: ", error.toString());
     throw error;
   }
 }
@@ -149,7 +157,7 @@ async function updateBlockHeader(
 
     await tx.blockHeaders.add(data);
   } catch (err) {
-    console.error("Failed to insert block header: ", err);
+    console.error("Failed to insert block header: ", err.toString());
     throw err;
   }
 }
@@ -176,7 +184,7 @@ async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
     // Use bulkPut to add/overwrite the entries
     await tx.chainMmrNodes.bulkPut(data);
   } catch (err) {
-    console.error("Failed to update chain mmr nodes: ", err);
+    console.error("Failed to update chain mmr nodes: ", err.toString());
     throw err;
   }
 }
@@ -190,7 +198,7 @@ async function updateCommittedNoteTags(tx, inputNoteIds) {
       await tx.tags.where("source_note_id").equals(noteId).delete();
     }
   } catch (error) {
-    console.error("Error updating committed notes:", error);
+    console.error("Error updating committed notes:", error.toString());
     throw error;
   }
 }
@@ -222,7 +230,7 @@ async function updateCommittedTransactions(tx, blockNums, transactionIds) {
     // Perform the update
     await tx.transactions.bulkPut(updates);
   } catch (err) {
-    console.error("Failed to mark transactions as committed: ", err);
+    console.error("Failed to mark transactions as committed: ", err.toString());
     throw err;
   }
 }
@@ -251,7 +259,7 @@ async function updateDiscardedTransactions(tx, transactionIds) {
 
     await tx.transactions.bulkPut(updates);
   } catch (err) {
-    console.error("Failed to mark transactions as discarded: ", err);
+    console.error("Failed to mark transactions as discarded: ", err.toString());
     throw err;
   }
 }
@@ -262,4 +270,18 @@ function uint8ArrayToBase64(bytes) {
     ""
   );
   return btoa(binary);
+}
+
+// Helper function to reconstruct arrays from flattened data
+function reconstructFlattenedVec(flattenedVec) {
+  const data = flattenedVec.data();
+  const lengths = flattenedVec.lengths();
+
+  let index = 0;
+  const result = [];
+  lengths.forEach((length) => {
+    result.push(data.slice(index, index + length));
+    index += length;
+  });
+  return result;
 }

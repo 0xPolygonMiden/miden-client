@@ -17,7 +17,7 @@ use super::{
     js_bindings::{idxdb_upsert_input_note, idxdb_upsert_output_note},
 };
 use crate::{
-    note::NoteUpdates,
+    note::NoteUpdateTracker,
     store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
 };
 
@@ -96,7 +96,9 @@ pub async fn upsert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreErr
         serialized_data.state_discriminant,
         serialized_data.state,
     );
-    JsFuture::from(promise).await.unwrap();
+    JsFuture::from(promise).await.map_err(|js_error| {
+        StoreError::DatabaseError(format!("failed to upsert input note: {js_error:?}"))
+    })?;
 
     Ok(())
 }
@@ -191,18 +193,14 @@ pub fn parse_output_note_idxdb_object(
     ))
 }
 
-pub(crate) async fn apply_note_updates_tx(note_updates: &NoteUpdates) -> Result<(), StoreError> {
-    for input_note in
-        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
-    {
+pub(crate) async fn apply_note_updates_tx(
+    note_updates: &NoteUpdateTracker,
+) -> Result<(), StoreError> {
+    for input_note in note_updates.updated_input_notes() {
         upsert_input_note_tx(input_note).await?;
     }
 
-    for output_note in note_updates
-        .new_output_notes()
-        .iter()
-        .chain(note_updates.updated_output_notes())
-    {
+    for output_note in note_updates.updated_output_notes() {
         upsert_output_note_tx(output_note).await?;
     }
 

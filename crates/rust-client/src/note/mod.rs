@@ -20,13 +20,13 @@
 //! ```rust
 //! use miden_client::{
 //!     Client,
-//!     note::{get_input_note_with_id_prefix, NoteScreener},
-//!     store::NoteFilter,
 //!     crypto::FeltRng,
+//!     note::{NoteScreener, get_input_note_with_id_prefix},
+//!     store::NoteFilter,
 //! };
 //! use miden_objects::account::AccountId;
 //!
-//! # async fn example(client: &Client<impl FeltRng>) -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 //! // Retrieve all committed input notes
 //! let input_notes = client.get_input_notes(NoteFilter::Committed).await?;
 //! println!("Found {} committed input notes.", input_notes.len());
@@ -56,10 +56,10 @@
 //! For more details on the API and error handling, see the documentation for the specific functions
 //! and types in this module.
 
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{account::AccountId, crypto::rand::FeltRng};
+use miden_objects::account::AccountId;
 
 use crate::{
     Client, ClientError, IdPrefixFetchError,
@@ -70,6 +70,7 @@ pub mod script_roots;
 
 mod import;
 mod note_screener;
+mod note_update_tracker;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -89,9 +90,10 @@ pub use miden_objects::{
     },
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
+pub use note_update_tracker::NoteUpdateTracker;
 
 /// Note retrieval methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -194,8 +196,8 @@ impl<R: FeltRng> Client<R> {
 ///   `note_id_prefix` is a prefix of its ID.
 /// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
-pub async fn get_input_note_with_id_prefix<R: FeltRng>(
-    client: &Client<R>,
+pub async fn get_input_note_with_id_prefix(
+    client: &Client,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = client
@@ -230,109 +232,4 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
     Ok(input_note_records
         .pop()
         .expect("input_note_records should always have one element"))
-}
-
-// NOTE UPDATES
-// ------------------------------------------------------------------------------------------------
-
-/// Contains note changes to apply to the store.
-pub struct NoteUpdates {
-    /// A list of new input notes.
-    new_input_notes: Vec<InputNoteRecord>,
-    /// A list of new output notes.
-    new_output_notes: Vec<OutputNoteRecord>,
-    /// A list of updated input note records corresponding to locally-tracked input notes.
-    updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of updated output note records corresponding to locally-tracked output notes.
-    updated_output_notes: Vec<OutputNoteRecord>,
-}
-
-impl NoteUpdates {
-    /// Creates a [`NoteUpdates`].
-    pub fn new(
-        new_input_notes: Vec<InputNoteRecord>,
-        new_output_notes: Vec<OutputNoteRecord>,
-        updated_input_notes: Vec<InputNoteRecord>,
-        updated_output_notes: Vec<OutputNoteRecord>,
-    ) -> Self {
-        Self {
-            new_input_notes,
-            new_output_notes,
-            updated_input_notes,
-            updated_output_notes,
-        }
-    }
-
-    /// Combines two [`NoteUpdates`] into a single one.
-    #[must_use]
-    pub fn combine_with(mut self, other: Self) -> Self {
-        self.new_input_notes.extend(other.new_input_notes);
-        self.new_output_notes.extend(other.new_output_notes);
-        self.updated_input_notes.extend(other.updated_input_notes);
-        self.updated_output_notes.extend(other.updated_output_notes);
-
-        self
-    }
-
-    /// Returns all new input note records, meant to be tracked by the client.
-    pub fn new_input_notes(&self) -> &[InputNoteRecord] {
-        &self.new_input_notes
-    }
-
-    /// Returns all new output note records, meant to be tracked by the client.
-    pub fn new_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.new_output_notes
-    }
-
-    /// Returns all updated input note records. That is, any input notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_input_notes(&self) -> &[InputNoteRecord] {
-        &self.updated_input_notes
-    }
-
-    /// Returns all updated output note records. That is, any output notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.updated_output_notes
-    }
-
-    /// Returns whether no new note-related information has been retrieved.
-    pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty()
-            && self.updated_output_notes.is_empty()
-            && self.new_input_notes.is_empty()
-            && self.new_output_notes.is_empty()
-    }
-
-    /// Returns the IDs of all notes that have been committed.
-    pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
-        let committed_output_note_ids = self
-            .updated_output_notes
-            .iter()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        let committed_input_note_ids = self
-            .updated_input_notes
-            .iter()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        committed_input_note_ids
-            .chain(committed_output_note_ids)
-            .collect::<BTreeSet<_>>()
-    }
-
-    /// Returns the IDs of all notes that have been consumed
-    pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
-        let consumed_output_note_ids = self
-            .updated_output_notes
-            .iter()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        let consumed_input_note_ids = self
-            .updated_input_notes
-            .iter()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
-    }
 }
