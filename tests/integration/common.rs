@@ -68,16 +68,17 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
-    (
-        TestClient::new(
-            Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
-            Box::new(rng),
-            store,
-            Arc::new(keystore.clone()),
-            true,
-        ),
-        keystore,
-    )
+    let mut client = TestClient::new(
+        Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
+        Box::new(rng),
+        store,
+        Arc::new(keystore.clone()),
+        true,
+    );
+
+    client.sync_state().await.unwrap();
+
+    (client, keystore)
 }
 
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {

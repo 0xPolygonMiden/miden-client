@@ -190,6 +190,7 @@ before(async () => {
       window.helpers.refreshClient = async (initSeed) => {
         const client = await WebClient.createClient(rpcUrl, initSeed);
         window.client = client;
+        await window.client.syncState();
       };
     },
     LOCAL_MIDEN_NODE_PORT,
