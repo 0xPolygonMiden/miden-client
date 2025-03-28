@@ -26,6 +26,8 @@ export const mintTransaction = async (
     async (_targetAccountId, _faucetAccountId, _withRemoteProver, _sync) => {
       const client = window.client;
 
+      await client.syncState();
+
       const targetAccountId = window.AccountId.fromHex(_targetAccountId);
       const faucetAccountId = window.AccountId.fromHex(_faucetAccountId);
 

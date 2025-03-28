@@ -72,7 +72,7 @@ export async function forceImportStore(jsonStr) {
 
     console.log("Store imported successfully.");
   } catch (err) {
-    console.error("Failed to import store: ", err);
+    console.error("Failed to import store: ", err.toString());
     throw err;
   }
 }

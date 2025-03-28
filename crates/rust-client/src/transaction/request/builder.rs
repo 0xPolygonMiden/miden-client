@@ -7,10 +7,7 @@ use miden_objects::{
     account::AccountId,
     asset::{Asset, FungibleAsset},
     block::BlockNumber,
-    crypto::{
-        merkle::{InnerNodeInfo, MerkleStore},
-        rand::FeltRng,
-    },
+    crypto::merkle::{InnerNodeInfo, MerkleStore},
     note::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType, PartialNote},
     transaction::{OutputNote, TransactionScript},
     vm::AdviceMap,
@@ -20,6 +17,7 @@ use super::{
     ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
+use crate::ClientRng;
 
 // TRANSACTION REQUEST BUILDER
 // ================================================================================================
@@ -236,8 +234,8 @@ impl TransactionRequestBuilder {
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
-    ) -> Result<TransactionRequest, TransactionRequestError> {
+        rng: &mut ClientRng,
+    ) -> Result<Self, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_id,
@@ -264,8 +262,8 @@ impl TransactionRequestBuilder {
         payment_data: PaymentTransactionData,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
-    ) -> Result<TransactionRequest, TransactionRequestError> {
+        rng: &mut ClientRng,
+    ) -> Result<Self, TransactionRequestError> {
         let PaymentTransactionData {
             assets,
             sender_account_id,
@@ -314,8 +312,8 @@ impl TransactionRequestBuilder {
     pub fn build_swap(
         swap_data: &SwapTransactionData,
         note_type: NoteType,
-        rng: &mut impl FeltRng,
-    ) -> Result<TransactionRequest, TransactionRequestError> {
+        rng: &mut ClientRng,
+    ) -> Result<Self, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually.
         let (created_note, payback_note_details) = create_swap_note(

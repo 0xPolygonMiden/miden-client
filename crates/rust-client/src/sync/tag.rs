@@ -3,7 +3,6 @@ use alloc::{string::ToString, vec::Vec};
 use miden_objects::{
     NoteError,
     account::{Account, AccountId},
-    crypto::rand::FeltRng,
     note::{NoteExecutionMode, NoteId, NoteTag},
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
@@ -16,7 +15,7 @@ use crate::{
 };
 
 /// Tag management methods
-impl<R: FeltRng> Client<R> {
+impl Client {
     /// Returns the list of note tags tracked by the client along with their source.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and

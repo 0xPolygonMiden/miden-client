@@ -164,8 +164,13 @@ impl WebClient {
         let consume_transaction_request = {
             let native_note_ids = list_of_note_ids
                 .into_iter()
-                .map(|note_id| NativeNoteId::try_from_hex(note_id.as_str()).unwrap())
-                .collect();
+                .map(|note_id| NativeNoteId::try_from_hex(note_id.as_str()))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to convert note id to native note id: {err}"
+                    ))
+                })?;
 
             NativeTransactionRequestBuilder::build_consume_notes(native_note_ids).map_err(
                 |err| js_error_with_context(err, "failed to create consume transaction request"),

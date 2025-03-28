@@ -10,7 +10,7 @@
 
 ---
 
-# Get started
+# Getting started
 
 - [Prerequisites](./get-started/prerequisites.md)
 - [Create account](./get-started/create-account-use-faucet.md)

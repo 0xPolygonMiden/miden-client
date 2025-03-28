@@ -96,7 +96,7 @@ export async function getTransactions(filter) {
 
     return processedTransactions;
   } catch (err) {
-    console.error("Failed to get transactions: ", err);
+    console.error("Failed to get transactions: ", err.toString());
     throw err;
   }
 }
@@ -135,7 +135,7 @@ export async function insertTransactionScript(scriptRoot, txScript) {
     // Check if the error is because the record already exists
     if (error.name === "ConstraintError") {
     } else {
-      // Re-throw the error if it's not a constraint error
+      console.error("Failed to insert transaction script: ", error.toString());
       throw error;
     }
   }
@@ -176,7 +176,7 @@ export async function insertProvenTransactionData(
 
     await transactions.add(data);
   } catch (err) {
-    console.error("Failed to insert proven transaction data: ", err);
+    console.error("Failed to insert proven transaction data: ", err.toString());
     throw err;
   }
 }

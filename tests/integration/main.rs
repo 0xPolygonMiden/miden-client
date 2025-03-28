@@ -3,13 +3,14 @@ use std::sync::Arc;
 use miden_client::{
     ClientBuilder, ClientError, ONE, ZERO,
     account::Account,
+    builder::ClientBuilder,
     note::NoteRelevance,
     rpc::{Endpoint, NodeRpcClient, TonicRpcClient, domain::account::AccountDetails},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::NoteTagSource,
+    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
     transaction::{
         OutputNote, PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
@@ -37,8 +38,7 @@ async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), Cl
     let (_, _, store_config, auth_path) = get_client_config();
 
     let mut client = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -61,11 +61,10 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
     let endpoint =
         Endpoint::new("https".to_string(), "rpc.testnet.miden.io".to_string(), Some(443));
     let timeout_ms = 10_000;
-    let rpc_api = Box::new(TonicRpcClient::new(&endpoint, timeout_ms));
+    let rpc_api = Arc::new(TonicRpcClient::new(&endpoint, timeout_ms));
 
     let mut client = ClientBuilder::new()
         .with_rpc(rpc_api)
-        .with_timeout(10_000)
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
@@ -85,8 +84,7 @@ async fn test_client_builder_initializes_client_with_rpc() -> Result<(), ClientE
 async fn test_client_builder_fails_without_keystore() {
     let (_, _, store_config, _) = get_client_config();
     let result = ClientBuilder::new()
-        .with_tonic_rpc(Endpoint::try_from("https://rpc.testnet.miden.io:443").unwrap())
-        .with_timeout(10_000)
+        .with_tonic_rpc_client(&Endpoint::default(), Some(10_000))
         .with_sqlite_store(store_config.to_str().unwrap())
         .in_debug_mode(true)
         .build()
@@ -865,7 +863,7 @@ async fn test_get_account_update() {
     // [`AccountDetails`] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
     let (endpoint, timeout, ..) = get_client_config();
-    let mut rpc_api = TonicRpcClient::new(&endpoint, timeout);
+    let rpc_api = TonicRpcClient::new(&endpoint, timeout);
     let details1 = rpc_api.get_account_details(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_details(basic_wallet_2.id()).await.unwrap();
 
@@ -916,8 +914,7 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 1);
-    assert_eq!(new_details.committed_notes.len(), 0);
+    assert_eq!(new_details.committed_notes.len(), 1);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 
@@ -927,7 +924,6 @@ async fn test_sync_detail_values() {
 
     // First client sync should have a new nullifier as the note was consumed
     let new_details = client1.sync_state().await.unwrap();
-    assert_eq!(new_details.received_notes.len(), 0);
     assert_eq!(new_details.committed_notes.len(), 0);
     assert_eq!(new_details.consumed_notes.len(), 1);
 }
@@ -1622,4 +1618,89 @@ async fn test_unused_rpc_api() {
 
     assert_eq!(account_delta.nonce(), Some(ONE));
     assert_eq!(*account_delta.vault().fungible().iter().next().unwrap().1, MINT_AMOUNT as i64);
+}
+
+#[tokio::test]
+async fn test_stale_transactions_discarded() {
+    let (mut client, authenticator) = create_test_client().await;
+    let (regular_account, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
+
+    let account_id = regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // Mint a note
+    let note = mint_note(&mut client, account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, account_id, &[note]).await;
+
+    // Create a transaction but don't submit it to the node
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    // Execute the transaction but don't submit it to the node
+    let tx_result = client.new_transaction(account_id, tx_request).await.unwrap();
+    let tx_id = tx_result.executed_transaction().id();
+    client.testing_prove_transaction(&tx_result).await.unwrap();
+
+    // Store the account state before applying the transaction
+    let account_before_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_before_tx = account_before_tx.account().commitment();
+
+    // Apply the transaction
+    client.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Check that the account state has changed after applying the transaction
+    let account_after_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_tx = account_after_tx.account().commitment();
+
+    assert_ne!(
+        account_commitment_before_tx, account_commitment_after_tx,
+        "Account commitment should change after applying the transaction"
+    );
+
+    // Verify the transaction is in pending state
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
+
+    // Sync the state, which should discard the old pending transaction
+    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
+
+    // Verify the transaction is now discarded
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+
+    // Check that the account state has been rolled back after the transaction was discarded
+    let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_sync = account_after_sync.account().commitment();
+
+    assert_ne!(
+        account_commitment_after_sync, account_commitment_after_tx,
+        "Account commitment should change after transaction was discarded"
+    );
+    assert_eq!(
+        account_commitment_after_sync, account_commitment_before_tx,
+        "Account commitment should be rolled back to the value before the transaction"
+    );
 }

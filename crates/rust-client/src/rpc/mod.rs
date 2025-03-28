@@ -98,7 +98,7 @@ pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` RPC endpoint.
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError>;
 
@@ -109,24 +109,21 @@ pub trait NodeRpcClient {
     ///
     /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
-        &mut self,
+        &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
     /// Given a block number, fetches the block corresponding to that height from the node using
     /// the `/GetBlockByNumber` RPC endpoint.
-    async fn get_block_by_number(
-        &mut self,
-        block_num: BlockNumber,
-    ) -> Result<ProvenBlock, RpcError>;
+    async fn get_block_by_number(&self, block_num: BlockNumber) -> Result<ProvenBlock, RpcError>;
 
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint.
     ///
     /// For any NoteType::Private note, the return data is only the
     /// [miden_objects::note::NoteMetadata], whereas for NoteType::Onchain notes, the return
     /// data includes all details.
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` RPC endpoint.
@@ -141,7 +138,7 @@ pub trait NodeRpcClient {
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
     ///   corresponding to some notes the client is interested in.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
@@ -151,17 +148,14 @@ pub trait NodeRpcClient {
     /// endpoint.
     ///
     /// - `account_id` is the ID of the wanted account.
-    async fn get_account_details(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<AccountDetails, RpcError>;
+    async fn get_account_details(&self, account_id: AccountId) -> Result<AccountDetails, RpcError>;
 
     /// Fetches the notes related to the specified tags using the `/SyncNotes` RPC endpoint.
     ///
     /// - `block_num` is the last block number known by the client.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in.
     async fn sync_notes(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
@@ -173,17 +167,14 @@ pub trait NodeRpcClient {
     /// - `block_num` is the block number to start the search from. Nullifiers created in this block
     ///   or the following blocks will be included.
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         prefix: &[u16],
         block_num: BlockNumber,
     ) -> Result<Vec<NullifierUpdate>, RpcError>;
 
     /// Fetches the nullifier proofs corresponding to a list of nullifiers using the
     /// `/CheckNullifiers` RPC endpoint.
-    async fn check_nullifiers(
-        &mut self,
-        nullifiers: &[Nullifier],
-    ) -> Result<Vec<SmtProof>, RpcError>;
+    async fn check_nullifiers(&self, nullifiers: &[Nullifier]) -> Result<Vec<SmtProof>, RpcError>;
 
     /// Fetches the account data needed to perform a Foreign Procedure Invocation (FPI) on the
     /// specified foreign accounts, using the `GetAccountProofs` endpoint.
@@ -192,7 +183,7 @@ pub trait NodeRpcClient {
     /// to prevent unnecessary data fetching. Returns the block number and the FPI account data. If
     /// one of the tracked accounts is not found in the node, the method will return an error.
     async fn get_account_proofs(
-        &mut self,
+        &self,
         account_storage_requests: &BTreeSet<ForeignAccount>,
         known_account_codes: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError>;
@@ -200,7 +191,7 @@ pub trait NodeRpcClient {
     /// Fetches the account state delta for the specified account between the specified blocks
     /// using the `/GetAccountStateDelta` RPC endpoint.
     async fn get_account_state_delta(
-        &mut self,
+        &self,
         account_id: AccountId,
         from_block: BlockNumber,
         to_block: BlockNumber,
@@ -212,7 +203,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
     async fn get_nullifier_commit_height(
-        &mut self,
+        &self,
         nullifier: &Nullifier,
         block_num: BlockNumber,
     ) -> Result<Option<u32>, RpcError> {
@@ -230,7 +221,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_notes_by_id].
     async fn get_public_note_records(
-        &mut self,
+        &self,
         note_ids: &[NoteId],
         current_timestamp: Option<u64>,
     ) -> Result<Vec<InputNoteRecord>, RpcError> {
@@ -261,7 +252,7 @@ pub trait NodeRpcClient {
     /// change, it is ignored and will not be included in the returned list.
     /// The default implementation of this method uses [NodeRpcClient::get_account_details].
     async fn get_updated_public_accounts(
-        &mut self,
+        &self,
         local_accounts: &[&AccountHeader],
     ) -> Result<Vec<Account>, RpcError> {
         let mut public_accounts = vec![];
@@ -285,7 +276,7 @@ pub trait NodeRpcClient {
     ///
     /// The default implementation of this method uses [NodeRpcClient::get_block_header_by_number].
     async fn get_block_header_with_proof(
-        &mut self,
+        &self,
         block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
         let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
@@ -298,7 +289,7 @@ pub trait NodeRpcClient {
     ///
     /// Errors:
     /// - [RpcError::NoteNotFound] if the note with the specified ID is not found.
-    async fn get_note_by_id(&mut self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
+    async fn get_note_by_id(&self, note_id: NoteId) -> Result<NetworkNote, RpcError> {
         let notes = self.get_notes_by_id(&[note_id]).await?;
         notes.into_iter().next().ok_or(RpcError::NoteNotFound(note_id))
     }
