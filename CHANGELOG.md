@@ -91,6 +91,7 @@
 
 ### Changes
 
+* [BREAKING] Refactored the sync process to use a new `SyncState` component (#650).
 * [BREAKING] Return `None` instead of `Err` when an entity is not found (#632).
 * Add support for notes without assets in transaction requests (#654).
 * Refactored RPC functions and structs to improve code quality (#616).
