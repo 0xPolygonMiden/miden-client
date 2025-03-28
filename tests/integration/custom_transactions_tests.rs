@@ -1,8 +1,7 @@
 use miden_client::{
     ZERO,
     note::NoteExecutionHint,
-    store::NoteFilter,
-    transaction::{InputNote, TransactionRequest, TransactionRequestBuilder},
+    transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
 };
 use miden_objects::{

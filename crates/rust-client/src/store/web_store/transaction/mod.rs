@@ -35,7 +35,7 @@ impl WebStore {
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         let filter_as_str = match filter {
             TransactionFilter::All => "All",
-            TransactionFilter::Uncommitted => "Uncommitted",
+            TransactionFilter::Uncomitted => "Uncomitted",
             TransactionFilter::Ids(ids) => &{
                 let ids_str =
                     ids.iter().map(ToString::to_string).collect::<Vec<String>>().join(",");

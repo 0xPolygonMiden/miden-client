@@ -5,7 +5,7 @@ export async function getTransactions(filter) {
   let transactionRecords;
 
   try {
-    if (filter === "Uncommitted") {
+    if (filter === "Uncomitted") {
       transactionRecords = await transactions
         .filter(
           (tx) => tx.commitHeight === undefined || tx.commitHeight === null

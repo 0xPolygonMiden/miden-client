@@ -47,7 +47,7 @@ impl TransactionFilter {
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_root = script.script_root";
         match self {
             TransactionFilter::All => QUERY.to_string(),
-            TransactionFilter::Uncommitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
+            TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
             TransactionFilter::Ids(_) => {
                 // Use SQLite's array parameter binding
                 format!("{QUERY} WHERE tx.id IN rarray(?)")
