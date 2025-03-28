@@ -40,6 +40,8 @@ async fn test_fpi_execute_program() {
     let (mut client, keystore) = create_test_client().await;
     client.sync_state().await.unwrap();
 
+    client.sync_state().await.unwrap();
+
     // Add a foreign account
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
     let (foreign_account, foreign_seed, proc_root, secret_key) =

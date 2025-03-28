@@ -38,7 +38,6 @@ use miden_objects::{
 };
 
 use crate::{
-    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -305,23 +304,17 @@ pub trait Store: Send + Sync {
     /// - Updating the corresponding tracked input/output notes.
     /// - Removing note tags that are no longer relevant.
     /// - Updating transactions in the store, marking as `committed` or `discarded`.
+    ///   - In turn, validating private account's state transitions. If a private account's
+    ///     commitment locally does not match the `StateSyncUpdate` information, the account may be
+    ///     locked.
     /// - Storing new MMR authentication nodes.
-    /// - Updating the tracked on-chain accounts.
+    /// - Updating the tracked public accounts.
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
-
-    /// Applies nullifier updates to database.
-    /// Nullifiers are retrieved after completing a `StateSync`.
-    ///
-    /// This operation is temporary, to be removed as part of miden-client/650.
-    async fn apply_nullifiers(
-        &self,
-        note_updates: NoteUpdates,
-        transactions_to_discard: Vec<TransactionId>,
-    ) -> Result<(), StoreError>;
 }
 
 // CHAIN MMR NODE FILTER
 // ================================================================================================
+
 /// Filters for searching specific MMR nodes.
 // TODO: Should there be filters for specific blocks instead of nodes?
 pub enum ChainMmrNodeFilter {
@@ -341,7 +334,7 @@ pub enum TransactionFilter {
     All,
     /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
-    Uncomitted,
+    Uncommitted,
     /// Return a list of the transaction that matches the provided [`TransactionId`]s.
     Ids(Vec<TransactionId>),
     /// Return a list of the expired transactions that were executed before the provided

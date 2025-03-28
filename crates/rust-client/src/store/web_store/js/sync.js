@@ -80,8 +80,9 @@ export async function removeNoteTag(tag, sourceNoteId, sourceAccountId) {
 
 export async function applyStateSync(
   blockNum,
-  blockHeader,
-  chainMmrPeaks,
+  newBlockHeadersAsFlattenedVec,
+  newBlockNums,
+  chainMmrPeaksAsFlattenedVec,
   hasClientNotes,
   nodeIndexes,
   nodes,
@@ -90,6 +91,11 @@ export async function applyStateSync(
   transactionBlockNums,
   discardTransactionIds
 ) {
+  const newBlockHeaders = reconstructFlattenedVec(
+    newBlockHeadersAsFlattenedVec
+  );
+  const chainMmrPeaks = reconstructFlattenedVec(chainMmrPeaksAsFlattenedVec);
+
   return db.transaction(
     "rw",
     stateSync,
@@ -101,13 +107,15 @@ export async function applyStateSync(
     tags,
     async (tx) => {
       await updateSyncHeight(tx, blockNum);
-      await updateBlockHeader(
-        tx,
-        blockNum,
-        blockHeader,
-        chainMmrPeaks,
-        hasClientNotes
-      );
+      for (let i = 0; i < newBlockHeaders.length; i++) {
+        await updateBlockHeader(
+          tx,
+          newBlockNums[i],
+          newBlockHeaders[i],
+          chainMmrPeaks[i],
+          hasClientNotes[i]
+        );
+      }
       await updateChainMmrNodes(tx, nodeIndexes, nodes);
       await updateCommittedNoteTags(tx, inputNoteIds);
       await updateCommittedTransactions(
@@ -262,4 +270,18 @@ function uint8ArrayToBase64(bytes) {
     ""
   );
   return btoa(binary);
+}
+
+// Helper function to reconstruct arrays from flattened data
+function reconstructFlattenedVec(flattenedVec) {
+  const data = flattenedVec.data();
+  const lengths = flattenedVec.lengths();
+
+  let index = 0;
+  const result = [];
+  lengths.forEach((length) => {
+    result.push(data.slice(index, index + length));
+    index += length;
+  });
+  return result;
 }
