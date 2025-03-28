@@ -9,7 +9,7 @@ export async function openDatabase() {
     console.log("Database opened successfully");
     return true;
   } catch (err) {
-    console.error("Failed to open database: ", err);
+    console.error("Failed to open database: ", err.toString());
     return false;
   }
 }

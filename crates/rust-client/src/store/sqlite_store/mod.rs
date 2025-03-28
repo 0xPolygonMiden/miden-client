@@ -67,10 +67,10 @@ impl SqliteStore {
                     // Feature used to support `IN` and `NOT IN` queries. We need to load this
                     // module for every connection we create to the DB to
                     // support the queries we want to run
-                    let _ = conn
-                        .interact(|conn| array::load_module(conn))
+                    conn.interact(|conn| array::load_module(conn))
                         .await
-                        .map_err(|_| HookError::message("Loading rarray module failed"))?;
+                        .map_err(|_| HookError::message("Loading rarray module failed"))?
+                        .map_err(|err| HookError::message(err.to_string()))?;
 
                     Ok(())
                 })

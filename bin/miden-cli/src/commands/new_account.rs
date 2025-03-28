@@ -240,7 +240,7 @@ fn load_component_templates(paths: &[PathBuf]) -> Result<Vec<AccountComponentTem
 fn load_init_storage_data(path: Option<PathBuf>) -> Result<InitStorageData, CliError> {
     if let Some(path) = path {
         let mut contents = String::new();
-        let _ = File::open(path).and_then(|mut f| f.read_to_string(&mut contents))?;
+        File::open(path).and_then(|mut f| f.read_to_string(&mut contents))?;
         InitStorageData::from_toml(&contents).map_err(|err| CliError::Internal(Box::new(err)))
     } else {
         Ok(InitStorageData::default())

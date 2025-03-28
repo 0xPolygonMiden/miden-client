@@ -54,7 +54,8 @@ pub fn serialize_chain_mmr_node(
 pub fn process_chain_mmr_nodes_from_js_value(
     js_value: JsValue,
 ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-    let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> = from_value(js_value).unwrap();
+    let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> = from_value(js_value)
+        .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
     let results: Result<BTreeMap<InOrderIndex, Digest>, StoreError> = chain_mmr_nodes_idxdb
         .into_iter()

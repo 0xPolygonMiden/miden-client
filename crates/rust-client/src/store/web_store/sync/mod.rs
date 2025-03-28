@@ -39,8 +39,11 @@ use flattened_vec::flatten_nested_u8_vec;
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         let promise = idxdb_get_note_tags();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let tags_idxdb: Vec<NoteTagIdxdbObject> = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get note tags: {js_error:?}"))
+        })?;
+        let tags_idxdb: Vec<NoteTagIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let tags = tags_idxdb
             .into_iter()
@@ -68,8 +71,11 @@ impl WebStore {
 
     pub(super) async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         let promise = idxdb_get_sync_height();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get sync height: {js_error:?}"))
+        })?;
+        let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let block_num_as_u32: u32 = block_num_idxdb.block_num.parse::<u32>().unwrap();
         Ok(block_num_as_u32.into())
@@ -87,7 +93,9 @@ impl WebStore {
         };
 
         let promise = idxdb_add_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to add note tag: {js_error:?}"))
+        })?;
 
         Ok(true)
     }
@@ -100,7 +108,11 @@ impl WebStore {
         };
 
         let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        let removed_tags = from_value(JsFuture::from(promise).await.unwrap()).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to remove note tag: {js_error:?}"))
+        })?;
+        let removed_tags: usize = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         Ok(removed_tags)
     }
@@ -169,7 +181,9 @@ impl WebStore {
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
         for account in account_updates.updated_public_accounts() {
-            update_account(&account.clone()).await.unwrap();
+            update_account(&account.clone()).await.map_err(|err| {
+                StoreError::DatabaseError(format!("failed to update account: {err:?}"))
+            })?;
         }
 
         for (account_id, digest) in account_updates.mismatched_private_accounts() {
@@ -210,7 +224,9 @@ impl WebStore {
             transactions_to_commit_block_nums_as_str,
             transactions_to_discard_as_str,
         );
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to apply state sync: {js_error:?}"))
+        })?;
 
         Ok(())
     }

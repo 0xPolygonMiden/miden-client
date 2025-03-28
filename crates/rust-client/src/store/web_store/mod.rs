@@ -50,8 +50,8 @@ extern "C" {
 pub struct WebStore {}
 
 impl WebStore {
-    pub async fn new() -> Result<WebStore, ()> {
-        let _ = JsFuture::from(setup_indexed_db()).await;
+    pub async fn new() -> Result<WebStore, JsValue> {
+        JsFuture::from(setup_indexed_db()).await?;
         Ok(WebStore {})
     }
 }
