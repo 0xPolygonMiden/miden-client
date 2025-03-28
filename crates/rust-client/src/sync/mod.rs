@@ -181,7 +181,9 @@ impl Client {
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
-    /// IDs of notes that have been committed.
+    /// IDs of new public notes that the client has received.
+    pub new_public_notes: Vec<NoteId>,
+    /// IDs of tracked notes that have been committed.
     pub committed_notes: Vec<NoteId>,
     /// IDs of notes that have been consumed.
     pub consumed_notes: Vec<NoteId>,
@@ -196,6 +198,7 @@ pub struct SyncSummary {
 impl SyncSummary {
     pub fn new(
         block_num: BlockNumber,
+        new_public_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
@@ -204,6 +207,7 @@ impl SyncSummary {
     ) -> Self {
         Self {
             block_num,
+            new_public_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -215,6 +219,7 @@ impl SyncSummary {
     pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
+            new_public_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
@@ -224,7 +229,8 @@ impl SyncSummary {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.committed_notes.is_empty()
+        self.new_public_notes.is_empty()
+            && self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
@@ -233,6 +239,7 @@ impl SyncSummary {
 
     pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
+        self.new_public_notes.append(&mut other.new_public_notes);
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
@@ -244,6 +251,7 @@ impl SyncSummary {
 impl Serializable for SyncSummary {
     fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
         self.block_num.write_into(target);
+        self.new_public_notes.write_into(target);
         self.committed_notes.write_into(target);
         self.consumed_notes.write_into(target);
         self.updated_accounts.write_into(target);
@@ -257,6 +265,7 @@ impl Deserializable for SyncSummary {
         source: &mut R,
     ) -> Result<Self, DeserializationError> {
         let block_num = BlockNumber::read_from(source)?;
+        let new_public_notes = Vec::<NoteId>::read_from(source)?;
         let committed_notes = Vec::<NoteId>::read_from(source)?;
         let consumed_notes = Vec::<NoteId>::read_from(source)?;
         let updated_accounts = Vec::<AccountId>::read_from(source)?;
@@ -265,6 +274,7 @@ impl Deserializable for SyncSummary {
 
         Ok(Self {
             block_num,
+            new_public_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,

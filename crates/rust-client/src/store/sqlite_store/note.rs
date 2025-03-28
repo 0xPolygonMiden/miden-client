@@ -590,11 +590,11 @@ pub(crate) fn apply_note_updates_tx(
     note_updates: &NoteUpdateTracker,
 ) -> Result<(), StoreError> {
     for input_note in note_updates.updated_input_notes() {
-        upsert_input_note_tx(tx, input_note)?;
+        upsert_input_note_tx(tx, input_note.inner())?;
     }
 
     for output_note in note_updates.updated_output_notes() {
-        upsert_output_note_tx(tx, output_note)?;
+        upsert_output_note_tx(tx, output_note.inner())?;
     }
 
     Ok(())

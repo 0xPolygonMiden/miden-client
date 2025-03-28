@@ -362,7 +362,7 @@ impl StateSync {
         let nullifiers_tags: Vec<u16> = state_sync_update
             .note_updates
             .updated_input_notes()
-            .map(|note| note.nullifier().prefix())
+            .map(|note| note.inner().nullifier().prefix())
             .collect();
 
         let mut new_nullifiers = self

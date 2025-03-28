@@ -90,7 +90,7 @@ pub use miden_objects::{
     },
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
-pub use note_update_tracker::NoteUpdateTracker;
+pub use note_update_tracker::{InputNoteUpdate, NoteUpdateTracker, OutputNoteUpdate};
 
 /// Note retrieval methods.
 impl Client {

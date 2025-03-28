@@ -11,7 +11,9 @@ use miden_objects::{
 
 use super::SyncSummary;
 use crate::{
-    account::Account, note::NoteUpdateTracker, rpc::domain::transaction::TransactionUpdate,
+    account::Account,
+    note::{InputNoteUpdate, NoteUpdateTracker, OutputNoteUpdate},
+    rpc::domain::transaction::TransactionUpdate,
     transaction::TransactionRecord,
 };
 
@@ -35,26 +37,46 @@ pub struct StateSyncUpdate {
 
 impl From<&StateSyncUpdate> for SyncSummary {
     fn from(value: &StateSyncUpdate) -> Self {
+        let new_public_note_ids = value
+            .note_updates
+            .updated_input_notes()
+            .filter_map(|note_update| {
+                if let InputNoteUpdate::Insert(note) = note_update {
+                    Some(note.id())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         let committed_note_ids: BTreeSet<NoteId> = value
             .note_updates
             .updated_input_notes()
-            .filter_map(|note| note.is_committed().then_some(note.id()))
-            .chain(
-                value
-                    .note_updates
-                    .updated_output_notes()
-                    .filter_map(|note| note.is_committed().then_some(note.id())),
-            )
+            .filter_map(|note_update| {
+                if let InputNoteUpdate::Update(note) = note_update {
+                    note.is_committed().then_some(note.id())
+                } else {
+                    None
+                }
+            })
+            .chain(value.note_updates.updated_output_notes().filter_map(|note_update| {
+                if let OutputNoteUpdate::Update(note) = note_update {
+                    note.is_committed().then_some(note.id())
+                } else {
+                    None
+                }
+            }))
             .collect();
 
         let consumed_note_ids: BTreeSet<NoteId> = value
             .note_updates
             .updated_input_notes()
-            .filter_map(|note| note.is_consumed().then_some(note.id()))
+            .filter_map(|note| note.inner().is_consumed().then_some(note.inner().id()))
             .collect();
 
         SyncSummary::new(
             value.block_num,
+            new_public_note_ids,
             committed_note_ids.into_iter().collect(),
             consumed_note_ids.into_iter().collect(),
             value
