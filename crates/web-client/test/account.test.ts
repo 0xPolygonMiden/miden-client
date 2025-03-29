@@ -5,8 +5,8 @@ import { testingPage } from "./mocha.global.setup.mjs";
 // =======================================================================================================
 
 interface GetAccountSuccessResult {
-  hashOfCreatedAccount: string;
-  hashOfGetAccountResult: string;
+  commitmentOfCreatedAccount: string;
+  commitmentOfGetAccountResult: string;
   isAccountType: boolean | undefined;
 }
 
@@ -14,33 +14,35 @@ export const getAccountOneMatch =
   async (): Promise<GetAccountSuccessResult> => {
     return await testingPage.evaluate(async () => {
       const client = window.client;
-      const newAccount = await client.new_wallet(
+      const newAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
-      const result = await client.get_account(newAccount.id());
+      const result = await client.getAccount(newAccount.id());
 
       return {
-        hashOfCreatedAccount: newAccount.hash().to_hex(),
-        hashOfGetAccountResult: result.hash().to_hex(),
+        commitmentOfCreatedAccount: newAccount.commitment().toHex(),
+        commitmentOfGetAccountResult: result.commitment().toHex(),
         isAccountType: result instanceof window.Account,
       };
     });
   };
 
 interface GetAccountFailureResult {
-  hashOfGetAccountResult: string | undefined;
+  commitmentOfGetAccountResult: string | undefined;
 }
 
 export const getAccountNoMatch = async (): Promise<GetAccountFailureResult> => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
-    const nonExistingAccountId = window.TestUtils.create_mock_account_id();
+    const nonExistingAccountId = window.TestUtils.createMockAccountId();
 
-    const result = await client.get_account(nonExistingAccountId);
+    const result = await client.getAccount(nonExistingAccountId);
 
     return {
-      hashOfGetAccountResult: result ? result.hash().to_hex() : undefined,
+      commitmentOfGetAccountResult: result
+        ? result.commitment().toHex()
+        : undefined,
     };
   });
 };
@@ -49,14 +51,16 @@ describe("get_account tests", () => {
   it("retrieves an existing account", async () => {
     const result = await getAccountOneMatch();
 
-    expect(result.hashOfCreatedAccount).to.equal(result.hashOfGetAccountResult);
+    expect(result.commitmentOfCreatedAccount).to.equal(
+      result.commitmentOfGetAccountResult
+    );
     expect(result.isAccountType).to.be.true;
   });
 
   it("returns error attempting to retrieve a non-existing account", async () => {
     const result = await getAccountNoMatch();
 
-    expect(result.hashOfGetAccountResult).to.be.undefined;
+    expect(result.commitmentOfGetAccountResult).to.be.undefined;
   });
 });
 
@@ -64,8 +68,8 @@ describe("get_account tests", () => {
 // =======================================================================================================
 
 interface GetAccountsSuccessResult {
-  hashesOfCreatedAccounts: string[];
-  hashesOfGetAccountsResult: string[];
+  commitmentsOfCreatedAccounts: string[];
+  commitmentsOfGetAccountsResult: string[];
   resultTypes: boolean[];
 }
 
@@ -73,32 +77,32 @@ export const getAccountsManyMatches =
   async (): Promise<GetAccountsSuccessResult> => {
     return await testingPage.evaluate(async () => {
       const client = window.client;
-      const newAccount1 = await client.new_wallet(
+      const newAccount1 = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
-      const newAccount2 = await client.new_wallet(
+      const newAccount2 = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
-      const hashesOfCreatedAccounts = [
-        newAccount1.hash().to_hex(),
-        newAccount2.hash().to_hex(),
+      const commitmentsOfCreatedAccounts = [
+        newAccount1.commitment().toHex(),
+        newAccount2.commitment().toHex(),
       ];
 
-      const result = await client.get_accounts();
+      const result = await client.getAccounts();
 
-      const hashesOfGetAccountsResult = [];
+      const commitmentsOfGetAccountsResult = [];
       const resultTypes = [];
 
       for (let i = 0; i < result.length; i++) {
-        hashesOfGetAccountsResult.push(result[i].hash().to_hex());
+        commitmentsOfGetAccountsResult.push(result[i].commitment().toHex());
         resultTypes.push(result[i] instanceof window.AccountHeader);
       }
 
       return {
-        hashesOfCreatedAccounts: hashesOfCreatedAccounts,
-        hashesOfGetAccountsResult: hashesOfGetAccountsResult,
+        commitmentsOfCreatedAccounts: commitmentsOfCreatedAccounts,
+        commitmentsOfGetAccountsResult: commitmentsOfGetAccountsResult,
         resultTypes: resultTypes,
       };
     });
@@ -109,30 +113,30 @@ export const getAccountsNoMatches =
     return await testingPage.evaluate(async () => {
       const client = window.client;
 
-      const result = await client.get_accounts();
+      const result = await client.getAccounts();
 
-      const hashesOfGetAccountsResult = [];
+      const commitmentsOfGetAccountsResult = [];
       const resultTypes = [];
 
       for (let i = 0; i < result.length; i++) {
-        hashesOfGetAccountsResult.push(result[i].hash().to_hex());
+        commitmentsOfGetAccountsResult.push(result[i].commitment().toHex());
         resultTypes.push(result[i] instanceof window.AccountHeader);
       }
 
       return {
-        hashesOfCreatedAccounts: [],
-        hashesOfGetAccountsResult: hashesOfGetAccountsResult,
+        commitmentsOfCreatedAccounts: [],
+        commitmentsOfGetAccountsResult: commitmentsOfGetAccountsResult,
         resultTypes: resultTypes,
       };
     });
   };
 
-describe("get_accounts tests", () => {
+describe("getAccounts tests", () => {
   it("retrieves all existing accounts", async () => {
     const result = await getAccountsManyMatches();
 
-    for (let address of result.hashesOfGetAccountsResult) {
-      expect(result.hashesOfCreatedAccounts.includes(address)).to.be.true;
+    for (let address of result.commitmentsOfGetAccountsResult) {
+      expect(result.commitmentsOfCreatedAccounts.includes(address)).to.be.true;
     }
     expect(result.resultTypes).to.deep.equal([true, true]);
   });
@@ -140,141 +144,8 @@ describe("get_accounts tests", () => {
   it("returns empty array when no accounts exist", async () => {
     const result = await getAccountsNoMatches();
 
-    expect(result.hashesOfCreatedAccounts.length).to.equal(0);
-    expect(result.hashesOfGetAccountsResult.length).to.equal(0);
+    expect(result.commitmentsOfCreatedAccounts.length).to.equal(0);
+    expect(result.commitmentsOfGetAccountsResult.length).to.equal(0);
     expect(result.resultTypes.length).to.equal(0);
-  });
-});
-
-// GET_ACCOUNT_AUTH TESTS
-// =======================================================================================================
-
-interface GetAccountAuthSuccessResult {
-  publicKey: any;
-  secretKey: any;
-  isAuthSecretKeyType: boolean | undefined;
-}
-
-export const getAccountAuth =
-  async (): Promise<GetAccountAuthSuccessResult> => {
-    return await testingPage.evaluate(async () => {
-      const client = window.client;
-      const newAccount = await client.new_wallet(
-        window.AccountStorageMode.private(),
-        true
-      );
-
-      const result = await client.get_account_auth(newAccount.id());
-
-      return {
-        publicKey: result.get_rpo_falcon_512_public_key_as_word(),
-        secretKey: result.get_rpo_falcon_512_secret_key_as_felts(),
-        isAuthSecretKeyType: result instanceof window.AuthSecretKey,
-      };
-    });
-  };
-
-interface GetAccountAuthFailureResult {
-  publicKey: any;
-}
-
-export const getAccountAuthNoMatch =
-  async (): Promise<GetAccountAuthFailureResult> => {
-    return await testingPage.evaluate(async () => {
-      const client = window.client;
-      const nonExistingAccountId = window.TestUtils.create_mock_account_id();
-
-      const result = await client.get_account_auth(nonExistingAccountId);
-
-      return {
-        publicKey: result
-          ? result.get_rpo_falcon_512_public_key_as_word()
-          : undefined,
-      };
-    });
-  };
-
-describe("get_account_auth tests", () => {
-  it("retrieves an existing account auth", async () => {
-    const result = await getAccountAuth();
-
-    expect(result.publicKey).to.not.be.empty;
-    expect(result.secretKey).to.not.be.empty;
-    expect(result.isAuthSecretKeyType).to.be.true;
-  });
-
-  it("returns error attempting to retrieve a non-existing account auth", async () => {
-    const result = await getAccountAuthNoMatch();
-
-    expect(result.publicKey).to.be.undefined;
-  });
-});
-
-// FETCH_AND_CACHE_ACCOUNT_AUTH_BY_PUB_KEY TESTS
-// =======================================================================================================
-
-interface FetchAndCacheAccountAuthByPubKeySuccessResult {
-  publicKey: any;
-  secretKey: any;
-  isAuthSecretKeyType: boolean | undefined;
-}
-
-export const fetchAndCacheAccountAuthByPubKey =
-  async (): Promise<FetchAndCacheAccountAuthByPubKeySuccessResult> => {
-    return await testingPage.evaluate(async () => {
-      const client = window.client;
-      const newAccount = await client.new_wallet(
-        window.AccountStorageMode.private(),
-        true
-      );
-
-      const result = await client.fetch_and_cache_account_auth_by_pub_key(
-        newAccount.id()
-      );
-
-      return {
-        publicKey: result.get_rpo_falcon_512_public_key_as_word(),
-        secretKey: result.get_rpo_falcon_512_secret_key_as_felts(),
-        isAuthSecretKeyType: result instanceof window.AuthSecretKey,
-      };
-    });
-  };
-
-interface FetchAndCacheAccountAuthByPubKeyFailureResult {
-  publicKey: any;
-}
-
-export const fetchAndCacheAccountAuthByPubKeyNoMatch =
-  async (): Promise<FetchAndCacheAccountAuthByPubKeyFailureResult> => {
-    return await testingPage.evaluate(async () => {
-      const client = window.client;
-      const nonExistingAccountId = window.TestUtils.create_mock_account_id();
-
-      const result =
-        await client.fetch_and_cache_account_auth_by_pub_key(
-          nonExistingAccountId
-        );
-
-      return {
-        publicKey: result
-          ? result.get_rpo_falcon_512_public_key_as_word()
-          : undefined,
-      };
-    });
-  };
-
-describe("fetch_and_cache_account_auth_by_pub_key tests", () => {
-  it("retrieves an existing account auth and caches it", async () => {
-    const result = await fetchAndCacheAccountAuthByPubKey();
-
-    expect(result.publicKey).to.not.be.empty;
-    expect(result.secretKey).to.not.be.empty;
-    expect(result.isAuthSecretKeyType).to.be.true;
-  });
-
-  it("returns error attempting to retrieve/cache a non-existing account auth", async () => {
-    const result = await fetchAndCacheAccountAuthByPubKeyNoMatch();
-
-    expect(result.publicKey).to.be.undefined;
   });
 });

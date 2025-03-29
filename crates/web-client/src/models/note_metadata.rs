@@ -25,7 +25,7 @@ impl NoteMetadata {
             note_type.into(),
             note_tag.into(),
             note_execution_hint.into(),
-            aux.map_or(Default::default(), |felt| felt.into()),
+            aux.map_or(miden_objects::Felt::default(), Into::into),
         )
         .unwrap();
         NoteMetadata(native_note_metadata)
@@ -39,6 +39,7 @@ impl NoteMetadata {
         self.0.tag().into()
     }
 
+    #[wasm_bindgen(js_name = "noteType")]
     pub fn note_type(&self) -> NoteType {
         self.0.note_type().into()
     }

@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen};
 
 // Notes IndexedDB Operations
 #[wasm_bindgen(module = "/src/store/web_store/js/notes.js")]
@@ -40,7 +40,7 @@ extern "C" {
         assets: Vec<u8>,
         serial_number: Vec<u8>,
         inputs: Vec<u8>,
-        note_script_hash: String,
+        note_script_root: String,
         serialized_note_script: Vec<u8>,
         nullifier: String,
         serialized_created_at: String,

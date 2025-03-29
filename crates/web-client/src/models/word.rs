@@ -9,6 +9,7 @@ pub struct Word(NativeWord);
 
 #[wasm_bindgen]
 impl Word {
+    #[wasm_bindgen(js_name = "newFromU64s")]
     pub fn new_from_u64s(u64_vec: Vec<u64>) -> Word {
         let fixed_array_u64: [u64; 4] = u64_vec.try_into().unwrap();
 
@@ -24,6 +25,8 @@ impl Word {
         Word(native_word)
     }
 
+    #[wasm_bindgen(js_name = "newFromFelts")]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new_from_felts(felt_vec: Vec<Felt>) -> Word {
         let native_felt_vec: [NativeFelt; 4] = felt_vec
             .iter()

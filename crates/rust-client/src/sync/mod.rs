@@ -30,7 +30,7 @@
 //! # use miden_client::{Client, ClientError};
 //! # use miden_objects::{block::BlockHeader, Felt, Word, StarkField};
 //! # use miden_objects::crypto::rand::FeltRng;
-//! # async fn run_sync<R: FeltRng>(client: &mut Client<R>) -> Result<(), ClientError> {
+//! # async fn run_sync(client: &mut Client) -> Result<(), ClientError> {
 //! // Attempt to synchronize the client's state with the Miden network.
 //! // The requested data is based on the client's state: it gets updates for accounts, relevant
 //! // notes, etc. For more information on the data that gets requested, see the doc comments for
@@ -38,7 +38,6 @@
 //! let sync_summary: SyncSummary = client.sync_state().await?;
 //!
 //! println!("Synced up to block number: {}", sync_summary.block_num);
-//! println!("Received notes: {}", sync_summary.received_notes.len());
 //! println!("Committed notes: {}", sync_summary.committed_notes.len());
 //! println!("Consumed notes: {}", sync_summary.consumed_notes.len());
 //! println!("Updated accounts: {}", sync_summary.updated_accounts.len());
@@ -58,40 +57,43 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
+    Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
-    crypto::{self, rand::FeltRng},
     note::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::TransactionId,
-    Digest,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use tracing::info;
 
 use crate::{
+    Client, ClientError,
     note::NoteUpdates,
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{AccountUpdates, InputNoteRecord, NoteFilter, OutputNoteRecord, TransactionFilter},
-    Client, ClientError,
+    transaction::{TransactionRecord, TransactionStatus, TransactionUpdates},
 };
 
 mod block_header;
+pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
 use block_header::apply_mmr_changes;
 
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
+
+/// The number of blocks that are considered old enough to discard pending transactions.
+pub const TX_GRACEFUL_BLOCKS: u32 = 20;
+mod state_sync_update;
+pub use state_sync_update::StateSyncUpdate;
 
 /// Contains stats about the sync operation.
 #[derive(Debug, PartialEq)]
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: BlockNumber,
-    /// IDs of new notes received.
-    pub received_notes: Vec<NoteId>,
     /// IDs of tracked notes that received inclusion proofs.
     pub committed_notes: Vec<NoteId>,
     /// IDs of notes that have been consumed.
@@ -107,7 +109,6 @@ pub struct SyncSummary {
 impl SyncSummary {
     pub fn new(
         block_num: BlockNumber,
-        received_notes: Vec<NoteId>,
         committed_notes: Vec<NoteId>,
         consumed_notes: Vec<NoteId>,
         updated_accounts: Vec<AccountId>,
@@ -116,7 +117,6 @@ impl SyncSummary {
     ) -> Self {
         Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -128,7 +128,6 @@ impl SyncSummary {
     pub fn new_empty(block_num: BlockNumber) -> Self {
         Self {
             block_num,
-            received_notes: vec![],
             committed_notes: vec![],
             consumed_notes: vec![],
             updated_accounts: vec![],
@@ -138,27 +137,26 @@ impl SyncSummary {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.received_notes.is_empty()
-            && self.committed_notes.is_empty()
+        self.committed_notes.is_empty()
             && self.consumed_notes.is_empty()
             && self.updated_accounts.is_empty()
             && self.locked_accounts.is_empty()
+            && self.committed_transactions.is_empty()
     }
 
     pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.received_notes.append(&mut other.received_notes);
         self.committed_notes.append(&mut other.committed_notes);
         self.consumed_notes.append(&mut other.consumed_notes);
         self.updated_accounts.append(&mut other.updated_accounts);
         self.locked_accounts.append(&mut other.locked_accounts);
+        self.committed_transactions.append(&mut other.committed_transactions);
     }
 }
 
 impl Serializable for SyncSummary {
     fn write_into<W: miden_tx::utils::ByteWriter>(&self, target: &mut W) {
         self.block_num.write_into(target);
-        self.received_notes.write_into(target);
         self.committed_notes.write_into(target);
         self.consumed_notes.write_into(target);
         self.updated_accounts.write_into(target);
@@ -172,7 +170,6 @@ impl Deserializable for SyncSummary {
         source: &mut R,
     ) -> Result<Self, DeserializationError> {
         let block_num = BlockNumber::read_from(source)?;
-        let received_notes = Vec::<NoteId>::read_from(source)?;
         let committed_notes = Vec::<NoteId>::read_from(source)?;
         let consumed_notes = Vec::<NoteId>::read_from(source)?;
         let updated_accounts = Vec::<AccountId>::read_from(source)?;
@@ -181,7 +178,6 @@ impl Deserializable for SyncSummary {
 
         Ok(Self {
             block_num,
-            received_notes,
             committed_notes,
             consumed_notes,
             updated_accounts,
@@ -199,51 +195,22 @@ enum SyncStatus {
 impl SyncStatus {
     pub fn into_sync_summary(self) -> SyncSummary {
         match self {
-            SyncStatus::SyncedToLastBlock(summary) => summary,
-            SyncStatus::SyncedToBlock(summary) => summary,
+            SyncStatus::SyncedToBlock(summary) | SyncStatus::SyncedToLastBlock(summary) => summary,
         }
     }
-}
-
-/// Contains all information needed to apply the update in the store after syncing with the node.
-pub struct StateSyncUpdate {
-    /// The new block header, returned as part of the
-    /// [StateSyncInfo](crate::rpc::domain::sync::StateSyncInfo)
-    pub block_header: BlockHeader,
-    /// Information about note changes after the sync.
-    pub note_updates: NoteUpdates,
-    /// Transaction updates for any transaction that was committed between the sync request's
-    /// block number and the response's block number.
-    pub transactions_to_commit: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    pub transactions_to_discard: Vec<TransactionId>,
-    /// New MMR peaks for the locally tracked MMR of the blockchain.
-    pub new_mmr_peaks: MmrPeaks,
-    /// New authentications nodes that are meant to be stored in order to authenticate block
-    /// headers.
-    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
-    /// Information abount account changes after the sync.
-    pub updated_accounts: AccountUpdates,
-    /// Whether the block header has notes relevant to the client.
-    pub block_has_relevant_notes: bool,
-    /// Tag records that are no longer relevant.
-    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 // CONSTANTS
 // ================================================================================================
 
-/// The number of bits to shift identifiers for in use of filters.
-pub(crate) const FILTER_ID_SHIFT: u8 = 48;
-
 /// Client syncronization methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
     pub async fn get_sync_height(&self) -> Result<BlockNumber, ClientError> {
-        self.store.get_sync_height().await.map_err(|err| err.into())
+        self.store.get_sync_height().await.map_err(Into::into)
     }
 
     /// Syncs the client's state with the current state of the Miden network. Returns the block
@@ -259,13 +226,15 @@ impl<R: FeltRng> Client<R> {
     /// 3. Tracked notes are updated with their new states.
     /// 4. New notes are checked, and only relevant ones are stored. Relevant notes are those that
     ///    can be consumed by accounts the client is tracking (this is checked by the
-    ///    [crate::note::NoteScreener])
+    ///    [`crate::note::NoteScreener`])
     /// 5. Transactions are updated with their new states.
     /// 6. Tracked public accounts are updated and off-chain accounts are validated against the node
     ///    state.
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     /// 8. All updates are applied to the store to be persisted.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
+        let starting_block_num = self.get_sync_height().await?;
+
         _ = self.ensure_genesis_in_place().await?;
         let mut total_sync_summary = SyncSummary::new_empty(0.into());
         loop {
@@ -278,6 +247,8 @@ impl<R: FeltRng> Client<R> {
             }
         }
         self.update_mmr_data().await?;
+        // Sync and apply nullifiers
+        total_sync_summary.combine_with(self.sync_nullifiers(starting_block_num).await?);
 
         Ok(total_sync_summary)
     }
@@ -296,53 +267,35 @@ impl<R: FeltRng> Client<R> {
         let note_tags: Vec<NoteTag> =
             self.store.get_unique_note_tags().await?.into_iter().collect();
 
-        // To receive information about added nullifiers, we reduce them to the higher 16 bits
-        // Note that besides filtering by nullifier prefixes, the node also filters by block number
-        // (it only returns nullifiers from current_block_num until
-        // response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = self
-            .store
-            .get_unspent_input_note_nullifiers()
-            .await?
-            .iter()
-            .map(get_nullifier_prefix)
-            .collect();
-
         // Send request
-        let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
-        let response = self
-            .rpc_api
-            .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
-            .await?;
+        let account_ids: Vec<AccountId> = accounts.iter().map(AccountHeader::id).collect();
+        let response = self.rpc_api.sync_state(current_block_num, &account_ids, &note_tags).await?;
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
-        let (committed_note_updates, tags_to_remove) = self
+        let (note_updates, tags_to_remove) = self
             .committed_note_updates(response.note_inclusions, &response.block_header)
             .await?;
 
-        let incoming_block_has_relevant_notes =
-            self.check_block_relevance(&committed_note_updates).await?;
+        let incoming_block_has_relevant_notes = self.check_block_relevance(&note_updates).await?;
 
         let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
-
-        let (consumed_note_updates, transactions_to_discard) =
-            self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
-
-        let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
         let updated_public_accounts = self
-            .get_updated_public_accounts(&response.account_hash_updates, &public_accounts)
+            .get_updated_public_accounts(&response.account_commitment_updates, &public_accounts)
             .await?;
 
         let mismatched_private_accounts = self
-            .validate_local_account_hashes(&response.account_hash_updates, &private_accounts)
+            .validate_local_account_commitments(
+                &response.account_commitment_updates,
+                &private_accounts,
+            )
             .await?;
 
         // Build PartialMmr with current data and apply updates
@@ -358,7 +311,7 @@ impl<R: FeltRng> Client<R> {
             apply_mmr_changes(
                 current_partial_mmr,
                 response.mmr_delta,
-                current_block,
+                &current_block,
                 has_relevant_notes,
             )?
         };
@@ -366,26 +319,49 @@ impl<R: FeltRng> Client<R> {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
-            updated_public_accounts.iter().map(|acc| acc.id()).collect(),
+            updated_public_accounts.iter().map(Account::id).collect(),
             mismatched_private_accounts.iter().map(|(acc_id, _)| *acc_id).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
+        let response_block_num = response.block_header.block_num();
+
+        let transactions_to_discard = vec![];
+
+        // Find old pending transactions before starting the database transaction
+        let graceful_block_num =
+            response_block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+        // Retain old pending transactions
+        let mut stale_transactions: Vec<TransactionRecord> = self
+            .store
+            .get_transactions(TransactionFilter::ExpiredBefore(graceful_block_num))
+            .await?;
+
+        stale_transactions.retain(|tx| {
+            !transactions_to_commit
+                .iter()
+                .map(|tx| tx.transaction_id)
+                .collect::<Vec<_>>()
+                .contains(&tx.id)
+                && !transactions_to_discard.contains(&tx.id)
+        });
 
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
-            note_updates,
-            transactions_to_commit,
+            block_has_relevant_notes: incoming_block_has_relevant_notes,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_accounts: AccountUpdates::new(
+            note_updates,
+            transaction_updates: TransactionUpdates::new(
+                transactions_to_commit,
+                transactions_to_discard,
+                stale_transactions,
+            ),
+            account_updates: AccountUpdates::new(
                 updated_public_accounts,
                 mismatched_private_accounts,
             ),
-            block_has_relevant_notes: incoming_block_has_relevant_notes,
-            transactions_to_discard,
             tags_to_remove,
         };
 
@@ -395,7 +371,7 @@ impl<R: FeltRng> Client<R> {
             .await
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == response.block_header.block_num() {
+        if response.chain_tip == response_block_num {
             Ok(SyncStatus::SyncedToLastBlock(sync_summary))
         } else {
             Ok(SyncStatus::SyncedToBlock(sync_summary))
@@ -405,8 +381,75 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
-    /// list or note tag records to be removed from the store.
+    async fn sync_nullifiers(
+        &mut self,
+        starting_block_num: BlockNumber,
+    ) -> Result<SyncSummary, ClientError> {
+        // To receive information about added nullifiers, we reduce them to the higher 16 bits
+        // Note that besides filtering by nullifier prefixes, the node also filters by block number
+        // (it only returns nullifiers from current_block_num until
+        // response.block_header.block_num())
+        let nullifiers_tags: Vec<u16> = self
+            .store
+            .get_unspent_input_note_nullifiers()
+            .await?
+            .iter()
+            .map(Nullifier::prefix)
+            .collect();
+
+        let mut nullifiers = self
+            .rpc_api
+            .check_nullifiers_by_prefix(&nullifiers_tags, starting_block_num)
+            .await?;
+
+        // Discard nullifiers that are newer than the current block (this might happen if the block
+        // changes between the sync_state and the check_nullifier calls)
+        let current_block_num = self.get_sync_height().await?;
+        nullifiers.retain(|update| update.block_num <= current_block_num.as_u32());
+
+        // Committed transactions
+        let committed_transactions = self
+            .store
+            .get_transactions(TransactionFilter::All)
+            .await?
+            .into_iter()
+            .filter_map(|tx| {
+                if let TransactionStatus::Committed(block_num) = tx.transaction_status {
+                    Some(TransactionUpdate {
+                        transaction_id: tx.id,
+                        account_id: tx.account_id,
+                        block_num: block_num.as_u32(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let (consumed_note_updates, transactions_to_discard) =
+            self.consumed_note_updates(&nullifiers, &committed_transactions).await?;
+
+        // Store summary to return later
+        let sync_summary = SyncSummary::new(
+            0.into(),
+            consumed_note_updates.committed_note_ids().into_iter().collect(),
+            consumed_note_updates.consumed_note_ids().into_iter().collect(),
+            vec![],
+            vec![],
+            committed_transactions.iter().map(|tx| tx.transaction_id).collect(),
+        );
+
+        // Apply received and computed updates to the store
+        self.store
+            .apply_nullifiers(consumed_note_updates, transactions_to_discard)
+            .await
+            .map_err(ClientError::StoreError)?;
+
+        Ok(sync_summary)
+    }
+
+    /// Returns the [`NoteUpdates`] containing new public note and committed input/output notes and
+    /// a list or note tag records to be removed from the store.
     async fn committed_note_updates(
         &mut self,
         committed_notes: Vec<CommittedNote>,
@@ -416,7 +459,7 @@ impl<R: FeltRng> Client<R> {
         // sync response contains notes matching either the provided accounts or the provided tag
         // we might get many notes when we only care about a few of those.
         let relevant_note_filter =
-            NoteFilter::List(committed_notes.iter().map(|note| note.note_id()).cloned().collect());
+            NoteFilter::List(committed_notes.iter().map(CommittedNote::note_id).copied().collect());
 
         let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
             .store
@@ -451,7 +494,7 @@ impl<R: FeltRng> Client<R> {
 
                 let inclusion_proof_received = note_record
                     .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
-                let block_header_received = note_record.block_header_received(*block_header)?;
+                let block_header_received = note_record.block_header_received(block_header)?;
 
                 removed_tags.push((&note_record).try_into()?);
 
@@ -482,20 +525,18 @@ impl<R: FeltRng> Client<R> {
 
         Ok((
             NoteUpdates::new(
-                new_public_notes,
-                vec![],
-                committed_tracked_input_notes,
+                [new_public_notes, committed_tracked_input_notes].concat(),
                 committed_tracked_output_notes,
             ),
             removed_tags,
         ))
     }
 
-    /// Returns the [NoteUpdates] containing consumed input/output notes and a list of IDs of the
+    /// Returns the [`NoteUpdates`] containing consumed input/output notes and a list of IDs of the
     /// transactions that were discarded.
     async fn consumed_note_updates(
         &mut self,
-        nullifiers: Vec<NullifierUpdate>,
+        nullifiers: &[NullifierUpdate],
         committed_transactions: &[TransactionUpdate],
     ) -> Result<(NoteUpdates, Vec<TransactionId>), ClientError> {
         let nullifier_filter = NoteFilter::Nullifiers(
@@ -527,7 +568,6 @@ impl<R: FeltRng> Client<R> {
         let mut consumed_tracked_input_notes = vec![];
         let mut consumed_tracked_output_notes = vec![];
 
-        // Committed transactions
         for transaction_update in committed_transactions {
             let transaction_nullifiers: Vec<Nullifier> = consumed_input_notes
                 .iter()
@@ -541,7 +581,7 @@ impl<R: FeltRng> Client<R> {
                         None
                     }
                 })
-                .cloned()
+                .copied()
                 .collect();
 
             for nullifier in transaction_nullifiers {
@@ -584,12 +624,7 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok((
-            NoteUpdates::new(
-                vec![],
-                vec![],
-                consumed_tracked_input_notes,
-                consumed_tracked_output_notes,
-            ),
+            NoteUpdates::new(consumed_tracked_input_notes, consumed_tracked_output_notes),
             discarded_transactions,
         ))
     }
@@ -613,15 +648,15 @@ impl<R: FeltRng> Client<R> {
             .get_public_note_records(query_notes, self.store.get_current_timestamp())
             .await?;
 
-        for note in return_notes.iter_mut() {
-            note.block_header_received(*block_header)?;
+        for note in &mut return_notes {
+            note.block_header_received(block_header)?;
         }
 
         Ok(return_notes)
     }
 
     /// Extracts information about transactions for uncommitted transactions that the client is
-    /// tracking from the received [SyncStateResponse].
+    /// tracking from the received [`SyncStateResponse`].
     async fn get_transactions_to_commit(
         &self,
         mut transactions: Vec<TransactionUpdate>,
@@ -649,11 +684,11 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<Vec<Account>, ClientError> {
         let mut mismatched_public_accounts = vec![];
 
-        for (id, hash) in account_updates {
+        for (id, commitment) in account_updates {
             // check if this updated account is tracked by the client
             if let Some(account) = current_public_accounts
                 .iter()
-                .find(|acc| *id == acc.id() && *hash != acc.hash())
+                .find(|acc| *id == acc.id() && *commitment != acc.commitment())
             {
                 mismatched_public_accounts.push(account);
             }
@@ -665,88 +700,39 @@ impl<R: FeltRng> Client<R> {
             .map_err(ClientError::RpcError)
     }
 
-    /// Validates account hash updates and returns a vector with all the private account
+    /// Validates account commitment updates and returns a vector with all the private account
     /// mismatches.
     ///
-    /// Private account mismatches happen when the hash account of the local tracked account
-    /// doesn't match the hash account of the account in the node. This would be an anomaly and may
-    /// happen for two main reasons:
+    /// Private account mismatches happen when the commitment account of the local tracked account
+    /// doesn't match the commitment account of the account in the node. This would be an anomaly
+    /// and may happen for two main reasons:
     /// - A different client made a transaction with the account, changing its state.
     /// - The local transaction that modified the local state didn't go through, rendering the local
     ///   account state outdated.
-    async fn validate_local_account_hashes(
+    async fn validate_local_account_commitments(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_private_accounts: &[AccountHeader],
     ) -> Result<Vec<(AccountId, Digest)>, ClientError> {
         let mut mismatched_accounts = vec![];
 
-        for (remote_account_id, remote_account_hash) in account_updates {
-            // ensure that if we track that account, it has the same hash
-            let mismatched_account = current_private_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+        for (remote_account_id, remote_account_commitment) in account_updates {
+            // ensure that if we track that account, it has the same commitment
+            let mismatched_account = current_private_accounts.iter().find(|acc| {
+                *remote_account_id == acc.id() && *remote_account_commitment != acc.commitment()
+            });
 
             // Private accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_account.is_some() {
-                let account_by_hash =
-                    self.store.get_account_header_by_hash(*remote_account_hash).await?;
+                let account_by_commitment =
+                    self.store.get_account_header_by_commitment(*remote_account_commitment).await?;
 
-                if account_by_hash.is_none() {
-                    mismatched_accounts.push((*remote_account_id, *remote_account_hash));
+                if account_by_commitment.is_none() {
+                    mismatched_accounts.push((*remote_account_id, *remote_account_commitment));
                 }
             }
         }
         Ok(mismatched_accounts)
-    }
-}
-
-pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
-    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
-}
-
-#[cfg(test)]
-mod test {
-    use miden_objects::{
-        account::AccountId, block::BlockNumber, note::NoteId, transaction::TransactionId, Digest,
-    };
-    use miden_tx::utils::{Deserializable, Serializable, SliceReader};
-
-    use super::SyncSummary;
-
-    #[test]
-    fn test_sync_summary_serialization_and_deserialization() {
-        let summary = SyncSummary {
-            block_num: BlockNumber::from(100),
-            received_notes: vec![NoteId::try_from_hex(
-                "0xc9d31c82c098e060c9b6e3af2710b3fc5009a1a6f82ef9465f8f35d1f5ba4a80",
-            )
-            .unwrap()],
-            committed_notes: vec![NoteId::try_from_hex(
-                "0xa3f91b76d0e24c5f8e7a6b3c92d8e0ff12a47b65c3d9f08e54a21b7f6e8c9d30",
-            )
-            .unwrap()],
-            consumed_notes: vec![NoteId::try_from_hex(
-                "0xf07e1c9a45b2d68f3e10a5b4c27d9e81f6a3b50c2d98e47f01c7a6b35d2e4f89",
-            )
-            .unwrap()],
-            updated_accounts: vec![AccountId::from_hex("0xec6eb17da58222800000ba8ef7e353").unwrap()],
-            locked_accounts: vec![AccountId::from_hex("0x039613d3c276f1800000f2a56a3d7e").unwrap()],
-            committed_transactions: vec![TransactionId::new(
-                Digest::default(),
-                Digest::default(),
-                Digest::default(),
-                Digest::default(),
-            )],
-        };
-
-        let mut bytes = vec![];
-        summary.write_into(&mut bytes);
-
-        let deserialized_summary =
-            SyncSummary::read_from(&mut SliceReader::new(bytes.as_slice())).unwrap();
-
-        assert_eq!(summary, deserialized_summary);
     }
 }

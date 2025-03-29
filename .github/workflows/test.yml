@@ -7,12 +7,14 @@ on:
 
 jobs:
   test:
-    name: Test Rust 
+    name: Test Rust
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
         run: rustup update --no-self-update
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - name: make - test
         run: make test
@@ -28,7 +30,7 @@ jobs:
       - name: Install rust
         run: rustup update --no-self-update
       - name: Run doc-tests
-        run: make test-docs  
+        run: make test-docs
 
   integration-tests:
     name: Run integration tests on ubuntu-latest
@@ -40,6 +42,8 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - run: make clean-node
       - run: make node
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - run: make start-node > /dev/null &
       - run: make integration-test-full
       - name: Kill miden-node
@@ -47,8 +51,8 @@ jobs:
         run: make kill-node
 
   integration-tests-web-client:
-    name: Run integration tests for web client on ubuntu-22.04
-    runs-on: ubuntu-22.04
+    name: Run integration tests for web client on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -59,8 +63,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Configure setuid sandbox
+        run: . ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - run: make start-node > /dev/null &
       - run: make integration-test-web-client
       - name: Kill miden-node
@@ -68,8 +76,8 @@ jobs:
         run: make kill-node
 
   integration-tests-remote-prover-web-client:
-    name: Run integration tests for remote prover on ubuntu-22.04
-    runs-on: ubuntu-22.04
+    name: Run integration tests for remote prover on ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
@@ -80,11 +88,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Configure setuid sandbox
+        run: . ./scripts/configure-sandbox.sh
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
       - run: make clean-prover
       - run: make prover
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - run: make start-prover > /dev/null &
       - run: make integration-test-remote-prover-web-client
       - name: Kill miden-node

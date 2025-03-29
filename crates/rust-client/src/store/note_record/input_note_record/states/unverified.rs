@@ -2,7 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     block::{BlockHeader, BlockNumber},
-    note::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    note::{NoteId, NoteInclusionProof, NoteMetadata, compute_note_commitment},
     transaction::TransactionId,
 };
 
@@ -12,7 +12,7 @@ use super::{
 };
 use crate::store::NoteRecordError;
 
-/// Information related to notes in the [InputNoteState::Unverified] state.
+/// Information related to notes in the [`InputNoteState::Unverified`] state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnverifiedNoteState {
     /// Metadata associated with the note, including sender, note type, tag and other additional
@@ -41,14 +41,14 @@ impl NoteStateHandler for UnverifiedNoteState {
     fn block_header_received(
         &self,
         note_id: NoteId,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self
             .inclusion_proof
             .note_path()
             .verify(
                 self.inclusion_proof.location().node_index_in_block().into(),
-                compute_note_hash(note_id, &self.metadata),
+                compute_note_commitment(note_id, &self.metadata),
                 &block_header.note_root(),
             )
             .is_ok()

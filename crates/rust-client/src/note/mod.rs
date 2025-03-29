@@ -10,23 +10,23 @@
 //! The module exposes APIs to:
 //!
 //! - Retrieve input notes and output notes.
-//! - Determine the consumability of notes using the [NoteScreener].
+//! - Determine the consumability of notes using the [`NoteScreener`].
 //! - Compile note scripts from source code with `compile_note_script`.
 //! - Retrieve an input note by a prefix of its ID using the helper function
-//!   [get_input_note_with_id_prefix].
+//!   [`get_input_note_with_id_prefix`].
 //!
 //! ## Example
 //!
 //! ```rust
 //! use miden_client::{
 //!     Client,
-//!     note::{get_input_note_with_id_prefix, NoteScreener},
-//!     store::NoteFilter,
 //!     crypto::FeltRng,
+//!     note::{NoteScreener, get_input_note_with_id_prefix},
+//!     store::NoteFilter,
 //! };
 //! use miden_objects::account::AccountId;
 //!
-//! # async fn example(client: &Client<impl FeltRng>) -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 //! // Retrieve all committed input notes
 //! let input_notes = client.get_input_notes(NoteFilter::Committed).await?;
 //! println!("Found {} committed input notes.", input_notes.len());
@@ -41,7 +41,7 @@
 //! let note_prefix = "0x70b7ec";
 //! match get_input_note_with_id_prefix(client, note_prefix).await {
 //!     Ok(note) => println!("Found note with matching prefix: {}", note.id().to_hex()),
-//!     Err(err) => println!("Error retrieving note: {:?}", err),
+//!     Err(err) => println!("Error retrieving note: {err:?}"),
 //! }
 //!
 //! // Compile the note script
@@ -56,14 +56,18 @@
 //! For more details on the API and error handling, see the documentation for the specific functions
 //! and types in this module.
 
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::ToString,
+    vec::Vec,
+};
 
 use miden_lib::transaction::TransactionKernel;
-use miden_objects::{account::AccountId, crypto::rand::FeltRng};
+use miden_objects::account::AccountId;
 
 use crate::{
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
 };
 
 pub mod script_roots;
@@ -77,25 +81,21 @@ mod note_screener;
 pub use miden_lib::note::{
     create_p2id_note, create_p2idr_note, create_swap_note,
     utils::{build_p2id_recipient, build_swap_tag},
+    well_known_note::WellKnownNote,
 };
 pub use miden_objects::{
+    NoteError,
     block::BlockNumber,
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
         NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
         Nullifier,
     },
-    NoteError,
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
 
-/// Contains functions to simplify standard note scripts creation.
-pub mod scripts {
-    pub use miden_lib::note::scripts::{p2id, p2idr, swap};
-}
-
 /// Note retrieval methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -103,18 +103,18 @@ impl<R: FeltRng> Client<R> {
     ///
     /// # Errors
     ///
-    /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
-    /// Note with the provided ID.
+    /// Returns a [`ClientError::StoreError`] if the filter is [`NoteFilter::Unique`] and there is
+    /// no Note with the provided ID.
     pub async fn get_input_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, ClientError> {
-        self.store.get_input_notes(filter).await.map_err(|err| err.into())
+        self.store.get_input_notes(filter).await.map_err(Into::into)
     }
 
     /// Returns the input notes and their consumability.
     ///
-    /// If account_id is None then all consumable input notes are returned.
+    /// If `account_id` is None then all consumable input notes are returned.
     pub async fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
@@ -151,10 +151,10 @@ impl<R: FeltRng> Client<R> {
         note_screener
             .check_relevance(&note.clone().try_into()?)
             .await
-            .map_err(|err| err.into())
+            .map_err(Into::into)
     }
 
-    /// Retrieves the input note given a [NoteId]. Returns `None` if the note is not found.
+    /// Retrieves the input note given a [`NoteId`]. Returns `None` if the note is not found.
     pub async fn get_input_note(
         &self,
         note_id: NoteId,
@@ -170,10 +170,10 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        self.store.get_output_notes(filter).await.map_err(|err| err.into())
+        self.store.get_output_notes(filter).await.map_err(Into::into)
     }
 
-    /// Retrieves the output note given a [NoteId]. Returns `None` if the note is not found.
+    /// Retrieves the output note given a [`NoteId`]. Returns `None` if the note is not found.
     pub async fn get_output_note(
         &self,
         note_id: NoteId,
@@ -181,7 +181,7 @@ impl<R: FeltRng> Client<R> {
         Ok(self.store.get_output_notes(NoteFilter::Unique(note_id)).await?.pop())
     }
 
-    /// Compiles the provided program into a [NoteScript].
+    /// Compiles the provided program into a [`NoteScript`].
     ///
     /// The assembler uses the debug mode if the client was instantiated with debug mode on.
     pub fn compile_note_script(&self, note_script: &str) -> Result<NoteScript, ClientError> {
@@ -194,12 +194,12 @@ impl<R: FeltRng> Client<R> {
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [`IdPrefixFetchError::NoMatch`] if we were unable to find any note where
 ///   `note_id_prefix` is a prefix of its ID.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
+/// - Returns [`IdPrefixFetchError::MultipleMatches`] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its ID.
-pub async fn get_input_note_with_id_prefix<R: FeltRng>(
-    client: &Client<R>,
+pub async fn get_input_note_with_id_prefix(
+    client: &Client,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = client
@@ -219,10 +219,8 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
         ));
     }
     if input_note_records.len() > 1 {
-        let input_note_record_ids = input_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
+        let input_note_record_ids =
+            input_note_records.iter().map(InputNoteRecord::id).collect::<Vec<_>>();
         tracing::error!(
             "Multiple notes found for the prefix {}: {:?}",
             note_id_prefix,
@@ -242,100 +240,90 @@ pub async fn get_input_note_with_id_prefix<R: FeltRng>(
 // ------------------------------------------------------------------------------------------------
 
 /// Contains note changes to apply to the store.
+#[derive(Clone, Debug, Default)]
 pub struct NoteUpdates {
-    /// A list of new input notes.
-    new_input_notes: Vec<InputNoteRecord>,
-    /// A list of new output notes.
-    new_output_notes: Vec<OutputNoteRecord>,
-    /// A list of updated input note records corresponding to locally-tracked input notes.
-    updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of updated output note records corresponding to locally-tracked output notes.
-    updated_output_notes: Vec<OutputNoteRecord>,
+    /// A map of new and updated input note records to be upserted in the store.
+    updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
+    /// A map of updated output note records to be upserted in the store.
+    updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
 }
 
 impl NoteUpdates {
-    /// Creates a [NoteUpdates].
+    /// Creates a [`NoteUpdates`].
     pub fn new(
-        new_input_notes: Vec<InputNoteRecord>,
-        new_output_notes: Vec<OutputNoteRecord>,
-        updated_input_notes: Vec<InputNoteRecord>,
-        updated_output_notes: Vec<OutputNoteRecord>,
+        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        updated_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
     ) -> Self {
         Self {
-            new_input_notes,
-            new_output_notes,
-            updated_input_notes,
-            updated_output_notes,
+            updated_input_notes: updated_input_notes
+                .into_iter()
+                .map(|note| (note.id(), note))
+                .collect(),
+            updated_output_notes: updated_output_notes
+                .into_iter()
+                .map(|note| (note.id(), note))
+                .collect(),
         }
     }
 
-    /// Combines two [NoteUpdates] into a single one.
-    pub fn combine_with(mut self, other: Self) -> Self {
-        self.new_input_notes.extend(other.new_input_notes);
-        self.new_output_notes.extend(other.new_output_notes);
-        self.updated_input_notes.extend(other.updated_input_notes);
-        self.updated_output_notes.extend(other.updated_output_notes);
-
-        self
+    /// Returns all input note records that have been updated.
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
+    pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
+        self.updated_input_notes.values()
     }
 
-    /// Returns all new input note records, meant to be tracked by the client.
-    pub fn new_input_notes(&self) -> &[InputNoteRecord] {
-        &self.new_input_notes
-    }
-
-    /// Returns all new output note records, meant to be tracked by the client.
-    pub fn new_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.new_output_notes
-    }
-
-    /// Returns all updated input note records. That is, any input notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_input_notes(&self) -> &[InputNoteRecord] {
-        &self.updated_input_notes
-    }
-
-    /// Returns all updated output note records. That is, any output notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.updated_output_notes
+    /// Returns all output note records that have been updated.
+    /// This may include:
+    /// - New notes that have been created that should be inserted.
+    /// - Existing tracked notes that should be updated.
+    pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
+        self.updated_output_notes.values()
     }
 
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty()
-            && self.updated_output_notes.is_empty()
-            && self.new_input_notes.is_empty()
-            && self.new_output_notes.is_empty()
+        self.updated_input_notes.is_empty() && self.updated_output_notes.is_empty()
     }
 
-    /// Returns the IDs of all notes that have been committed.
+    /// Returns any note that has been committed into the chain in this update (either new or
+    /// already locally tracked)
+    pub fn committed_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
+        self.updated_input_notes.values().filter(|note| note.is_committed())
+    }
+
+    /// Returns the IDs of all notes that have been committed in this update.
+    /// This includes both new notes and tracked expected notes that were committed in this update.
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
 
         let committed_input_note_ids = self
             .updated_input_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
 
-        BTreeSet::from_iter(committed_input_note_ids.chain(committed_output_note_ids))
+        committed_input_note_ids
+            .chain(committed_output_note_ids)
+            .collect::<BTreeSet<_>>()
     }
 
-    /// Returns the IDs of all notes that have been consumed
+    /// Returns the IDs of all notes that have been consumed.
+    /// This includes both notes that have been consumed locally or externally in this update.
     pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
         let consumed_output_note_ids = self
             .updated_output_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
         let consumed_input_note_ids = self
             .updated_input_notes
-            .iter()
+            .values()
             .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
-        BTreeSet::from_iter(consumed_input_note_ids.chain(consumed_output_note_ids))
+        consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
     }
 }

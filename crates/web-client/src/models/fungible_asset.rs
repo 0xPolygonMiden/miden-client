@@ -1,7 +1,7 @@
 use miden_objects::{
+    Word as NativeWord,
     account::AccountId as NativeAccountId,
     asset::{Asset as NativeAsset, FungibleAsset as FungibleAssetNative},
-    Word as NativeWord,
 };
 use wasm_bindgen::prelude::*;
 
@@ -21,6 +21,7 @@ impl FungibleAsset {
         FungibleAsset(native_asset)
     }
 
+    #[wasm_bindgen(js_name = "faucetId")]
     pub fn faucet_id(&self) -> AccountId {
         self.0.faucet_id().into()
     }
@@ -29,6 +30,7 @@ impl FungibleAsset {
         self.0.amount()
     }
 
+    #[wasm_bindgen(js_name = "intoWord")]
     pub fn into_word(&self) -> Word {
         let native_word: NativeWord = self.0.into();
         native_word.into()

@@ -18,17 +18,17 @@ const getAllTransactions = async (): Promise<GetAllTransactionsResult> => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
 
-    let transactions = await client.get_transactions(
+    let transactions = await client.getTransactions(
       window.TransactionFilter.all()
     );
-    let uncomittedTransactions = await client.get_transactions(
+    let uncomittedTransactions = await client.getTransactions(
       window.TransactionFilter.uncomitted()
     );
     let transactionIds = transactions.map((transaction) =>
-      transaction.id().to_hex()
+      transaction.id().toHex()
     );
     let uncomittedTransactionIds = uncomittedTransactions.map((transaction) =>
-      transaction.id().to_hex()
+      transaction.id().toHex()
     );
 
     return {
@@ -61,6 +61,7 @@ describe("get_transactions tests", () => {
     const { transactionId: mintTransactionId } = await mintTransaction(
       accountId,
       faucetId,
+      false,
       false
     );
 
@@ -85,7 +86,7 @@ describe("get_transactions tests", () => {
 // =======================================================================================================
 
 interface CompileTxScriptResult {
-  scriptHash: string;
+  scriptRoot: string;
 }
 
 export const compileTxScript = async (
@@ -94,26 +95,15 @@ export const compileTxScript = async (
   return await testingPage.evaluate(async (_script) => {
     const client = window.client;
 
-    let walletAccount = await client.new_wallet(
+    let walletAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
 
-    let account_auth = await client.get_account_auth(walletAccount.id());
-    let public_key = account_auth.get_rpo_falcon_512_public_key_as_word();
-    let secret_key = account_auth.get_rpo_falcon_512_secret_key_as_felts();
-    let transcription_script_input_pair_array =
-      new window.TransactionScriptInputPairArray([
-        new window.TransactionScriptInputPair(public_key, secret_key),
-      ]);
-
-    const compiledScript = await client.compile_tx_script(
-      _script,
-      transcription_script_input_pair_array
-    );
+    const compiledScript = await client.compileTxScript(_script);
 
     return {
-      scriptHash: compiledScript.hash().to_hex(),
+      scriptRoot: compiledScript.root().toHex(),
     };
   }, script);
 };
@@ -135,14 +125,14 @@ describe("compile_tx_script tests", () => {
         `;
     const result = await compileTxScript(script);
 
-    expect(result.scriptHash).to.not.be.empty;
+    expect(result.scriptRoot).to.not.be.empty;
   });
 
   it("compile_tx_script does not compile script successfully", async () => {
     const script = "fakeScript";
 
     await expect(compileTxScript(script)).to.be.rejectedWith(
-      /Failed to compile transaction script:/
+      /failed to compile transaction script:/
     );
   });
 });

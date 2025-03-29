@@ -1,9 +1,9 @@
 [package]
 name = "miden-cli"
-version = "0.7.0"
+version = "0.8.0"
 description = "CLI binary application that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-cli/0.7.0"
+documentation = "https://docs.rs/miden-cli/0.8.0"
 categories = ["command-line-utilities"]
 keywords = ["miden", "client", "cli"]
 license.workspace = true
@@ -15,6 +15,9 @@ edition.workspace = true
 [[bin]]
 name = "miden"
 path = "src/main.rs"
+
+[lints]
+workspace = true
 
 [features]
 default = []
@@ -35,15 +38,20 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 clap = { version = "4.5", features = ["derive"] }
 comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { version = "0.7", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
+miden-client = { version = "0.8", path = "../../crates/rust-client", features = ["sqlite", "tonic"] }
 miden-lib = { workspace = true }
-miden-proving-service-client = { workspace = true , features = ["std", "tx-prover"]}
 miden-objects = { workspace = true }
 miette = { workspace = true }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
+
+[build-dependencies]
+miden-client = { version = "0.8", path = "../../crates/rust-client" }
+miden-objects = { workspace = true }
+miden-lib = { workspace = true }

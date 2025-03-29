@@ -14,9 +14,10 @@ impl MerklePath {
     }
 
     pub fn nodes(&self) -> Vec<RpoDigest> {
-        self.0.nodes().iter().map(|node| node.into()).collect()
+        self.0.nodes().iter().map(Into::into).collect()
     }
 
+    #[wasm_bindgen(js_name = "computeRoot")]
     pub fn compute_root(&self, index: u64, node: &RpoDigest) -> RpoDigest {
         self.0.compute_root(index, node.clone().into()).unwrap().into()
     }

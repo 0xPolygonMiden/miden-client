@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen};
 
 // Account IndexedDB Operations
 #[wasm_bindgen(module = "/src/store/web_store/js/accounts.js")]
@@ -17,8 +17,8 @@ extern "C" {
     #[wasm_bindgen(js_name = getAccountHeader)]
     pub fn idxdb_get_account_header(account_id: String) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountHeaderByHash)]
-    pub fn idxdb_get_account_header_by_hash(account_hash: String) -> js_sys::Promise;
+    #[wasm_bindgen(js_name = getAccountHeaderByCommitment)]
+    pub fn idxdb_get_account_header_by_commitment(account_commitment: String) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountCode)]
     pub fn idxdb_get_account_code(code_root: String) -> js_sys::Promise;
@@ -29,14 +29,11 @@ extern "C" {
     #[wasm_bindgen(js_name = getAccountAssetVault)]
     pub fn idxdb_get_account_asset_vault(vault_root: String) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountAuth)]
-    pub fn idxdb_get_account_auth(account_id: String) -> js_sys::Promise;
-
     #[wasm_bindgen(js_name = getAccountAuthByPubKey)]
-    pub fn idxdb_get_account_auth_by_pub_key(pub_key: Vec<u8>) -> JsValue;
+    pub fn idxdb_get_account_auth_by_pub_key(pub_key: String) -> JsValue;
 
     #[wasm_bindgen(js_name = fetchAndCacheAccountAuthByPubKey)]
-    pub fn idxdb_fetch_and_cache_account_auth_by_pub_key(account_id: String) -> js_sys::Promise;
+    pub fn idxdb_fetch_and_cache_account_auth_by_pub_key(pub_key: String) -> js_sys::Promise;
 
     // INSERTS
     // ================================================================================================
@@ -52,7 +49,7 @@ extern "C" {
 
     #[wasm_bindgen(js_name = insertAccountAssetVault)]
     pub fn idxdb_insert_account_asset_vault(vault_root: String, assets: Vec<u8>)
-        -> js_sys::Promise;
+    -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountRecord)]
     pub fn idxdb_insert_account_record(
@@ -63,15 +60,11 @@ extern "C" {
         nonce: String,
         committed: bool,
         account_seed: Option<Vec<u8>>,
-        hash: String,
+        commitment: String,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAuth)]
-    pub fn idxdb_insert_account_auth(
-        id: String,
-        auth_info: Vec<u8>,
-        pub_key: Vec<u8>,
-    ) -> js_sys::Promise;
+    pub fn idxdb_insert_account_auth(pub_key: String, secret_key: String) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = upsertForeignAccountCode)]
     pub fn idxdb_upsert_foreign_account_code(
@@ -88,4 +81,10 @@ extern "C" {
 
     #[wasm_bindgen(js_name = lockAccount)]
     pub fn idxdb_lock_account(account_id: String) -> js_sys::Promise;
+
+    // DELETES
+    // ================================================================================================
+
+    #[wasm_bindgen(js_name = undoAccountStates)]
+    pub fn idxdb_undo_account_states(account_hashes: Vec<String>) -> js_sys::Promise;
 }

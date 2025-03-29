@@ -1,6 +1,6 @@
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest as NativeRpoDigest, vm::AdviceMap as NativeAdviceMap,
-    Felt as NativeFelt,
+    Felt as NativeFelt, crypto::hash::rpo::RpoDigest as NativeRpoDigest,
+    vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
 
@@ -24,9 +24,7 @@ impl AdviceMap {
         let native_rpo_digest: NativeRpoDigest = key.into();
         let native_felts: Vec<NativeFelt> = value.into();
         let insert_result: Option<Vec<NativeFelt>> = self.0.insert(native_rpo_digest, native_felts);
-        insert_result.map(|native_felts_vec| {
-            native_felts_vec.into_iter().map(|native_felt| native_felt.into()).collect()
-        })
+        insert_result.map(|native_felts_vec| native_felts_vec.into_iter().map(Into::into).collect())
     }
 }
 

@@ -12,6 +12,7 @@ pub struct NoteTag(NativeNoteTag);
 
 #[wasm_bindgen]
 impl NoteTag {
+    #[wasm_bindgen(js_name = "fromAccountId")]
     pub fn from_account_id(account_id: &AccountId, execution: &NoteExecutionMode) -> NoteTag {
         let native_account_id: NativeAccountId = account_id.into();
         let native_execution: NativeNoteExecutionMode = execution.into();
@@ -20,6 +21,7 @@ impl NoteTag {
         NoteTag(native_note_tag)
     }
 
+    #[wasm_bindgen(js_name = "forPublicUseCase")]
     pub fn for_public_use_case(
         use_case_id: u16,
         payload: u16,
@@ -31,15 +33,18 @@ impl NoteTag {
         NoteTag(native_note_tag)
     }
 
+    #[wasm_bindgen(js_name = "forLocalUseCase")]
     pub fn for_local_use_case(use_case_id: u16, payload: u16) -> NoteTag {
         let native_note_tag = NativeNoteTag::for_local_use_case(use_case_id, payload).unwrap();
         NoteTag(native_note_tag)
     }
 
+    #[wasm_bindgen(js_name = "isSingleTarget")]
     pub fn is_single_target(&self) -> bool {
         self.0.is_single_target()
     }
 
+    #[wasm_bindgen(js_name = "executionMode")]
     pub fn execution_mode(&self) -> NoteExecutionMode {
         self.0.execution_mode().into()
     }

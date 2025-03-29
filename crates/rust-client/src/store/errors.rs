@@ -1,10 +1,10 @@
 use alloc::string::String;
 
 use miden_objects::{
+    AccountError, AccountIdError, AssetVaultError, Digest, NoteError, TransactionScriptError,
     account::AccountId,
     crypto::merkle::MmrError,
     utils::{DeserializationError, HexParseError},
-    AccountError, AccountIdError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::DataStoreError;
 use thiserror::Error;
@@ -28,10 +28,10 @@ pub enum StoreError {
     AccountError(#[from] AccountError),
     #[error("account id error")]
     AccountIdError(#[from] AccountIdError),
-    #[error("account hash {0} already exists")]
-    AccountHashAlreadyExists(Digest),
-    #[error("account hash mismatch for account {0}")]
-    AccountHashMismatch(AccountId),
+    #[error("account commitment {0} already exists")]
+    AccountCommitmentAlreadyExists(Digest),
+    #[error("account commitment mismatch for account {0}")]
+    AccountCommitmentMismatch(AccountId),
     #[error("public key {0} not found")]
     AccountKeyNotFound(String),
     #[error("account storage data with root {0} not found")]
@@ -42,14 +42,12 @@ pub enum StoreError {
     DataDeserializationError(#[from] DeserializationError),
     #[error("database-related non-query error: {0}")]
     DatabaseError(String),
-    #[error("error parsing hex: {0}")]
-    //TODO: use source in this error when possible
-    HexParseError(HexParseError),
+    #[error("error parsing hex")]
+    HexParseError(#[from] HexParseError),
     #[error("note record error")]
     NoteRecordError(#[from] NoteRecordError),
-    #[error("error constructing mmr: {0}")]
-    //TODO: use source in this error when possible
-    MmrError(MmrError),
+    #[error("error constructing mmr")]
+    MmrError(#[from] MmrError),
     #[error("inclusion proof creation error")]
     NoteInclusionProofError(#[from] NoteError),
     #[error("note tag {0} is already being tracked")]
@@ -62,18 +60,6 @@ pub enum StoreError {
     TransactionScriptError(#[from] TransactionScriptError),
     #[error("account vault data for root {0} not found")]
     VaultDataNotFound(Digest),
-}
-
-impl From<HexParseError> for StoreError {
-    fn from(value: HexParseError) -> Self {
-        StoreError::HexParseError(value)
-    }
-}
-
-impl From<MmrError> for StoreError {
-    fn from(value: MmrError) -> Self {
-        StoreError::MmrError(value)
-    }
 }
 
 impl From<StoreError> for DataStoreError {

@@ -12,10 +12,12 @@ impl Felt {
         Felt(NativeFelt::new(value))
     }
 
+    #[wasm_bindgen(js_name = "asInt")]
     pub fn as_int(&self) -> u64 {
         self.0.as_int()
     }
 
+    #[wasm_bindgen(js_name = "toString")]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         self.0.to_string()
@@ -62,7 +64,7 @@ impl FeltArray {
     }
 
     pub fn append(&mut self, felt: &Felt) {
-        self.0.push(*felt)
+        self.0.push(*felt);
     }
 }
 
@@ -71,13 +73,13 @@ impl FeltArray {
 
 impl From<FeltArray> for Vec<NativeFelt> {
     fn from(felt_array: FeltArray) -> Self {
-        felt_array.0.into_iter().map(|felt| felt.into()).collect()
+        felt_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&FeltArray> for Vec<NativeFelt> {
     fn from(felt_array: &FeltArray) -> Self {
-        felt_array.0.iter().map(|felt| felt.into()).collect()
+        felt_array.0.iter().map(Into::into).collect()
     }
 }
 

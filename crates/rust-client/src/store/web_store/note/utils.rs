@@ -5,14 +5,17 @@ use alloc::{
 
 use chrono::Utc;
 use miden_objects::{
+    Digest, Word,
     note::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
     utils::Deserializable,
-    Digest, Word,
 };
 use miden_tx::utils::Serializable;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::JsFuture;
 
-use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
+use super::{
+    InputNoteIdxdbObject, OutputNoteIdxdbObject,
+    js_bindings::{idxdb_upsert_input_note, idxdb_upsert_output_note},
+};
 use crate::{
     note::NoteUpdates,
     store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
@@ -26,7 +29,7 @@ pub struct SerializedInputNoteData {
     pub note_assets: Vec<u8>,
     pub serial_number: Vec<u8>,
     pub inputs: Vec<u8>,
-    pub note_script_hash: String,
+    pub note_script_root: String,
     pub note_script: Vec<u8>,
     pub nullifier: String,
     pub state_discriminant: u8,
@@ -47,9 +50,7 @@ pub struct SerializedOutputNoteData {
 
 // ================================================================================================
 
-pub(crate) fn serialize_input_note(
-    note: &InputNoteRecord,
-) -> Result<SerializedInputNoteData, StoreError> {
+pub(crate) fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNoteData {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
 
@@ -59,50 +60,50 @@ pub(crate) fn serialize_input_note(
     let nullifier = details.nullifier().to_hex();
 
     let recipient = details.recipient();
-    let note_script = recipient.script().to_bytes();
-    let note_script_hash = recipient.script().hash().to_hex();
+    let note_script: Vec<u8> = recipient.script().to_bytes();
+    let note_script_root = recipient.script().root().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
     let created_at = Utc::now().timestamp().to_string();
 
-    Ok(SerializedInputNoteData {
+    SerializedInputNoteData {
         note_id,
         note_assets,
         serial_number,
         inputs,
-        note_script_hash,
+        note_script_root,
         note_script,
         nullifier,
         state_discriminant,
         state,
         created_at,
-    })
+    }
 }
 
 pub async fn upsert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreError> {
-    let serialized_data = serialize_input_note(note)?;
+    let serialized_data = serialize_input_note(note);
 
     let promise = idxdb_upsert_input_note(
         serialized_data.note_id,
         serialized_data.note_assets,
         serialized_data.serial_number,
         serialized_data.inputs,
-        serialized_data.note_script_hash,
+        serialized_data.note_script_root,
         serialized_data.note_script,
         serialized_data.nullifier,
         serialized_data.created_at,
         serialized_data.state_discriminant,
         serialized_data.state,
     );
-    JsFuture::from(promise).await.unwrap();
+    JsFuture::from(promise).await.map_err(|js_error| {
+        StoreError::DatabaseError(format!("failed to upsert input note: {js_error:?}"))
+    })?;
 
     Ok(())
 }
 
-pub(crate) fn serialize_output_note(
-    note: &OutputNoteRecord,
-) -> Result<SerializedOutputNoteData, StoreError> {
+pub(crate) fn serialize_output_note(note: &OutputNoteRecord) -> SerializedOutputNoteData {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
     let recipient_digest = note.recipient_digest().to_hex();
@@ -113,7 +114,7 @@ pub(crate) fn serialize_output_note(
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
 
-    Ok(SerializedOutputNoteData {
+    SerializedOutputNoteData {
         note_id,
         note_assets,
         recipient_digest,
@@ -122,11 +123,11 @@ pub(crate) fn serialize_output_note(
         state_discriminant,
         state,
         expected_height: note.expected_height().as_u32(),
-    })
+    }
 }
 
 pub async fn upsert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreError> {
-    let serialized_data = serialize_output_note(note)?;
+    let serialized_data = serialize_output_note(note);
 
     let result = JsFuture::from(idxdb_upsert_output_note(
         serialized_data.note_id,
@@ -193,17 +194,11 @@ pub fn parse_output_note_idxdb_object(
 }
 
 pub(crate) async fn apply_note_updates_tx(note_updates: &NoteUpdates) -> Result<(), StoreError> {
-    for input_note in
-        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
-    {
+    for input_note in note_updates.updated_input_notes() {
         upsert_input_note_tx(input_note).await?;
     }
 
-    for output_note in note_updates
-        .new_output_notes()
-        .iter()
-        .chain(note_updates.updated_output_notes())
-    {
+    for output_note in note_updates.updated_output_notes() {
         upsert_output_note_tx(output_note).await?;
     }
 

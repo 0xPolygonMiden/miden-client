@@ -1,5 +1,6 @@
 import { transactions, transactionScripts } from "./schema.js";
 
+const IDS_FILTER_PREFIX = "Ids:";
 export async function getTransactions(filter) {
   let transactionRecords;
 
@@ -10,6 +11,18 @@ export async function getTransactions(filter) {
           (tx) => tx.commitHeight === undefined || tx.commitHeight === null
         )
         .toArray();
+    } else if (filter.startsWith(IDS_FILTER_PREFIX)) {
+      const idsString = filter.substring(IDS_FILTER_PREFIX.length);
+      const ids = idsString.split(",");
+
+      if (ids.length > 0) {
+        transactionRecords = await transactions
+          .where("id")
+          .anyOf(ids)
+          .toArray();
+      } else {
+        transactionRecords = [];
+      }
     } else {
       transactionRecords = await transactions.toArray();
     }
@@ -18,27 +31,27 @@ export async function getTransactions(filter) {
       return [];
     }
 
-    const scriptHashes = transactionRecords.map((transactionRecord) => {
-      return transactionRecord.scriptHash;
+    const scriptRoots = transactionRecords.map((transactionRecord) => {
+      return transactionRecord.scriptRoot;
     });
 
     const scripts = await transactionScripts
-      .where("scriptHash")
-      .anyOf(scriptHashes)
+      .where("scriptRoot")
+      .anyOf(scriptRoots)
       .toArray();
 
-    // Create a map of scriptHash to script for quick lookup
+    // Create a map of scriptRoot to script for quick lookup
     const scriptMap = new Map();
     scripts.forEach((script) => {
-      scriptMap.set(script.scriptHash, script.txScript);
+      scriptMap.set(script.scriptRoot, script.txScript);
     });
 
     const processedTransactions = await Promise.all(
       transactionRecords.map(async (transactionRecord) => {
         let txScriptBase64 = null;
 
-        if (transactionRecord.scriptHash) {
-          const txScript = scriptMap.get(transactionRecord.scriptHash);
+        if (transactionRecord.scriptRoot) {
+          const txScript = scriptMap.get(transactionRecord.scriptRoot);
 
           if (txScript) {
             let txScriptArrayBuffer = await txScript.arrayBuffer();
@@ -61,19 +74,20 @@ export async function getTransactions(filter) {
 
         let data = {
           id: transactionRecord.id,
-          account_id: transactionRecord.accountId,
-          init_account_state: transactionRecord.initAccountState,
-          final_account_state: transactionRecord.finalAccountState,
-          input_notes: transactionRecord.inputNotes,
-          output_notes: transactionRecord.outputNotes,
-          script_hash: transactionRecord.scriptHash
-            ? transactionRecord.scriptHash
+          accountId: transactionRecord.accountId,
+          initAccountState: transactionRecord.initAccountState,
+          finalAccountState: transactionRecord.finalAccountState,
+          inputNotes: transactionRecord.inputNotes,
+          outputNotes: transactionRecord.outputNotes,
+          scriptRoot: transactionRecord.scriptRoot
+            ? transactionRecord.scriptRoot
             : null,
-          tx_script: txScriptBase64,
-          block_num: transactionRecord.blockNum,
-          commit_height: transactionRecord.commitHeight
+          txScript: txScriptBase64,
+          blockNum: transactionRecord.blockNum,
+          commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
+          discarded: transactionRecord.discarded,
         };
 
         return data;
@@ -81,30 +95,30 @@ export async function getTransactions(filter) {
     );
 
     return processedTransactions;
-  } catch {
-    console.error("Failed to get transactions: ", err);
+  } catch (err) {
+    console.error("Failed to get transactions: ", err.toString());
     throw err;
   }
 }
 
-export async function insertTransactionScript(scriptHash, txScript) {
+export async function insertTransactionScript(scriptRoot, txScript) {
   try {
-    // check if script hash already exists
+    // check if script root already exists
     let record = await transactionScripts
-      .where("scriptHash")
-      .equals(scriptHash)
+      .where("scriptRoot")
+      .equals(scriptRoot)
       .first();
 
     if (record) {
       return;
     }
 
-    if (!scriptHash) {
-      throw new Error("Script hash must be provided");
+    if (!scriptRoot) {
+      throw new Error("Script root must be provided");
     }
 
-    let scriptHashArray = new Uint8Array(scriptHash);
-    let scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
+    let scriptRootArray = new Uint8Array(scriptRoot);
+    let scriptRootBase64 = uint8ArrayToBase64(scriptRootArray);
 
     let txScriptBlob = null;
     if (txScript) {
@@ -112,7 +126,7 @@ export async function insertTransactionScript(scriptHash, txScript) {
     }
 
     const data = {
-      scriptHash: scriptHashBase64,
+      scriptRoot: scriptRootBase64,
       txScript: txScriptBlob,
     };
 
@@ -121,7 +135,7 @@ export async function insertTransactionScript(scriptHash, txScript) {
     // Check if the error is because the record already exists
     if (error.name === "ConstraintError") {
     } else {
-      // Re-throw the error if it's not a constraint error
+      console.error("Failed to insert transaction script: ", error.toString());
       throw error;
     }
   }
@@ -134,17 +148,17 @@ export async function insertProvenTransactionData(
   finalAccountState,
   inputNotes,
   outputNotes,
-  scriptHash,
+  scriptRoot,
   blockNum,
   committed
 ) {
   try {
     let inputNotesBlob = new Blob([new Uint8Array(inputNotes)]);
     let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
-    let scriptHashBase64 = null;
-    if (scriptHash !== null) {
-      let scriptHashArray = new Uint8Array(scriptHash);
-      scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
+    let scriptRootBase64 = null;
+    if (scriptRoot !== null) {
+      let scriptRootArray = new Uint8Array(scriptRoot);
+      scriptRootBase64 = uint8ArrayToBase64(scriptRootArray);
     }
 
     const data = {
@@ -154,14 +168,15 @@ export async function insertProvenTransactionData(
       finalAccountState: finalAccountState,
       inputNotes: inputNotesBlob,
       outputNotes: outputNotesBlob,
-      scriptHash: scriptHashBase64,
+      scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
+      discarded: false,
     };
 
     await transactions.add(data);
   } catch (err) {
-    console.error("Failed to insert proven transaction data: ", err);
+    console.error("Failed to insert proven transaction data: ", err.toString());
     throw err;
   }
 }

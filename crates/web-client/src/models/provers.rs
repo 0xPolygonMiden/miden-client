@@ -1,9 +1,11 @@
 use alloc::sync::Arc;
 
-use miden_client::transaction::{
-    LocalTransactionProver, TransactionProver as TransactionProverTrait,
+use miden_client::{
+    RemoteTransactionProver,
+    transaction::{
+        LocalTransactionProver, ProvingOptions, TransactionProver as TransactionProverTrait,
+    },
 };
-use miden_proving_service_client::RemoteTransactionProver;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -14,14 +16,16 @@ pub struct TransactionProver {
 
 #[wasm_bindgen]
 impl TransactionProver {
+    #[wasm_bindgen(js_name = "newLocalProver")]
     pub fn new_local_prover() -> TransactionProver {
-        let local_prover = LocalTransactionProver::new(Default::default());
+        let local_prover = LocalTransactionProver::new(ProvingOptions::default());
         TransactionProver {
             prover: Arc::new(local_prover),
             endpoint: None,
         }
     }
 
+    #[wasm_bindgen(js_name = "newRemoteProver")]
     pub fn new_remote_prover(endpoint: &str) -> TransactionProver {
         let remote_prover = RemoteTransactionProver::new(endpoint);
         TransactionProver {
@@ -32,7 +36,7 @@ impl TransactionProver {
 
     pub fn serialize(&self) -> String {
         match &self.endpoint {
-            Some(ep) => format!("remote:{}", ep),
+            Some(ep) => format!("remote:{ep}"),
             None => "local".to_string(),
         }
     }

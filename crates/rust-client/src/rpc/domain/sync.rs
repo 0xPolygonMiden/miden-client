@@ -1,16 +1,16 @@
 use alloc::vec::Vec;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::MmrDelta,
     note::NoteId,
     transaction::TransactionId,
-    Digest,
 };
 
-use super::{note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate};
-use crate::rpc::{generated::responses::SyncStateResponse, RpcError};
+use super::{note::CommittedNote, transaction::TransactionUpdate};
+use crate::rpc::{RpcError, generated::responses::SyncStateResponse};
 
 // STATE SYNC INFO
 // ================================================================================================
@@ -21,17 +21,14 @@ pub struct StateSyncInfo {
     pub chain_tip: BlockNumber,
     /// The returned block header.
     pub block_header: BlockHeader,
-    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1).
+    /// MMR delta that contains data for (`current_block.num`, `incoming_block_header.num-1`).
     pub mmr_delta: MmrDelta,
-    /// Tuples of AccountId alongside their new account hashes.
-    pub account_hash_updates: Vec<(AccountId, Digest)>,
+    /// Tuples of `AccountId` alongside their new account commitments.
+    pub account_commitment_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes.
     pub note_inclusions: Vec<CommittedNote>,
-    /// List of nullifiers that identify spent notes along with the block number at which they were
-    /// consumed.
-    pub nullifiers: Vec<NullifierUpdate>,
-    /// List of transaction IDs of transaction that were included in (request.block_num,
-    /// response.block_num-1) along with the account the tx was executed against and the block
+    /// List of transaction IDs of transaction that were included in (`request.block_num`,
+    /// `response.block_num-1`) along with the account the tx was executed against and the block
     /// number the transaction was included in.
     pub transactions: Vec<TransactionUpdate>,
 }
@@ -57,18 +54,20 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .ok_or(RpcError::ExpectedDataMissing("MmrDelta".into()))?
             .try_into()?;
 
-        // Validate and convert account hash updates into an (AccountId, Digest) tuple
-        let mut account_hash_updates = vec![];
+        // Validate and convert account commitment updates into an (AccountId, Digest) tuple
+        let mut account_commitment_updates = vec![];
         for update in value.accounts {
             let account_id = update
                 .account_id
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountId".into()))?
+                .ok_or(RpcError::ExpectedDataMissing("AccountCommitmentUpdate.AccountId".into()))?
                 .try_into()?;
-            let account_hash = update
-                .account_hash
-                .ok_or(RpcError::ExpectedDataMissing("AccountHashUpdate.AccountHash".into()))?
+            let account_commitment = update
+                .account_commitment
+                .ok_or(RpcError::ExpectedDataMissing(
+                    "AccountCommitmentUpdate.AccountCommitment".into(),
+                ))?
                 .try_into()?;
-            account_hash_updates.push((account_id, account_hash));
+            account_commitment_updates.push((account_id, account_commitment));
         }
 
         // Validate and convert account note inclusions into an (AccountId, Digest) tuple
@@ -93,32 +92,13 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
             let committed_note = super::note::CommittedNote::new(
                 note_id,
-                note.note_index as u16,
+                u16::try_from(note.note_index).expect("note index out of range"),
                 merkle_path,
                 metadata,
             );
 
             note_inclusions.push(committed_note);
         }
-
-        let nullifiers = value
-            .nullifiers
-            .iter()
-            .map(|nul_update| {
-                let nullifier_digest = nul_update
-                    .nullifier
-                    .ok_or(RpcError::ExpectedDataMissing("Nullifier".into()))?;
-
-                let nullifier_digest = Digest::try_from(nullifier_digest)?;
-
-                let nullifier_block_num = nul_update.block_num;
-
-                Ok(NullifierUpdate {
-                    nullifier: nullifier_digest.into(),
-                    block_num: nullifier_block_num,
-                })
-            })
-            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
 
         let transactions = value
             .transactions
@@ -148,9 +128,8 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             chain_tip: chain_tip.into(),
             block_header,
             mmr_delta,
-            account_hash_updates,
+            account_commitment_updates,
             note_inclusions,
-            nullifiers,
             transactions,
         })
     }

@@ -43,7 +43,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! miden-client = "0.7.0"
+//! miden-client = "0.8"
 //! ```
 //!
 //! ## Example
@@ -54,13 +54,14 @@
 //! use std::sync::Arc;
 //!
 //! use miden_client::{
-//!     crypto::RpoRandomCoin,
-//!     rpc::{Endpoint, TonicRpcClient},
-//!     store::{sqlite_store::SqliteStore, Store, StoreAuthenticator},
 //!     Client, Felt,
+//!     crypto::RpoRandomCoin,
+//!     keystore::FilesystemKeyStore,
+//!     rpc::{Endpoint, TonicRpcClient},
+//!     store::{Store, sqlite_store::SqliteStore},
 //! };
 //! use miden_objects::crypto::rand::FeltRng;
-//! use rand::Rng;
+//! use rand::{Rng, rngs::StdRng};
 //!
 //! # pub async fn create_test_client() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the SQLite store from the client configuration.
@@ -68,22 +69,20 @@
 //! let store = Arc::new(sqlite_store);
 //!
 //! // Generate a random seed for the RpoRandomCoin.
-//! let mut rng = rand::thread_rng();
-//! let coin_seed: [u64; 4] = rng.gen();
+//! let mut rng = rand::rng();
+//! let coin_seed: [u64; 4] = rng.random();
 //!
 //! // Initialize the random coin using the generated seed.
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-//!
-//! // Create a store authenticator with the store and random coin.
-//! let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+//! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
 //!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
-//! let client: Client<RpoRandomCoin> = Client::new(
-//!     Box::new(TonicRpcClient::new(endpoint, 10_000)),
-//!     rng,
+//! let client: Client = Client::new(
+//!     Arc::new(TonicRpcClient::new(&endpoint, 10_000)),
+//!     Box::new(rng),
 //!     store,
-//!     Arc::new(authenticator),
+//!     Arc::new(keystore),
 //!     false, // Set to true for debug mode, if needed.
 //! );
 //!
@@ -98,18 +97,21 @@
 
 #[macro_use]
 extern crate alloc;
-
 use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
 extern crate std;
 
 pub mod account;
+pub mod keystore;
 pub mod note;
 pub mod rpc;
 pub mod store;
 pub mod sync;
 pub mod transaction;
+
+#[cfg(feature = "std")]
+pub mod builder;
 
 #[cfg(test)]
 pub mod mock;
@@ -150,6 +152,7 @@ pub mod block {
 /// the `miden_objects` crate.
 pub mod crypto {
     pub use miden_objects::{
+        Digest,
         crypto::{
             dsa::rpo_falcon512::SecretKey,
             merkle::{
@@ -158,19 +161,20 @@ pub mod crypto {
             },
             rand::{FeltRng, RpoRandomCoin},
         },
-        Digest,
     };
 }
 
-pub use errors::{ClientError, IdPrefixFetchError};
-pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
+pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
+pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
+pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
-        bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
-        Serializable,
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
+        bytes_to_hex_string,
+        sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
     };
 }
 
@@ -186,10 +190,11 @@ use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
-    auth::TransactionAuthenticator, DataStore, LocalTransactionProver, TransactionExecutor,
+    DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
 };
+use rand::RngCore;
 use rpc::NodeRpcClient;
-use store::{data_store::ClientDataStore, Store};
+use store::{Store, data_store::ClientDataStore};
 use tracing::info;
 
 // MIDEN CLIENT
@@ -202,38 +207,39 @@ use tracing::info;
 ///   as notes and transactions.
 /// - Connects to a Miden node to periodically sync with the current state of the network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<R: FeltRng> {
+pub struct Client {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Arc<dyn Store>,
-    /// An instance of [FeltRng] which provides randomness tools for generating new keys,
+    /// An instance of [`FeltRng`] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
-    rng: R,
-    /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
+    rng: ClientRng,
+    /// An instance of [`NodeRpcClient`] which provides a way for the client to connect to the
     /// Miden node.
-    rpc_api: Box<dyn NodeRpcClient + Send>,
-    /// An instance of a [LocalTransactionProver] which will be the default prover for the client.
+    rpc_api: Arc<dyn NodeRpcClient + Send>,
+    /// An instance of a [`LocalTransactionProver`] which will be the default prover for the
+    /// client.
     tx_prover: Arc<LocalTransactionProver>,
-    /// An instance of a [TransactionExecutor] that will be used to execute transactions.
+    /// An instance of a [`TransactionExecutor`] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
 }
 
 /// Construction and access methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new instance of [Client].
+    /// Returns a new instance of [`Client`].
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
+    /// - `api`: An instance of [`NodeRpcClient`] which provides a way for the client to connect to
     ///   the Miden node.
-    /// - `store`: An instance of [Store], which provides a way to write and read entities to
+    /// - `store`: An instance of [`Store`], which provides a way to write and read entities to
     ///   provide persistence.
-    /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
-    ///   retrieve relevant inputs at the moment of transaction execution. It should be the same
+    /// - `executor_store`: An instance of [`Store`] that provides a way for [`TransactionExecutor`]
+    ///   to retrieve relevant inputs at the moment of transaction execution. It should be the same
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
@@ -245,8 +251,8 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Returns an error if the client couldn't be instantiated.
     pub fn new(
-        rpc_api: Box<dyn NodeRpcClient + Send>,
-        rng: R,
+        rpc_api: Arc<dyn NodeRpcClient + Send>,
+        rng: Box<dyn FeltRng>,
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
@@ -263,10 +269,10 @@ impl<R: FeltRng> Client<R> {
 
         Self {
             store,
-            rng,
+            rng: ClientRng::new(rng),
             rpc_api,
-            tx_executor,
             tx_prover,
+            tx_executor,
             in_debug_mode,
         }
     }
@@ -278,7 +284,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Returns a reference to the client's random number generator. This can be used to generate
     /// randomness for various purposes such as serial numbers, keys, etc.
-    pub fn rng(&mut self) -> &mut R {
+    pub fn rng(&mut self) -> &mut ClientRng {
         &mut self.rng
     }
 
@@ -286,12 +292,53 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn test_rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
+    pub fn test_rpc_api(&mut self) -> &mut Arc<dyn NodeRpcClient + Send> {
         &mut self.rpc_api
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn test_store(&mut self) -> &mut Arc<dyn Store> {
         &mut self.store
+    }
+}
+
+// CLIENT RNG
+// ================================================================================================
+
+/// A wrapper around a [`FeltRng`] that implements the [`RngCore`] trait.
+/// This allows the user to pass their own generic RNG so that it's used by the client.
+pub struct ClientRng(Box<dyn FeltRng>);
+
+impl ClientRng {
+    pub fn new(rng: Box<dyn FeltRng>) -> Self {
+        Self(rng)
+    }
+
+    pub fn inner_mut(&mut self) -> &mut Box<dyn FeltRng> {
+        &mut self.0
+    }
+}
+
+impl RngCore for ClientRng {
+    fn next_u32(&mut self) -> u32 {
+        self.0.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0.fill_bytes(dest);
+    }
+}
+
+impl FeltRng for ClientRng {
+    fn draw_element(&mut self) -> Felt {
+        self.0.draw_element()
+    }
+
+    fn draw_word(&mut self) -> Word {
+        self.0.draw_word()
     }
 }

@@ -1,14 +1,13 @@
 use miden_client::{
-    crypto::FeltRng,
-    note::{NoteExecutionMode, NoteTag},
     Client,
+    note::{NoteExecutionMode, NoteTag},
 };
 use tracing::info;
 
-use crate::{errors::CliError, Parser};
+use crate::{Parser, errors::CliError};
 
 #[derive(Default, Debug, Parser, Clone)]
-#[clap(about = "View and manage tags. Defaults to `list` command.")]
+#[clap(about = "View and manage tags. Defaults to `list` command")]
 pub struct TagsCmd {
     /// List all tags monitored by this client.
     #[clap(short, long, group = "action")]
@@ -24,7 +23,7 @@ pub struct TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         match self {
             TagsCmd { add: Some(tag), .. } => {
                 add_tag(client, *tag).await?;
@@ -42,13 +41,13 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-async fn list_tags(client: Client<impl FeltRng>) -> Result<(), CliError> {
+async fn list_tags(client: Client) -> Result<(), CliError> {
     let tags = client.get_note_tags().await?;
-    println!("Tags: {:?}", tags);
+    println!("Tags: {tags:?}");
     Ok(())
 }
 
-async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), CliError> {
+async fn add_tag(mut client: Client, tag: u32) -> Result<(), CliError> {
     let tag: NoteTag = tag.into();
     let execution_mode = match tag.execution_mode() {
         NoteExecutionMode::Local => "Local",
@@ -60,12 +59,12 @@ async fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), CliEr
         execution_mode
     );
     client.add_note_tag(tag).await?;
-    println!("Tag {} added", tag);
+    println!("Tag {tag} added");
     Ok(())
 }
 
-async fn remove_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), CliError> {
+async fn remove_tag(mut client: Client, tag: u32) -> Result<(), CliError> {
     client.remove_note_tag(tag.into()).await?;
-    println!("Tag {} removed", tag);
+    println!("Tag {tag} removed");
     Ok(())
 }

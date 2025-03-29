@@ -6,22 +6,18 @@ use alloc::{
     vec::Vec,
 };
 
+use miden_lib::account::interface::{AccountInterface, AccountInterfaceError};
 use miden_objects::{
+    Digest, Felt, NoteError, Word,
     account::AccountId,
     assembly::AssemblyError,
     crypto::merkle::MerkleStore,
     note::{Note, NoteDetails, NoteId, NoteTag, PartialNote},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
-    Digest, Felt, NoteError, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use thiserror::Error;
-
-use super::{
-    script_builder::{AccountCapabilities, TransactionScriptBuilder},
-    TransactionScriptBuilderError,
-};
 
 mod builder;
 pub use builder::{PaymentTransactionData, SwapTransactionData, TransactionRequestBuilder};
@@ -95,13 +91,13 @@ impl TransactionRequest {
 
     /// Returns an iterator over unauthenticated note IDs for the transaction request.
     pub fn unauthenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
-        self.unauthenticated_input_notes.iter().map(|note| note.id())
+        self.unauthenticated_input_notes.iter().map(Note::id)
     }
 
     /// Returns an iterator over authenticated input note IDs for the transaction request.
     pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
-        let unauthenticated_note_ids: BTreeSet<NoteId> =
-            BTreeSet::from_iter(self.unauthenticated_input_note_ids());
+        let unauthenticated_note_ids =
+            self.unauthenticated_input_note_ids().collect::<BTreeSet<_>>();
 
         self.input_notes()
             .iter()
@@ -109,18 +105,18 @@ impl TransactionRequest {
             .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
     }
 
-    /// Returns a mapping for input note IDs and their optional [NoteArgs].
+    /// Returns a mapping for input note IDs and their optional [`NoteArgs`].
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
         &self.input_notes
     }
 
     /// Returns a list of all input note IDs.
     pub fn get_input_note_ids(&self) -> Vec<NoteId> {
-        self.input_notes.keys().cloned().collect()
+        self.input_notes.keys().copied().collect()
     }
 
-    /// Returns a map of note IDs to their respective [NoteArgs]. The result will include
-    /// exclusively note IDs for notes for which [NoteArgs] have been defined.
+    /// Returns a map of note IDs to their respective [`NoteArgs`]. The result will include
+    /// exclusively note IDs for notes for which [`NoteArgs`] have been defined.
     pub fn get_note_args(&self) -> BTreeMap<NoteId, NoteArgs> {
         self.input_notes
             .iter()
@@ -138,17 +134,17 @@ impl TransactionRequest {
         self.expected_future_notes.values()
     }
 
-    /// Returns the [TransactionScriptTemplate].
+    /// Returns the [`TransactionScriptTemplate`].
     pub fn script_template(&self) -> &Option<TransactionScriptTemplate> {
         &self.script_template
     }
 
-    /// Returns the [AdviceMap] for the transaction request.
+    /// Returns the [`AdviceMap`] for the transaction request.
     pub fn advice_map(&self) -> &AdviceMap {
         &self.advice_map
     }
 
-    /// Returns the [MerkleStore] for the transaction request.
+    /// Returns the [`MerkleStore`] for the transaction request.
     pub fn merkle_store(&self) -> &MerkleStore {
         &self.merkle_store
     }
@@ -158,8 +154,8 @@ impl TransactionRequest {
         &self.foreign_accounts
     }
 
-    /// Converts the [TransactionRequest] into [TransactionArgs] in order to be executed by a Miden
-    /// host.
+    /// Converts the [`TransactionRequest`] into [`TransactionArgs`] in order to be executed by a
+    /// Miden host.
     pub(super) fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
         let note_args = self.get_note_args();
         let TransactionRequest {
@@ -181,31 +177,18 @@ impl TransactionRequest {
     /// The debug mode enables the script debug logs.
     pub(crate) fn build_transaction_script(
         &self,
-        account_capabilities: AccountCapabilities,
+        account_interface: &AccountInterface,
         in_debug_mode: bool,
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                let tx_script_builder = TransactionScriptBuilder::new(
-                    account_capabilities,
-                    self.expiration_delta,
-                    in_debug_mode,
-                );
-
-                Ok(tx_script_builder.build_send_notes_script(notes)?)
-            },
+            Some(TransactionScriptTemplate::SendNotes(notes)) => Ok(account_interface
+                .build_send_notes_script(notes, self.expiration_delta, in_debug_mode)?),
             None => {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
                 } else {
-                    let tx_script_builder = TransactionScriptBuilder::new(
-                        account_capabilities,
-                        self.expiration_delta,
-                        in_debug_mode,
-                    );
-
-                    Ok(tx_script_builder.build_auth_script()?)
+                    Ok(account_interface.build_auth_script(in_debug_mode)?)
                 }
             },
         }
@@ -257,7 +240,7 @@ impl Deserializable for TransactionRequest {
             _ => {
                 return Err(DeserializationError::InvalidValue(
                     "Invalid script template type".to_string(),
-                ))
+                ));
             },
         };
 
@@ -279,8 +262,8 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
-            expiration_delta,
             foreign_accounts,
+            expiration_delta,
         })
     }
 }
@@ -303,31 +286,32 @@ pub enum TransactionRequestError {
     ForeignAccountStorageSlotInvalidIndex(u8),
     #[error("requested foreign account with ID {0} does not have an expected storage mode")]
     InvalidForeignAccountId(AccountId),
-    #[error("every authenticated note to be consumed should be committed and contain a valid inclusion proof")]
-    InputNoteNotAuthenticated,
     #[error(
-        "the input notes map should include keys for all provided unauthenticated input notes"
+        "every authenticated note to be consumed should be committed and contain a valid inclusion proof"
     )]
+    InputNoteNotAuthenticated,
+    #[error("the input notes map should include keys for all provided unauthenticated input notes")]
     InputNotesMapMissingUnauthenticatedNotes,
     #[error("own notes shouldn't be of the header variant")]
     InvalidNoteVariant,
     #[error("invalid sender account id: {0}")]
     InvalidSenderAccount(AccountId),
     #[error("invalid transaction script")]
-    //TODO: use source in this error when possible
-    InvalidTransactionScript(AssemblyError),
+    InvalidTransactionScript(#[from] AssemblyError),
     #[error("a transaction without output notes must have at least one input note")]
     NoInputNotes,
     #[error("note not found: {0}")]
     NoteNotFound(String),
     #[error("note creation error")]
     NoteCreationError(#[from] NoteError),
+    #[error("pay to id note doesn't contain at least one asset")]
+    P2IDNoteWithoutAsset,
     #[error("transaction script template error: {0}")]
     ScriptTemplateError(String),
     #[error("storage slot {0} not found in account ID {1}")]
     StorageSlotNotFound(u8, AccountId),
-    #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
+    #[error("account interface error")]
+    AccountInterfaceError(#[from] AccountInterfaceError),
 }
 
 // TESTS
@@ -339,6 +323,7 @@ mod tests {
 
     use miden_lib::{note::create_p2id_note, transaction::TransactionKernel};
     use miden_objects::{
+        Digest, Felt, ZERO,
         account::{AccountBuilder, AccountId, AccountIdAnchor, AccountType},
         asset::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
@@ -346,12 +331,11 @@ mod tests {
         testing::{
             account_component::AccountMockComponent,
             account_id::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
-                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN, ACCOUNT_ID_SENDER,
+                ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
+                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE, ACCOUNT_ID_SENDER,
             },
         },
         transaction::OutputNote,
-        Digest, Felt, ZERO,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -365,8 +349,8 @@ mod tests {
     fn transaction_request_serialization() {
         let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
         let target_id =
-            AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap();
-        let faucet_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN).unwrap();
+            AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap();
+        let faucet_id = AccountId::try_from(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET).unwrap();
         let mut rng = RpoRandomCoin::new(Default::default());
 
         let mut notes = vec![];
@@ -389,7 +373,7 @@ mod tests {
         }
 
         let account = AccountBuilder::new(Default::default())
-            .anchor(AccountIdAnchor::new_unchecked(0, Default::default()))
+            .anchor(AccountIdAnchor::new_unchecked(0, Digest::default()))
             .with_component(
                 AccountMockComponent::new_with_empty_slots(TransactionKernel::assembler()).unwrap(),
             )
@@ -417,7 +401,7 @@ mod tests {
                 ForeignAccount::private(
                     ForeignAccountInputs::from_account(
                         account,
-                        AccountStorageRequirements::default(),
+                        &AccountStorageRequirements::default(),
                     )
                     .unwrap(),
                 )
@@ -427,8 +411,8 @@ mod tests {
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),
             ])
-            .unwrap()
-            .build();
+            .build()
+            .unwrap();
 
         let mut buffer = Vec::new();
         tx_request.write_into(&mut buffer);

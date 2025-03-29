@@ -5,20 +5,20 @@ use std::{
 };
 
 use miden_client::{
-    account::{AccountData, AccountId},
-    crypto::FeltRng,
+    Client, ClientError,
+    account::{AccountFile, AccountId},
     note::NoteFile,
     utils::Deserializable,
-    Client, ClientError,
 };
 use tracing::info;
 
 use crate::{
-    commands::account::maybe_set_default_account, errors::CliError, utils::load_config_file, Parser,
+    CliKeyStore, Parser, commands::account::maybe_set_default_account, errors::CliError,
+    utils::load_config_file,
 };
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Import client objects. It is capable of importing notes and accounts.")]
+#[clap(about = "Import notes or accounts")]
 pub struct ImportCmd {
     /// Paths to the files that contains the account/note data.
     #[arg()]
@@ -29,7 +29,7 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, mut client: Client, keystore: CliKeyStore) -> Result<(), CliError> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
@@ -45,11 +45,15 @@ impl ImportCmd {
                 );
                 let account_data_file_contents = fs::read(filename)?;
 
-                let account_id =
-                    import_account(&mut client, &account_data_file_contents, self.overwrite)
-                        .await?;
+                let account_id = import_account(
+                    &mut client,
+                    &keystore,
+                    &account_data_file_contents,
+                    self.overwrite,
+                )
+                .await?;
 
-                println!("Successfully imported account {}", account_id);
+                println!("Successfully imported account {account_id}");
 
                 if account_id.is_regular_account() {
                     maybe_set_default_account(&mut current_config, account_id)?;
@@ -64,21 +68,19 @@ impl ImportCmd {
 // ================================================================================================
 
 async fn import_account(
-    client: &mut Client<impl FeltRng>,
+    client: &mut Client,
+    keystore: &CliKeyStore,
     account_data_file_contents: &[u8],
     overwrite: bool,
 ) -> Result<AccountId, CliError> {
-    let account_data = AccountData::read_from_bytes(account_data_file_contents)
+    let account_data = AccountFile::read_from_bytes(account_data_file_contents)
         .map_err(ClientError::DataDeserializationError)?;
     let account_id = account_data.account.id();
 
+    keystore.add_key(&account_data.auth_secret_key).map_err(CliError::KeyStore)?;
+
     client
-        .add_account(
-            &account_data.account,
-            account_data.account_seed,
-            &account_data.auth_secret_key,
-            overwrite,
-        )
+        .add_account(&account_data.account, account_data.account_seed, overwrite)
         .await?;
 
     Ok(account_id)

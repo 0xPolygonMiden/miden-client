@@ -31,21 +31,23 @@ impl OutputNote {
     }
 
     pub fn assets(&self) -> Option<NoteAssets> {
-        self.0.assets().map(|assets| assets.into())
+        self.0.assets().map(Into::into)
     }
 
     pub fn id(&self) -> NoteId {
         self.0.id().into()
     }
 
+    #[wasm_bindgen(js_name = "recipientDigest")]
     pub fn recipient_digest(&self) -> Option<RpoDigest> {
-        self.0.recipient_digest().map(|digest| digest.into())
+        self.0.recipient_digest().map(Into::into)
     }
 
     pub fn metadata(&self) -> NoteMetadata {
         self.0.metadata().into()
     }
 
+    #[must_use]
     pub fn shrink(&self) -> OutputNote {
         self.0.shrink().into()
     }
@@ -91,7 +93,7 @@ impl OutputNotesArray {
     }
 
     pub fn append(&mut self, output_note: &OutputNote) {
-        self.0.push(output_note.clone())
+        self.0.push(output_note.clone());
     }
 }
 
@@ -100,12 +102,12 @@ impl OutputNotesArray {
 
 impl From<OutputNotesArray> for Vec<NativeOutputNote> {
     fn from(output_notes_array: OutputNotesArray) -> Self {
-        output_notes_array.0.into_iter().map(|output_note| output_note.into()).collect()
+        output_notes_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&OutputNotesArray> for Vec<NativeOutputNote> {
     fn from(output_notes_array: &OutputNotesArray) -> Self {
-        output_notes_array.0.iter().map(|output_note| output_note.into()).collect()
+        output_notes_array.0.iter().map(Into::into).collect()
     }
 }

@@ -12,6 +12,11 @@ impl AccountStorage {
     pub fn commitment(&self) -> RpoDigest {
         self.0.commitment().into()
     }
+
+    #[wasm_bindgen(js_name = "getItem")]
+    pub fn get_item(&self, index: u8) -> Option<RpoDigest> {
+        self.0.get_item(index).ok().map(Into::into)
+    }
 }
 
 // CONVERSIONS

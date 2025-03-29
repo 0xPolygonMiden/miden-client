@@ -7,7 +7,7 @@ use crate::{
         account_code::AccountCode, account_id::AccountId, account_storage::AccountStorage,
         asset_vault::AssetVault, felt::Felt, rpo_digest::RpoDigest,
     },
-    utils::*,
+    utils::{deserialize_from_uint8array, serialize_to_uint8array},
 };
 
 #[wasm_bindgen]
@@ -19,8 +19,8 @@ impl Account {
         self.0.id().into()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
     pub fn nonce(&self) -> Felt {
@@ -39,22 +39,27 @@ impl Account {
         self.0.code().into()
     }
 
+    #[wasm_bindgen(js_name = "isFaucet")]
     pub fn is_faucet(&self) -> bool {
         self.0.is_faucet()
     }
 
+    #[wasm_bindgen(js_name = "isRegularAccount")]
     pub fn is_regular_account(&self) -> bool {
         self.0.is_regular_account()
     }
 
+    #[wasm_bindgen(js_name = "isUpdatable")]
     pub fn is_updatable(&self) -> bool {
         matches!(self.0.account_type(), NativeAccountType::RegularAccountUpdatableCode)
     }
 
+    #[wasm_bindgen(js_name = "isPublic")]
     pub fn is_public(&self) -> bool {
         self.0.is_public()
     }
 
+    #[wasm_bindgen(js_name = "isNew")]
     pub fn is_new(&self) -> bool {
         self.0.is_new()
     }
@@ -63,7 +68,7 @@ impl Account {
         serialize_to_uint8array(&self.0)
     }
 
-    pub fn deserialize(bytes: Uint8Array) -> Result<Account, JsValue> {
+    pub fn deserialize(bytes: &Uint8Array) -> Result<Account, JsValue> {
         deserialize_from_uint8array::<NativeAccount>(bytes).map(Account)
     }
 }

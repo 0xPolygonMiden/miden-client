@@ -1,18 +1,20 @@
 extern crate alloc;
 use alloc::sync::Arc;
+use std::fmt::Write;
 
-use console_error_panic_hook::set_once;
 use miden_client::{
-    rpc::WebTonicRpcClient,
-    store::{web_store::WebStore, StoreAuthenticator},
     Client,
+    keystore::WebKeyStore,
+    rpc::{Endpoint, TonicRpcClient},
+    store::web_store::WebStore,
 };
-use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use miden_objects::{Felt, crypto::rand::RpoRandomCoin};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use wasm_bindgen::prelude::*;
 
 pub mod account;
 pub mod export;
+pub mod helpers;
 pub mod import;
 pub mod models;
 pub mod new_account;
@@ -26,7 +28,8 @@ pub mod utils;
 #[wasm_bindgen]
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
-    inner: Option<Client<RpoRandomCoin>>,
+    keystore: Option<WebKeyStore<RpoRandomCoin>>,
+    inner: Option<Client>,
 }
 
 impl Default for WebClient {
@@ -39,14 +42,14 @@ impl Default for WebClient {
 impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        set_once();
-        WebClient { inner: None, store: None }
+        WebClient { inner: None, store: None, keystore: None }
     }
 
-    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
+    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client> {
         self.inner.as_mut()
     }
 
+    #[wasm_bindgen(js_name = "createClient")]
     pub async fn create_client(
         &mut self,
         node_url: Option<String>,
@@ -62,23 +65,50 @@ impl WebClient {
                     return Err(JsValue::from_str("Seed must be exactly 32 bytes"));
                 }
             },
-            None => StdRng::from_entropy(),
+            None => StdRng::from_os_rng(),
         };
-        let coin_seed: [u64; 4] = rng.gen();
+        let coin_seed: [u64; 4] = rng.random();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let web_store: WebStore = WebStore::new()
             .await
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
-        let authenticator = Arc::new(StoreAuthenticator::new_with_rng(web_store.clone(), rng));
-        let web_rpc_client = Box::new(WebTonicRpcClient::new(
-            &node_url.unwrap_or_else(|| miden_client::rpc::Endpoint::testnet().to_string()),
+
+        let keystore = WebKeyStore::new(rng);
+
+        let endpoint = node_url.map_or(Ok(Endpoint::testnet()), |url| {
+            Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
+        })?;
+
+        let web_rpc_client = Arc::new(TonicRpcClient::new(&endpoint, 0));
+
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            Box::new(rng),
+            web_store.clone(),
+            Arc::new(keystore.clone()),
+            false,
         ));
-        self.inner =
-            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
         self.store = Some(web_store);
+        self.keystore = Some(keystore);
 
         Ok(JsValue::from_str("Client created successfully"))
     }
+}
+
+// ERROR HANDLING HELPERS
+// ================================================================================================
+
+fn js_error_with_context<T>(err: T, context: &str) -> JsValue
+where
+    T: core::error::Error,
+{
+    let mut error_string = context.to_string();
+    let mut source = Some(&err as &dyn core::error::Error);
+    while let Some(err) = source {
+        write!(error_string, ": {err}").expect("writing to string should always succeeds");
+        source = err.source();
+    }
+    JsValue::from(error_string)
 }

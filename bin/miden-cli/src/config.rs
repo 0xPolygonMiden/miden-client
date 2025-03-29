@@ -5,13 +5,14 @@ use std::{
 };
 
 use figment::{
-    value::{Dict, Map},
     Metadata, Profile, Provider,
+    value::{Dict, Map},
 };
 use miden_client::rpc::Endpoint;
 use serde::{Deserialize, Serialize};
 
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
+const DEFAULT_COMPONENT_TEMPLATE_DIR: &str = "./templates";
 
 // CLI CONFIG
 // ================================================================================================
@@ -20,14 +21,18 @@ const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 pub struct CliConfig {
     /// Describes settings related to the RPC endpoint.
     pub rpc: RpcConfig,
-    /// Path to the sqlite store file.
+    /// Path to the `SQLite` store file.
     pub store_filepath: PathBuf,
+    /// Path to the directory that contains the secret key files.
+    pub secret_keys_directory: PathBuf,
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
     /// RPC endpoint for the proving service. If this isn't present, a local prover will be used.
     pub remote_prover_endpoint: Option<CliEndpoint>,
+    /// Path to the directory from where account component template files will be loaded.
+    pub component_template_directory: PathBuf,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -49,6 +54,7 @@ impl Provider for CliConfig {
 impl Default for CliConfig {
     fn default() -> Self {
         const STORE_FILENAME: &str = "store.sqlite3";
+        const KEYSTORE_DIRECTORY: &str = "keystore";
 
         // Get current directory
         let exec_dir = PathBuf::new();
@@ -56,9 +62,11 @@ impl Default for CliConfig {
         Self {
             rpc: RpcConfig::default(),
             store_filepath: exec_dir.join(STORE_FILENAME),
+            secret_keys_directory: exec_dir.join(KEYSTORE_DIRECTORY),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
+            component_template_directory: Path::new(DEFAULT_COMPONENT_TEMPLATE_DIR).to_path_buf(),
         }
     }
 }
@@ -114,6 +122,12 @@ impl From<Endpoint> for CliEndpoint {
 impl From<CliEndpoint> for Endpoint {
     fn from(endpoint: CliEndpoint) -> Self {
         endpoint.0
+    }
+}
+
+impl From<&CliEndpoint> for Endpoint {
+    fn from(endpoint: &CliEndpoint) -> Self {
+        endpoint.0.clone()
     }
 }
 

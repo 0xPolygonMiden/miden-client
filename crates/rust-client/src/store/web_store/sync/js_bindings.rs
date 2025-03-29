@@ -1,7 +1,7 @@
 use alloc::{string::String, vec::Vec};
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{js_sys, wasm_bindgen};
 
 // Sync IndexedDB Operations
 #[wasm_bindgen(module = "/src/store/web_store/js/sync.js")]
@@ -37,6 +37,7 @@ extern "C" {
         note_tags_to_remove_as_str: Vec<String>,
         transactions_to_commit: Vec<String>,
         transactions_to_commit_block_nums: Vec<String>,
+        transactions_to_discard: Vec<String>,
     ) -> js_sys::Promise;
 
     // DELETES
@@ -47,4 +48,7 @@ extern "C" {
         source_note_id: Option<String>,
         source_account_id: Option<String>,
     ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = discardTransactions)]
+    pub fn idxdb_discard_transactions(transactions: Vec<String>) -> js_sys::Promise;
 }

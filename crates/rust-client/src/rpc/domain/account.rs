@@ -6,22 +6,22 @@ use alloc::{
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
+    Digest, Felt,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     block::BlockNumber,
     crypto::merkle::{MerklePath, SmtProof},
-    Digest, Felt,
 };
 use miden_tx::utils::{Deserializable, Serializable, ToHex};
 use thiserror::Error;
 
 use crate::rpc::{
+    RpcError,
     errors::RpcConversionError,
     generated::{
         account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
         requests::get_account_proofs_request,
         responses::{AccountStateHeader as ProtoAccountStateHeader, StorageSlotMapProof},
     },
-    RpcError,
 };
 
 // ACCOUNT DETAILS
@@ -46,9 +46,18 @@ impl AccountDetails {
         }
     }
 
-    pub fn hash(&self) -> Digest {
+    // Returns the account update summary commitment
+    pub fn commitment(&self) -> Digest {
         match self {
-            Self::Private(_, summary) | Self::Public(_, summary) => summary.hash,
+            Self::Private(_, summary) | Self::Public(_, summary) => summary.commitment,
+        }
+    }
+
+    // Returns the associated account if the account is public, otherwise none
+    pub fn account(&self) -> Option<&Account> {
+        match self {
+            Self::Private(..) => None,
+            Self::Public(account, _) => Some(account),
         }
     }
 }
@@ -58,16 +67,16 @@ impl AccountDetails {
 
 /// Contains public updated information about the account requested.
 pub struct AccountUpdateSummary {
-    /// Hash of the account, that represents a commitment to its updated state.
-    pub hash: Digest,
+    /// Commitment of the account, that represents a commitment to its updated state.
+    pub commitment: Digest,
     /// Block number of last account update.
     pub last_block_num: u32,
 }
 
 impl AccountUpdateSummary {
-    /// Creates a new [AccountUpdateSummary].
-    pub fn new(hash: Digest, last_block_num: u32) -> Self {
-        Self { hash, last_block_num }
+    /// Creates a new [`AccountUpdateSummary`].
+    pub fn new(commitment: Digest, last_block_num: u32) -> Self {
+        Self { commitment, last_block_num }
     }
 }
 
@@ -110,6 +119,7 @@ impl TryFrom<ProtoAccountId> for AccountId {
 // ================================================================================================
 
 impl ProtoAccountHeader {
+    #[allow(dead_code)]
     pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
         let ProtoAccountHeader {
             nonce,
@@ -150,6 +160,7 @@ impl ProtoAccountStateHeader {
     /// # Errors
     /// - If account code is missing both on `self` and `known_account_codes`
     /// - If data cannot be correctly deserialized
+    #[allow(dead_code)]
     pub fn into_domain(
         self,
         account_id: AccountId,
@@ -189,9 +200,16 @@ impl ProtoAccountStateHeader {
         let mut storage_slot_proofs: BTreeMap<u8, Vec<SmtProof>> = BTreeMap::new();
         for StorageSlotMapProof { storage_slot, smt_proof } in storage_maps {
             let proof = SmtProof::read_from_bytes(&smt_proof)?;
-            match storage_slot_proofs.get_mut(&(storage_slot as u8)) {
+            match storage_slot_proofs
+                .get_mut(&(u8::try_from(storage_slot).expect("there are no more than 256 slots")))
+            {
                 Some(list) => list.push(proof),
-                None => _ = storage_slot_proofs.insert(storage_slot as u8, vec![proof]),
+                None => {
+                    _ = storage_slot_proofs.insert(
+                        u8::try_from(storage_slot).expect("only 256 storage slots"),
+                        vec![proof],
+                    );
+                },
             }
         }
 
@@ -224,8 +242,8 @@ pub struct AccountProof {
     account_id: AccountId,
     /// Authentication path from the `account_root` of the block header to the account.
     merkle_proof: MerklePath,
-    /// Account hash for the current state.
-    account_hash: Digest,
+    /// Account commitment for the current state.
+    account_commitment: Digest,
     /// State headers of public accounts.
     state_headers: Option<StateHeaders>,
 }
@@ -234,15 +252,15 @@ impl AccountProof {
     pub fn new(
         account_id: AccountId,
         merkle_proof: MerklePath,
-        account_hash: Digest,
+        account_commitment: Digest,
         state_headers: Option<StateHeaders>,
     ) -> Result<Self, AccountProofError> {
         if let Some(StateHeaders {
             account_header, storage_header: _, code, ..
         }) = &state_headers
         {
-            if account_header.hash() != account_hash {
-                return Err(AccountProofError::InconsistentAccountHash);
+            if account_header.commitment() != account_commitment {
+                return Err(AccountProofError::InconsistentAccountCommitment);
             }
             if account_id != account_header.id() {
                 return Err(AccountProofError::InconsistentAccountId);
@@ -255,7 +273,7 @@ impl AccountProof {
         Ok(Self {
             account_id,
             merkle_proof,
-            account_hash,
+            account_commitment,
             state_headers,
         })
     }
@@ -281,11 +299,11 @@ impl AccountProof {
     }
 
     pub fn code_commitment(&self) -> Option<Digest> {
-        self.account_code().map(|c| c.commitment())
+        self.account_code().map(AccountCode::commitment)
     }
 
-    pub fn account_hash(&self) -> Digest {
-        self.account_hash
+    pub fn account_commitment(&self) -> Digest {
+        self.account_commitment
     }
 
     pub fn merkle_proof(&self) -> &MerklePath {
@@ -294,7 +312,7 @@ impl AccountProof {
 
     /// Deconstructs `AccountProof` into its individual parts.
     pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
-        (self.account_id, self.merkle_proof, self.account_hash, self.state_headers)
+        (self.account_id, self.merkle_proof, self.account_commitment, self.state_headers)
     }
 }
 
@@ -318,7 +336,7 @@ impl AccountStorageRequirements {
         let map = slots_and_keys
             .into_iter()
             .map(|(slot_index, keys_iter)| {
-                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().cloned().collect();
+                let keys_vec: Vec<StorageMapKey> = keys_iter.into_iter().copied().collect();
                 (slot_index, keys_vec)
             })
             .collect();
@@ -334,9 +352,9 @@ impl AccountStorageRequirements {
 impl From<AccountStorageRequirements> for Vec<get_account_proofs_request::StorageRequest> {
     fn from(value: AccountStorageRequirements) -> Vec<get_account_proofs_request::StorageRequest> {
         let mut requests = Vec::with_capacity(value.0.len());
-        for (slot_index, map_keys) in value.0.into_iter() {
+        for (slot_index, map_keys) in value.0 {
             requests.push(get_account_proofs_request::StorageRequest {
-                storage_slot_index: slot_index as u32,
+                storage_slot_index: u32::from(slot_index),
                 map_keys: map_keys
                     .into_iter()
                     .map(crate::rpc::generated::digest::Digest::from)
@@ -366,8 +384,10 @@ impl Deserializable for AccountStorageRequirements {
 
 #[derive(Debug, Error)]
 pub enum AccountProofError {
-    #[error("the received account hash doesn't match the received account header's hash")]
-    InconsistentAccountHash,
+    #[error(
+        "the received account commitment doesn't match the received account header's commitment"
+    )]
+    InconsistentAccountCommitment,
     #[error("the received account id doesn't match the received account header's id")]
     InconsistentAccountId,
     #[error(

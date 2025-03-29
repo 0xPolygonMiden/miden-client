@@ -14,17 +14,17 @@ export async function getNoteTags() {
     let records = await tags.toArray();
 
     let processedRecords = records.map((record) => {
-      record.source_note_id =
-        record.source_note_id == "" ? null : record.source_note_id;
-      record.source_account_id =
-        record.source_account_id == "" ? null : record.source_account_id;
+      record.sourceNoteId =
+        record.sourceNoteId == "" ? null : record.sourceNoteId;
+      record.sourceAccountId =
+        record.sourceAccountId == "" ? null : record.sourceAccountId;
       return record;
     });
 
     return processedRecords;
   } catch (error) {
     console.error("Error fetching tag record:", error.toString());
-    return null;
+    throw error;
   }
 }
 
@@ -33,7 +33,7 @@ export async function getSyncHeight() {
     const record = await stateSync.get(1); // Since id is the primary key and always 1
     if (record) {
       let data = {
-        block_num: record.blockNum,
+        blockNum: record.blockNum,
       };
       return data;
     } else {
@@ -41,26 +41,26 @@ export async function getSyncHeight() {
     }
   } catch (error) {
     console.error("Error fetching sync height:", error.toString());
-    return null;
+    throw error;
   }
 }
 
-export async function addNoteTag(tag, source_note_id, source_account_id) {
+export async function addNoteTag(tag, sourceNoteId, sourceAccountId) {
   try {
     let tagArray = new Uint8Array(tag);
     let tagBase64 = uint8ArrayToBase64(tagArray);
     await tags.add({
       tag: tagBase64,
-      source_note_id: source_note_id ? source_note_id : "",
-      source_account_id: source_account_id ? source_account_id : "",
+      sourceNoteId: sourceNoteId ? sourceNoteId : "",
+      sourceAccountId: sourceAccountId ? sourceAccountId : "",
     });
   } catch (err) {
-    console.error("Failed to add note tag: ", err);
+    console.error("Failed to add note tag: ", err.toString());
     throw err;
   }
 }
 
-export async function removeNoteTag(tag, source_note_id, source_account_id) {
+export async function removeNoteTag(tag, sourceNoteId, sourceAccountId) {
   try {
     let tagArray = new Uint8Array(tag);
     let tagBase64 = uint8ArrayToBase64(tagArray);
@@ -68,11 +68,11 @@ export async function removeNoteTag(tag, source_note_id, source_account_id) {
     return await tags
       .where({
         tag: tagBase64,
-        source_note_id: source_note_id ? source_note_id : "",
-        source_account_id: source_account_id ? source_account_id : "",
+        sourceNoteId: sourceNoteId ? sourceNoteId : "",
+        sourceAccountId: sourceAccountId ? sourceAccountId : "",
       })
       .delete();
-  } catch {
+  } catch (err) {
     console.log("Failed to remove note tag: ", err.toString());
     throw err;
   }
@@ -87,7 +87,8 @@ export async function applyStateSync(
   nodes,
   inputNoteIds,
   committedTransactionIds,
-  transactionBlockNums
+  transactionBlockNums,
+  discardTransactionIds
 ) {
   return db.transaction(
     "rw",
@@ -114,6 +115,7 @@ export async function applyStateSync(
         transactionBlockNums,
         committedTransactionIds
       );
+      await discardTransactions(discardTransactionIds);
     }
   );
 }
@@ -122,7 +124,7 @@ async function updateSyncHeight(tx, blockNum) {
   try {
     await tx.stateSync.update(1, { blockNum: blockNum });
   } catch (error) {
-    console.error("Failed to update sync height: ", error);
+    console.error("Failed to update sync height: ", error.toString());
     throw error;
   }
 }
@@ -147,7 +149,7 @@ async function updateBlockHeader(
 
     await tx.blockHeaders.add(data);
   } catch (err) {
-    console.error("Failed to insert block header: ", err);
+    console.error("Failed to insert block header: ", err.toString());
     throw err;
   }
 }
@@ -174,7 +176,7 @@ async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
     // Use bulkPut to add/overwrite the entries
     await tx.chainMmrNodes.bulkPut(data);
   } catch (err) {
-    console.error("Failed to update chain mmr nodes: ", err);
+    console.error("Failed to update chain mmr nodes: ", err.toString());
     throw err;
   }
 }
@@ -188,7 +190,7 @@ async function updateCommittedNoteTags(tx, inputNoteIds) {
       await tx.tags.where("source_note_id").equals(noteId).delete();
     }
   } catch (error) {
-    console.error("Error updating committed notes:", error);
+    console.error("Error updating committed notes:", error.toString());
     throw error;
   }
 }
@@ -220,7 +222,36 @@ async function updateCommittedTransactions(tx, blockNums, transactionIds) {
     // Perform the update
     await tx.transactions.bulkPut(updates);
   } catch (err) {
-    console.error("Failed to mark transactions as committed: ", err);
+    console.error("Failed to mark transactions as committed: ", err.toString());
+    throw err;
+  }
+}
+
+export async function discardTransactions(transactionIds) {
+  return db.transaction("rw", transactions, async (tx) => {
+    await updateDiscardedTransactions(tx, transactionIds);
+  });
+}
+
+async function updateDiscardedTransactions(tx, transactionIds) {
+  try {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    const existingRecords = await tx.transactions
+      .where("id")
+      .anyOf(transactionIds)
+      .toArray();
+
+    const updates = existingRecords.map((record) => ({
+      ...record,
+      discarded: true,
+    }));
+
+    await tx.transactions.bulkPut(updates);
+  } catch (err) {
+    console.error("Failed to mark transactions as discarded: ", err.toString());
     throw err;
   }
 }

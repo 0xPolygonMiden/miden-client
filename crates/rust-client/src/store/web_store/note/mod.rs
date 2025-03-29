@@ -4,10 +4,10 @@ use alloc::{
 };
 
 use js_sys::{Array, Promise};
-use miden_objects::{note::Nullifier, Digest};
+use miden_objects::{Digest, note::Nullifier};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{JsFuture, js_sys, wasm_bindgen};
 
 use super::WebStore;
 use crate::store::{
@@ -15,21 +15,29 @@ use crate::store::{
 };
 
 mod js_bindings;
-use js_bindings::*;
+use js_bindings::{
+    idxdb_get_input_notes, idxdb_get_input_notes_from_ids, idxdb_get_input_notes_from_nullifiers,
+    idxdb_get_output_notes, idxdb_get_output_notes_from_ids,
+    idxdb_get_output_notes_from_nullifiers, idxdb_get_unspent_input_note_nullifiers,
+};
 
 mod models;
-use models::*;
+use models::{InputNoteIdxdbObject, OutputNoteIdxdbObject};
 
 pub(crate) mod utils;
-use utils::*;
+use utils::{parse_input_note_idxdb_object, parse_output_note_idxdb_object, upsert_input_note_tx};
 
 impl WebStore {
     pub(crate) async fn get_input_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let js_value = JsFuture::from(filter.to_input_notes_promise()).await.unwrap();
-        let input_notes_idxdb: Vec<InputNoteIdxdbObject> = from_value(js_value).unwrap();
+        let js_value =
+            JsFuture::from(filter.to_input_notes_promise()).await.map_err(|js_error| {
+                StoreError::DatabaseError(format!("failed to get input notes: {js_error:?}"))
+            })?;
+        let input_notes_idxdb: Vec<InputNoteIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         input_notes_idxdb
             .into_iter()
@@ -41,9 +49,13 @@ impl WebStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        let js_value = JsFuture::from(filter.to_output_note_promise()).await.unwrap();
+        let js_value =
+            JsFuture::from(filter.to_output_note_promise()).await.map_err(|js_error| {
+                StoreError::DatabaseError(format!("failed to get output notes: {js_error:?}"))
+            })?;
 
-        let output_notes_idxdb: Vec<OutputNoteIdxdbObject> = from_value(js_value).unwrap();
+        let output_notes_idxdb: Vec<OutputNoteIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         output_notes_idxdb
             .into_iter()
@@ -55,8 +67,13 @@ impl WebStore {
         &self,
     ) -> Result<Vec<Nullifier>, StoreError> {
         let promise = idxdb_get_unspent_input_note_nullifiers();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let nullifiers_as_str: Vec<String> = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!(
+                "failed to get unspent input note nullifiers: {js_error:?}"
+            ))
+        })?;
+        let nullifiers_as_str: Vec<String> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         nullifiers_as_str
             .into_iter()
@@ -127,10 +144,8 @@ impl NoteFilter {
                 idxdb_get_input_notes_from_ids(note_ids)
             },
             NoteFilter::Nullifiers(nullifiers) => {
-                let nullifiers_as_str = nullifiers
-                    .iter()
-                    .map(|nullifier| nullifier.to_string())
-                    .collect::<Vec<String>>();
+                let nullifiers_as_str =
+                    nullifiers.iter().map(ToString::to_string).collect::<Vec<String>>();
 
                 idxdb_get_input_notes_from_nullifiers(nullifiers_as_str)
             },
@@ -167,7 +182,7 @@ impl NoteFilter {
             NoteFilter::Processing | NoteFilter::Unverified => {
                 Promise::resolve(&JsValue::from(Array::new()))
             },
-            NoteFilter::List(ref ids) => {
+            NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_output_notes_from_ids(note_ids_as_str)
@@ -178,10 +193,8 @@ impl NoteFilter {
                 idxdb_get_output_notes_from_ids(note_ids)
             },
             NoteFilter::Nullifiers(nullifiers) => {
-                let nullifiers_as_str = nullifiers
-                    .iter()
-                    .map(|nullifier| nullifier.to_string())
-                    .collect::<Vec<String>>();
+                let nullifiers_as_str =
+                    nullifiers.iter().map(ToString::to_string).collect::<Vec<String>>();
 
                 idxdb_get_output_notes_from_nullifiers(nullifiers_as_str)
             },

@@ -16,13 +16,14 @@ impl AdviceInputs {
     // TODO: Destructors
 
     pub fn stack(&self) -> Vec<Felt> {
-        self.0.stack().iter().map(|felt| felt.into()).collect()
+        self.0.stack().iter().map(Into::into).collect()
     }
 
+    #[wasm_bindgen(js_name = "mappedValues")]
     pub fn mapped_values(&self, key: &RpoDigest) -> Option<Vec<Felt>> {
         self.0
             .mapped_values(&key.into())
-            .map(|values| values.iter().map(|felt| felt.into()).collect())
+            .map(|values| values.iter().map(Into::into).collect())
     }
 
     // TODO: Merkle Store

@@ -9,10 +9,11 @@ pub struct AssetVault(NativeAssetVault);
 
 #[wasm_bindgen]
 impl AssetVault {
-    pub fn commitment(&self) -> RpoDigest {
-        self.0.commitment().into()
+    pub fn root(&self) -> RpoDigest {
+        self.0.root().into()
     }
 
+    #[wasm_bindgen(js_name = "getBalance")]
     pub fn get_balance(&self, faucet_id: &AccountId) -> u64 {
         self.0.get_balance(faucet_id.into()).unwrap()
     }

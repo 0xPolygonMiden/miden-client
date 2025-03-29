@@ -102,14 +102,14 @@ export {
  * 3. It employs a Proxy to forward any calls not designated for web worker computation
  *    directly to the underlying WASM WebClient instance.
  *
- * Additionally, the wrapper provides a static create_client function. This static method
- * instantiates the WebClient object and ensures that the necessary create_client calls are
+ * Additionally, the wrapper provides a static createClient function. This static method
+ * instantiates the WebClient object and ensures that the necessary createClient calls are
  * performed both in the main thread and within the worker thread. This dual initialization
  * correctly passes user parameters (RPC URL and seed) to both the main-thread
  * WASM WebClient and the worker-side instance.
  *
  * Because of this implementation, the only breaking change for end users is in the way the
- * web client is instantiated. Users should now use the WebClient.create_client static call.
+ * web client is instantiated. Users should now use the WebClient.createClient static call.
  */
 export class WebClient {
   constructor(rpcUrl, seed) {
@@ -193,18 +193,18 @@ export class WebClient {
 
   /**
    * Factory method to create and initialize a WebClient instance.
-   * This method is async so you can await the asynchronous call to create_client().
+   * This method is async so you can await the asynchronous call to createClient().
    *
    * @param {string} rpcUrl - The RPC URL.
    * @param {string} seed - The seed for the account.
    * @returns {Promise<WebClient>} The fully initialized WebClient.
    */
-  static async create_client(rpcUrl, seed) {
+  static async createClient(rpcUrl, seed) {
     // Construct the instance (synchronously).
     const instance = new WebClient(rpcUrl, seed);
 
     // Wait for the underlying wasmWebClient to be initialized.
-    await instance.wasmWebClient.create_client(rpcUrl, seed);
+    await instance.wasmWebClient.createClient(rpcUrl, seed);
 
     // Wait for the worker to be ready
     await instance.ready;
@@ -254,28 +254,29 @@ export class WebClient {
 
   // ----- Explicitly Wrapped Methods (Worker-Forwarded) -----
 
-  async new_wallet(storageMode, mutable) {
+  async newWallet(storageMode, mutable, seed) {
     try {
       if (!this.worker) {
-        return await this.wasmWebClient.new_wallet(storageMode, mutable);
+        return await this.wasmWebClient.newWallet(storageMode, mutable, seed);
       }
-      const serializedStorageMode = storageMode.as_str();
+      const serializedStorageMode = storageMode.asStr();
       const serializedAccountBytes = await this.callMethodWithWorker(
         MethodName.NEW_WALLET,
         serializedStorageMode,
-        mutable
+        mutable,
+        seed
       );
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in new_wallet:", error);
+      console.error("INDEX.JS: Error in newWallet:", error.toString());
       throw error;
     }
   }
 
-  async new_faucet(storageMode, nonFungible, tokenSymbol, decimals, maxSupply) {
+  async newFaucet(storageMode, nonFungible, tokenSymbol, decimals, maxSupply) {
     try {
       if (!this.worker) {
-        return await this.wasmWebClient.new_faucet(
+        return await this.wasmWebClient.newFaucet(
           storageMode,
           nonFungible,
           tokenSymbol,
@@ -283,7 +284,7 @@ export class WebClient {
           maxSupply
         );
       }
-      const serializedStorageMode = storageMode.as_str();
+      const serializedStorageMode = storageMode.asStr();
       const serializedMaxSupply = maxSupply.toString();
       const serializedAccountBytes = await this.callMethodWithWorker(
         MethodName.NEW_FAUCET,
@@ -296,20 +297,20 @@ export class WebClient {
 
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in new_faucet:", error);
+      console.error("INDEX.JS: Error in newFaucet:", error.toString());
       throw error;
     }
   }
 
-  async new_transaction(accountId, transactionRequest) {
+  async newTransaction(accountId, transactionRequest) {
     try {
       if (!this.worker) {
-        return await this.wasmWebClient.new_transaction(
+        return await this.wasmWebClient.newTransaction(
           accountId,
           transactionRequest
         );
       }
-      const serializedAccountId = accountId.to_string();
+      const serializedAccountId = accountId.toString();
       const serializedTransactionRequest = transactionRequest.serialize();
       const serializedTransactionResultBytes = await this.callMethodWithWorker(
         MethodName.NEW_TRANSACTION,
@@ -320,113 +321,15 @@ export class WebClient {
         new Uint8Array(serializedTransactionResultBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in new_transaction:", error);
+      console.error("INDEX.JS: Error in newTransaction:", error.toString());
       throw error;
     }
   }
 
-  async new_mint_transaction(targetAccountId, faucetId, noteType, amount) {
+  async submitTransaction(transactionResult, prover = undefined) {
     try {
       if (!this.worker) {
-        return await this.wasmWebClient.new_mint_transaction(
-          targetAccountId,
-          faucetId,
-          noteType,
-          amount
-        );
-      }
-      const serializedTargetAccountId = targetAccountId.to_string();
-      const serializedFaucetId = faucetId.to_string();
-      const serializedNoteType = noteType.serialize();
-      const serializedAmount = amount.toString();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_MINT_TRANSACTION,
-        serializedTargetAccountId,
-        serializedFaucetId,
-        serializedNoteType,
-        serializedAmount
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error("INDEX.JS: Error in new_mint_transaction:", error);
-      throw error; // Ensure the test catches and asserts
-    }
-  }
-
-  async new_consume_transaction(targetAccountId, noteId) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.new_consume_transaction(
-          targetAccountId,
-          noteId
-        );
-      }
-      const serializedTargetAccountId = targetAccountId.to_string();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_CONSUME_TRANSACTION,
-        serializedTargetAccountId,
-        noteId
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error(
-        "INDEX.JS: Error in consume_transaction:",
-        JSON.stringify(error)
-      );
-      throw error;
-    }
-  }
-
-  async new_send_transaction(
-    senderAccountId,
-    receiverAccountId,
-    faucetId,
-    noteType,
-    amount,
-    recallHeight = null
-  ) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.new_send_transaction(
-          senderAccountId,
-          receiverAccountId,
-          faucetId,
-          noteType,
-          amount,
-          recallHeight
-        );
-      }
-      const serializedSenderAccountId = senderAccountId.to_string();
-      const serializedReceiverAccountId = receiverAccountId.to_string();
-      const serializedFaucetId = faucetId.to_string();
-      const serializedNoteType = noteType.serialize();
-      const serializedAmount = amount.toString();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_SEND_TRANSACTION,
-        serializedSenderAccountId,
-        serializedReceiverAccountId,
-        serializedFaucetId,
-        serializedNoteType,
-        serializedAmount,
-        recallHeight
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error("INDEX.JS: Error in send_transaction:", error);
-      throw error;
-    }
-  }
-
-  async submit_transaction(transactionResult, prover = undefined) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.submit_transaction(
+        return await this.wasmWebClient.submitTransaction(
           transactionResult,
           prover
         );
@@ -442,15 +345,15 @@ export class WebClient {
       // Always call the same worker method.
       await this.callMethodWithWorker(MethodName.SUBMIT_TRANSACTION, ...args);
     } catch (error) {
-      console.error("INDEX.JS: Error in submit_transaction:", error);
+      console.error("INDEX.JS: Error in submitTransaction:", error.toString());
       throw error;
     }
   }
 
-  async sync_state() {
+  async syncState() {
     try {
       if (!this.worker) {
-        return await this.wasmWebClient.sync_state();
+        return await this.wasmWebClient.syncState();
       }
       const serializedSyncSummaryBytes = await this.callMethodWithWorker(
         MethodName.SYNC_STATE
@@ -459,7 +362,7 @@ export class WebClient {
         new Uint8Array(serializedSyncSummaryBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in sync_state:", error);
+      console.error("INDEX.JS: Error in syncState:", error.toString());
       throw error;
     }
   }

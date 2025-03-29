@@ -2,7 +2,7 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::{self, Debug, Display, Formatter};
 
 use hex::ToHex;
-use miden_objects::{note::NoteId, Digest, Felt, StarkField};
+use miden_objects::{Digest, Felt, StarkField, note::NoteId};
 
 use crate::rpc::{errors::RpcConversionError, generated::digest};
 
@@ -95,18 +95,18 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
     type Error = RpcConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
-        if ![value.d0, value.d1, value.d2, value.d3]
+        if [value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(RpcConversionError::NotAValidFelt)
-        } else {
             Ok([
                 Felt::new(value.d0),
                 Felt::new(value.d1),
                 Felt::new(value.d2),
                 Felt::new(value.d3),
             ])
+        } else {
+            Err(RpcConversionError::NotAValidFelt)
         }
     }
 }

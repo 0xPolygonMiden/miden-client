@@ -13,48 +13,58 @@ impl BlockHeader {
         self.0.version()
     }
 
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
-    pub fn sub_hash(&self) -> RpoDigest {
-        self.0.sub_hash().into()
+    #[wasm_bindgen(js_name = "subCommitment")]
+    pub fn sub_commitment(&self) -> RpoDigest {
+        self.0.sub_commitment().into()
     }
 
-    pub fn prev_hash(&self) -> RpoDigest {
-        self.0.prev_hash().into()
+    #[wasm_bindgen(js_name = "prevBlockCommitment")]
+    pub fn prev_block_commitment(&self) -> RpoDigest {
+        self.0.prev_block_commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "blockNum")]
     pub fn block_num(&self) -> u32 {
         self.0.block_num().as_u32()
     }
 
-    pub fn chain_root(&self) -> RpoDigest {
-        self.0.chain_root().into()
+    #[wasm_bindgen(js_name = "chainCommitment")]
+    pub fn chain_commitment(&self) -> RpoDigest {
+        self.0.chain_commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "accountRoot")]
     pub fn account_root(&self) -> RpoDigest {
         self.0.account_root().into()
     }
 
+    #[wasm_bindgen(js_name = "nullifierRoot")]
     pub fn nullifier_root(&self) -> RpoDigest {
         self.0.nullifier_root().into()
     }
 
+    #[wasm_bindgen(js_name = "noteRoot")]
     pub fn note_root(&self) -> RpoDigest {
         self.0.note_root().into()
     }
 
-    pub fn tx_hash(&self) -> RpoDigest {
-        self.0.tx_hash().into()
+    #[wasm_bindgen(js_name = "txCommitment")]
+    pub fn tx_commitment(&self) -> RpoDigest {
+        self.0.tx_commitment().into()
     }
 
-    pub fn kernel_root(&self) -> RpoDigest {
-        self.0.kernel_root().into()
+    #[wasm_bindgen(js_name = "txKernelCommitment")]
+    pub fn tx_kernel_commitment(&self) -> RpoDigest {
+        self.0.tx_kernel_commitment().into()
     }
 
-    pub fn proof_hash(&self) -> RpoDigest {
-        self.0.proof_hash().into()
+    #[wasm_bindgen(js_name = "proofCommitment")]
+    pub fn proof_commitment(&self) -> RpoDigest {
+        self.0.proof_commitment().into()
     }
 
     pub fn timestamp(&self) -> u32 {
@@ -73,6 +83,6 @@ impl From<NativeBlockHeader> for BlockHeader {
 
 impl From<&NativeBlockHeader> for BlockHeader {
     fn from(header: &NativeBlockHeader) -> Self {
-        BlockHeader(*header)
+        BlockHeader(header.clone())
     }
 }

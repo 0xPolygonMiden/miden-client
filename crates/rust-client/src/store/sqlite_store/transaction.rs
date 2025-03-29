@@ -1,23 +1,26 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
     vec::Vec,
 };
+use std::rc::Rc;
 
 use miden_objects::{
+    Digest,
     account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     transaction::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
-    Digest,
 };
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{Connection, Transaction, params, types::Value};
 use tracing::info;
 
 use super::{
-    account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
+    SqliteStore, account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx,
 };
 use crate::{
     rpc::domain::transaction::TransactionUpdate,
@@ -25,13 +28,11 @@ use crate::{
     transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str =
-    "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_hash, block_num, commit_height, discarded) \
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+    input_notes, output_notes, script_root, block_num, commit_height, discarded) \
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
-    "INSERT OR IGNORE INTO transaction_scripts (script_hash, script) \
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_root, script) \
     VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS
@@ -41,12 +42,22 @@ impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-            tx.input_notes, tx.output_notes, tx.script_hash, script.script, tx.block_num, tx.commit_height, \
+            tx.input_notes, tx.output_notes, tx.script_root, script.script, tx.block_num, tx.commit_height, \
             tx.discarded
-            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
+            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_root = script.script_root";
         match self {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
+            TransactionFilter::Ids(_) => {
+                // Use SQLite's array parameter binding
+                format!("{QUERY} WHERE tx.id IN rarray(?)")
+            },
+            TransactionFilter::ExpiredBefore(block_num) => {
+                format!(
+                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false AND tx.commit_height IS NULL",
+                    block_num.as_u32()
+                )
+            },
         }
     }
 }
@@ -69,22 +80,37 @@ type SerializedTransactionData = (
 );
 
 impl SqliteStore {
-    /// Retrieves tracked transactions, filtered by [TransactionFilter].
+    /// Retrieves tracked transactions, filtered by [`TransactionFilter`].
     pub fn get_transactions(
         conn: &mut Connection,
-        filter: TransactionFilter,
+        filter: &TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        conn.prepare(&filter.to_query())?
-            .query_map([], parse_transaction_columns)
-            .expect("no binding parameters used in query")
-            .map(|result| Ok(result?).and_then(parse_transaction))
-            .collect::<Result<Vec<TransactionRecord>, _>>()
+        match filter {
+            TransactionFilter::Ids(ids) => {
+                // Convert transaction IDs to strings for the array parameter
+                let id_strings =
+                    ids.iter().map(|id| Value::Text(id.to_string())).collect::<Vec<_>>();
+
+                // Create a prepared statement and bind the array parameter
+                conn.prepare(&filter.to_query())?
+                    .query_map(params![Rc::new(id_strings)], parse_transaction_columns)?
+                    .map(|result| Ok(result?).and_then(parse_transaction))
+                    .collect::<Result<Vec<TransactionRecord>, _>>()
+            },
+            _ => {
+                // For other filters, no parameters are needed
+                conn.prepare(&filter.to_query())?
+                    .query_map([], parse_transaction_columns)?
+                    .map(|result| Ok(result?).and_then(parse_transaction))
+                    .collect::<Result<Vec<TransactionRecord>, _>>()
+            },
+        }
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes.
     pub fn apply_transaction(
         conn: &mut Connection,
-        tx_update: TransactionStoreUpdate,
+        tx_update: &TransactionStoreUpdate,
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
 
@@ -163,15 +189,15 @@ pub(super) fn insert_proven_transaction_data(
         final_account_state,
         input_notes,
         output_notes,
-        script_hash,
+        script_root,
         tx_script,
         block_num,
         committed,
         discarded,
-    ) = serialize_transaction_data(executed_transaction)?;
+    ) = serialize_transaction_data(executed_transaction);
 
-    if let Some(hash) = script_hash.clone() {
-        tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, tx_script])?;
+    if let Some(root) = script_root.clone() {
+        tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![root, tx_script])?;
     }
 
     tx.execute(
@@ -183,7 +209,7 @@ pub(super) fn insert_proven_transaction_data(
             final_account_state,
             input_notes,
             output_notes,
-            script_hash,
+            script_root,
             block_num,
             committed,
             discarded,
@@ -195,11 +221,11 @@ pub(super) fn insert_proven_transaction_data(
 
 pub(super) fn serialize_transaction_data(
     executed_transaction: &ExecutedTransaction,
-) -> Result<SerializedTransactionData, StoreError> {
+) -> SerializedTransactionData {
     let transaction_id: String = executed_transaction.id().inner().into();
     let account_id = executed_transaction.account_id().to_hex();
-    let init_account_state = &executed_transaction.initial_account().hash().to_string();
-    let final_account_state = &executed_transaction.final_account().hash().to_string();
+    let init_account_state = &executed_transaction.initial_account().commitment().to_string();
+    let final_account_state = &executed_transaction.final_account().commitment().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
     let nullifiers: Vec<Digest> = executed_transaction
@@ -217,22 +243,22 @@ pub(super) fn serialize_transaction_data(
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = executed_transaction.tx_args();
-    let tx_script = transaction_args.tx_script().map(|script| script.to_bytes());
-    let script_hash = transaction_args.tx_script().map(|script| script.hash().to_bytes());
+    let tx_script = transaction_args.tx_script().map(TransactionScript::to_bytes);
+    let script_root = transaction_args.tx_script().map(|script| script.root().to_bytes());
 
-    Ok((
+    (
         transaction_id,
         account_id,
         init_account_state.to_owned(),
         final_account_state.to_owned(),
         input_notes,
         output_notes.to_bytes(),
-        script_hash,
+        script_root,
         tx_script,
         executed_transaction.block_header().block_num().as_u32(),
         None,
         false,
-    ))
+    )
 }
 
 fn parse_transaction_columns(
@@ -244,7 +270,7 @@ fn parse_transaction_columns(
     let final_account_state: String = row.get(3)?;
     let input_notes: Vec<u8> = row.get(4)?;
     let output_notes: Vec<u8> = row.get(5)?;
-    let script_hash: Option<Vec<u8>> = row.get(6)?;
+    let script_root: Option<Vec<u8>> = row.get(6)?;
     let tx_script: Option<Vec<u8>> = row.get(7)?;
     let block_num: u32 = row.get(8)?;
     let commit_height: Option<u32> = row.get(9)?;
@@ -257,7 +283,7 @@ fn parse_transaction_columns(
         final_account_state,
         input_notes,
         output_notes,
-        script_hash,
+        script_root,
         tx_script,
         block_num,
         commit_height,
@@ -276,7 +302,7 @@ fn parse_transaction(
         final_account_state,
         input_notes,
         output_notes,
-        _script_hash,
+        _script_root,
         tx_script,
         block_num,
         commit_height,

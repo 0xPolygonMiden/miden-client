@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use alloc::{
     rc::Rc,
     string::{String, ToString},
@@ -5,21 +7,21 @@ use alloc::{
 };
 
 use miden_objects::{
+    Digest, Word,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
     note::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
-    Digest, Word,
 };
-use rusqlite::{named_params, params, params_from_iter, types::Value, Connection, Transaction};
+use rusqlite::{Connection, Transaction, named_params, params, params_from_iter, types::Value};
 
 use super::SqliteStore;
 use crate::{
     note::NoteUpdates,
     store::{
-        note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteRecord, StoreError,
+        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
+        note_record::OutputNoteState,
     },
 };
 
@@ -32,7 +34,7 @@ struct SerializedInputNoteData {
     pub assets: Vec<u8>,
     pub serial_number: Vec<u8>,
     pub inputs: Vec<u8>,
-    pub script_hash: String,
+    pub script_root: String,
     pub script: Vec<u8>,
     pub nullifier: String,
     pub state_discriminant: u8,
@@ -163,7 +165,7 @@ impl NoteFilter {
                 note.created_at
                 from input_notes AS note
                 LEFT OUTER JOIN notes_scripts AS script
-                    ON note.script_hash = script.script_hash";
+                    ON note.script_root = script.script_root";
 
         let (condition, params) = self.input_notes_condition();
         let query = format!("{base} WHERE {condition}");
@@ -246,7 +248,7 @@ impl NoteFilter {
 impl SqliteStore {
     pub(crate) fn get_input_notes(
         conn: &mut Connection,
-        filter: NoteFilter,
+        filter: &NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let (query, params) = filter.to_query_input_notes();
         let notes = conn
@@ -262,7 +264,7 @@ impl SqliteStore {
     /// Retrieves the output notes from the database.
     pub(crate) fn get_output_notes(
         conn: &mut Connection,
-        filter: NoteFilter,
+        filter: &NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let (query, params) = filter.to_query_output_notes();
         let notes = conn
@@ -326,17 +328,17 @@ pub(super) fn upsert_input_note_tx(
         assets,
         serial_number,
         inputs,
-        script_hash,
+        script_root,
         script,
         nullifier,
         state_discriminant,
         state,
         created_at,
-    } = serialize_input_note(note)?;
+    } = serialize_input_note(note);
 
     const SCRIPT_QUERY: &str =
-        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
-    tx.execute(SCRIPT_QUERY, params![script_hash, script,])?;
+        "INSERT OR REPLACE INTO notes_scripts (script_root, serialized_note_script) VALUES (?, ?)";
+    tx.execute(SCRIPT_QUERY, params![script_root, script,])?;
 
     const NOTE_QUERY: &str = "
         INSERT OR REPLACE INTO input_notes (
@@ -344,7 +346,7 @@ pub(super) fn upsert_input_note_tx(
             assets,
             serial_number,
             inputs,
-            script_hash,
+            script_root,
             nullifier,
             state_discriminant,
             state,
@@ -354,7 +356,7 @@ pub(super) fn upsert_input_note_tx(
             :assets,
             :serial_number,
             :inputs,
-            :script_hash,
+            :script_root,
             :nullifier,
             :state_discriminant,
             :state,
@@ -368,7 +370,7 @@ pub(super) fn upsert_input_note_tx(
             ":assets": assets,
             ":serial_number": serial_number,
             ":inputs": inputs,
-            ":script_hash": script_hash,
+            ":script_root": script_root,
             ":nullifier": nullifier,
             ":state_discriminant": state_discriminant,
             ":state": state,
@@ -414,7 +416,7 @@ pub fn upsert_output_note_tx(
         expected_height,
         state_discriminant,
         state,
-    } = serialize_output_note(note)?;
+    } = serialize_output_note(note);
 
     tx.execute(
         NOTE_QUERY,
@@ -482,7 +484,7 @@ fn parse_input_note(
 }
 
 /// Serialize the provided input note into database compatible types.
-fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
+fn serialize_input_note(note: &InputNoteRecord) -> SerializedInputNoteData {
     let id = note.id().inner().to_string();
     let nullifier = note.nullifier().to_hex();
     let created_at = note.created_at().unwrap_or(0);
@@ -495,23 +497,23 @@ fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteDat
     let script = recipient.script().to_bytes();
     let inputs = recipient.inputs().to_bytes();
 
-    let script_hash = recipient.script().hash().to_hex();
+    let script_root = recipient.script().root().to_hex();
 
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
 
-    Ok(SerializedInputNoteData {
+    SerializedInputNoteData {
         id,
         assets,
         serial_number,
         inputs,
-        script_hash,
+        script_root,
         script,
         nullifier,
         state_discriminant,
         state,
         created_at,
-    })
+    }
 }
 
 /// Parse output note columns from the provided row into native types.
@@ -525,9 +527,9 @@ fn parse_output_note_columns(
     let state: Vec<u8> = row.get(4)?;
 
     Ok(SerializedOutputNoteParts {
-        recipient_digest,
         assets,
         metadata,
+        recipient_digest,
         expected_height,
         state,
     })
@@ -560,7 +562,7 @@ fn parse_output_note(
 }
 
 /// Serialize the provided output note into database compatible types.
-fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNoteData, StoreError> {
+fn serialize_output_note(note: &OutputNoteRecord) -> SerializedOutputNoteData {
     let id = note.id().inner().to_string();
     let assets = note.assets().to_bytes();
     let recipient_digest = note.recipient_digest().to_hex();
@@ -571,7 +573,7 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
     let state_discriminant = note.state().discriminant();
     let state = note.state().to_bytes();
 
-    Ok(SerializedOutputNoteData {
+    SerializedOutputNoteData {
         id,
         assets,
         metadata,
@@ -580,24 +582,18 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
         expected_height: note.expected_height().as_u32(),
         state_discriminant,
         state,
-    })
+    }
 }
 
 pub(crate) fn apply_note_updates_tx(
     tx: &Transaction,
     note_updates: &NoteUpdates,
 ) -> Result<(), StoreError> {
-    for input_note in
-        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
-    {
+    for input_note in note_updates.updated_input_notes() {
         upsert_input_note_tx(tx, input_note)?;
     }
 
-    for output_note in note_updates
-        .new_output_notes()
-        .iter()
-        .chain(note_updates.updated_output_notes())
-    {
+    for output_note in note_updates.updated_output_notes() {
         upsert_output_note_tx(tx, output_note)?;
     }
 

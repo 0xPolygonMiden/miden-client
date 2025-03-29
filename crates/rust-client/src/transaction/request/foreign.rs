@@ -22,13 +22,13 @@ pub enum ForeignAccount {
     /// account ID. The second element of the tuple indicates which storage slot indices
     /// and map keys are desired to be retrieved.
     Public(AccountId, AccountStorageRequirements),
-    /// Private account data requires [ForeignAccountInputs] to be input. Proof of the account's
+    /// Private account data requires [`ForeignAccountInputs`] to be input. Proof of the account's
     /// existence will be retrieved from the network at execution time.
     Private(ForeignAccountInputs),
 }
 
 impl ForeignAccount {
-    /// Creates a new [ForeignAccount::Public]. The account's components (code, storage header and
+    /// Creates a new [`ForeignAccount::Public`]. The account's components (code, storage header and
     /// inclusion proof) will be retrieved at execution time, alongside particular storage slot
     /// maps correspondent to keys passed in `indices`.
     pub fn public(
@@ -42,7 +42,7 @@ impl ForeignAccount {
         Ok(Self::Public(account_id, storage_requirements))
     }
 
-    /// Creates a new [ForeignAccount::Private]. A proof of the account's inclusion will be
+    /// Creates a new [`ForeignAccount::Private`]. A proof of the account's inclusion will be
     /// retrieved at execution time.
     pub fn private(
         account: impl Into<ForeignAccountInputs>,
@@ -66,7 +66,7 @@ impl ForeignAccount {
         }
     }
 
-    /// Returns the foreign account's [AccountId].
+    /// Returns the foreign account's [`AccountId`].
     pub fn account_id(&self) -> AccountId {
         match self {
             ForeignAccount::Public(account_id, _) => *account_id,
@@ -142,7 +142,7 @@ pub struct ForeignAccountInputs {
 }
 
 impl ForeignAccountInputs {
-    /// Creates a new [ForeignAccountInputs]
+    /// Creates a new [`ForeignAccountInputs`]
     pub fn new(
         account_header: AccountHeader,
         storage_header: AccountStorageHeader,
@@ -157,7 +157,7 @@ impl ForeignAccountInputs {
         }
     }
 
-    /// Creates a new [ForeignAccountInputs] from an [Account] and a list of storage keys.
+    /// Creates a new [`ForeignAccountInputs`] from an [`Account`] and a list of storage keys.
     ///
     /// # Errors
     ///
@@ -165,11 +165,11 @@ impl ForeignAccountInputs {
     ///   not found.
     pub fn from_account(
         account: Account,
-        storage_requirements: AccountStorageRequirements,
+        storage_requirements: &AccountStorageRequirements,
     ) -> Result<ForeignAccountInputs, TransactionRequestError> {
         // Get required proofs
         let mut smt_proofs = vec![];
-        for (slot_index, keys) in storage_requirements.inner().iter() {
+        for (slot_index, keys) in storage_requirements.inner() {
             for key in keys {
                 let slot = account.storage().slots().get(*slot_index as usize);
                 match slot {
@@ -177,15 +177,17 @@ impl ForeignAccountInputs {
                         smt_proofs.push(map.open(key));
                     },
                     Some(StorageSlot::Value(_)) => {
-                        return Err(TransactionRequestError::ForeignAccountStorageSlotInvalidIndex(
-                            *slot_index,
-                        ))
+                        return Err(
+                            TransactionRequestError::ForeignAccountStorageSlotInvalidIndex(
+                                *slot_index,
+                            ),
+                        );
                     },
                     None => {
                         return Err(TransactionRequestError::StorageSlotNotFound(
                             *slot_index,
                             account.id(),
-                        ))
+                        ));
                     },
                 }
             }
@@ -203,12 +205,12 @@ impl ForeignAccountInputs {
         ))
     }
 
-    /// Returns the account's [AccountHeader]
+    /// Returns the account's [`AccountHeader`]
     pub fn account_header(&self) -> &AccountHeader {
         &self.account_header
     }
 
-    /// Returns the account's [AccountStorageHeader].
+    /// Returns the account's [`AccountStorageHeader`].
     pub fn storage_header(&self) -> &AccountStorageHeader {
         &self.storage_header
     }
@@ -218,12 +220,13 @@ impl ForeignAccountInputs {
         &self.storage_map_proofs
     }
 
-    /// Returns the account's [AccountCode].
+    /// Returns the account's [`AccountCode`].
     pub fn account_code(&self) -> &AccountCode {
         &self.account_code
     }
 
     /// Extends the storage proofs with the input `smt_proofs` and returns the new structure
+    #[must_use]
     pub fn with_storage_map_proofs(
         mut self,
         smt_proofs: impl IntoIterator<Item = SmtProof>,
@@ -232,7 +235,7 @@ impl ForeignAccountInputs {
         self
     }
 
-    /// Consumes the [ForeignAccountInputs] and returns its parts.
+    /// Consumes the [`ForeignAccountInputs`] and returns its parts.
     pub fn into_parts(self) -> (AccountHeader, AccountStorageHeader, AccountCode, Vec<SmtProof>) {
         (
             self.account_header,

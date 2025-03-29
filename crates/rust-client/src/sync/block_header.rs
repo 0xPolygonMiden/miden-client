@@ -2,21 +2,25 @@ use alloc::vec::Vec;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    block::{BlockHeader, BlockNumber},
-    crypto::{self, merkle::MerklePath, rand::FeltRng},
     Digest,
+    block::{BlockHeader, BlockNumber},
+    crypto::{self, merkle::MerklePath},
 };
 use tracing::warn;
 
 use super::NoteUpdates;
 use crate::{
+    Client, ClientError,
     note::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
-    Client, ClientError,
 };
 
+/// Maximum number of blocks the client can be behind the network for transactions and account
+/// proofs to be considered valid.
+pub(crate) const MAX_BLOCK_NUMBER_DELTA: u32 = 256;
+
 /// Network information management methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
@@ -33,7 +37,7 @@ impl<R: FeltRng> Client<R> {
                 .get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
 
-            if note.block_header_received(block_header)? {
+            if note.block_header_received(&block_header)? {
                 changed_notes.push(note);
             }
         }
@@ -45,7 +49,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
-    pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
+    pub async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
         let genesis = self.store.get_block_header_by_num(0.into()).await?;
 
         match genesis {
@@ -66,7 +70,7 @@ impl<R: FeltRng> Client<R> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // We specify that we want to store the MMR data from the genesis block as we might use it
         // as an anchor for created accounts.
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, true).await?;
+        self.store.insert_block_header(&genesis_block, blank_mmr_peaks, true).await?;
         Ok(genesis_block)
     }
 
@@ -85,11 +89,7 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes
-            .updated_input_notes()
-            .iter()
-            .chain(committed_notes.new_input_notes().iter())
-        {
+        for input_note in committed_notes.updated_input_notes() {
             if !note_screener
                 .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
                 .await?
@@ -102,7 +102,7 @@ impl<R: FeltRng> Client<R> {
         Ok(false)
     }
 
-    /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
+    /// Builds the current view of the chain's [`PartialMmr`]. Because we want to add all new
     /// authentication nodes that could come from applying the MMR updates, we need to track all
     /// known leaves thus far.
     ///
@@ -140,18 +140,19 @@ impl<R: FeltRng> Client<R> {
                 .await?
                 .expect("Current block should be in the store");
 
-            current_partial_mmr.add(current_block.hash(), has_client_notes);
+            current_partial_mmr.add(current_block.commitment(), has_client_notes);
         }
 
         Ok(current_partial_mmr)
     }
 
-    /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    /// Retrieves and stores a [`BlockHeader`] by number, and stores its authentication data as
+    /// well.
     ///
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
@@ -177,12 +178,12 @@ impl<R: FeltRng> Client<R> {
         let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
 
         current_partial_mmr
-            .track(block_num.as_usize(), block_header.hash(), &merkle_path)
+            .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
         self.store
-            .insert_block_header(block_header, current_partial_mmr.peaks(), true)
+            .insert_block_header(&block_header, current_partial_mmr.peaks(), true)
             .await?;
         self.store.insert_chain_mmr_nodes(&path_nodes).await?;
 
@@ -242,9 +243,10 @@ fn adjust_merkle_path_for_forest(
     block_num: BlockNumber,
     forest: usize,
 ) -> Vec<(InOrderIndex, Digest)> {
-    if forest - 1 < block_num.as_usize() {
-        panic!("Can't adjust merkle path for a forest that does not include the block number");
-    }
+    assert!(
+        forest > block_num.as_usize(),
+        "Can't adjust merkle path for a forest that does not include the block number"
+    );
 
     let rightmost_index = InOrderIndex::from_leaf_pos(forest - 1);
 
@@ -264,18 +266,18 @@ fn adjust_merkle_path_for_forest(
 }
 
 /// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
-/// and returns the updated [PartialMmr].
+/// and returns the updated [`PartialMmr`].
 pub(crate) fn apply_mmr_changes(
     current_partial_mmr: PartialMmr,
     mmr_delta: MmrDelta,
-    current_block_header: BlockHeader,
+    current_block_header: &BlockHeader,
     current_block_has_relevant_notes: bool,
 ) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), StoreError> {
     let mut partial_mmr: PartialMmr = current_partial_mmr;
 
     // First, apply curent_block to the Mmr
     let new_authentication_nodes = partial_mmr
-        .add(current_block_header.hash(), current_block_has_relevant_notes)
+        .add(current_block_header.commitment(), current_block_has_relevant_notes)
         .into_iter();
 
     // Apply the Mmr delta to bring Mmr to forest equal to chain tip

@@ -5,13 +5,13 @@ use std::{
 };
 
 use figment::{
-    providers::{Format, Toml},
     Figment,
+    providers::{Format, Toml},
 };
-use miden_client::{account::AccountId, crypto::FeltRng, Client};
+use miden_client::{Client, account::AccountId};
 use tracing::info;
 
-use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use super::{CLIENT_CONFIG_FILE_NAME, config::CliConfig, get_account_with_id_prefix};
 use crate::{errors::CliError, faucet_details_map::FaucetDetailsMap};
 
 pub(crate) const SHARED_TOKEN_DOCUMENTATION: &str = "There are two accepted formats for the asset:
@@ -25,7 +25,7 @@ For example, `100::0xabcdef0123456789` or `1.23::POL`";
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client
 /// config.
 pub(crate) async fn get_input_acc_id_by_prefix_or_default(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     account_id: Option<String>,
 ) -> Result<AccountId, CliError> {
     let account_id_str = if let Some(account_id_prefix) = account_id {
@@ -53,7 +53,7 @@ pub(crate) async fn get_input_acc_id_by_prefix_or_default(
 /// - Will return a `IdPrefixFetchError` if the provided account ID string can't be parsed as an
 ///   `AccountId` and doesn't correspond to an account tracked by the client either.
 pub(crate) async fn parse_account_id(
-    client: &Client<impl FeltRng>,
+    client: &Client,
     account_id: &str,
 ) -> Result<AccountId, CliError> {
     if let Ok(account_id) = AccountId::from_hex(account_id) {
@@ -68,7 +68,7 @@ pub(crate) async fn parse_account_id(
     Ok(account_id)
 }
 
-pub(crate) fn update_config(config_path: &Path, client_config: CliConfig) -> Result<(), CliError> {
+pub(crate) fn update_config(config_path: &Path, client_config: &CliConfig) -> Result<(), CliError> {
     let config_as_toml_string = toml::to_string_pretty(&client_config).map_err(|err| {
         CliError::Config("Failed to parse config file as TOML".to_string().into(), err.to_string())
     })?;

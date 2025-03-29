@@ -22,7 +22,7 @@ export async function getOutputNotes(states) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -43,7 +43,7 @@ export async function getInputNotes(states) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -57,7 +57,7 @@ export async function getInputNotesFromIds(noteIds) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -71,7 +71,7 @@ export async function getInputNotesFromNullifiers(nullifiers) {
 
     return await processInputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -85,7 +85,7 @@ export async function getOutputNotesFromNullifiers(nullifiers) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get output notes: ", err);
+    console.error("Failed to get output notes: ", err.toString());
     throw err;
   }
 }
@@ -99,7 +99,7 @@ export async function getOutputNotesFromIds(noteIds) {
 
     return await processOutputNotes(notes);
   } catch (err) {
-    console.error("Failed to get input notes: ", err);
+    console.error("Failed to get input notes: ", err.toString());
     throw err;
   }
 }
@@ -114,7 +114,10 @@ export async function getUnspentInputNoteNullifiers() {
 
     return nullifiers;
   } catch (err) {
-    console.error("Failed to get unspent input note nullifiers: ", err);
+    console.error(
+      "Failed to get unspent input note nullifiers: ",
+      err.toString()
+    );
     throw err;
   }
 }
@@ -124,7 +127,7 @@ export async function upsertInputNote(
   assets,
   serialNumber,
   inputs,
-  noteScriptHash,
+  noteScriptRoot,
   serializedNoteScript,
   nullifier,
   serializedCreatedAt,
@@ -144,7 +147,7 @@ export async function upsertInputNote(
         assets: assetsBlob,
         serialNumber: serialNumberBlob,
         inputs: inputsBlob,
-        noteScriptHash: noteScriptHash,
+        noteScriptRoot,
         nullifier: nullifier,
         state: stateBlob,
         stateDiscriminant: stateDiscriminant,
@@ -159,14 +162,14 @@ export async function upsertInputNote(
       ]);
 
       const noteScriptData = {
-        scriptHash: noteScriptHash,
+        scriptRoot: noteScriptRoot,
         serializedNoteScript: serializedNoteScriptBlob,
       };
 
       await tx.notesScripts.put(noteScriptData);
-    } catch {
+    } catch (error) {
       console.error(`Error inserting note: ${noteId}:`, error);
-      throw error; // Rethrow the error to handle it further up the call chain if needed
+      throw error;
     }
   });
 }
@@ -201,9 +204,9 @@ export async function upsertOutputNote(
 
       // Perform the insert using Dexie
       await tx.outputNotes.put(data);
-    } catch {
+    } catch (error) {
       console.error(`Error inserting note: ${noteId}:`, error);
-      throw error; // Rethrow the error to handle it further up the call chain if needed
+      throw error;
     }
   });
 }
@@ -238,8 +241,8 @@ async function processInputNotes(notes) {
 
       // Convert the serialized note script blob to base64
       let serializedNoteScriptBase64 = null;
-      if (note.noteScriptHash) {
-        let record = await notesScripts.get(note.noteScriptHash);
+      if (note.noteScriptRoot) {
+        let record = await notesScripts.get(note.noteScriptRoot);
         let serializedNoteScriptArrayBuffer =
           await record.serializedNoteScript.arrayBuffer();
         const serializedNoteScriptArray = new Uint8Array(
@@ -257,10 +260,10 @@ async function processInputNotes(notes) {
 
       return {
         assets: note.assets,
-        serial_number: note.serialNumber,
+        serialNumber: note.serialNumber,
         inputs: note.inputs,
-        created_at: note.createdAt,
-        serialized_note_script: serializedNoteScriptBase64,
+        createdAt: note.createdAt,
+        serializedNoteScript: serializedNoteScriptBase64,
         state: note.state,
       };
     })
@@ -292,9 +295,9 @@ async function processOutputNotes(notes) {
 
       return {
         assets: note.assets,
-        recipient_digest: note.recipientDigest,
+        recipientDigest: note.recipientDigest,
         metadata: note.metadata,
-        expected_height: note.expectedHeight,
+        expectedHeight: note.expectedHeight,
         state: note.state,
       };
     })

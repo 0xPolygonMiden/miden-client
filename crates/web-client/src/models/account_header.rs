@@ -9,8 +9,8 @@ pub struct AccountHeader(NativeAccountHeader);
 
 #[wasm_bindgen]
 impl AccountHeader {
-    pub fn hash(&self) -> RpoDigest {
-        self.0.hash().into()
+    pub fn commitment(&self) -> RpoDigest {
+        self.0.commitment().into()
     }
 
     pub fn id(&self) -> AccountId {
@@ -21,14 +21,17 @@ impl AccountHeader {
         self.0.nonce().into()
     }
 
+    #[wasm_bindgen(js_name = "vaultCommitment")]
     pub fn vault_commitment(&self) -> RpoDigest {
         self.0.vault_root().into()
     }
 
+    #[wasm_bindgen(js_name = "storageCommitment")]
     pub fn storage_commitment(&self) -> RpoDigest {
         self.0.storage_commitment().into()
     }
 
+    #[wasm_bindgen(js_name = "codeCommitment")]
     pub fn code_commitment(&self) -> RpoDigest {
         self.0.code_commitment().into()
     }

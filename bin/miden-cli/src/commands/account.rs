@@ -1,24 +1,24 @@
 use clap::Parser;
 use miden_client::{
+    Client, ZERO,
     account::{Account, AccountId, AccountType, StorageSlot},
     asset::Asset,
-    crypto::FeltRng,
-    Client, ZERO,
 };
 
 use crate::{
+    CLIENT_BINARY_NAME,
     config::CliConfig,
     create_dynamic_table,
     errors::CliError,
     utils::{load_config_file, load_faucet_details_map, parse_account_id, update_config},
-    CLIENT_BINARY_NAME,
 };
 
 // ACCOUNT COMMAND
 // ================================================================================================
 
-#[derive(Default, Debug, Clone, Parser)]
 /// View and manage accounts. Defaults to `list` command.
+#[derive(Default, Debug, Clone, Parser)]
+#[allow(clippy::option_option)]
 pub struct AccountCmd {
     /// List all accounts monitored by this client (default action).
     #[clap(short, long, group = "action")]
@@ -36,7 +36,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub async fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         match self {
             AccountCmd {
                 list: false,
@@ -94,12 +94,12 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
+async fn list_accounts(client: Client) -> Result<(), CliError> {
     let accounts = client.get_account_headers().await?;
 
     let mut table =
         create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce", "Status"]);
-    for (acc, _acc_seed) in accounts.iter() {
+    for (acc, _acc_seed) in &accounts {
         let status = client
             .get_account(acc.id())
             .await?
@@ -120,10 +120,7 @@ async fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), CliError> {
     Ok(())
 }
 
-pub async fn show_account<R: FeltRng>(
-    client: Client<R>,
-    account_id: AccountId,
-) -> Result<(), CliError> {
+pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), CliError> {
     let account: Account = client
         .get_account(account_id)
         .await?
@@ -132,7 +129,7 @@ pub async fn show_account<R: FeltRng>(
 
     let mut table = create_dynamic_table(&[
         "Account ID",
-        "Account Hash",
+        "Account Commitment",
         "Type",
         "Storage mode",
         "Code Commitment",
@@ -142,7 +139,7 @@ pub async fn show_account<R: FeltRng>(
     ]);
     table.add_row(vec![
         account.id().to_string(),
-        account.hash().to_string(),
+        account.commitment().to_string(),
         account_type_display_name(&account_id)?,
         account_id.storage_mode().to_string(),
         account.code().commitment().to_string(),
@@ -192,7 +189,7 @@ pub async fn show_account<R: FeltRng>(
 
         for (idx, entry) in account_storage.slots().iter().enumerate() {
             let item = account_storage
-                .get_item(idx as u8)
+                .get_item(u8::try_from(idx).expect("there are no more than 256 slots"))
                 .map_err(|err| CliError::Account(err, "Index out of bounds".to_string()))?;
 
             // Last entry is reserved so I don't think the user cares about it. Also, to keep the
@@ -252,9 +249,9 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), C
     let (mut current_config, config_path) = load_config_file()?;
 
     // set default account
-    current_config.default_account_id = account_id.map(|id| id.to_hex());
+    current_config.default_account_id = account_id.map(AccountId::to_hex);
 
-    update_config(&config_path, current_config)
+    update_config(&config_path, &current_config)
 }
 
 /// Sets the provided account ID as the default account and updates the config file, if not set

@@ -6,6 +6,14 @@ on:
     types: [opened, repoened, synchronize]
 
 jobs:
+  unused_deps:
+    name: check for unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: machete
+        uses: bnjbvr/cargo-machete@main
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
@@ -15,6 +23,8 @@ jobs:
         run: |
           rustup update --no-self-update 
           rustup component add clippy
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - clippy
         run: make clippy
   
@@ -28,6 +38,8 @@ jobs:
           rustup update --no-self-update 
           rustup target add wasm32-unknown-unknown
           rustup component add clippy
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - clippy-wasm
         run: make clippy-wasm
 
@@ -40,27 +52,12 @@ jobs:
         run: |
           rustup update --no-self-update nightly
           rustup +nightly component add rustfmt
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: Install prettier
         run: yarn install
       - name: make - format-check
         run: make format-check
-
-  mkdocs:
-    name: build mkdocs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
-      - uses: actions/cache@v4
-        with:
-          key: mkdocs-material-${{ env.cache_id }}
-          path: .cache
-          restore-keys: |
-            mkdocs-material-
-      - run: make doc-build 
 
   rustdocs:
     name: build rust documentation
@@ -69,5 +66,7 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust
         run: rustup update --no-self-update
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
       - name: make - doc
         run: make doc

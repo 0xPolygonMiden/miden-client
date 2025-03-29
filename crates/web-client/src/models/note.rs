@@ -1,9 +1,9 @@
 use miden_client::note::{
     NoteExecutionHint as NativeNoteExecutionHint, NoteExecutionMode as NativeNoteExecutionMode,
     NoteInputs as NativeNoteInputs, NoteMetadata as NativeNoteMetadata,
-    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag,
+    NoteRecipient as NativeNoteRecipient, NoteTag as NativeNoteTag, WellKnownNote,
 };
-use miden_lib::note::{scripts as native_scripts, utils};
+use miden_lib::note::utils;
 use miden_objects::note::Note as NativeNote;
 use wasm_bindgen::prelude::*;
 
@@ -43,6 +43,7 @@ impl Note {
         self.0.assets().clone().into()
     }
 
+    #[wasm_bindgen(js_name = "createP2IDNote")]
     pub fn create_p2id_note(
         sender: &AccountId,
         target: &AccountId,
@@ -70,6 +71,7 @@ impl Note {
         NativeNote::new(assets.into(), metadata, recipient).into()
     }
 
+    #[wasm_bindgen(js_name = "createP2IDRNote")]
     pub fn create_p2idr_note(
         sender: &AccountId,
         target: &AccountId,
@@ -79,7 +81,7 @@ impl Note {
         recall_height: u32,
         aux: &Felt,
     ) -> Self {
-        let note_script = native_scripts::p2idr();
+        let note_script = WellKnownNote::P2IDR.script();
 
         let inputs = NativeNoteInputs::new(vec![
             target.suffix().into(),
@@ -146,7 +148,7 @@ impl NotesArray {
     }
 
     pub fn push(&mut self, note: &Note) {
-        self.0.push(note.clone())
+        self.0.push(note.clone());
     }
 }
 
@@ -155,12 +157,12 @@ impl NotesArray {
 
 impl From<NotesArray> for Vec<NativeNote> {
     fn from(notes_array: NotesArray) -> Self {
-        notes_array.0.into_iter().map(|note| note.into()).collect()
+        notes_array.0.into_iter().map(Into::into).collect()
     }
 }
 
 impl From<&NotesArray> for Vec<NativeNote> {
     fn from(notes_array: &NotesArray) -> Self {
-        notes_array.0.iter().map(|note| note.into()).collect()
+        notes_array.0.iter().map(Into::into).collect()
     }
 }

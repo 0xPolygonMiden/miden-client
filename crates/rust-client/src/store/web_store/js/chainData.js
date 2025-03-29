@@ -36,7 +36,7 @@ export async function insertBlockHeader(
       }
     }
   } catch (err) {
-    console.error("Failed to insert block header: ", err);
+    console.error("Failed to insert block header: ", err.toString());
     throw err;
   }
 }
@@ -61,7 +61,7 @@ export async function insertChainMmrNodes(ids, nodes) {
     // Use bulkPut to add/overwrite the entries
     await chainMmrNodes.bulkPut(data);
   } catch (err) {
-    console.error("Failed to insert chain mmr nodes: ", err);
+    console.error("Failed to insert chain mmr nodes: ", err.toString());
     throw err;
   }
 }
@@ -86,10 +86,10 @@ export async function getBlockHeaders(blockNumbers) {
           const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
           return {
-            block_num: result.blockNum,
+            blockNum: result.blockNum,
             header: headerBase64,
-            chain_mmr: chainMmrPeaksBase64,
-            has_client_notes: result.hasClientNotes === "true",
+            chainMmr: chainMmrPeaksBase64,
+            hasClientNotes: result.hasClientNotes === "true",
           };
         }
       })
@@ -97,7 +97,7 @@ export async function getBlockHeaders(blockNumbers) {
 
     return processedResults;
   } catch (err) {
-    console.error("Failed to get block headers: ", err);
+    console.error("Failed to get block headers: ", err.toString());
     throw err;
   }
 }
@@ -123,17 +123,17 @@ export async function getTrackedBlockHeaders() {
         const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
         return {
-          block_num: record.blockNum,
+          blockNum: record.blockNum,
           header: headerBase64,
-          chain_mmr: chainMmrPeaksBase64,
-          has_client_notes: record.hasClientNotes === "true",
+          chainMmr: chainMmrPeaksBase64,
+          hasClientNotes: record.hasClientNotes === "true",
         };
       })
     );
 
     return processedRecords;
   } catch (err) {
-    console.error("Failed to get tracked block headers: ", err);
+    console.error("Failed to get tracked block headers: ", err.toString());
     throw err;
   }
 }
@@ -151,7 +151,7 @@ export async function getChainMmrPeaksByBlockNum(blockNum) {
       peaks: chainMmrPeaksBase64,
     };
   } catch (err) {
-    console.error("Failed to get chain mmr peaks: ", err);
+    console.error("Failed to get chain mmr peaks: ", err.toString());
     throw err;
   }
 }
@@ -161,7 +161,7 @@ export async function getChainMmrNodesAll() {
     const chainMmrNodesAll = await chainMmrNodes.toArray();
     return chainMmrNodesAll;
   } catch (err) {
-    console.error("Failed to get chain mmr nodes: ", err);
+    console.error("Failed to get chain mmr nodes: ", err.toString());
     throw err;
   }
 }
@@ -172,7 +172,7 @@ export async function getChainMmrNodes(ids) {
 
     return results;
   } catch (err) {
-    console.error("Failed to get chain mmr nodes: ", err);
+    console.error("Failed to get chain mmr nodes: ", err.toString());
     throw err;
   }
 }

@@ -19,7 +19,7 @@ use crate::store::StoreError;
 // DATA STORE
 // ================================================================================================
 
-/// Wrapper structure that implements [DataStore] over any [Store].
+/// Wrapper structure that implements [`DataStore`] over any [`Store`].
 pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
     pub(crate) store: alloc::sync::Arc<dyn Store>,
@@ -63,7 +63,7 @@ impl DataStore for ClientDataStore {
             .get_account(account_id)
             .await?
             .ok_or(DataStoreError::AccountNotFound(account_id))?;
-        let seed = account_record.seed().cloned();
+        let seed = account_record.seed().copied();
         let account: Account = account_record.into();
 
         // Get header data
@@ -109,8 +109,8 @@ impl DataStore for ClientDataStore {
             .store
             .get_block_headers(&block_nums)
             .await?
-            .iter()
-            .map(|(header, _has_notes)| *header)
+            .into_iter()
+            .map(|(header, _has_notes)| header)
             .collect();
 
         let partial_mmr =
@@ -127,7 +127,7 @@ impl DataStore for ClientDataStore {
     }
 }
 
-/// Builds a [PartialMmr] with a specified forest number and a list of blocks that should be
+/// Builds a [`PartialMmr`] with a specified forest number and a list of blocks that should be
 /// authenticated.
 ///
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
@@ -144,15 +144,16 @@ async fn build_partial_mmr_with_paths(
         PartialMmr::from_peaks(current_peaks)
     };
 
-    let block_nums: Vec<BlockNumber> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
+    let block_nums: Vec<BlockNumber> =
+        authenticated_blocks.iter().map(BlockHeader::block_num).collect();
 
     let authentication_paths =
         get_authentication_path_for_blocks(store, &block_nums, partial_mmr.forest()).await?;
 
     for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
         partial_mmr
-            .track(header.block_num().as_usize(), header.hash(), path)
-            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {}", err)))?;
+            .track(header.block_num().as_usize(), header.commitment(), path)
+            .map_err(|err| DataStoreError::other(format!("error constructing MMR: {err}")))?;
     }
 
     Ok(partial_mmr)

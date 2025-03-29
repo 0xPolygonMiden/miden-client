@@ -5,6 +5,7 @@ import { spawn } from "child_process";
 
 import { register } from "ts-node";
 import { env } from "process";
+import { clearStore } from "./webClientTestUtils.js";
 
 chai.use(chaiAsPromised);
 
@@ -57,7 +58,7 @@ before(async () => {
 
   // Creates the client in the test context and attach to window object
   await testingPage.evaluate(
-    async (rpc_port, remote_prover_port) => {
+    async (rpcPort, remoteProverPort) => {
       const {
         Account,
         AccountHeader,
@@ -98,13 +99,12 @@ before(async () => {
         Word,
         WebClient,
       } = await import("./index.js");
-
-      let rpc_url = `http://localhost:${rpc_port}`;
-      let prover_url = null;
-      if (remote_prover_port) {
-        prover_url = `http://localhost:${remote_prover_port}`;
+      let rpcUrl = `http://localhost:${rpcPort}`;
+      let proverUrl = null;
+      if (remoteProverPort) {
+        proverUrl = `http://localhost:${remoteProverPort}`;
       }
-      const client = await WebClient.create_client(rpc_url);
+      const client = await WebClient.createClient(rpcUrl);
 
       window.client = client;
       window.Account = Account;
@@ -150,7 +150,12 @@ before(async () => {
       window.helpers = window.helpers || {};
 
       // Add the remote prover url to window
-      window.remote_prover_url = prover_url;
+      window.remoteProverUrl = proverUrl;
+      if (window.remoteProverUrl) {
+        window.remoteProverInstance = window.TransactionProver.newRemoteProver(
+          window.remoteProverUrl
+        );
+      }
 
       window.helpers.waitForTransaction = async (
         transactionId,
@@ -163,12 +168,12 @@ before(async () => {
           if (timeWaited >= maxWaitTime) {
             throw new Error("Timeout waiting for transaction");
           }
-          await client.sync_state();
-          const uncomittedTransactions = await client.get_transactions(
+          await client.syncState();
+          const uncomittedTransactions = await client.getTransactions(
             window.TransactionFilter.uncomitted()
           );
           let uncomittedTransactionIds = uncomittedTransactions.map(
-            (transaction) => transaction.id().to_hex()
+            (transaction) => transaction.id().toHex()
           );
           if (!uncomittedTransactionIds.includes(transactionId)) {
             break;
@@ -179,7 +184,7 @@ before(async () => {
       };
 
       window.helpers.refreshClient = async (initSeed) => {
-        const client = await WebClient.create_client(rpc_url, initSeed);
+        const client = await WebClient.createClient(rpcUrl, initSeed);
         window.client = client;
       };
     },
@@ -189,14 +194,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
-  await testingPage.evaluate(async () => {
-    // Open a connection to the list of databases
-    const databases = await indexedDB.databases();
-    for (const db of databases) {
-      // Delete each database by name
-      indexedDB.deleteDatabase(db.name);
-    }
-  });
+  await clearStore();
 });
 
 after(async () => {

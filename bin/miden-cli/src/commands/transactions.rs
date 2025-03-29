@@ -1,11 +1,9 @@
-use miden_client::{
-    crypto::FeltRng, store::TransactionFilter, transaction::TransactionRecord, Client,
-};
+use miden_client::{Client, store::TransactionFilter, transaction::TransactionRecord};
 
-use crate::{create_dynamic_table, errors::CliError, Parser};
+use crate::{Parser, create_dynamic_table, errors::CliError};
 
 #[derive(Default, Debug, Parser, Clone)]
-#[clap(about = "Manage and view transactions. Defaults to `list` command.")]
+#[clap(about = "Manage and view transactions. Defaults to `list` command")]
 pub struct TransactionCmd {
     /// List currently tracked transactions.
     #[clap(short, long, group = "action")]
@@ -13,7 +11,7 @@ pub struct TransactionCmd {
 }
 
 impl TransactionCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         list_transactions(client).await?;
         Ok(())
     }
@@ -21,7 +19,7 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-async fn list_transactions(client: Client<impl FeltRng>) -> Result<(), CliError> {
+async fn list_transactions(client: Client) -> Result<(), CliError> {
     let transactions = client.get_transactions(TransactionFilter::All).await?;
     print_transactions_summary(&transactions);
     Ok(())
@@ -37,7 +35,7 @@ where
         "ID",
         "Status",
         "Account ID",
-        "Script Hash",
+        "Script Root",
         "Input Notes Count",
         "Output Notes Count",
     ]);
@@ -47,10 +45,7 @@ where
             tx.id.to_string(),
             tx.transaction_status.to_string(),
             tx.account_id.to_string(),
-            tx.transaction_script
-                .as_ref()
-                .map(|x| x.hash().to_string())
-                .unwrap_or("-".to_string()),
+            tx.transaction_script.as_ref().map_or("-".to_string(), |x| x.root().to_string()),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),
         ]);

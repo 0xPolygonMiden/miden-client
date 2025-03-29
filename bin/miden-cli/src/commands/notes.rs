@@ -1,21 +1,21 @@
 use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
 use miden_client::{
+    Client, ClientError, IdPrefixFetchError,
     account::AccountId,
     asset::Asset,
-    crypto::{Digest, FeltRng},
+    crypto::Digest,
     note::{
-        get_input_note_with_id_prefix,
+        NoteConsumability, NoteInputs, NoteMetadata, get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
-        NoteConsumability, NoteInputs, NoteMetadata,
     },
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
-    Client, ClientError, IdPrefixFetchError,
 };
+use miden_objects::PrettyPrint;
 
 use crate::{
-    create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
-    utils::load_faucet_details_map, Parser,
+    Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
+    utils::load_faucet_details_map,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -52,6 +52,9 @@ pub struct NotesCmd {
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
+    /// When using --show, include the note code in the output.
+    #[clap(long, requires = "show")]
+    with_code: bool,
     /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
     /// consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
@@ -59,10 +62,10 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
-                list_consumable_notes(client, &None).await?;
+                list_consumable_notes(client, None).await?;
             },
             NotesCmd { list: Some(filter), .. } => {
                 list_notes(
@@ -72,7 +75,7 @@ impl NotesCmd {
                 .await?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned()).await?;
+                show_note(client, id.to_owned(), self.with_code).await?;
             },
             _ => {
                 list_notes(client, ClientNoteFilter::All).await?;
@@ -84,8 +87,8 @@ impl NotesCmd {
 
 struct CliNoteSummary {
     id: String,
-    script_hash: String,
-    assets_hash: String,
+    script_root: String,
+    assets_commitment: String,
     inputs_commitment: String,
     serial_num: String,
     note_type: String,
@@ -97,30 +100,30 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-async fn list_notes(
-    client: Client<impl FeltRng>,
-    filter: ClientNoteFilter,
-) -> Result<(), CliError> {
+async fn list_notes(client: Client, filter: ClientNoteFilter) -> Result<(), CliError> {
     let input_notes = client
         .get_input_notes(filter.clone())
         .await?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
-        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
+        .collect::<Vec<CliNoteSummary>>();
     let output_notes = client
         .get_output_notes(filter.clone())
         .await?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
-        .collect::<Result<Vec<CliNoteSummary>, CliError>>()?;
+        .collect::<Vec<CliNoteSummary>>();
 
-    print_notes_summary(input_notes, "Input Notes")?;
-    print_notes_summary(output_notes, "Output Notes")
+    print_notes_summary(input_notes, "Input Notes");
+    print_notes_summary(output_notes, "Output Notes");
+
+    Ok(())
 }
 
 // SHOW NOTE
 // ================================================================================================
-async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), CliError> {
+#[allow(clippy::too_many_lines)]
+async fn show_note(client: Client, note_id: String, with_code: bool) -> Result<(), CliError> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
@@ -162,8 +165,8 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 
     let CliNoteSummary {
         id,
-        mut script_hash,
-        assets_hash,
+        mut script_root,
+        assets_commitment,
         inputs_commitment,
         serial_num,
         note_type,
@@ -171,18 +174,18 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         tag,
         sender,
         exportable,
-    } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
+    } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
-    match script_hash.clone().as_str() {
-        P2ID => script_hash += " (P2ID)",
-        P2IDR => script_hash += " (P2IDR)",
-        SWAP => script_hash += " (SWAP)",
+    match script_root.clone().as_str() {
+        P2ID => script_root += " (P2ID)",
+        P2IDR => script_root += " (P2IDR)",
+        SWAP => script_root += " (SWAP)",
         _ => {},
-    };
+    }
 
-    table.add_row(vec![Cell::new("Script Hash"), Cell::new(script_hash)]);
-    table.add_row(vec![Cell::new("Assets Hash"), Cell::new(assets_hash)]);
-    table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
+    table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
+    table.add_row(vec![Cell::new("Assets Commitment"), Cell::new(assets_commitment)]);
+    table.add_row(vec![Cell::new("Inputs Commitment"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
     table.add_row(vec![Cell::new("State"), Cell::new(state)]);
@@ -206,8 +209,9 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     };
 
     let assets = input_note_record
+        .clone()
         .map(|record| record.assets().clone())
-        .or(output_note_record.map(|record| record.assets().clone()))
+        .or(output_note_record.clone().map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
 
     // print note vault
@@ -256,7 +260,24 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
         println!("{table}");
-    };
+    }
+
+    if with_code {
+        let mut table = create_dynamic_table(&["Note Code"]);
+        let code = match (&input_note_record, &output_note_record) {
+            (Some(record), _) => record.details().script().to_pretty_string(),
+            (_, Some(record)) => {
+                record.state().recipient().map_or("Code unavailable".to_string(), |recipient| {
+                    recipient.script().to_pretty_string()
+                })
+            },
+            (None, None) => {
+                panic!("One of the two records should be Some")
+            },
+        };
+        table.add_row(vec![Cell::new(code)]);
+        println!("{table}");
+    }
 
     Ok(())
 }
@@ -264,8 +285,8 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
 async fn list_consumable_notes(
-    client: Client<impl FeltRng>,
-    account_id: &Option<String>,
+    client: Client,
+    account_id: Option<&String>,
 ) -> Result<(), CliError> {
     let account_id = match account_id {
         Some(id) => Some(
@@ -275,13 +296,13 @@ async fn list_consumable_notes(
         None => None,
     };
     let notes = client.get_consumable_notes(account_id).await?;
-    print_consumable_notes_summary(&notes)?;
+    print_consumable_notes_summary(&notes);
     Ok(())
 }
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), CliError>
+fn print_notes_summary<I>(notes: I, header: &str)
 where
     I: IntoIterator<Item = CliNoteSummary>,
 {
@@ -291,15 +312,12 @@ where
         .set_content_arrangement(ContentArrangement::DynamicFullWidth);
     table.set_header(vec![Cell::new(header).add_attribute(Attribute::Bold)]);
     println!("\n{table}");
-
     for summary in notes {
         println!(" {} {}", summary.id, summary.state);
     }
-
-    Ok(())
 }
 
-fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), CliError>
+fn print_consumable_notes_summary<'a, I>(notes: I)
 where
     I: IntoIterator<Item = &'a (InputNoteRecord, Vec<NoteConsumability>)>,
 {
@@ -316,8 +334,6 @@ where
     }
 
     println!("{table}");
-
-    Ok(())
 }
 
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
@@ -336,25 +352,25 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
 fn note_summary(
     input_note_record: Option<&InputNoteRecord>,
     output_note_record: Option<&OutputNoteRecord>,
-) -> Result<CliNoteSummary, CliError> {
+) -> CliNoteSummary {
     let note_id = input_note_record
-        .map(|record| record.id())
-        .or(output_note_record.map(|record| record.id()))
+        .map(InputNoteRecord::id)
+        .or(output_note_record.map(OutputNoteRecord::id))
         .expect("One of the two records should be Some");
 
-    let assets_hash_str = input_note_record
+    let assets_commitment_str = input_note_record
         .map(|record| record.assets().commitment().to_string())
         .or(output_note_record.map(|record| record.assets().commitment().to_string()))
         .expect("One of the two records should be Some");
 
-    let (inputs_commitment_str, serial_num, script_hash_str) =
+    let (inputs_commitment_str, serial_num, script_root_str) =
         match (input_note_record, output_note_record) {
             (Some(record), _) => {
                 let details = record.details();
                 (
                     details.inputs().commitment().to_string(),
                     Digest::new(details.serial_num()).to_string(),
-                    details.script().hash().to_string(),
+                    details.script().root().to_string(),
                 )
             },
             (None, Some(record)) if record.recipient().is_some() => {
@@ -362,7 +378,7 @@ fn note_summary(
                 (
                     recipient.inputs().commitment().to_string(),
                     Digest::new(recipient.serial_num()).to_string(),
-                    recipient.script().hash().to_string(),
+                    recipient.script().root().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -371,8 +387,8 @@ fn note_summary(
 
     let note_type = note_record_type(
         input_note_record
-            .and_then(|record| record.metadata())
-            .or(output_note_record.map(|record| record.metadata())),
+            .and_then(InputNoteRecord::metadata)
+            .or(output_note_record.map(OutputNoteRecord::metadata)),
     );
 
     let state = input_note_record
@@ -385,18 +401,15 @@ fn note_summary(
         .or(output_note_record.map(|record| Some(record.metadata())))
         .expect("One of the two records should be Some");
 
-    let note_tag_str = note_metadata
-        .map(|metadata| metadata.tag().to_string())
-        .unwrap_or("-".to_string());
+    let note_tag_str = note_metadata.map_or("-".to_string(), |metadata| metadata.tag().to_string());
 
-    let note_sender_str = note_metadata
-        .map(|metadata| metadata.sender().to_string())
-        .unwrap_or("-".to_string());
+    let note_sender_str =
+        note_metadata.map_or("-".to_string(), |metadata| metadata.tag().to_string());
 
-    Ok(CliNoteSummary {
+    CliNoteSummary {
         id: note_id.inner().to_string(),
-        script_hash: script_hash_str,
-        assets_hash: assets_hash_str,
+        script_root: script_root_str,
+        assets_commitment: assets_commitment_str,
         inputs_commitment: inputs_commitment_str,
         serial_num,
         note_type,
@@ -404,5 +417,5 @@ fn note_summary(
         tag: note_tag_str,
         sender: note_sender_str,
         exportable: output_note_record.is_some(),
-    })
+    }
 }

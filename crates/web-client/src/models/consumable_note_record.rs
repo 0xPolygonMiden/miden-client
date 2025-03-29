@@ -32,10 +32,12 @@ impl NoteConsumability {
         NoteConsumability { account_id, consumable_after_block }
     }
 
+    #[wasm_bindgen(js_name = "accountId")]
     pub fn account_id(&self) -> AccountId {
         self.account_id
     }
 
+    #[wasm_bindgen(js_name = "consumableAfterBlock")]
     pub fn consumable_after_block(&self) -> Option<u32> {
         self.consumable_after_block
     }
@@ -51,10 +53,12 @@ impl ConsumableNoteRecord {
         ConsumableNoteRecord { input_note_record, note_consumability }
     }
 
+    #[wasm_bindgen(js_name = "inputNoteRecord")]
     pub fn input_note_record(&self) -> InputNoteRecord {
         self.input_note_record.clone()
     }
 
+    #[wasm_bindgen(js_name = "noteConsumability")]
     pub fn note_consumability(&self) -> Vec<NoteConsumability> {
         self.note_consumability.clone()
     }
@@ -71,7 +75,7 @@ impl From<(NativeInputNoteRecord, Vec<NativeNoteConsumability>)> for ConsumableN
     ) -> Self {
         ConsumableNoteRecord::new(
             input_note_record.into(),
-            note_consumability.into_iter().map(|c| c.into()).collect(),
+            note_consumability.into_iter().map(Into::into).collect(),
         )
     }
 }

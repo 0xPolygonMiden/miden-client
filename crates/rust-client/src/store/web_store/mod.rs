@@ -2,7 +2,7 @@
 //!
 //! This module enables persistence of client data (accounts, transactions, notes, block headers,
 //! etc.) when running in a browser. It uses wasm-bindgen to interface with JavaScript and
-//! IndexedDB, allowing the Miden client to store and retrieve data asynchronously.
+//! `IndexedDB`, allowing the Miden client to store and retrieve data asynchronously.
 //!
 //! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
 //! feature enabled.
@@ -10,21 +10,23 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
-    account::{Account, AccountCode, AccountHeader, AccountId, AuthSecretKey},
+    Digest, Word,
+    account::{Account, AccountCode, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
-    Digest, Word,
+    transaction::TransactionId,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
+use wasm_bindgen_futures::{JsFuture, js_sys, wasm_bindgen};
 
 use super::{
     AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
     OutputNoteRecord, Store, StoreError, TransactionFilter,
 };
 use crate::{
+    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -34,6 +36,8 @@ compile_error!("The `idxdb` feature is only supported when targeting wasm32.");
 
 pub mod account;
 pub mod chain_data;
+pub mod export;
+pub mod import;
 pub mod note;
 pub mod sync;
 pub mod transaction;
@@ -48,8 +52,8 @@ extern "C" {
 pub struct WebStore {}
 
 impl WebStore {
-    pub async fn new() -> Result<WebStore, ()> {
-        let _ = JsFuture::from(setup_indexed_db()).await;
+    pub async fn new() -> Result<WebStore, JsValue> {
+        JsFuture::from(setup_indexed_db()).await?;
         Ok(WebStore {})
     }
 }
@@ -58,7 +62,7 @@ impl WebStore {
 impl Store for WebStore {
     fn get_current_timestamp(&self) -> Option<u64> {
         let now = chrono::Utc::now();
-        Some(now.timestamp() as u64)
+        Some(u64::try_from(now.timestamp()).expect("timestamp is always after epoch"))
     }
 
     // SYNC
@@ -81,6 +85,14 @@ impl Store for WebStore {
 
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
         self.apply_state_sync(state_sync_update).await
+    }
+
+    async fn apply_nullifiers(
+        &self,
+        note_updates: NoteUpdates,
+        transactions_to_discard: Vec<TransactionId>,
+    ) -> Result<(), StoreError> {
+        self.apply_nullifiers(note_updates, transactions_to_discard).await
     }
 
     // TRANSACTIONS
@@ -122,7 +134,7 @@ impl Store for WebStore {
 
     async fn insert_block_header(
         &self,
-        block_header: BlockHeader,
+        block_header: &BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
@@ -168,9 +180,8 @@ impl Store for WebStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        self.insert_account(account, account_seed, auth_info).await
+        self.insert_account(account, account_seed).await
     }
 
     async fn update_account(&self, new_account_state: &Account) -> Result<(), StoreError> {
@@ -179,13 +190,6 @@ impl Store for WebStore {
 
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids().await
-    }
-
-    async fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth_by_pub_key(pub_key)
     }
 
     async fn get_account_headers(&self) -> Result<Vec<(AccountHeader, AccountStatus)>, StoreError> {
@@ -199,11 +203,11 @@ impl Store for WebStore {
         self.get_account_header(account_id).await
     }
 
-    async fn get_account_header_by_hash(
+    async fn get_account_header_by_commitment(
         &self,
-        account_hash: Digest,
+        account_commitment: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
-        self.get_account_header_by_hash(account_hash).await
+        self.get_account_header_by_commitment(account_commitment).await
     }
 
     async fn get_account(
@@ -211,13 +215,6 @@ impl Store for WebStore {
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, StoreError> {
         self.get_account(account_id).await
-    }
-
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<Option<AuthSecretKey>, StoreError> {
-        self.get_account_auth(account_id).await
     }
 
     async fn upsert_foreign_account_code(

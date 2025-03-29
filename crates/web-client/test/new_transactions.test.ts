@@ -5,36 +5,66 @@ import {
   mintTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
-import { TransactionProver } from "../dist";
 import { setupConsumedNote } from "./notes.test";
+import { Account, TransactionRecord } from "../dist/crates/miden_client_web";
 
 // NEW_MINT_TRANSACTION TESTS
 // =======================================================================================================
 
-describe("new_mint_transactions tests", () => {
-  it("new_mint_transaction completes successfully", async () => {
-    const { faucetId, accountId } = await setupWalletAndFaucet();
-    const result = await mintTransaction(accountId, faucetId);
+describe("mint transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "mint transaction completes successfully" },
+    {
+      flag: true,
+      description: "mint transaction with remote prover completes successfully",
+    },
+  ];
 
-    expect(result.transactionId).to.not.be.empty;
-    expect(result.numOutputNotesCreated).to.equal(1);
-    expect(result.nonce).to.equal("1");
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const { faucetId, accountId } = await setupWalletAndFaucet();
+      const result = await mintTransaction(accountId, faucetId, flag);
+
+      expect(result.transactionId).to.not.be.empty;
+      expect(result.numOutputNotesCreated).to.equal(1);
+      expect(result.nonce).to.equal("1");
+    });
   });
 });
 
 // NEW_CONSUME_TRANSACTION TESTS
 // =======================================================================================================
 
-describe("new_consume_transaction tests", () => {
-  it("new_consume_transaction completes successfully", async () => {
-    const { faucetId, accountId } = await setupWalletAndFaucet();
-    const { createdNoteId } = await mintTransaction(accountId, faucetId);
-    const result = await consumeTransaction(accountId, faucetId, createdNoteId);
+describe("consume transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "consume transaction completes successfully" },
+    {
+      flag: true,
+      description:
+        "consume transaction with remote prover completes successfully",
+    },
+  ];
 
-    expect(result.transactionId).to.not.be.empty;
-    expect(result.nonce).to.equal("1");
-    expect(result.numConsumedNotes).to.equal(1);
-    expect(result.targetAccountBalanace).to.equal("1000");
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const { faucetId, accountId } = await setupWalletAndFaucet();
+      const { createdNoteId } = await mintTransaction(
+        accountId,
+        faucetId,
+        flag
+      );
+      const result = await consumeTransaction(
+        accountId,
+        faucetId,
+        createdNoteId,
+        flag
+      );
+
+      expect(result.transactionId).to.not.be.empty;
+      expect(result.nonce).to.equal("1");
+      expect(result.numConsumedNotes).to.equal(1);
+      expect(result.targetAccountBalanace).to.equal("1000");
+    });
   });
 });
 
@@ -46,96 +76,148 @@ interface SendTransactionResult {
   changedTargetBalance: string;
 }
 
-export const sendTransaction = async (): Promise<SendTransactionResult> => {
-  return await testingPage.evaluate(async () => {
+export const sendTransaction = async (
+  withRemoteProver: boolean
+): Promise<SendTransactionResult> => {
+  return await testingPage.evaluate(async (_withRemoteProver: boolean) => {
     const client = window.client;
 
-    const senderAccount = await client.new_wallet(
+    const senderAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
-    const targetAccount = await client.new_wallet(
+    const targetAccount = await client.newWallet(
       window.AccountStorageMode.private(),
       true
     );
-    const faucetAccount = await client.new_faucet(
+    const faucetAccount = await client.newFaucet(
       window.AccountStorageMode.private(),
       false,
       "DAG",
       8,
       BigInt(10000000)
     );
-    await client.sync_state();
+    await client.syncState();
 
-    await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
-    let mint_transaction_result = await client.new_mint_transaction(
+    let mintTransactionRequest = client.newMintTransactionRequest(
       senderAccount.id(),
       faucetAccount.id(),
       window.NoteType.private(),
       BigInt(1000)
     );
-    let created_notes = mint_transaction_result.created_notes().notes();
-    let created_note_ids = created_notes.map((note) => note.id().to_string());
+    let mintTransactionResult = await client.newTransaction(
+      faucetAccount.id(),
+      mintTransactionRequest
+    );
+    if (_withRemoteProver && window.remoteProverUrl != null) {
+      await client.submitTransaction(
+        mintTransactionResult,
+        window.remoteProverInstance
+      );
+    } else {
+      await client.submitTransaction(mintTransactionResult);
+    }
+    let createdNotes = mintTransactionResult.createdNotes().notes();
+    let createdNoteIds = createdNotes.map((note) => note.id().toString());
     await window.helpers.waitForTransaction(
-      mint_transaction_result.executed_transaction().id().to_hex()
+      mintTransactionResult.executedTransaction().id().toHex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
-    const senderConsumeTransactionResult = await client.new_consume_transaction(
+    const senderConsumeTransactionRequest =
+      client.newConsumeTransactionRequest(createdNoteIds);
+    let senderConsumeTransactionResult = await client.newTransaction(
       senderAccount.id(),
-      created_note_ids
+      senderConsumeTransactionRequest
     );
+    if (_withRemoteProver && window.remoteProverUrl != null) {
+      await client.submitTransaction(
+        senderConsumeTransactionResult,
+        window.remoteProverInstance
+      );
+    } else {
+      await client.submitTransaction(senderConsumeTransactionResult);
+    }
     await window.helpers.waitForTransaction(
-      senderConsumeTransactionResult.executed_transaction().id().to_hex()
+      senderConsumeTransactionResult.executedTransaction().id().toHex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
-    let send_transaction_result = await client.new_send_transaction(
+    let sendTransactionRequest = client.newSendTransactionRequest(
       senderAccount.id(),
       targetAccount.id(),
       faucetAccount.id(),
       window.NoteType.private(),
       BigInt(100)
     );
-    let send_created_notes = send_transaction_result.created_notes().notes();
-    let send_created_note_ids = send_created_notes.map((note) =>
-      note.id().to_string()
+    let sendTransactionResult = await client.newTransaction(
+      senderAccount.id(),
+      sendTransactionRequest
+    );
+    if (_withRemoteProver && window.remoteProverUrl != null) {
+      await client.submitTransaction(
+        sendTransactionResult,
+        window.remoteProverInstance
+      );
+    } else {
+      await client.submitTransaction(sendTransactionResult);
+    }
+    let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
+    let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
+      note.id().toString()
     );
     await window.helpers.waitForTransaction(
-      send_transaction_result.executed_transaction().id().to_hex()
+      sendTransactionResult.executedTransaction().id().toHex()
     );
 
-    await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
-    const targetConsumeTransactionResult = await client.new_consume_transaction(
+    const targetConsumeTransactionRequest =
+      client.newConsumeTransactionRequest(sendCreatedNoteIds);
+    let targetConsumeTransactionResult = await client.newTransaction(
       targetAccount.id(),
-      send_created_note_ids
+      targetConsumeTransactionRequest
     );
+    if (_withRemoteProver && window.remoteProverUrl != null) {
+      await client.submitTransaction(
+        targetConsumeTransactionResult,
+        window.remoteProverInstance
+      );
+    } else {
+      await client.submitTransaction(targetConsumeTransactionResult);
+    }
     await window.helpers.waitForTransaction(
-      targetConsumeTransactionResult.executed_transaction().id().to_hex()
+      targetConsumeTransactionResult.executedTransaction().id().toHex()
     );
 
-    const changedSenderAccount = await client.get_account(senderAccount.id());
-    const changedTargetAccount = await client.get_account(targetAccount.id());
+    const changedSenderAccount = await client.getAccount(senderAccount.id());
+    const changedTargetAccount = await client.getAccount(targetAccount.id());
 
     return {
       senderAccountBalance: changedSenderAccount
         .vault()
-        .get_balance(faucetAccount.id())
+        .getBalance(faucetAccount.id())
         .toString(),
       changedTargetBalance: changedTargetAccount
         .vault()
-        .get_balance(faucetAccount.id())
+        .getBalance(faucetAccount.id())
         .toString(),
     };
-  });
+  }, withRemoteProver);
 };
 
-describe("new_send_transaction tests", () => {
-  it("new_send_transaction completes successfully", async () => {
-    const result = await sendTransaction();
+describe("send transaction tests", () => {
+  const testCases = [
+    { flag: false, description: "send transaction completes successfully" },
+    {
+      flag: true,
+      description: "send transaction with remote prover completes successfully",
+    },
+  ];
 
-    expect(result.senderAccountBalance).to.equal("900");
-    expect(result.changedTargetBalance).to.equal("100");
+  testCases.forEach(({ flag, description }) => {
+    it(description, async () => {
+      const result = await sendTransaction(flag);
+
+      expect(result.senderAccountBalance).to.equal("900");
+      expect(result.changedTargetBalance).to.equal("100");
+    });
   });
 });
 
@@ -143,25 +225,25 @@ describe("new_send_transaction tests", () => {
 // =======================================================================================================
 
 export const customTransaction = async (
-  asserted_value: string,
-  with_custom_prover: boolean
+  assertedValue: string,
+  withRemoteProver: boolean
 ): Promise<void> => {
   return await testingPage.evaluate(
-    async (_asserted_value: string, _with_custom_prover: boolean) => {
+    async (_assertedValue: string, _withRemoteProver: boolean) => {
       const client = window.client;
 
-      const walletAccount = await client.new_wallet(
+      const walletAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         false
       );
-      const faucetAccount = await client.new_faucet(
+      const faucetAccount = await client.newFaucet(
         window.AccountStorageMode.private(),
         false,
         "DAG",
         8,
         BigInt(10000000)
       );
-      await client.sync_state();
+      await client.syncState();
 
       // Creating Custom Note which needs the following:
       // - Note Assets
@@ -189,20 +271,20 @@ export const customTransaction = async (
       let noteMetadata = new window.NoteMetadata(
         faucetAccount.id(),
         window.NoteType.private(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           walletAccount.id(),
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
       );
 
-      let expectedNoteArgs = noteArgs.map((felt) => felt.as_int());
+      let expectedNoteArgs = noteArgs.map((felt) => felt.asInt());
       let memAddress = "1000";
       let memAddress2 = "1004";
       let expectedNoteArg1 = expectedNoteArgs.slice(0, 4).join(".");
       let expectedNoteArg2 = expectedNoteArgs.slice(4, 8).join(".");
-      let note_script = `
+      let noteScript = `
             # Custom P2ID note script
             #
             # This note script asserts that the note args are exactly the same as passed 
@@ -324,7 +406,7 @@ export const customTransaction = async (
             end
         `;
 
-      let compiledNoteScript = await client.compile_note_script(note_script);
+      let compiledNoteScript = await client.compileNoteScript(noteScript);
       let noteInputs = new window.NoteInputs(
         new window.FeltArray([
           walletAccount.id().prefix(),
@@ -332,7 +414,7 @@ export const customTransaction = async (
         ])
       );
 
-      const serialNum = window.Word.new_from_u64s(
+      const serialNum = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
       let noteRecipient = new window.NoteRecipient(
@@ -344,42 +426,41 @@ export const customTransaction = async (
       let note = new window.Note(noteAssets, noteMetadata, noteRecipient);
 
       // Creating First Custom Transaction Request to Mint the Custom Note
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([window.OutputNote.full(note)])
         )
         .build();
 
       // Execute and Submit Transaction
-      await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
-      let transaction_result = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         faucetAccount.id(),
-        transaction_request
+        transactionRequest
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction(
-          transaction_result,
-          await selectProver()
+      if (_withRemoteProver && window.remoteProverUrl != null) {
+        await client.submitTransaction(
+          transactionResult,
+          window.remoteProverInstance
         );
       } else {
-        await client.submit_transaction(transaction_result);
+        await client.submitTransaction(transactionResult);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
 
       // Just like in the miden test, you can modify this script to get the execution to fail
       // by modifying the assert
-      let tx_script = `
+      let txScript = `
             use.miden::contracts::auth::basic->auth_tx
             use.miden::kernels::tx::prologue
             use.miden::kernels::tx::memory
 
             begin
-                push.0 push.${_asserted_value}
-                # => [0, ${_asserted_value}]
+                push.0 push.${_assertedValue}
+                # => [0, ${_assertedValue}]
                 assert_eq
 
                 call.auth_tx::auth_tx_rpo_falcon512
@@ -388,58 +469,45 @@ export const customTransaction = async (
 
       // Creating Second Custom Transaction Request to Consume Custom Note
       // with Invalid/Valid Transaction Script
-      let account_auth = await client.get_account_auth(walletAccount.id());
-      let public_key = account_auth.get_rpo_falcon_512_public_key_as_word();
-      let secret_key = account_auth.get_rpo_falcon_512_secret_key_as_felts();
-      let transcription_script_input_pair_array =
-        new window.TransactionScriptInputPairArray([
-          new window.TransactionScriptInputPair(public_key, secret_key),
-        ]);
-      let transaction_script = await client.compile_tx_script(
-        tx_script,
-        transcription_script_input_pair_array
+      let transactionScript = await client.compileTxScript(txScript);
+      let noteId = note.id();
+      let noteArgsCommitment = window.Rpo256.hashElements(feltArray); // gets consumed by NoteIdAndArgs
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        noteId,
+        noteArgsCommitment.toWord()
       );
-      let note_id = note.id();
-      let note_args_commitment = window.Rpo256.hash_elements(feltArray); // gets consumed by NoteIdAndArgs
-      let note_id_and_args = new window.NoteIdAndArgs(
-        note_id,
-        note_args_commitment.to_word()
-      );
-      let note_id_and_args_array = new window.NoteIdAndArgsArray([
-        note_id_and_args,
-      ]);
-      let advice_map = new window.AdviceMap();
-      let note_args_commitment_2 = window.Rpo256.hash_elements(feltArray);
-      advice_map.insert(note_args_commitment_2, feltArray);
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      let adviceMap = new window.AdviceMap();
+      let noteArgsCommitment2 = window.Rpo256.hashElements(feltArray);
+      adviceMap.insert(noteArgsCommitment2, feltArray);
 
-      let transaction_request_2 = new window.TransactionRequestBuilder()
-        .with_authenticated_input_notes(note_id_and_args_array)
-        .with_custom_script(transaction_script)
-        .extend_advice_map(advice_map)
+      let transactionRequest2 = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .withCustomScript(transactionScript)
+        .extendAdviceMap(adviceMap)
         .build();
 
       // Execute and Submit Transaction
-      await client.fetch_and_cache_account_auth_by_pub_key(walletAccount.id());
-      let transaction_result_2 = await client.new_transaction(
+      let transactionResult2 = await client.newTransaction(
         walletAccount.id(),
-        transaction_request_2
+        transactionRequest2
       );
 
-      if (_with_custom_prover) {
-        await client.submit_transaction(
-          transaction_result_2,
-          await selectProver()
+      if (_withRemoteProver && window.remoteProverUrl != null) {
+        await client.submitTransaction(
+          transactionResult2,
+          window.remoteProverInstance
         );
       } else {
-        await client.submit_transaction(transaction_result_2);
+        await client.submitTransaction(transactionResult2);
       }
 
       await window.helpers.waitForTransaction(
-        transaction_result_2.executed_transaction().id().to_hex()
+        transactionResult2.executedTransaction().id().toHex()
       );
     },
-    asserted_value,
-    with_custom_prover
+    assertedValue,
+    withRemoteProver
   );
 };
 
@@ -452,41 +520,40 @@ const customTxWithMultipleNotes = async (
     async (_isSerialNumSame, _senderAccountId, _faucetAccountId) => {
       const client = window.client;
       const amount = BigInt(10);
-      const targetAccount = await client.new_wallet(
+      const targetAccount = await client.newWallet(
         window.AccountStorageMode.private(),
         true
       );
       const targetAccountId = targetAccount.id();
-      const senderAccountId = window.AccountId.from_hex(_senderAccountId);
-      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+      const senderAccountId = window.AccountId.fromHex(_senderAccountId);
+      const faucetAccountId = window.AccountId.fromHex(_faucetAccountId);
 
       // Create custom note with multiple assets to send to target account
       // Error should happen if serial numbers are the same in each set of
       // note assets. Otherwise, the transaction should go through.
-      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
 
-      let noteAssets_1 = new window.NoteAssets([
+      let noteAssets1 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
-      let noteAssets_2 = new window.NoteAssets([
+      let noteAssets2 = new window.NoteAssets([
         new window.FungibleAsset(faucetAccountId, amount),
       ]);
 
       let noteMetadata = new window.NoteMetadata(
         senderAccountId,
         window.NoteType.public(),
-        window.NoteTag.from_account_id(
+        window.NoteTag.fromAccountId(
           targetAccountId,
-          window.NoteExecutionMode.new_local()
+          window.NoteExecutionMode.newLocal()
         ),
         window.NoteExecutionHint.none(),
         undefined
       );
 
-      let serialNum1 = window.Word.new_from_u64s(
+      let serialNum1 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(1), BigInt(2), BigInt(3), BigInt(4)])
       );
-      let serialNum2 = window.Word.new_from_u64s(
+      let serialNum2 = window.Word.newFromU64s(
         new BigUint64Array([BigInt(5), BigInt(6), BigInt(7), BigInt(8)])
       );
 
@@ -510,11 +577,11 @@ const customTxWithMultipleNotes = async (
         noteInputs
       );
 
-      let note1 = new window.Note(noteAssets_1, noteMetadata, noteRecipient1);
-      let note2 = new window.Note(noteAssets_2, noteMetadata, noteRecipient2);
+      let note1 = new window.Note(noteAssets1, noteMetadata, noteRecipient1);
+      let note2 = new window.Note(noteAssets2, noteMetadata, noteRecipient2);
 
-      let transaction_request = new window.TransactionRequestBuilder()
-        .with_own_output_notes(
+      let transactionRequest = new window.TransactionRequestBuilder()
+        .withOwnOutputNotes(
           new window.OutputNotesArray([
             window.OutputNote.full(note1),
             window.OutputNote.full(note2),
@@ -522,15 +589,15 @@ const customTxWithMultipleNotes = async (
         )
         .build();
 
-      let transactionResult = await client.new_transaction(
+      let transactionResult = await client.newTransaction(
         senderAccountId,
-        transaction_request
+        transactionRequest
       );
 
-      await client.submit_transaction(transactionResult);
+      await client.submitTransaction(transactionResult);
 
       await window.helpers.waitForTransaction(
-        transactionResult.executed_transaction().id().to_hex()
+        transactionResult.executedTransaction().id().toHex()
       );
     },
     isSerialNumSame,
@@ -546,6 +613,10 @@ describe("custom transaction tests", () => {
 
   it("custom transaction fails", async () => {
     await expect(customTransaction("1", false)).to.be.rejected;
+  });
+
+  it("custom transaction with remote prover completes successfully", async () => {
+    await expect(customTransaction("0", true)).to.be.fulfilled;
   });
 });
 
@@ -575,20 +646,182 @@ describe("custom transaction with multiple output notes", () => {
   });
 });
 
-// CUSTOM PROVERS TEST
+// DISCARDED TRANSACTIONS TESTS
 // ================================================================================================
 
-export const selectProver = async (): Promise<TransactionProver> => {
-  if (window.remote_prover_url != null) {
-    return window.TransactionProver.new_remote_prover(window.remote_prover_url);
-  } else {
-    return window.TransactionProver.new_local_prover();
-  }
-};
+interface DiscardedTransactionResult {
+  discardedTransactions: TransactionRecord[];
+  commitmentBeforeTx: string;
+  commitmentAfterTx: string;
+  commitmentAfterDiscardedTx: string;
+}
 
-describe("use custom transaction prover per request", () => {
-  it("custom transaction prover completes successfully"),
-    async () => {
-      await expect(customTransaction("0", true)).to.be.fulfilled;
-    };
+export const discardedTransaction =
+  async (): Promise<DiscardedTransactionResult> => {
+    return await testingPage.evaluate(async () => {
+      const client = window.client;
+
+      const senderAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const targetAccount = await client.newWallet(
+        window.AccountStorageMode.private(),
+        true
+      );
+      const faucetAccount = await client.newFaucet(
+        window.AccountStorageMode.private(),
+        false,
+        "DAG",
+        8,
+        BigInt(10000000)
+      );
+      await client.syncState();
+
+      let mintTransactionRequest = client.newMintTransactionRequest(
+        senderAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(1000)
+      );
+      let mintTransactionResult = await client.newTransaction(
+        faucetAccount.id(),
+        mintTransactionRequest
+      );
+      await client.submitTransaction(mintTransactionResult);
+      let createdNotes = mintTransactionResult.createdNotes().notes();
+      let createdNoteIds = createdNotes.map((note) => note.id().toString());
+      await window.helpers.waitForTransaction(
+        mintTransactionResult.executedTransaction().id().toHex()
+      );
+
+      const senderConsumeTransactionRequest =
+        client.newConsumeTransactionRequest(createdNoteIds);
+      let senderConsumeTransactionResult = await client.newTransaction(
+        senderAccount.id(),
+        senderConsumeTransactionRequest
+      );
+      await client.submitTransaction(senderConsumeTransactionResult);
+      await window.helpers.waitForTransaction(
+        senderConsumeTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let sendTransactionRequest = client.newSendTransactionRequest(
+        senderAccount.id(),
+        targetAccount.id(),
+        faucetAccount.id(),
+        window.NoteType.private(),
+        BigInt(100),
+        1
+      );
+      let sendTransactionResult = await client.newTransaction(
+        senderAccount.id(),
+        sendTransactionRequest
+      );
+      await client.submitTransaction(sendTransactionResult);
+      let sendCreatedNotes = sendTransactionResult.createdNotes().notes();
+      let sendCreatedNoteIds = sendCreatedNotes.map((note) =>
+        note.id().toString()
+      );
+
+      await window.helpers.waitForTransaction(
+        sendTransactionResult.executedTransaction().id().toHex()
+      );
+
+      let noteIdAndArgs = new window.NoteIdAndArgs(
+        sendCreatedNotes[0].id(),
+        null
+      );
+      let noteIdAndArgsArray = new window.NoteIdAndArgsArray([noteIdAndArgs]);
+      const consumeTransactionRequest = new window.TransactionRequestBuilder()
+        .withAuthenticatedInputNotes(noteIdAndArgsArray)
+        .build();
+
+      let preConsumeStore = await client.exportStore();
+
+      // Sender retrieves the note
+      let senderTxRequest =
+        await client.newConsumeTransactionRequest(sendCreatedNoteIds);
+      let senderTxResult = await client.newTransaction(
+        senderAccount.id(),
+        senderTxRequest
+      );
+      await client.submitTransaction(senderTxResult);
+      await window.helpers.waitForTransaction(
+        senderTxResult.executedTransaction().id().toHex()
+      );
+
+      await client.forceImportStore(preConsumeStore);
+
+      // Get the account state before the transaction is applied
+      const accountStateBeforeTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateBeforeTx) {
+        throw new Error("Failed to get account state before transaction");
+      }
+
+      // Target tries consuming but the transaction will not be submitted
+      let targetTxResult = await client.newTransaction(
+        targetAccount.id(),
+        consumeTransactionRequest
+      );
+
+      await client.testingApplyTransaction(targetTxResult);
+      // Get the account state after the transaction is applied
+      const accountStateAfterTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterTx) {
+        throw new Error("Failed to get account state after transaction");
+      }
+
+      await client.syncState();
+
+      const allTransactions = await client.getTransactions(
+        window.TransactionFilter.all()
+      );
+
+      const discardedTransactions = allTransactions.filter((tx) =>
+        tx.transactionStatus().isDiscarded()
+      );
+
+      // Get the account state after the discarded transactions are applied
+      const accountStateAfterDiscardedTx = (await client.getAccount(
+        targetAccount.id()
+      )) as Account;
+      if (!accountStateAfterDiscardedTx) {
+        throw new Error(
+          "Failed to get account state after discarded transaction"
+        );
+      }
+
+      // Perform a `.commitment()` check on each account
+      const commitmentBeforeTx = accountStateBeforeTx.commitment().toHex();
+      const commitmentAfterTx = accountStateAfterTx.commitment().toHex();
+      const commitmentAfterDiscardedTx = accountStateAfterDiscardedTx
+        .commitment()
+        .toHex();
+
+      return {
+        discardedTransactions: discardedTransactions,
+        commitmentBeforeTx,
+        commitmentAfterTx,
+        commitmentAfterDiscardedTx,
+      };
+    });
+  };
+
+describe("discarded_transaction tests", () => {
+  it("transaction gets discarded", async () => {
+    const result = await discardedTransaction();
+
+    expect(result.discardedTransactions.length).to.equal(1);
+    expect(result.commitmentBeforeTx).to.equal(
+      result.commitmentAfterDiscardedTx
+    );
+    expect(result.commitmentAfterTx).to.not.equal(
+      result.commitmentAfterDiscardedTx
+    );
+  });
 });

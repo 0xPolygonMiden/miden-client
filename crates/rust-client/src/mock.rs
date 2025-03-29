@@ -8,45 +8,48 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    account::{AccountCode, AccountId},
+    Felt, Word,
+    account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
-    block::{Block, BlockHeader, BlockNumber},
+    block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
-        merkle::{Mmr, MmrProof},
+        merkle::{Mmr, MmrProof, SmtProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteTag},
+    note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
-        account_id::{ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_OFF_CHAIN_SENDER},
+        account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
-    Felt, Word,
 };
 use miden_tx::testing::MockChain;
-use rand::Rng;
+use rand::{Rng, rngs::StdRng};
 use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
+    Client,
+    keystore::FilesystemKeyStore,
     rpc::{
+        NodeRpcClient, RpcError,
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
+            nullifier::NullifierUpdate,
             sync::StateSyncInfo,
         },
         generated::{
+            merkle::MerklePath,
             note::NoteSyncRecord,
-            responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
+            responses::{SyncNoteResponse, SyncStateResponse},
         },
-        NodeRpcClient, RpcError,
     },
-    store::{sqlite_store::SqliteStore, StoreAuthenticator},
+    store::sqlite_store::SqliteStore,
     transaction::ForeignAccount,
-    Client,
 };
 
-pub type MockClient = Client<RpoRandomCoin>;
+pub type MockClient = Client;
 
 /// Mock RPC API
 ///
@@ -55,7 +58,7 @@ pub type MockClient = Client<RpoRandomCoin>;
 #[derive(Clone)]
 pub struct MockRpcApi {
     pub notes: BTreeMap<NoteId, InputNote>,
-    pub blocks: Vec<Block>,
+    pub blocks: Vec<ProvenBlock>,
     pub mock_chain: MockChain,
 }
 impl Default for MockRpcApi {
@@ -74,7 +77,7 @@ impl MockRpcApi {
         };
 
         let note_first = NoteBuilder::new(
-            ACCOUNT_ID_OFF_CHAIN_SENDER.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_SENDER.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([FungibleAsset::mock(20)])
@@ -82,7 +85,7 @@ impl MockRpcApi {
         .unwrap();
 
         let note_second = NoteBuilder::new(
-            ACCOUNT_ID_NON_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(),
+            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(),
             RpoRandomCoin::new(Word::default()),
         )
         .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
@@ -112,13 +115,13 @@ impl MockRpcApi {
             self.mock_chain.add_nullifier(nullifier);
         }
 
-        let block = self.mock_chain.seal_block(None);
+        let block = self.mock_chain.seal_block(None, None);
         self.blocks.push(block);
     }
 
     /// Returns the current MMR of the blockchain.
     pub fn get_mmr(&self) -> Mmr {
-        self.blocks.iter().map(Block::hash).into()
+        self.blocks.iter().map(ProvenBlock::commitment).into()
     }
 
     /// Retrieves the note at the specified position.
@@ -132,7 +135,7 @@ impl MockRpcApi {
     }
 
     /// Retrieves a block by its block number.
-    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&Block> {
+    fn get_block_by_num(&self, block_num: BlockNumber) -> Option<&ProvenBlock> {
         self.blocks.get(block_num.as_usize())
     }
 
@@ -142,15 +145,14 @@ impl MockRpcApi {
         let next_block_num = self
             .notes
             .values()
-            .filter_map(|n| n.location().map(|loc| loc.block_num()))
+            .filter_map(|n| n.location().map(NoteLocation::block_num))
             .filter(|&n| n > request_block_num)
             .min()
             .unwrap_or_else(|| self.get_chain_tip_block_num());
 
         // Retrieve the next block
-        let next_block = match self.get_block_by_num(next_block_num) {
-            Some(block) => block,
-            None => return SyncStateResponse::default(), // Return default if block not found
+        let Some(next_block) = self.get_block_by_num(next_block_num) else {
+            return SyncStateResponse::default();
         };
 
         // Prepare the MMR delta
@@ -163,16 +165,6 @@ impl MockRpcApi {
         // Collect notes that are in the next block
         let notes = self.get_notes_in_block(next_block_num).collect();
 
-        // Collect nullifiers from the next block
-        let nullifiers = next_block
-            .nullifiers()
-            .iter()
-            .map(|n| NullifierUpdate {
-                nullifier: Some(n.inner().into()),
-                block_num: next_block_num.as_u32(),
-            })
-            .collect();
-
         SyncStateResponse {
             chain_tip: self.get_chain_tip_block_num().as_u32(),
             block_header: Some(next_block.header().into()),
@@ -180,7 +172,6 @@ impl MockRpcApi {
             accounts: vec![],
             transactions: vec![],
             notes,
-            nullifiers,
         }
     }
 
@@ -190,7 +181,7 @@ impl MockRpcApi {
         block_num: BlockNumber,
     ) -> impl Iterator<Item = NoteSyncRecord> + '_ {
         self.notes.values().filter_map(move |note| {
-            if note.location().map_or(false, |loc| loc.block_num() == block_num) {
+            if note.location().is_some_and(|loc| loc.block_num() == block_num) {
                 let proof = note.proof()?;
                 Some(NoteSyncRecord {
                     note_index: 0,
@@ -208,15 +199,15 @@ use alloc::boxed::Box;
 #[async_trait(?Send)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
-        &mut self,
+        &self,
         _block_num: BlockNumber,
         _note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
         let response = SyncNoteResponse {
-            chain_tip: self.blocks.len() as u32,
+            chain_tip: u32::try_from(self.blocks.len()).expect("block number overflow"),
             notes: vec![],
             block_header: Some(self.blocks.last().unwrap().header().into()),
-            mmr_path: Some(Default::default()),
+            mmr_path: Some(MerklePath::default()),
         };
         let response = Response::new(response.clone());
         response.into_inner().try_into()
@@ -224,11 +215,10 @@ impl NodeRpcClient for MockRpcApi {
 
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
-        _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
         // Match request -> response through block_num
         let response = self.get_sync_state_request(block_num);
@@ -236,15 +226,20 @@ impl NodeRpcClient for MockRpcApi {
         Ok(response.try_into().unwrap())
     }
 
-    /// Creates and executes a [GetBlockHeaderByNumberRequest].
-    /// Only used for retrieving genesis block right now so that's the only case we need to cover.
+    /// Creates and executes a [GetBlockHeaderByNumberRequest]. Will retrieve the block header
+    /// for the specified block number. If the block number is not provided, the chain tip block
+    /// header will be returned.
     async fn get_block_header_by_number(
-        &mut self,
-        block_num: Option<BlockNumber>,
+        &self,
+        mut block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        if block_num.is_none() {
+            block_num = Some(self.get_chain_tip_block_num());
+        }
+
         if block_num == Some(0.into()) {
-            return Ok((self.blocks.first().unwrap().header(), None));
+            return Ok((self.blocks.first().unwrap().header().clone(), None));
         }
         let block = self
             .blocks
@@ -258,10 +253,10 @@ impl NodeRpcClient for MockRpcApi {
             None
         };
 
-        Ok((block.header(), mmr_proof))
+        Ok((block.header().clone(), mmr_proof))
     }
 
-    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
+    async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<NetworkNote>, RpcError> {
         // assume all private notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
@@ -276,23 +271,23 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn submit_proven_transaction(
-        &mut self,
+        &self,
         _proven_transaction: ProvenTransaction,
     ) -> std::result::Result<(), RpcError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
 
-    async fn get_account_update(
-        &mut self,
+    async fn get_account_details(
+        &self,
         _account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 
     async fn get_account_proofs(
-        &mut self,
-        _account_ids: &BTreeSet<ForeignAccount>,
+        &self,
+        _: &BTreeSet<ForeignAccount>,
         _code_commitments: Vec<AccountCode>,
     ) -> Result<AccountProofs, RpcError> {
         // TODO: Implement fully
@@ -300,32 +295,59 @@ impl NodeRpcClient for MockRpcApi {
     }
 
     async fn check_nullifiers_by_prefix(
-        &mut self,
+        &self,
         _prefix: &[u16],
-    ) -> Result<Vec<(miden_objects::note::Nullifier, u32)>, RpcError> {
+        _block_num: BlockNumber,
+    ) -> Result<Vec<NullifierUpdate>, RpcError> {
         // Always return an empty list for now since it's only used when importing
         Ok(vec![])
+    }
+
+    async fn check_nullifiers(&self, _nullifiers: &[Nullifier]) -> Result<Vec<SmtProof>, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_account_state_delta(
+        &self,
+        _account_id: AccountId,
+        _from_block: BlockNumber,
+        _to_block: BlockNumber,
+    ) -> Result<AccountDelta, RpcError> {
+        unimplemented!("shouldn't be used for now")
+    }
+
+    async fn get_block_by_number(&self, block_num: BlockNumber) -> Result<ProvenBlock, RpcError> {
+        let block = self
+            .blocks
+            .iter()
+            .find(|b| b.header().block_num() == block_num)
+            .unwrap()
+            .clone();
+
+        Ok(block)
     }
 }
 
 // HELPERS
 // ================================================================================================
 
-pub async fn create_test_client() -> (MockClient, MockRpcApi) {
+pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore<StdRng>) {
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
     let store = Arc::new(store);
 
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    let rpc_api = MockRpcApi::new();
-    let boxed_rpc_api = Box::new(rpc_api.clone());
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
-    (client, rpc_api)
+    let rpc_api = MockRpcApi::new();
+    let arc_rpc_api = Arc::new(rpc_api.clone());
+
+    let client =
+        MockClient::new(arc_rpc_api, Box::new(rng), store, Arc::new(keystore.clone()), true);
+    (client, rpc_api, keystore)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

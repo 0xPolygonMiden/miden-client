@@ -3,13 +3,17 @@ use alloc::{
     vec::Vec,
 };
 
+use miden_lib::account::interface::AccountInterfaceError;
 use miden_objects::{
-    account::AccountId, crypto::merkle::MerkleError, note::NoteId, AccountError, AssetError,
-    Digest, NoteError, TransactionScriptError,
+    AccountError, AssetError, Digest, NoteError, TransactionScriptError, account::AccountId,
+    crypto::merkle::MerkleError, note::NoteId,
 };
+// RE-EXPORTS
+// ================================================================================================
+pub use miden_tx::AuthenticationError;
 use miden_tx::{
-    utils::{DeserializationError, HexParseError},
     TransactionExecutorError, TransactionProverError,
+    utils::{DeserializationError, HexParseError},
 };
 use thiserror::Error;
 
@@ -17,7 +21,7 @@ use crate::{
     note::NoteScreenerError,
     rpc::RpcError,
     store::{NoteRecordError, StoreError},
-    transaction::{TransactionRequestError, TransactionScriptBuilderError},
+    transaction::TransactionRequestError,
 };
 
 // CLIENT ERROR
@@ -32,8 +36,10 @@ pub enum ClientError {
     AccountError(#[from] AccountError),
     #[error("account with id {0} is locked")]
     AccountLocked(AccountId),
-    #[error("network account hash {0} doesn't match the imported account hash")]
-    AccountHashMismatch(Digest),
+    #[error("network account commitment {0} doesn't match the imported account commitment")]
+    AccountCommitmentMismatch(Digest),
+    #[error("account with id {0} is private")]
+    AccountIsPrivate(AccountId),
     #[error("account nonce is too low to import")]
     AccountNonceTooLow,
     #[error("asset error")]
@@ -44,14 +50,12 @@ pub enum ClientError {
     DataDeserializationError(#[from] DeserializationError),
     #[error("note with id {0} not found on chain")]
     NoteNotFoundOnChain(NoteId),
-    #[error("error parsing hex: {0}")]
-    //TODO: use source in this error when possible
-    HexParseError(HexParseError),
+    #[error("error parsing hex")]
+    HexParseError(#[from] HexParseError),
     #[error("can't add new account without seed")]
     AddNewAccountWithoutSeed,
-    #[error("error with merkle path: {0}")]
-    //TODO: use source in this error when possible
-    MerkleError(MerkleError),
+    #[error("error with merkle path")]
+    MerkleError(#[from] MerkleError),
     #[error("the transaction didn't produce the expected notes corresponding to note ids")]
     MissingOutputNotes(Vec<NoteId>),
     #[error("note error")]
@@ -64,6 +68,8 @@ pub enum ClientError {
     NoConsumableNoteForAccount(AccountId),
     #[error("rpc api error")]
     RpcError(#[from] RpcError),
+    #[error("recency condition error")]
+    RecencyConditionError(String),
     #[error("note screener error")]
     NoteScreenerError(#[from] NoteScreenerError),
     #[error("store error")]
@@ -75,25 +81,15 @@ pub enum ClientError {
     #[error("transaction request error")]
     TransactionRequestError(#[from] TransactionRequestError),
     #[error("transaction script builder error")]
-    TransactionScriptBuilderError(#[from] TransactionScriptBuilderError),
+    AccountInterfaceError(#[from] AccountInterfaceError),
     #[error("transaction script error")]
     TransactionScriptError(#[source] TransactionScriptError),
+    #[error("client initialization error: {0}")]
+    ClientInitializationError(String),
 }
 
 // CONVERSIONS
 // ================================================================================================
-
-impl From<HexParseError> for ClientError {
-    fn from(err: HexParseError) -> Self {
-        Self::HexParseError(err)
-    }
-}
-
-impl From<MerkleError> for ClientError {
-    fn from(err: MerkleError) -> Self {
-        Self::MerkleError(err)
-    }
-}
 
 impl From<ClientError> for String {
     fn from(err: ClientError) -> String {
