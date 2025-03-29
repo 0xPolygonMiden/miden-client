@@ -1,9 +1,9 @@
 [package]
 name = "miden-cli"
-version = "0.8.0"
+version = "0.8.1"
 description = "CLI binary application that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-cli/0.8.0"
+documentation = "https://docs.rs/miden-cli/0.8.1"
 categories = ["command-line-utilities"]
 keywords = ["miden", "client", "cli"]
 license.workspace = true

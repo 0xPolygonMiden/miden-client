@@ -1343,7 +1343,7 @@ dependencies = [
 
 [[package]]
 name = "miden-cli"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "async-trait",
  "base64",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-tests"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "async-trait",
  "miden-client",
@@ -1419,7 +1419,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-web"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "miden-client",
  "miden-lib",
