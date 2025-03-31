@@ -123,7 +123,7 @@ impl Cli {
             store as Arc<dyn Store>,
             Arc::new(keystore.clone()),
             in_debug_mode,
-            Some(256),
+            cli_config.max_block_number_delta,
         );
 
         // Execute CLI command
