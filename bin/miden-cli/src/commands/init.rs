@@ -48,6 +48,10 @@ pub struct InitCmd {
     /// If the proving RPC isn't set, the proving mode will be set to local.
     #[clap(long)]
     remote_prover_endpoint: Option<String>,
+
+    /// Maximum number of blocks the client can be behind the network.
+    #[clap(long)]
+    block_delta: Option<u32>,
 }
 
 impl InitCmd {
@@ -80,6 +84,8 @@ impl InitCmd {
             Some(rpc) => CliEndpoint::try_from(rpc.as_str()).ok(),
             None => None,
         };
+
+        cli_config.max_block_number_delta = self.block_delta;
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config).map_err(|err| {
             CliError::Config("failed to serialize config".to_string().into(), err.to_string())

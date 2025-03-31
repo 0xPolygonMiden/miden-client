@@ -47,6 +47,9 @@ miden init --network https://18.203.155.106:1234
 # You can use the --store_path flag to override the default store config
 miden init --store_path db/store.sqlite3
 
+# You can use the --block-delta flag to set maximum number of blocks the client can be behind
+miden init --block-delta 250
+
 # You can provide both flags
 miden init --network 18.203.155.106 --store_path db/store.sqlite3
 ```

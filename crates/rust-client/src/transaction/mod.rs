@@ -91,7 +91,7 @@ use crate::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
     },
-    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
+    sync::NoteTagRecord,
 };
 
 mod request;
@@ -872,10 +872,13 @@ impl Client {
         let current_chain_tip =
             self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
 
-        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
-            return Err(ClientError::RecencyConditionError(
-                "The client is too far behind the chain tip to execute the transaction".to_string(),
-            ));
+        if let Some(max_block_number_delta) = self.max_block_number_delta {
+            if current_chain_tip > self.store.get_sync_height().await? + max_block_number_delta {
+                return Err(ClientError::RecencyConditionError(
+                    "The client is too far behind the chain tip to execute the transaction"
+                        .to_string(),
+                ));
+            }
         }
 
         let account: Account = self.try_get_account(account_id).await?.into();
