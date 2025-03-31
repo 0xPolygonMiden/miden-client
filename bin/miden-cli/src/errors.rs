@@ -7,6 +7,9 @@ use thiserror::Error;
 
 type SourceError = Box<dyn Error + Send + Sync>;
 
+// CLI ERROR
+// ================================================================================================
+
 #[derive(Debug, Diagnostic, Error)]
 pub enum CliError {
     #[error("account error: {1}")]
@@ -65,6 +68,9 @@ pub enum CliError {
     #[diagnostic(code(cli::transaction_error))]
     Transaction(#[source] SourceError, String),
 }
+
+// CONVERSIONS
+// ================================================================================================
 
 impl From<CliError> for String {
     fn from(err: CliError) -> String {

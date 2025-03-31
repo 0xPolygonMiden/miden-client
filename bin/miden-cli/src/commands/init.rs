@@ -30,7 +30,7 @@ const BASIC_AUTH_TEMPLATE_FILE: &[u8] =
 // ================================================================================================
 
 #[derive(Debug, Clone)]
-pub(crate) enum BlockDelta {
+pub enum BlockDelta {
     Delta(u32),
     //NOTE: I am not a huge fan of "Any" as a name.
     Any,
