@@ -72,6 +72,8 @@ impl ClientBuilder {
     /// Create a new `ClientBuilder` with default settings.
     #[must_use]
     pub fn new() -> Self {
+        std::dbg!("JAMON JAMON JAMON");
+        std::println!("JAMON JAMON JAMON");
         Self::default()
     }
 

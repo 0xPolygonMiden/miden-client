@@ -5,14 +5,15 @@ use std::{
     str::FromStr,
 };
 
+use crate::commands::init::BlockDelta::*;
 use clap::Parser;
 use miden_client::rpc::Endpoint;
 use tracing::info;
 
 use crate::{
-    CLIENT_CONFIG_FILE_NAME,
     config::{CliConfig, CliEndpoint},
     errors::CliError,
+    CLIENT_CONFIG_FILE_NAME,
 };
 
 /// Contains the account component template file generated on build.rs, corresponding to the
@@ -27,6 +28,30 @@ const BASIC_AUTH_TEMPLATE_FILE: &[u8] =
 
 // INIT COMMAND
 // ================================================================================================
+
+#[derive(Debug, Clone)]
+pub(crate) enum BlockDelta {
+    Delta(u32),
+    //NOTE: I am not a huge fan of "Any" as a name.
+    Any,
+}
+
+impl FromStr for BlockDelta {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "none" => Ok(BlockDelta::Any),
+            custom => Ok(BlockDelta::Delta(custom.parse().map_err(|_| {
+                CliError::InvalidArgument(
+                    "Could not parse number of max-blocks correctly
+Valid options are 'none' or any positive integer"
+                        .to_string(),
+                )
+            })?)),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Network {
@@ -67,6 +92,7 @@ impl Network {
 the CLI and client configurations, and will be placed by default in the current working \
 directory"
 )]
+
 pub struct InitCmd {
     /// Network configuration to use. Options are `devnet`, `testnet`, `localhost` or a custom RPC
     /// endpoint. Defaults to the testnet network.
@@ -83,6 +109,10 @@ pub struct InitCmd {
     /// If the proving RPC isn't set, the proving mode will be set to local.
     #[clap(long)]
     remote_prover_endpoint: Option<String>,
+
+    /// TODO: Document
+    #[clap(long)]
+    block_delta: Option<BlockDelta>,
 }
 
 impl InitCmd {
@@ -114,6 +144,17 @@ impl InitCmd {
         cli_config.remote_prover_endpoint = match &self.remote_prover_endpoint {
             Some(rpc) => CliEndpoint::try_from(rpc.as_str()).ok(),
             None => None,
+        };
+
+        if let Some(block_delta) = &self.block_delta {
+            cli_config.max_block_number_delta = match block_delta {
+                Delta(max) => Some(*max),
+                Any => None,
+            }
+        } else {
+            // If the user did not specify wether a block limit is needed, then the default is set.
+            // WARNING: This is already done in CliConfig::default(), I only added it here for clarity. Remove comment/code later?
+            cli_config.max_block_number_delta = Some(256);
         };
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config).map_err(|err| {

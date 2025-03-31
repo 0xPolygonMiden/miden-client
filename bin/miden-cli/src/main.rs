@@ -8,8 +8,10 @@ async fn main() -> miette::Result<()> {
 
     tracing_subscriber::fmt::init();
     // read command-line args
+    println!("ABOUT TO PARSE");
     let cli = Cli::parse();
 
+    println!("PARSED");
     // execute cli action
     Ok(cli.execute().await?)
 }

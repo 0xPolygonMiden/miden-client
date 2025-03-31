@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use miden_client::{ClientError, keystore::KeyStoreError};
+use miden_client::{keystore::KeyStoreError, ClientError};
 use miden_objects::{AccountError, AccountIdError, AssetError};
 use miette::Diagnostic;
 use thiserror::Error;
@@ -64,4 +64,10 @@ pub enum CliError {
     #[error("transaction error: {1}")]
     #[diagnostic(code(cli::transaction_error))]
     Transaction(#[source] SourceError, String),
+}
+
+impl From<CliError> for String {
+    fn from(err: CliError) -> String {
+        err.to_string()
+    }
 }
