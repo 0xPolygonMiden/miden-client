@@ -68,7 +68,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
             store,
             Arc::new(keystore.clone()),
             true,
-            256,
+            Some(256),
         ),
         keystore,
     )

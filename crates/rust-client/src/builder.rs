@@ -5,8 +5,8 @@ use alloc::{
 };
 
 use miden_objects::{
-    Felt,
     crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt,
 };
 use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
@@ -15,7 +15,7 @@ use rand::Rng;
 use crate::rpc::{Endpoint, TonicRpcClient};
 #[cfg(feature = "sqlite")]
 use crate::store::sqlite_store::SqliteStore;
-use crate::{Client, ClientError, keystore::FilesystemKeyStore, rpc::NodeRpcClient, store::Store};
+use crate::{keystore::FilesystemKeyStore, rpc::NodeRpcClient, store::Store, Client, ClientError};
 
 /// Represents the configuration for an authenticator.
 ///
@@ -48,8 +48,9 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
-    /// TODO: Document
-    max_block_number_delta: u32,
+    /// Maximum number of blocks the client can be behind the network for transactions and account
+    /// proofs to be considered valid.
+    max_block_number_delta: Option<u32>,
 }
 
 impl Default for ClientBuilder {
@@ -62,7 +63,7 @@ impl Default for ClientBuilder {
             store_path: "store.sqlite3".to_string(),
             keystore: None,
             in_debug_mode: false,
-            max_block_number_delta: 256, //NOTE Smells fishy putting a magic number like this; maybe I'm imagining things.
+            max_block_number_delta: Some(256), //NOTE Smells fishy putting a magic number like this; maybe I'm imagining things.
         }
     }
 }

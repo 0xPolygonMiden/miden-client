@@ -152,7 +152,6 @@ pub mod block {
 /// the `miden_objects` crate.
 pub mod crypto {
     pub use miden_objects::{
-        Digest,
         crypto::{
             dsa::rpo_falcon512::SecretKey,
             merkle::{
@@ -161,20 +160,21 @@ pub mod crypto {
             },
             rand::{FeltRng, RpoRandomCoin},
         },
+        Digest,
     };
 }
 
 pub use errors::{AuthenticationError, ClientError, IdPrefixFetchError};
-pub use miden_objects::{Felt, ONE, StarkField, Word, ZERO};
+pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 pub use miden_proving_service_client::proving_service::tx_prover::RemoteTransactionProver;
 
 /// Provides various utilities that are commonly used throughout the Miden
 /// client library.
 pub mod utils {
     pub use miden_tx::utils::{
-        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
         bytes_to_hex_string,
         sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
+        ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
     };
 }
 
@@ -190,11 +190,11 @@ use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
-    DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
+    auth::TransactionAuthenticator, DataStore, LocalTransactionProver, TransactionExecutor,
 };
 use rand::RngCore;
 use rpc::NodeRpcClient;
-use store::{Store, data_store::ClientDataStore};
+use store::{data_store::ClientDataStore, Store};
 use tracing::info;
 
 // MIDEN CLIENT
@@ -225,8 +225,7 @@ pub struct Client {
     in_debug_mode: bool,
     /// Maximum number of blocks the client can be behind the network for transactions and account
     /// proofs to be considered valid.
-    /// TODO: Make an option/enum? Maybe enum better.
-    max_block_number_delta: u32,
+    max_block_number_delta: Option<u32>,
 }
 
 /// Construction and access methods.
@@ -260,7 +259,7 @@ impl Client {
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
-        max_block_number_delta: u32,
+        max_block_number_delta: Option<u32>,
     ) -> Self {
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
