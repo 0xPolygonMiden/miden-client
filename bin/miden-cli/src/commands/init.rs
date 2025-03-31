@@ -41,7 +41,7 @@ impl FromStr for BlockDelta {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "none" => Ok(BlockDelta::Any),
+            "any" => Ok(BlockDelta::Any),
             custom => Ok(BlockDelta::Delta(custom.parse().map_err(|_| {
                 CliError::InvalidArgument(
                     "Could not parse number of max-blocks correctly
