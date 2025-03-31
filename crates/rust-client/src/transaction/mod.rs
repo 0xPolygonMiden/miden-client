@@ -76,7 +76,6 @@ pub use miden_lib::{
     transaction::TransactionKernel,
 };
 use miden_objects::{
-    AssetError, Digest, Felt, Word, ZERO,
     account::{Account, AccountCode, AccountDelta, AccountId},
     asset::{Asset, NonFungibleAsset},
     block::BlockNumber,
@@ -84,27 +83,28 @@ use miden_objects::{
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     vm::AdviceInputs,
+    AssetError, Digest, Felt, Word, ZERO,
 };
 pub use miden_tx::{
-    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
-    auth::TransactionAuthenticator,
+    auth::TransactionAuthenticator, LocalTransactionProver, ProvingOptions, TransactionProver,
+    TransactionProverError,
 };
 use miden_tx::{
-    TransactionExecutor,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+    TransactionExecutor,
 };
 use tracing::info;
 
 use super::Client;
 use crate::{
-    ClientError,
     note::{NoteScreener, NoteUpdates},
     rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
-        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
-        TransactionFilter, input_note_states::ExpectedNoteState,
+        input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
+        OutputNoteRecord, StoreError, TransactionFilter,
     },
-    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
+    sync::NoteTagRecord,
+    ClientError,
 };
 
 mod request;
@@ -842,7 +842,7 @@ impl Client {
         let current_chain_tip =
             self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
 
-        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+        if current_chain_tip > self.store.get_sync_height().await? + self.max_block_number_delta {
             return Err(ClientError::RecencyConditionError(
                 "The client is too far behind the chain tip to execute the transaction".to_string(),
             ));
@@ -1106,7 +1106,6 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
 mod test {
     use miden_lib::{account::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
-        Word,
         account::{AccountBuilder, AccountComponent, AuthSecretKey, StorageMap, StorageSlot},
         asset::{Asset, FungibleAsset},
         crypto::dsa::rpo_falcon512::SecretKey,
@@ -1118,6 +1117,7 @@ mod test {
                 ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
             },
         },
+        Word,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -1178,13 +1178,11 @@ mod test {
         .unwrap();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
-        assert!(
-            tx_result
-                .created_notes()
-                .get_note(0)
-                .assets()
-                .is_some_and(|assets| assets.num_assets() == 2)
-        );
+        assert!(tx_result
+            .created_notes()
+            .get_note(0)
+            .assets()
+            .is_some_and(|assets| assets.num_assets() == 2));
         // Prove and apply transaction
         client.testing_apply_transaction(tx_result.clone()).await.unwrap();
 

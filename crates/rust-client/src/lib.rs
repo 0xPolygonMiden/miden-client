@@ -223,6 +223,10 @@ pub struct Client {
     tx_executor: TransactionExecutor,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
+    /// Maximum number of blocks the client can be behind the network for transactions and account
+    /// proofs to be considered valid.
+    /// TODO: Make an option/enum? Maybe enum better.
+    max_block_number_delta: u32,
 }
 
 /// Construction and access methods.
@@ -256,6 +260,7 @@ impl Client {
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
+        max_block_number_delta: u32,
     ) -> Self {
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
@@ -274,6 +279,7 @@ impl Client {
             tx_prover,
             tx_executor,
             in_debug_mode,
+            max_block_number_delta,
         }
     }
 

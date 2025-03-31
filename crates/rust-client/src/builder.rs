@@ -48,6 +48,8 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
+    /// TODO: Document
+    max_block_number_delta: u32,
 }
 
 impl Default for ClientBuilder {
@@ -60,6 +62,7 @@ impl Default for ClientBuilder {
             store_path: "store.sqlite3".to_string(),
             keystore: None,
             in_debug_mode: false,
+            max_block_number_delta: 256, //NOTE Smells fishy putting a magic number like this; maybe I'm imagining things.
         }
     }
 }
@@ -198,6 +201,13 @@ impl ClientBuilder {
             }
         };
 
-        Ok(Client::new(rpc_api, rng, arc_store, authenticator, self.in_debug_mode))
+        Ok(Client::new(
+            rpc_api,
+            rng,
+            arc_store,
+            authenticator,
+            self.in_debug_mode,
+            self.max_block_number_delta,
+        ))
     }
 }

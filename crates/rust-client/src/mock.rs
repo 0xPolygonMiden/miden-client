@@ -8,7 +8,6 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    Felt, Word,
     account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
@@ -22,17 +21,16 @@ use miden_objects::{
         note::NoteBuilder,
     },
     transaction::{InputNote, ProvenTransaction},
+    Felt, Word,
 };
 use miden_tx::testing::MockChain;
-use rand::{Rng, rngs::StdRng};
+use rand::{rngs::StdRng, Rng};
 use tonic::Response;
 use uuid::Uuid;
 
 use crate::{
-    Client,
     keystore::FilesystemKeyStore,
     rpc::{
-        NodeRpcClient, RpcError,
         domain::{
             account::{AccountDetails, AccountProofs},
             note::{NetworkNote, NoteSyncInfo},
@@ -44,9 +42,11 @@ use crate::{
             note::NoteSyncRecord,
             responses::{SyncNoteResponse, SyncStateResponse},
         },
+        NodeRpcClient, RpcError,
     },
     store::sqlite_store::SqliteStore,
     transaction::ForeignAccount,
+    Client,
 };
 
 pub type MockClient = Client;
@@ -346,7 +346,7 @@ pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore
     let arc_rpc_api = Arc::new(rpc_api.clone());
 
     let client =
-        MockClient::new(arc_rpc_api, Box::new(rng), store, Arc::new(keystore.clone()), true);
+        MockClient::new(arc_rpc_api, Box::new(rng), store, Arc::new(keystore.clone()), true, 256);
     (client, rpc_api, keystore)
 }
 

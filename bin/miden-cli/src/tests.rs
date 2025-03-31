@@ -11,7 +11,7 @@ use assert_cmd::Command;
 use config::RpcConfig;
 use miden_cli::CliKeyStore;
 use miden_client::{
-    self, Client, Felt,
+    self,
     account::{AccountId, AccountStorageMode},
     crypto::{FeltRng, RpoRandomCoin},
     note::{
@@ -23,9 +23,10 @@ use miden_client::{
     testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
+    Client, Felt,
 };
 use miden_client_tests::common::{
-    ACCOUNT_ID_REGULAR, TEST_CLIENT_RPC_CONFIG_FILE, execute_tx_and_sync, insert_new_wallet,
+    execute_tx_and_sync, insert_new_wallet, ACCOUNT_ID_REGULAR, TEST_CLIENT_RPC_CONFIG_FILE,
 };
 use predicates::str::contains;
 use rand::Rng;
@@ -708,6 +709,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
             store,
             std::sync::Arc::new(keystore.clone()),
             true,
+            256,
         ),
         keystore,
     )

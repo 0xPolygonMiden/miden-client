@@ -123,6 +123,7 @@ impl Cli {
             store as Arc<dyn Store>,
             Arc::new(keystore.clone()),
             in_debug_mode,
+            256,
         );
 
         // Execute CLI command

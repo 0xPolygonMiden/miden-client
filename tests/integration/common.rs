@@ -1,33 +1,33 @@
 use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
 
 use miden_client::{
-    Client, ClientError, Word,
     account::{
-        AccountBuilder, AccountType,
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
+        AccountBuilder, AccountType,
     },
     auth::AuthSecretKey,
     crypto::FeltRng,
     keystore::FilesystemKeyStore,
     note::create_p2id_note,
     rpc::{Endpoint, RpcError, TonicRpcClient},
-    store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     transaction::{
         DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
         TransactionStatus,
     },
+    Client, ClientError, Word,
 };
 use miden_objects::{
-    Felt, FieldElement,
     account::{Account, AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
     note::{NoteId, NoteType},
     transaction::{InputNote, OutputNote, TransactionId},
+    Felt, FieldElement,
 };
-use rand::{Rng, RngCore, rngs::StdRng};
+use rand::{rngs::StdRng, Rng, RngCore};
 use toml::Table;
 use uuid::Uuid;
 
@@ -68,6 +68,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
             store,
             Arc::new(keystore.clone()),
             true,
+            256,
         ),
         keystore,
     )
