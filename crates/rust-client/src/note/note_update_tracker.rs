@@ -162,9 +162,9 @@ impl NoteUpdateTracker {
     }
 
     /// Creates a [`NoteUpdateTracker`] for updates related to transactions.
-    /// 
+    ///
     /// A transaction can:
-    /// 
+    ///
     /// - Create input notes
     /// - Update existing input notes (by consuming them)
     /// - Create output notes
@@ -176,7 +176,7 @@ impl NoteUpdateTracker {
         Self {
             input_notes: new_input_notes
                 .into_iter()
-                .map(|note| (note.id(), InputNoteUpdate::new_none(note)))
+                .map(|note| (note.id(), InputNoteUpdate::new_insert(note)))
                 .chain(
                     updated_input_notes
                         .into_iter()
@@ -185,7 +185,7 @@ impl NoteUpdateTracker {
                 .collect(),
             output_notes: new_output_notes
                 .into_iter()
-                .map(|note| (note.id(), OutputNoteUpdate::new_none(note)))
+                .map(|note| (note.id(), OutputNoteUpdate::new_insert(note)))
                 .collect(),
         }
     }
@@ -233,6 +233,13 @@ impl NoteUpdateTracker {
                     note.inner().id(),
                 )
             })
+    }
+
+    pub fn unspent_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
+        self.input_notes
+            .values()
+            .filter(|note| !note.inner().is_consumed())
+            .map(|note| note.inner().nullifier())
     }
 
     // UPDATE METHODS

@@ -1,7 +1,6 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{collections::BTreeSet, vec::Vec};
-use std::println;
 
 use miden_objects::{Digest, block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
@@ -173,7 +172,6 @@ impl SqliteStore {
         undo_account_state(&tx, &account_hashes_to_delete)?;
 
         // Combine discarded transactions from sync and old pending transactions
-        println!("Stale transactions: {:?}", transaction_updates.stale_transactions());
         let mut discarded_transactions = transaction_updates.discarded_transactions().to_vec();
         discarded_transactions
             .extend(transaction_updates.stale_transactions().iter().map(|tx| tx.id));
