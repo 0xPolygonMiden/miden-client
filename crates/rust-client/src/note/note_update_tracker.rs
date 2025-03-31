@@ -175,6 +175,24 @@ impl NoteUpdateTracker {
         Ok(discarded_transaction)
     }
 
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a block header
+    /// is received.
+    ///
+    /// This transition is mostly used to update unverified notes with the necessary chain MMR data.
+    pub(crate) fn apply_block_header_state_transitions(
+        &mut self,
+        block_header: &BlockHeader,
+    ) -> Result<(), ClientError> {
+        for input_note_record in self.updated_input_notes.values_mut().filter(|note| {
+            note.inclusion_proof()
+                .is_some_and(|proof| proof.location().block_num() == block_header.block_num())
+        }) {
+            input_note_record.block_header_received(block_header)?;
+        }
+
+        Ok(())
+    }
+
     // PRIVATE HELPERS
     // --------------------------------------------------------------------------------------------
 

@@ -62,7 +62,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
-    transaction::TransactionId,
+    transaction::{ChainMmr, TransactionId},
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
@@ -147,10 +147,28 @@ impl Client {
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncommitted).await?;
 
+        // Build current chain MMR
+        let current_partial_mmr = self.build_current_partial_mmr().await?;
+
+        let all_block_numbers = (0..current_partial_mmr.forest())
+            .filter_map(|block_num| {
+                current_partial_mmr.is_tracked(block_num).then_some(BlockNumber::from(
+                    u32::try_from(block_num).expect("block number should be less than u32::MAX"),
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        let block_headers = self
+            .store
+            .get_block_headers(&all_block_numbers)
+            .await?
+            .into_iter()
+            .map(|(header, _has_notes)| header);
+
         // Get the sync update from the network
         let state_sync_update = state_sync
             .sync_state(
-                self.build_current_partial_mmr().await?,
+                ChainMmr::new(current_partial_mmr, block_headers)?,
                 accounts,
                 note_tags,
                 unspent_input_notes,
@@ -166,8 +184,6 @@ impl Client {
             .apply_state_sync(state_sync_update)
             .await
             .map_err(ClientError::StoreError)?;
-
-        self.update_mmr_data().await?;
 
         Ok(sync_summary)
     }
