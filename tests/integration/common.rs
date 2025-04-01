@@ -224,15 +224,19 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             .unwrap()
             .pop()
             .unwrap();
-        let is_tx_committed =
-            matches!(tracked_transaction.transaction_status, TransactionStatus::Committed(_));
 
-        if is_tx_committed {
-            break;
+        match tracked_transaction.transaction_status {
+            TransactionStatus::Committed(_) => {
+                break;
+            },
+            TransactionStatus::Pending => {
+                // 500_000_000 ns = 0.5s
+                std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+            },
+            TransactionStatus::Discarded => {
+                panic!("Transaction discarded");
+            },
         }
-
-        // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
     }
 }
 
