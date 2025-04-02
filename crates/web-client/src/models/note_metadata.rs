@@ -1,4 +1,4 @@
-use miden_objects::note::NoteMetadata as NativeNoteMetadata;
+use miden_objects::note::{NoteMetadata as NativeNoteMetadata, NoteType as NativeNoteType};
 use wasm_bindgen::prelude::*;
 
 use super::{
@@ -15,7 +15,7 @@ impl NoteMetadata {
     #[wasm_bindgen(constructor)]
     pub fn new(
         sender: &AccountId,
-        note_type: &NoteType,
+        note_type: NoteType,
         note_tag: &NoteTag,
         note_execution_hint: &NoteExecutionHint,
         aux: Option<Felt>, // Create an OptionFelt type so user has choice to consume or not
@@ -41,7 +41,11 @@ impl NoteMetadata {
 
     #[wasm_bindgen(js_name = "noteType")]
     pub fn note_type(&self) -> NoteType {
-        self.0.note_type().into()
+        match self.0.note_type() {
+            NativeNoteType::Private => NoteType::Private,
+            NativeNoteType::Public => NoteType::Public,
+            NativeNoteType::Encrypted => NoteType::Encrypted,
+        }
     }
 }
 

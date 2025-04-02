@@ -48,7 +48,7 @@ impl Note {
         sender: &AccountId,
         target: &AccountId,
         assets: &NoteAssets,
-        note_type: &NoteType,
+        note_type: NoteType,
         serial_num: &Word,
         aux: &Felt,
     ) -> Self {
@@ -76,7 +76,7 @@ impl Note {
         sender: &AccountId,
         target: &AccountId,
         assets: &NoteAssets,
-        note_type: &NoteType,
+        note_type: NoteType,
         serial_num: &Word,
         recall_height: u32,
         aux: &Felt,
