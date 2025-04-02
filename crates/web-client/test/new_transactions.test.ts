@@ -102,7 +102,7 @@ export const sendTransaction = async (
     let mintTransactionRequest = client.newMintTransactionRequest(
       senderAccount.id(),
       faucetAccount.id(),
-      window.NoteType.private(),
+      window.NoteType.Private,
       BigInt(1000)
     );
     let mintTransactionResult = await client.newTransaction(
@@ -145,7 +145,7 @@ export const sendTransaction = async (
       senderAccount.id(),
       targetAccount.id(),
       faucetAccount.id(),
-      window.NoteType.private(),
+      window.NoteType.Private,
       BigInt(100)
     );
     let sendTransactionResult = await client.newTransaction(
@@ -270,7 +270,7 @@ export const customTransaction = async (
 
       let noteMetadata = new window.NoteMetadata(
         faucetAccount.id(),
-        window.NoteType.private(),
+        window.NoteType.Private,
         window.NoteTag.fromAccountId(
           walletAccount.id(),
           window.NoteExecutionMode.newLocal()
@@ -287,12 +287,12 @@ export const customTransaction = async (
       let noteScript = `
             # Custom P2ID note script
             #
-            # This note script asserts that the note args are exactly the same as passed 
+            # This note script asserts that the note args are exactly the same as passed
             # (currently defined as {expected_note_arg_1} and {expected_note_arg_2}).
-            # Since the args are too big to fit in a single note arg, we provide them via advice inputs and 
+            # Since the args are too big to fit in a single note arg, we provide them via advice inputs and
             # address them via their commitment (noted as NOTE_ARG)
-            # This note script is based off of the P2ID note script because notes currently need to have 
-            # assets, otherwise it could have been boiled down to the assert. 
+            # This note script is based off of the P2ID note script because notes currently need to have
+            # assets, otherwise it could have been boiled down to the assert.
 
             use.miden::account
             use.miden::note
@@ -351,7 +351,7 @@ export const customTransaction = async (
             begin
                 # push data from the advice map into the advice stack
                 adv.push_mapval
-                # => [NOTE_ARG] 
+                # => [NOTE_ARG]
 
                 # memory address where to write the data
                 push.${memAddress}
@@ -363,13 +363,13 @@ export const customTransaction = async (
                 # => [target_mem_addr']
                 dropw
                 # => []
-                
+
                 # read first word
                 push.${memAddress}
                 # => [data_mem_address]
                 mem_loadw
                 # => [NOTE_ARG_1]
-                
+
                 push.${expectedNoteArg1} assert_eqw.err=101
                 # => []
 
@@ -541,7 +541,7 @@ const customTxWithMultipleNotes = async (
 
       let noteMetadata = new window.NoteMetadata(
         senderAccountId,
-        window.NoteType.public(),
+        window.NoteType.Public,
         window.NoteTag.fromAccountId(
           targetAccountId,
           window.NoteExecutionMode.newLocal()
@@ -681,7 +681,7 @@ export const discardedTransaction =
       let mintTransactionRequest = client.newMintTransactionRequest(
         senderAccount.id(),
         faucetAccount.id(),
-        window.NoteType.private(),
+        window.NoteType.Private,
         BigInt(1000)
       );
       let mintTransactionResult = await client.newTransaction(
@@ -710,7 +710,7 @@ export const discardedTransaction =
         senderAccount.id(),
         targetAccount.id(),
         faucetAccount.id(),
-        window.NoteType.private(),
+        window.NoteType.Private,
         BigInt(100),
         1
       );
