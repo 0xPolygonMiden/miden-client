@@ -1,41 +1,48 @@
 # Changelog
 
-## 0.8.0 (TBD)
-
-### Features
-
-* Added Delegated Proving Support to All Transaction Types in Web Client (#792).
-* Added support to import public accounts to `Client` (#733).
-* [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
-* [BREAKING] Generalized `miden new-account` CLI command (#728).
-* Added `ClientBuilder` for client initialization (#741).
-* Added support for script execution in the `Client` and CLI (#777).
-* Added note code to `miden notes --show` command (#790).
+## 0.9.0 (TBD)
 
 ### Changes
 
-* Added wallet generation from seed & import from seed on web SDK (#710).
-* Add check for empty pay to ID notes (#714).
-* [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
-* Added import/export for web client db (#740).
-* Re-exported RemoteTransactionProver in `rust-client` (#752).
-* Moved error handling to the `TransactionRequestBuilder::build()` (#750).
-* [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
-* Added `ClientBuilder` for client initialization (#741).
-* [BREAKING] Updated client to Rust 2024 edition (#778).
-* [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
-* [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
-* [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
-* Added recency validations for the client (#776).
-* Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
-* [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
+* Updated Web Client README and Documentation (#808).
 * Updated the client so that only relevant block headers are stored (#828).
 * [BREAKING] Refactored the `StateSync` so that unverified notes are updated inside the component (#828).
 
+## 0.8.1 (2025-03-28)
+
+### Features
+
+* Added wallet generation from seed & import from seed on web SDK (#710).
+* [BREAKING] Generalized `miden new-account` CLI command (#728).
+* Added support to import public accounts to `Client` (#733).
+* Added import/export for web client db (#740).
+* Added `ClientBuilder` for client initialization (#741).
+* [BREAKING] Merged `TonicRpcClient` with `WebTonicRpcClient` and added missing endpoints (#744).
+* Added support for script execution in the `Client` and CLI (#777).
+* Added note code to `miden notes --show` command (#790).
+* Added Delegated Proving Support to All Transaction Types in Web Client (#792).
+
+### Changes
+
+* Added check for empty pay to ID notes (#714).
+* [BREAKING] Refactored authentication out of the `Client` and added new separate authenticators (#718).
+* Added `ClientBuilder` for client initialization (#741).
+* [BREAKING] Removed `KeyStore` trait and added ability to provide signatures to `FilesystemKeyStore` and `WebKeyStore` (#744).
+* Moved error handling to the `TransactionRequestBuilder::build()` (#750).
+* Re-exported `RemoteTransactionProver` in `rust-client` (#752).
+* [BREAKING] Added starting block number parameter to `CheckNullifiersByPrefix` and removed nullifiers from `SyncState` (#758).
+* Added recency validations for the client (#776).
+* [BREAKING] Updated client to Rust 2024 edition (#778).
+* [BREAKING] Removed the `TransactionScriptBuilder` and associated errors from the `rust-client` (#781).
+* [BREAKING] Renamed "hash" with "commitment" for block headers, note scripts and accounts (#788, #789).
+* [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
+* Web client: Exposed `assets` iterator for `AssetVault` (#783)
+* Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
+
 ### Fixes
 
-* Fixed Web Keystore (#779).
 * [BREAKING] Changed Snake Case Variables to Camel Case in JS/TS Files (#767).
+* Fixed Web Keystore (#779).
 * Fixed case where the `CheckNullifiersByPrefix` response contained nullifiers after the client's sync height (#784).
 
 ## 0.7.2 (2025-03-05) -  `miden-client-web` and `miden-client` crates

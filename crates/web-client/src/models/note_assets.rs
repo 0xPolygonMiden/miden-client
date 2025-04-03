@@ -20,7 +20,8 @@ impl NoteAssets {
         self.0.add_asset(asset.into()).unwrap();
     }
 
-    pub fn assets(&self) -> Vec<FungibleAsset> {
+    #[wasm_bindgen(js_name = "fungibleAssets")]
+    pub fn fungible_assets(&self) -> Vec<FungibleAsset> {
         self.0
             .iter()
             .filter_map(|asset| {

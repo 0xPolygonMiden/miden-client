@@ -18,6 +18,7 @@ const importWalletFromSeed = async (
   return await testingPage.evaluate(
     async (_serializedWalletSeed, _mutable) => {
       const client = window.client;
+      await client.syncState();
       const _walletSeed = new Uint8Array(_serializedWalletSeed);
       const account = await client.importPublicAccountFromSeed(
         _walletSeed,
