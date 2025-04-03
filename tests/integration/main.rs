@@ -1637,8 +1637,8 @@ async fn test_unused_rpc_api() {
 #[tokio::test]
 async fn test_stale_transactions_discarded() {
     let (mut client, authenticator) = create_test_client().await;
-    let (regular_account, _, faucet_account_header) =
-        setup(&mut client, AccountStorageMode::Private, &authenticator).await;
+    let (regular_account, faucet_account_header) =
+        setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
 
     let account_id = regular_account.id();
     let faucet_account_id = faucet_account_header.id();

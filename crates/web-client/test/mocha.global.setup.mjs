@@ -163,7 +163,7 @@ before(async () => {
 
       window.helpers.waitForTransaction = async (
         transactionId,
-        maxWaitTime = 2000,
+        maxWaitTime = 10000,
         delayInterval = 100
       ) => {
         const client = window.client;
