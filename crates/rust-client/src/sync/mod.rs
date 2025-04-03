@@ -185,6 +185,9 @@ impl Client {
             .await
             .map_err(ClientError::StoreError)?;
 
+        // Remove irrelevant block headers
+        self.store.prune_irrelevant_blocks().await?;
+
         Ok(sync_summary)
     }
 }

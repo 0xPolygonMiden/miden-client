@@ -138,8 +138,6 @@ impl SqliteStore {
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
         tx.execute(BLOCK_NUMBER_QUERY, params![i64::from(block_num.as_u32())])?;
 
-        Self::prune_irrelevant_blocks(&tx)?;
-
         for (block_header, block_has_relevant_notes, new_mmr_peaks) in block_updates.block_headers()
         {
             Self::insert_block_header_tx(

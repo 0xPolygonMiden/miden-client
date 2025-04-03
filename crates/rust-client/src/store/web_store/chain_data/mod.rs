@@ -20,7 +20,7 @@ mod js_bindings;
 use js_bindings::{
     idxdb_get_block_headers, idxdb_get_chain_mmr_nodes, idxdb_get_chain_mmr_nodes_all,
     idxdb_get_chain_mmr_peaks_by_block_num, idxdb_get_tracked_block_headers,
-    idxdb_insert_block_header, idxdb_insert_chain_mmr_nodes,
+    idxdb_insert_block_header, idxdb_insert_chain_mmr_nodes, idxdb_prune_irrelevant_blocks,
 };
 
 mod models;
@@ -202,6 +202,15 @@ impl WebStore {
         );
         JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
+        })?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError> {
+        let promise = idxdb_prune_irrelevant_blocks();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to prune block header: {js_error:?}",))
         })?;
 
         Ok(())

@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 
 use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -10,6 +10,7 @@ use tracing::warn;
 
 use crate::{
     Client, ClientError,
+    rpc::NodeRpcClient,
     store::{ChainMmrNodeFilter, StoreError},
 };
 
@@ -107,21 +108,10 @@ impl Client {
                 .expect("Block header should be tracked");
             return Ok(block_header);
         }
-        let (block_header, mmr_proof) = self.rpc_api.get_block_header_with_proof(block_num).await?;
 
-        // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
-        // might be of a forest arbitrarily higher
-        let path_nodes = adjust_merkle_path_for_forest(
-            &mmr_proof.merkle_path,
-            block_num,
-            current_partial_mmr.forest(),
-        );
-
-        let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
-
-        current_partial_mmr
-            .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
-            .map_err(StoreError::MmrError)?;
+        // Fetch the block header and MMR proof from the node
+        let (block_header, path_nodes) =
+            fetch_block_header(self.rpc_api.clone(), block_num, current_partial_mmr).await?;
 
         // Insert header and MMR nodes
         self.store
@@ -205,4 +195,28 @@ pub(crate) fn adjust_merkle_path_for_forest(
     }
 
     path_nodes
+}
+
+pub(crate) async fn fetch_block_header(
+    rpc_api: Arc<dyn NodeRpcClient>,
+    block_num: BlockNumber,
+    current_partial_mmr: &mut PartialMmr,
+) -> Result<(BlockHeader, Vec<(InOrderIndex, Digest)>), ClientError> {
+    let (block_header, mmr_proof) = rpc_api.get_block_header_with_proof(block_num).await?;
+
+    // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
+    // might be of a forest arbitrarily higher
+    let path_nodes = adjust_merkle_path_for_forest(
+        &mmr_proof.merkle_path,
+        block_num,
+        current_partial_mmr.forest(),
+    );
+
+    let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
+
+    current_partial_mmr
+        .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
+        .map_err(StoreError::MmrError)?;
+
+    Ok((block_header, path_nodes))
 }

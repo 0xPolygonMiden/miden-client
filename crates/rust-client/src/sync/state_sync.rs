@@ -5,7 +5,7 @@ use miden_objects::{
     Digest,
     account::{Account, AccountHeader, AccountId},
     block::{BlockHeader, BlockNumber},
-    crypto::merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, PartialMmr},
+    crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     note::{NoteId, NoteTag},
     transaction::ChainMmr,
 };
@@ -13,7 +13,7 @@ use tracing::info;
 
 use super::{
     AccountUpdates, BlockUpdates, StateSyncUpdate, TX_GRACEFUL_BLOCKS, TransactionUpdates,
-    block_header::adjust_merkle_path_for_forest,
+    block_header::fetch_block_header,
 };
 use crate::{
     ClientError,
@@ -146,7 +146,8 @@ impl StateSync {
             uncommitted_transactions,
         ));
 
-        self.verify_notes(&mut state_sync_update, &mut current_chain_mmr).await?;
+        self.update_unverified_notes(&mut state_sync_update, &mut current_chain_mmr)
+            .await?;
 
         Ok(state_sync_update)
     }
@@ -409,7 +410,7 @@ impl StateSync {
     ///
     /// The method will request the block header and also update the chain MMR
     /// with the new peaks and authentication nodes.
-    async fn verify_notes(
+    async fn update_unverified_notes(
         &self,
         state_sync_update: &mut StateSyncUpdate,
         current_chain_mmr: &mut ChainMmr,
@@ -430,24 +431,11 @@ impl StateSync {
             let block_header = if let Some(block) = current_chain_mmr.get_block(block_num) {
                 block.clone()
             } else {
-                let (block_header, mmr_proof) =
-                    self.rpc_api.get_block_header_with_proof(block_num).await?;
-
                 let current_partial_mmr = current_chain_mmr.partial_mmr_mut();
 
-                // Trim merkle path to keep nodes relevant to our current PartialMmr since the
-                // node's MMR might be of a forest arbitrarily higher
-                let path_nodes = adjust_merkle_path_for_forest(
-                    &mmr_proof.merkle_path,
-                    block_num,
-                    current_partial_mmr.forest(),
-                );
-
-                let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
-
-                current_partial_mmr
-                    .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
-                    .map_err(StoreError::MmrError)?;
+                let (block_header, path_nodes) =
+                    fetch_block_header(self.rpc_api.clone(), block_num, current_partial_mmr)
+                        .await?;
 
                 state_sync_update.block_updates.extend(BlockUpdates::new(
                     vec![(block_header.clone(), true, current_partial_mmr.peaks())],

@@ -29,7 +29,7 @@
 * Added recency validations for the client (#776).
 * Updated protobuf bindings generation to use `miden-node-proto-build` crate (#807).
 * [BREAKING] Removed `Rng` generic from `Client` and added support for different keystores and RNGs in `ClientBuilder`  (#782).
-* Updated the client so that only relevant blocks are stored (#828).
+* Updated the client so that only relevant block headers are stored (#828).
 * [BREAKING] Refactored the `StateSync` so that unverified notes are updated inside the component (#828).
 
 ### Fixes
