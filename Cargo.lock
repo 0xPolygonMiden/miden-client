@@ -400,9 +400,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.32"
+version = "4.5.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6088f3ae8c3608d19260cd7445411865a485688711b78b5be70d78cd96136f83"
+checksum = "e958897981290da2a852763fe9cdb89cd36977a5d729023127095fa94d95e2ff"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -410,9 +410,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.32"
+version = "4.5.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a7ef7f676155edfb82daa97f99441f3ebf4a58d5e32f295a56259f1b6facc8"
+checksum = "83b0f35019843db2160b5bb19ae09b4e6411ac33fc6a712003c33e03090e2489"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1343,7 +1343,7 @@ dependencies = [
 
 [[package]]
 name = "miden-cli"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-tests"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "miden-client",
@@ -1414,12 +1414,12 @@ dependencies = [
  "tokio",
  "toml",
  "uuid",
- "winter-maybe-async 0.11.0",
+ "winter-maybe-async",
 ]
 
 [[package]]
 name = "miden-client-web"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "miden-client",
  "miden-lib",
@@ -1539,7 +1539,8 @@ dependencies = [
 [[package]]
 name = "miden-node-proto-build"
 version = "0.8.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#ac49ae324f3d9f4e425ebec6eda909274412630a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cb1d9b312ec25b732b4d3f6f75d37dd6ff1b69dd483e89ec8001be482dcc5fb"
 dependencies = [
  "anyhow",
  "prost",
@@ -1549,9 +1550,9 @@ dependencies = [
 
 [[package]]
 name = "miden-objects"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb56355acfef551dc81f57667f01a46a37872e7590cb9a92d4efbb8933fe6ebb"
+checksum = "1ea350fdd6d025d2e4791ac0769bfbc04afca404fbb20f918354dcc758debd4c"
 dependencies = [
  "bech32",
  "getrandom 0.3.2",
@@ -1591,7 +1592,7 @@ dependencies = [
  "miden-air",
  "miden-processor",
  "tracing",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
  "winter-prover",
 ]
 
@@ -1628,9 +1629,9 @@ dependencies = [
 
 [[package]]
 name = "miden-tx"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "629d10cd912c13e30ee85f5a96940bdaa7c2d43bd311d3181edfd240415f65c4"
+checksum = "a9f253174345a55a08229cc7eb0094f290d515c0a39f46eb807881da4ce40c9e"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -1641,7 +1642,7 @@ dependencies = [
  "rand 0.9.0",
  "rand_chacha 0.9.0",
  "thiserror 2.0.12",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
 ]
 
 [[package]]
@@ -1848,9 +1849,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.21.1"
+version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "openssl-probe"
@@ -2448,9 +2449,9 @@ checksum = "917ce264624a4b4db1c364dcc35bfca9ded014d0a958cd47ad3e960e988ea51c"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.0"
+version = "0.103.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aa4eeac2588ffff23e9d7a7e9b3f971c5fb5b7ebc9452745e0c232c64f83b2f"
+checksum = "fef8b8769aaccf73098557a87cd1816b4f9c7c16811c9c77142aa695c16f2c03"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -2668,9 +2669,9 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "string_cache"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "938d512196766101d333398efde81bc1f37b00cb42c2f8350e5df639f040bbbe"
+checksum = "bf776ba3fa74f83bf4b63c3dcbbf82173db2632ed8452cb2d891d33f459de70f"
 dependencies = [
  "new_debug_unreachable",
  "parking_lot",
@@ -3721,16 +3722,6 @@ dependencies = [
 
 [[package]]
 name = "winter-maybe-async"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91ce144fde121b98523bb8a6c15a311773e1d534d33c1cb47f5580bba9cff8e7"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
-name = "winter-maybe-async"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaa132be74e602b707f1dab5a69c38496445e54ee940e7c281c02b15007241bd"
@@ -3750,7 +3741,7 @@ dependencies = [
  "winter-crypto",
  "winter-fri",
  "winter-math",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
  "winter-utils",
 ]
 

@@ -167,7 +167,7 @@ impl TransactionRequest {
 
         let mut tx_args = TransactionArgs::new(Some(tx_script), note_args.into(), advice_map);
 
-        tx_args.extend_expected_output_notes(expected_output_notes.into_values());
+        tx_args.extend_output_note_recipients(expected_output_notes.into_values());
         tx_args.extend_merkle_store(merkle_store.inner_nodes());
 
         tx_args
