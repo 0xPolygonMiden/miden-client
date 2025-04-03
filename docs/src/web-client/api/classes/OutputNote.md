@@ -38,6 +38,16 @@
 
 ***
 
+### intoFull()
+
+> **intoFull**(): [`Note`](Note.md)
+
+#### Returns
+
+[`Note`](Note.md)
+
+***
+
 ### metadata()
 
 > **metadata**(): [`NoteMetadata`](NoteMetadata.md)

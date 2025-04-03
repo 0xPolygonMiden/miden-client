@@ -58,16 +58,6 @@
 
 ***
 
-### receivedNotes()
-
-> **receivedNotes**(): [`NoteId`](NoteId.md)[]
-
-#### Returns
-
-[`NoteId`](NoteId.md)[]
-
-***
-
 ### serialize()
 
 > **serialize**(): `Uint8Array`

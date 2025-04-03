@@ -6,21 +6,11 @@
 
 # Class: NoteAndArgs
 
-## Methods
+## Constructors
 
-### free()
+### Constructor
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### new()
-
-> `static` **new**(`note`, `args`?): `NoteAndArgs`
+> **new NoteAndArgs**(`note`, `args`?): `NoteAndArgs`
 
 #### Parameters
 
@@ -35,3 +25,13 @@
 #### Returns
 
 `NoteAndArgs`
+
+## Methods
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`

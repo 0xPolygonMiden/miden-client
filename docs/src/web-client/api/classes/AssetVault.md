@@ -18,6 +18,16 @@
 
 ***
 
+### fungibleAssets()
+
+> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
+
+#### Returns
+
+[`FungibleAsset`](FungibleAsset.md)[]
+
+***
+
 ### getBalance()
 
 > **getBalance**(`faucet_id`): `bigint`

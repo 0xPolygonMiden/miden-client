@@ -24,16 +24,6 @@
 
 ## Methods
 
-### assets()
-
-> **assets**(): [`FungibleAsset`](FungibleAsset.md)[]
-
-#### Returns
-
-[`FungibleAsset`](FungibleAsset.md)[]
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -41,6 +31,16 @@
 #### Returns
 
 `void`
+
+***
+
+### fungibleAssets()
+
+> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
+
+#### Returns
+
+[`FungibleAsset`](FungibleAsset.md)[]
 
 ***
 
