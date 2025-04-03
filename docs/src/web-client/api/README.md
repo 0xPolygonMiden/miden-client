@@ -27,6 +27,7 @@
 - [ExecutedTransaction](classes/ExecutedTransaction.md)
 - [Felt](classes/Felt.md)
 - [FeltArray](classes/FeltArray.md)
+- [FlattenedU8Vec](classes/FlattenedU8Vec.md)
 - [FungibleAsset](classes/FungibleAsset.md)
 - [InputNote](classes/InputNote.md)
 - [InputNoteRecord](classes/InputNoteRecord.md)
