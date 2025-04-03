@@ -1,6 +1,7 @@
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{collections::BTreeSet, vec::Vec};
 use core::fmt;
 
+use miden_lib::note::well_known_note::WellKnownNote;
 use miden_objects::{
     AccountError, AssetError, Felt, Word,
     account::{Account, AccountId},
@@ -9,7 +10,6 @@ use miden_objects::{
 };
 use thiserror::Error;
 
-use super::script_roots::{P2ID, P2IDR, SWAP};
 use crate::store::{Store, StoreError};
 
 /// Describes the relevance of a note based on the screening.
@@ -63,12 +63,16 @@ impl NoteScreener {
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let account_ids = BTreeSet::from_iter(self.store.get_account_ids().await?);
 
-        let script_root = note.script().root().to_string();
-        let note_relevance = match script_root.as_str() {
-            P2ID => Self::check_p2id_relevance(note, &account_ids)?,
-            P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
-            SWAP => self.check_swap_relevance(note, &account_ids).await?,
-            _ => NoteScreener::check_script_relevance(note, &account_ids),
+        let script_root = note.script().root();
+
+        let note_relevance = if script_root == WellKnownNote::P2ID.script_root() {
+            Self::check_p2id_relevance(note, &account_ids)?
+        } else if script_root == WellKnownNote::P2IDR.script_root() {
+            Self::check_p2idr_relevance(note, &account_ids)?
+        } else if script_root == WellKnownNote::SWAP.script_root() {
+            self.check_swap_relevance(note, &account_ids).await?
+        } else {
+            NoteScreener::check_script_relevance(note, &account_ids)
         };
 
         Ok(note_relevance)
