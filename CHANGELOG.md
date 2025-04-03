@@ -5,6 +5,7 @@
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
+* Added account code to `miden account --show` command (#835).
 
 ## 0.8.1 (2025-03-28)
 
