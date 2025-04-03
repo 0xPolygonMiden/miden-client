@@ -14,6 +14,8 @@ export {
   InputNoteState,
   NewSwapTransactionResult,
   Note,
+  NoteAndArgs,
+  NoteAndArgsArray,
   NoteAssets,
   NoteConsumability,
   NoteExecutionHint,
