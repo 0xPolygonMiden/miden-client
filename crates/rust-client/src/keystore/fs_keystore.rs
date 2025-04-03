@@ -1,6 +1,7 @@
 use alloc::string::String;
 use std::{
     fs::OpenOptions,
+    hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader, BufWriter, Write},
     path::PathBuf,
     string::ToString,
@@ -55,7 +56,11 @@ impl<R: Rng> FilesystemKeyStore<R> {
             AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
         };
 
-        let file_path = self.keys_directory.join(pub_key);
+        let mut hasher = DefaultHasher::new();
+        pub_key.hash(&mut hasher);
+        let filename = hasher.finish().to_string();
+
+        let file_path = self.keys_directory.join(filename);
         let file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -76,9 +81,13 @@ impl<R: Rng> FilesystemKeyStore<R> {
 
     /// Retrieves a secret key from the keystore given its public key.
     pub fn get_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, KeyStoreError> {
-        let pub_key_str = Digest::from(pub_key).to_hex();
+        let pub_key = Digest::from(pub_key).to_hex();
 
-        let file_path = self.keys_directory.join(pub_key_str);
+        let mut hasher = DefaultHasher::new();
+        pub_key.hash(&mut hasher);
+        let filename = hasher.finish().to_string();
+
+        let file_path = self.keys_directory.join(filename);
         if !file_path.exists() {
             return Ok(None);
         }
