@@ -7,17 +7,19 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr},
     note::{NoteId, NoteTag},
+    transaction::ChainMmr,
 };
 use tracing::info;
 
 use super::{
     AccountUpdates, BlockUpdates, StateSyncUpdate, TX_GRACEFUL_BLOCKS, TransactionUpdates,
+    block_header::fetch_block_header,
 };
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
     rpc::{NodeRpcClient, domain::note::CommittedNote},
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
+    store::{InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, Store, StoreError},
     transaction::TransactionRecord,
 };
 
@@ -85,23 +87,21 @@ impl StateSync {
     /// 7. The MMR is updated with the new peaks and authentication nodes.
     ///
     /// # Arguments
-    /// * `current_partial_mmr` - The current partial MMR.
+    /// * `current_chain_mmr` - The current chain MMR.
     /// * `accounts` - All the headers of tracked accounts.
     /// * `note_tags` - The note tags to be used in the sync state request.
     /// * `unspent_input_notes` - The current state of unspent input notes tracked by the client.
     /// * `unspent_output_notes` - The current state of unspent output notes tracked by the client.
     pub async fn sync_state(
         self,
-        mut current_partial_mmr: PartialMmr,
+        mut current_chain_mmr: ChainMmr,
         accounts: Vec<AccountHeader>,
         note_tags: Vec<NoteTag>,
         unspent_input_notes: Vec<InputNoteRecord>,
         unspent_output_notes: Vec<OutputNoteRecord>,
         mut uncommitted_transactions: Vec<TransactionRecord>,
     ) -> Result<StateSyncUpdate, ClientError> {
-        let block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
-            .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
-        .into();
+        let block_num = current_chain_mmr.chain_length().checked_sub(1).unwrap_or_default();
 
         let mut state_sync_update = StateSyncUpdate {
             block_num,
@@ -113,7 +113,7 @@ impl StateSync {
             if !self
                 .sync_state_step(
                     &mut state_sync_update,
-                    &mut current_partial_mmr,
+                    &mut current_chain_mmr,
                     &accounts,
                     &note_tags,
                 )
@@ -146,6 +146,9 @@ impl StateSync {
             uncommitted_transactions,
         ));
 
+        self.update_unverified_notes(&mut state_sync_update, &mut current_chain_mmr)
+            .await?;
+
         Ok(state_sync_update)
     }
 
@@ -161,7 +164,7 @@ impl StateSync {
     async fn sync_state_step(
         &self,
         state_sync_update: &mut StateSyncUpdate,
-        current_partial_mmr: &mut PartialMmr,
+        current_chain_mmr: &mut ChainMmr,
         accounts: &[AccountHeader],
         note_tags: &[NoteTag],
     ) -> Result<bool, ClientError> {
@@ -204,14 +207,19 @@ impl StateSync {
         let (new_mmr_peaks, new_authentication_nodes) = apply_mmr_changes(
             &response.block_header,
             found_relevant_note,
-            current_partial_mmr,
+            current_chain_mmr.partial_mmr_mut(),
             response.mmr_delta,
         )?;
 
-        state_sync_update.block_updates.extend(BlockUpdates::new(
-            vec![(response.block_header, found_relevant_note, new_mmr_peaks)],
-            new_authentication_nodes,
-        ));
+        let mut new_blocks = vec![];
+        if found_relevant_note || response.chain_tip == new_block_num {
+            // Only track relevant blocks or the chain tip
+            new_blocks.push((response.block_header, found_relevant_note, new_mmr_peaks));
+        }
+
+        state_sync_update
+            .block_updates
+            .extend(BlockUpdates::new(new_blocks, new_authentication_nodes));
 
         if response.chain_tip == new_block_num {
             Ok(false)
@@ -393,6 +401,54 @@ impl StateSync {
 
         let transaction_updates = TransactionUpdates::new(vec![], discarded_transactions, vec![]);
         state_sync_update.transaction_updates.extend(transaction_updates);
+
+        Ok(())
+    }
+
+    /// Updates committed unverified notes. These could be notes that were
+    /// imported with an inclusion proof, but its block header isn't tracked.
+    ///
+    /// The method will request the block header and also update the chain MMR
+    /// with the new peaks and authentication nodes.
+    async fn update_unverified_notes(
+        &self,
+        state_sync_update: &mut StateSyncUpdate,
+        current_chain_mmr: &mut ChainMmr,
+    ) -> Result<(), ClientError> {
+        let missing_block_nums = state_sync_update
+            .note_updates
+            .updated_input_notes()
+            .filter_map(|note| {
+                if let InputNoteState::Unverified(state) = note.inner().state() {
+                    Some(state.inclusion_proof.location().block_num())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for block_num in missing_block_nums {
+            let block_header = if let Some(block) = current_chain_mmr.get_block(block_num) {
+                block.clone()
+            } else {
+                let current_partial_mmr = current_chain_mmr.partial_mmr_mut();
+
+                let (block_header, path_nodes) =
+                    fetch_block_header(self.rpc_api.clone(), block_num, current_partial_mmr)
+                        .await?;
+
+                state_sync_update.block_updates.extend(BlockUpdates::new(
+                    vec![(block_header.clone(), true, current_partial_mmr.peaks())],
+                    path_nodes,
+                ));
+
+                block_header
+            };
+
+            state_sync_update
+                .note_updates
+                .apply_block_header_state_transitions(&block_header)?;
+        }
 
         Ok(())
     }

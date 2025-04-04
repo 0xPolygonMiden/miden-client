@@ -11,7 +11,7 @@ use crate::{
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
-    store::{InputNoteRecord, OutputNoteRecord},
+    store::{InputNoteRecord, InputNoteState, OutputNoteRecord},
     sync::NoteTagRecord,
 };
 
@@ -215,6 +215,12 @@ impl NoteUpdateTracker {
         })
     }
 
+    pub fn unverified_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
+        self.input_notes
+            .values()
+            .filter(|note| matches!(note.note.state(), InputNoteState::Unverified(_)))
+    }
+
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
         self.input_notes.is_empty() && self.output_notes.is_empty()
@@ -326,6 +332,26 @@ impl NoteUpdateTracker {
         }
 
         Ok(discarded_transaction)
+    }
+
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a block header
+    /// is received.
+    ///
+    /// This transition is mostly used to update unverified notes with the necessary chain MMR data.
+    pub(crate) fn apply_block_header_state_transitions(
+        &mut self,
+        block_header: &BlockHeader,
+    ) -> Result<(), ClientError> {
+        for update in self.input_notes.values_mut().filter(|update| {
+            update
+                .note
+                .inclusion_proof()
+                .is_some_and(|proof| proof.location().block_num() == block_header.block_num())
+        }) {
+            update.note.block_header_received(block_header)?;
+        }
+
+        Ok(())
     }
 
     // PRIVATE HELPERS
