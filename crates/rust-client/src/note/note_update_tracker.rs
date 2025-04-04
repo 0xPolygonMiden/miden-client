@@ -15,6 +15,118 @@ use crate::{
     sync::NoteTagRecord,
 };
 
+// NOTE UPDATE
+// ================================================================================================
+
+/// Represents the possible types of updates that can be applied to a note in a
+/// [`NoteUpdateTracker`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoteUpdateType {
+    /// Indicates that the note was already tracked but it was not updated.
+    None,
+    /// Indicates that the note is new and should be inserted in the store.
+    Insert,
+    /// Indicates that the note was already tracked and should be updated.
+    Update,
+}
+
+/// Represents the possible states of an input note record in a [`NoteUpdateTracker`].
+#[derive(Clone, Debug)]
+pub struct InputNoteUpdate {
+    /// Input note being updated.
+    note: InputNoteRecord,
+    /// Type of the note update.
+    update_type: NoteUpdateType,
+}
+
+impl InputNoteUpdate {
+    /// Creates a new [`InputNoteUpdate`] with the provided note with a `None` update type.
+    fn new_none(note: InputNoteRecord) -> Self {
+        Self { note, update_type: NoteUpdateType::None }
+    }
+
+    /// Creates a new [`InputNoteUpdate`] with the provided note with an `Insert` update type.
+    fn new_insert(note: InputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Insert,
+        }
+    }
+
+    /// Creates a new [`InputNoteUpdate`] with the provided note with an `Update` update type.
+    fn new_update(note: InputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Update,
+        }
+    }
+
+    /// Returns a reference the inner note record.
+    pub fn inner(&self) -> &InputNoteRecord {
+        &self.note
+    }
+
+    /// Returns a mutable reference to the inner note record. If the u
+    fn inner_mut(&mut self) -> &mut InputNoteRecord {
+        self.update_type = match self.update_type {
+            NoteUpdateType::None | NoteUpdateType::Update => NoteUpdateType::Update,
+            NoteUpdateType::Insert => NoteUpdateType::Insert,
+        };
+
+        &mut self.note
+    }
+
+    /// Returns the type of the note update.
+    pub fn update_type(&self) -> &NoteUpdateType {
+        &self.update_type
+    }
+}
+
+/// Represents the possible states of an output note record in a [`NoteUpdateTracker`].
+#[derive(Clone, Debug)]
+pub struct OutputNoteUpdate {
+    /// Output note being updated.
+    note: OutputNoteRecord,
+    /// Type of the note update.
+    update_type: NoteUpdateType,
+}
+
+impl OutputNoteUpdate {
+    /// Creates a new [`OutputNoteUpdate`] with the provided note with a `None` update type.
+    fn new_none(note: OutputNoteRecord) -> Self {
+        Self { note, update_type: NoteUpdateType::None }
+    }
+
+    /// Creates a new [`OutputNoteUpdate`] with the provided note with an `Insert` update type.
+    fn new_insert(note: OutputNoteRecord) -> Self {
+        Self {
+            note,
+            update_type: NoteUpdateType::Insert,
+        }
+    }
+
+    /// Returns a reference the inner note record.
+    pub fn inner(&self) -> &OutputNoteRecord {
+        &self.note
+    }
+
+    /// Returns a mutable reference to the inner note record. If the update type is `None` or
+    /// `Update`, it will be set to `Update`.
+    fn inner_mut(&mut self) -> &mut OutputNoteRecord {
+        self.update_type = match self.update_type {
+            NoteUpdateType::None | NoteUpdateType::Update => NoteUpdateType::Update,
+            NoteUpdateType::Insert => NoteUpdateType::Insert,
+        };
+
+        &mut self.note
+    }
+
+    /// Returns the type of the note update.
+    pub fn update_type(&self) -> &NoteUpdateType {
+        &self.update_type
+    }
+}
+
 // NOTE UPDATE TRACKER
 // ================================================================================================
 
@@ -26,25 +138,54 @@ use crate::{
 #[derive(Clone, Debug, Default)]
 pub struct NoteUpdateTracker {
     /// A map of new and updated input note records to be upserted in the store.
-    updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
+    input_notes: BTreeMap<NoteId, InputNoteUpdate>,
     /// A map of updated output note records to be upserted in the store.
-    updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
+    output_notes: BTreeMap<NoteId, OutputNoteUpdate>,
 }
 
 impl NoteUpdateTracker {
-    /// Creates a [`NoteUpdateTracker`].
+    /// Creates a [`NoteUpdateTracker`] with already-tracked notes.
     pub fn new(
-        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
-        updated_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
+        input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        output_notes: impl IntoIterator<Item = OutputNoteRecord>,
     ) -> Self {
         Self {
-            updated_input_notes: updated_input_notes
+            input_notes: input_notes
                 .into_iter()
-                .map(|note| (note.id(), note))
+                .map(|note| (note.id(), InputNoteUpdate::new_none(note)))
                 .collect(),
-            updated_output_notes: updated_output_notes
+            output_notes: output_notes
                 .into_iter()
-                .map(|note| (note.id(), note))
+                .map(|note| (note.id(), OutputNoteUpdate::new_none(note)))
+                .collect(),
+        }
+    }
+
+    /// Creates a [`NoteUpdateTracker`] for updates related to transactions.
+    ///
+    /// A transaction can:
+    ///
+    /// - Create input notes
+    /// - Update existing input notes (by consuming them)
+    /// - Create output notes
+    pub fn for_transaction_updates(
+        new_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
+        new_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
+    ) -> Self {
+        Self {
+            input_notes: new_input_notes
+                .into_iter()
+                .map(|note| (note.id(), InputNoteUpdate::new_insert(note)))
+                .chain(
+                    updated_input_notes
+                        .into_iter()
+                        .map(|note| (note.id(), InputNoteUpdate::new_update(note))),
+                )
+                .collect(),
+            output_notes: new_output_notes
+                .into_iter()
+                .map(|note| (note.id(), OutputNoteUpdate::new_insert(note)))
                 .collect(),
         }
     }
@@ -57,8 +198,10 @@ impl NoteUpdateTracker {
     /// This may include:
     /// - New notes that have been created that should be inserted.
     /// - Existing tracked notes that should be updated.
-    pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
-        self.updated_input_notes.values()
+    pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
+        self.input_notes.values().filter(|note| {
+            matches!(note.update_type, NoteUpdateType::Insert | NoteUpdateType::Update)
+        })
     }
 
     /// Returns all output note records that have been updated.
@@ -66,28 +209,37 @@ impl NoteUpdateTracker {
     /// This may include:
     /// - New notes that have been created that should be inserted.
     /// - Existing tracked notes that should be updated.
-    pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
-        self.updated_output_notes.values()
+    pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteUpdate> {
+        self.output_notes.values().filter(|note| {
+            matches!(note.update_type, NoteUpdateType::Insert | NoteUpdateType::Update)
+        })
     }
 
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty() && self.updated_output_notes.is_empty()
+        self.input_notes.is_empty() && self.output_notes.is_empty()
     }
 
     /// Returns the tags of all notes that need to be removed from the store after the state sync.
     ///
     /// These are the tags of notes that have been committed and no longer need to be tracked.
     pub fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
-        self.updated_input_notes
+        self.input_notes
             .values()
-            .filter(|note| note.is_committed())
+            .filter(|note| note.inner().is_committed())
             .map(|note| {
                 NoteTagRecord::with_note_source(
-                    note.metadata().expect("Committed notes should have metadata").tag(),
-                    note.id(),
+                    note.inner().metadata().expect("Committed notes should have metadata").tag(),
+                    note.inner().id(),
                 )
             })
+    }
+
+    pub fn unspent_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
+        self.input_notes
+            .values()
+            .filter(|note| !note.inner().is_consumed())
+            .map(|note| note.inner().nullifier())
     }
 
     // UPDATE METHODS
@@ -109,7 +261,8 @@ impl NoteUpdateTracker {
 
         if let Some(mut input_note_record) = public_note_data {
             input_note_record.block_header_received(block_header)?;
-            self.updated_input_notes.insert(input_note_record.id(), input_note_record);
+            self.input_notes
+                .insert(input_note_record.id(), InputNoteUpdate::new_insert(input_note_record));
         }
 
         if let Some(input_note_record) = self.get_input_note_by_id(*committed_note.note_id()) {
@@ -180,12 +333,12 @@ impl NoteUpdateTracker {
 
     /// Returns a mutable reference to the input note record with the provided ID if it exists.
     fn get_input_note_by_id(&mut self, note_id: NoteId) -> Option<&mut InputNoteRecord> {
-        self.updated_input_notes.get_mut(&note_id)
+        self.input_notes.get_mut(&note_id).map(InputNoteUpdate::inner_mut)
     }
 
     /// Returns a mutable reference to the output note record with the provided ID if it exists.
     fn get_output_note_by_id(&mut self, note_id: NoteId) -> Option<&mut OutputNoteRecord> {
-        self.updated_output_notes.get_mut(&note_id)
+        self.output_notes.get_mut(&note_id).map(OutputNoteUpdate::inner_mut)
     }
 
     /// Returns a mutable reference to the input note record with the provided nullifier if it
@@ -194,7 +347,10 @@ impl NoteUpdateTracker {
         &mut self,
         nullifier: Nullifier,
     ) -> Option<&mut InputNoteRecord> {
-        self.updated_input_notes.values_mut().find(|note| note.nullifier() == nullifier)
+        self.input_notes
+            .values_mut()
+            .find(|note| note.inner().nullifier() == nullifier)
+            .map(InputNoteUpdate::inner_mut)
     }
 
     /// Returns a mutable reference to the output note record with the provided nullifier if it
@@ -203,8 +359,9 @@ impl NoteUpdateTracker {
         &mut self,
         nullifier: Nullifier,
     ) -> Option<&mut OutputNoteRecord> {
-        self.updated_output_notes
+        self.output_notes
             .values_mut()
-            .find(|note| note.nullifier() == Some(nullifier))
+            .find(|note| note.inner().nullifier() == Some(nullifier))
+            .map(OutputNoteUpdate::inner_mut)
     }
 }

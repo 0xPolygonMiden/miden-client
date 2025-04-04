@@ -2,6 +2,10 @@
 
 ## 0.9.0 (TBD)
 
+### Features
+
+* Added `NoteUpdate` type to the note update tracker to distinguish between different types of updates (#821).
+
 ### Changes
 
 * Updated Web Client README and Documentation (#808).

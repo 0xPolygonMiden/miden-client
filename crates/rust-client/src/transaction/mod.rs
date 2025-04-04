@@ -331,18 +331,13 @@ impl TransactionStoreUpdate {
     pub fn new(
         executed_transaction: ExecutedTransaction,
         updated_account: Account,
-        created_input_notes: Vec<InputNoteRecord>,
-        created_output_notes: Vec<OutputNoteRecord>,
-        updated_input_notes: Vec<InputNoteRecord>,
+        note_updates: NoteUpdateTracker,
         new_tags: Vec<NoteTagRecord>,
     ) -> Self {
         Self {
             executed_transaction,
             updated_account,
-            note_updates: NoteUpdateTracker::new(
-                [created_input_notes, updated_input_notes].concat(),
-                created_output_notes,
-            ),
+            note_updates,
             new_tags,
         }
     }
@@ -672,14 +667,14 @@ impl Client {
             }
         }
 
-        let tx_update = TransactionStoreUpdate::new(
-            tx_result.into(),
-            account,
+        let note_updates = NoteUpdateTracker::for_transaction_updates(
             created_input_notes,
-            created_output_notes,
             updated_input_notes,
-            new_tags,
+            created_output_notes,
         );
+
+        let tx_update =
+            TransactionStoreUpdate::new(tx_result.into(), account, note_updates, new_tags);
 
         self.store.apply_transaction(tx_update).await?;
         info!("Transaction stored.");
