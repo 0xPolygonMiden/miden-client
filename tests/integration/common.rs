@@ -233,32 +233,36 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             .unwrap()
             .pop()
             .unwrap();
-        let is_tx_committed =
-            matches!(tracked_transaction.transaction_status, TransactionStatus::Committed(_));
 
-        if is_tx_committed {
-            break;
+        match tracked_transaction.transaction_status {
+            TransactionStatus::Committed(_) => {
+                break;
+            },
+            TransactionStatus::Pending => {
+                std::thread::sleep(Duration::from_millis(100));
+            },
+            TransactionStatus::Discarded => {
+                panic!("Transaction discarded");
+            },
         }
 
-        std::thread::sleep(Duration::from_millis(100));
-    }
+        // Log wait time in a file if the env var is set
+        // This allows us to aggregate and measure how long the tests are waiting for transactions
+        // to be committed
+        if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
+            let elapsed = now.elapsed();
+            let wait_times_dir = std::path::PathBuf::from("wait_times");
+            std::fs::create_dir_all(&wait_times_dir).unwrap();
 
-    // Log wait time in a file if the env var is set
-    // This allows us to aggregate and measure how long the tests are waiting for transactions to be
-    // committed
-    if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
-        let elapsed = now.elapsed();
-        let wait_times_dir = std::path::PathBuf::from("wait_times");
-        std::fs::create_dir_all(&wait_times_dir).unwrap();
-
-        let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(elapsed_time_file)
-            .unwrap();
-        writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
+            let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(elapsed_time_file)
+                .unwrap();
+            writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
+        }
     }
 }
 

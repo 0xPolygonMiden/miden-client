@@ -98,7 +98,7 @@ use tracing::info;
 use super::Client;
 use crate::{
     ClientError,
-    note::{NoteScreener, NoteUpdates},
+    note::{NoteScreener, NoteUpdateTracker},
     rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
@@ -321,7 +321,7 @@ pub struct TransactionStoreUpdate {
     /// Updated account state after the [`AccountDelta`] has been applied.
     updated_account: Account,
     /// Information about note changes after the transaction execution.
-    note_updates: NoteUpdates,
+    note_updates: NoteUpdateTracker,
     /// New note tags to be tracked.
     new_tags: Vec<NoteTagRecord>,
 }
@@ -331,18 +331,13 @@ impl TransactionStoreUpdate {
     pub fn new(
         executed_transaction: ExecutedTransaction,
         updated_account: Account,
-        created_input_notes: Vec<InputNoteRecord>,
-        created_output_notes: Vec<OutputNoteRecord>,
-        updated_input_notes: Vec<InputNoteRecord>,
+        note_updates: NoteUpdateTracker,
         new_tags: Vec<NoteTagRecord>,
     ) -> Self {
         Self {
             executed_transaction,
             updated_account,
-            note_updates: NoteUpdates::new(
-                [created_input_notes, updated_input_notes].concat(),
-                created_output_notes,
-            ),
+            note_updates,
             new_tags,
         }
     }
@@ -358,7 +353,7 @@ impl TransactionStoreUpdate {
     }
 
     /// Returns the note updates that need to be applied after the transaction execution.
-    pub fn note_updates(&self) -> &NoteUpdates {
+    pub fn note_updates(&self) -> &NoteUpdateTracker {
         &self.note_updates
     }
 
@@ -672,14 +667,14 @@ impl Client {
             }
         }
 
-        let tx_update = TransactionStoreUpdate::new(
-            tx_result.into(),
-            account,
+        let note_updates = NoteUpdateTracker::for_transaction_updates(
             created_input_notes,
-            created_output_notes,
             updated_input_notes,
-            new_tags,
+            created_output_notes,
         );
+
+        let tx_update =
+            TransactionStoreUpdate::new(tx_result.into(), account, note_updates, new_tags);
 
         self.store.apply_transaction(tx_update).await?;
         info!("Transaction stored.");
@@ -949,7 +944,7 @@ impl Client {
             let summary = self.sync_state().await?;
 
             if summary.block_num != block_num {
-                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                let mut current_partial_mmr = self.build_current_partial_mmr().await?;
                 self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                     .await?;
             }

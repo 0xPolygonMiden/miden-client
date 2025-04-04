@@ -11,8 +11,8 @@ impl TransactionFilter {
         TransactionFilter(NativeTransactionFilter::All)
     }
 
-    pub fn uncomitted() -> TransactionFilter {
-        TransactionFilter(NativeTransactionFilter::Uncomitted)
+    pub fn uncommitted() -> TransactionFilter {
+        TransactionFilter(NativeTransactionFilter::Uncommitted)
     }
 }
 

@@ -12,7 +12,7 @@ import {
 
 interface GetAllTransactionsResult {
   transactionIds: string[];
-  uncomittedTransactionIds: string[];
+  uncommittedTransactionIds: string[];
 }
 
 const getAllTransactions = async (): Promise<GetAllTransactionsResult> => {
@@ -22,19 +22,19 @@ const getAllTransactions = async (): Promise<GetAllTransactionsResult> => {
     let transactions = await client.getTransactions(
       window.TransactionFilter.all()
     );
-    let uncomittedTransactions = await client.getTransactions(
-      window.TransactionFilter.uncomitted()
+    let uncommittedTransactions = await client.getTransactions(
+      window.TransactionFilter.uncommitted()
     );
     let transactionIds = transactions.map((transaction) =>
       transaction.id().toHex()
     );
-    let uncomittedTransactionIds = uncomittedTransactions.map((transaction) =>
+    let uncommittedTransactionIds = uncommittedTransactions.map((transaction) =>
       transaction.id().toHex()
     );
 
     return {
       transactionIds: transactionIds,
-      uncomittedTransactionIds: uncomittedTransactionIds,
+      uncommittedTransactionIds: uncommittedTransactionIds,
     };
   });
 };
@@ -52,7 +52,7 @@ describe("get_transactions tests", () => {
 
     expect(result.transactionIds).to.include(mintResult.transactionId);
     expect(result.transactionIds).to.include(consumeResult.transactionId);
-    expect(result.uncomittedTransactionIds.length).to.equal(0);
+    expect(result.uncommittedTransactionIds.length).to.equal(0);
   });
 
   it("get_transactions retrieves uncommitted transactions successfully", async () => {
@@ -67,9 +67,9 @@ describe("get_transactions tests", () => {
     const result = await getAllTransactions();
 
     expect(result.transactionIds).to.include(mintTransactionId);
-    expect(result.uncomittedTransactionIds).to.include(mintTransactionId);
+    expect(result.uncommittedTransactionIds).to.include(mintTransactionId);
     expect(result.transactionIds.length).to.equal(
-      result.uncomittedTransactionIds.length
+      result.uncommittedTransactionIds.length
     );
   });
 
@@ -77,7 +77,7 @@ describe("get_transactions tests", () => {
     const result = await getAllTransactions();
 
     expect(result.transactionIds.length).to.equal(0);
-    expect(result.uncomittedTransactionIds.length).to.equal(0);
+    expect(result.uncommittedTransactionIds.length).to.equal(0);
   });
 });
 

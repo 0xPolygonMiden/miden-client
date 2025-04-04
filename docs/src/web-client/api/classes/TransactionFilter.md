@@ -28,9 +28,9 @@
 
 ***
 
-### uncomitted()
+### uncommitted()
 
-> `static` **uncomitted**(): `TransactionFilter`
+> `static` **uncommitted**(): `TransactionFilter`
 
 #### Returns
 

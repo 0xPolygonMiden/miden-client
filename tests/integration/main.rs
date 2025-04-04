@@ -520,6 +520,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
     let transaction_execution_result = client.new_transaction(from_account_id, tx_request).await;
     assert!(transaction_execution_result.is_err_and(|err| {
+        println!("{:?}", err);
         matches!(
             err,
             ClientError::TransactionExecutorError(
@@ -932,7 +933,8 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.committed_notes.len(), 1);
+    assert_eq!(new_details.new_public_notes.len(), 1);
+    assert_eq!(new_details.committed_notes.len(), 0);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 

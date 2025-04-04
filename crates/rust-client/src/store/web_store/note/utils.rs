@@ -17,7 +17,7 @@ use super::{
     js_bindings::{idxdb_upsert_input_note, idxdb_upsert_output_note},
 };
 use crate::{
-    note::NoteUpdates,
+    note::NoteUpdateTracker,
     store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
 };
 
@@ -193,13 +193,15 @@ pub fn parse_output_note_idxdb_object(
     ))
 }
 
-pub(crate) async fn apply_note_updates_tx(note_updates: &NoteUpdates) -> Result<(), StoreError> {
+pub(crate) async fn apply_note_updates_tx(
+    note_updates: &NoteUpdateTracker,
+) -> Result<(), StoreError> {
     for input_note in note_updates.updated_input_notes() {
-        upsert_input_note_tx(input_note).await?;
+        upsert_input_note_tx(input_note.inner()).await?;
     }
 
     for output_note in note_updates.updated_output_notes() {
-        upsert_output_note_tx(output_note).await?;
+        upsert_output_note_tx(output_note.inner()).await?;
     }
 
     Ok(())
