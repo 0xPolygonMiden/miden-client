@@ -177,4 +177,17 @@ describe("new_faucet tests", () => {
       `token symbol of length 13 is not between 1 and 6 characters long`
     );
   });
+
+  it("returns the correct token symbol for a faucet account", async () => {
+    const tokenSymbol = "DAG";
+    const result = await createNewFaucet(
+      StorageMode.PUBLIC,
+      false,
+      tokenSymbol,
+      8,
+      BigInt(10000000)
+    );
+
+    expect(result.tokenSymbol()).to.equal(tokenSymbol);
+  });
 });
