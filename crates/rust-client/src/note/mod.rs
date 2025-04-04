@@ -66,8 +66,6 @@ use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
 };
 
-pub mod script_roots;
-
 mod import;
 mod note_screener;
 mod note_update_tracker;
@@ -90,7 +88,9 @@ pub use miden_objects::{
     },
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
-pub use note_update_tracker::NoteUpdateTracker;
+pub use note_update_tracker::{
+    InputNoteUpdate, NoteUpdateTracker, NoteUpdateType, OutputNoteUpdate,
+};
 
 /// Note retrieval methods.
 impl Client {

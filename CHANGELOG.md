@@ -2,9 +2,14 @@
 
 ## 0.9.0 (TBD)
 
+### Features
+
+* Added `NoteUpdate` type to the note update tracker to distinguish between different types of updates (#821).
+
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
+* [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
 * Updated the client so that only relevant block headers are stored (#828).
 * [BREAKING] Refactored the `StateSync` so that unverified notes are updated inside the component (#828).
 

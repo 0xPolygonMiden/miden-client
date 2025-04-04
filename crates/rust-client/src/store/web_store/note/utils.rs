@@ -197,11 +197,11 @@ pub(crate) async fn apply_note_updates_tx(
     note_updates: &NoteUpdateTracker,
 ) -> Result<(), StoreError> {
     for input_note in note_updates.updated_input_notes() {
-        upsert_input_note_tx(input_note).await?;
+        upsert_input_note_tx(input_note.inner()).await?;
     }
 
     for output_note in note_updates.updated_output_notes() {
-        upsert_output_note_tx(output_note).await?;
+        upsert_output_note_tx(output_note.inner()).await?;
     }
 
     Ok(())
