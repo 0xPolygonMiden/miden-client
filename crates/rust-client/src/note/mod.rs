@@ -70,8 +70,6 @@ use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
 };
 
-pub mod script_roots;
-
 mod import;
 mod note_screener;
 

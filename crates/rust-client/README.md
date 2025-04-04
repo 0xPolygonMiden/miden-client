@@ -7,7 +7,7 @@ Rust library, which can be used by other project to programmatically interact wi
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.8" }
+miden-client = { version = "0.9" }
 ````
 
 ## Crate Features

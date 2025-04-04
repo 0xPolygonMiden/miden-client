@@ -1,4 +1,11 @@
-use std::{env::temp_dir, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    env::temp_dir,
+    fs::OpenOptions,
+    io::Write,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use miden_client::{
     Client, ClientError, Word,
@@ -9,14 +16,14 @@ use miden_client::{
     auth::AuthSecretKey,
     crypto::FeltRng,
     keystore::FilesystemKeyStore,
-    note::create_p2id_note,
+    note::{Note, create_p2id_note},
     rpc::{Endpoint, RpcError, TonicRpcClient},
     store::{NoteFilter, TransactionFilter, sqlite_store::SqliteStore},
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     transaction::{
-        DataStoreError, TransactionExecutorError, TransactionRequest, TransactionRequestBuilder,
-        TransactionStatus,
+        DataStoreError, NoteArgs, TransactionExecutorError, TransactionRequest,
+        TransactionRequestBuilder, TransactionStatus,
     },
 };
 use miden_objects::{
@@ -61,16 +68,17 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
 
     let keystore = FilesystemKeyStore::new(auth_path).unwrap();
 
-    (
-        TestClient::new(
-            Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
-            Box::new(rng),
-            store,
-            Arc::new(keystore.clone()),
-            true,
-        ),
-        keystore,
-    )
+    let mut client = TestClient::new(
+        Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
+        Box::new(rng),
+        store,
+        Arc::new(keystore.clone()),
+        true,
+    );
+
+    client.sync_state().await.unwrap();
+
+    (client, keystore)
 }
 
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
@@ -213,6 +221,7 @@ pub async fn execute_tx_and_sync(
 
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
+    let now = Instant::now();
     loop {
         println!("Syncing State...");
         client.sync_state().await.unwrap();
@@ -231,8 +240,25 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             break;
         }
 
-        // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    // Log wait time in a file if the env var is set
+    // This allows us to aggregate and measure how long the tests are waiting for transactions to be
+    // committed
+    if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
+        let elapsed = now.elapsed();
+        let wait_times_dir = std::path::PathBuf::from("wait_times");
+        std::fs::create_dir_all(&wait_times_dir).unwrap();
+
+        let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(elapsed_time_file)
+            .unwrap();
+        writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
     }
 }
 
@@ -249,8 +275,7 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
             return summary;
         }
 
-        // 500_000_000 ns = 0.5s
-        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -287,7 +312,7 @@ pub const MINT_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
 
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account).
-pub async fn setup(
+pub async fn setup_two_wallets_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
     keystore: &TestClientKeyStore,
@@ -315,6 +340,27 @@ pub async fn setup(
     // Get Faucet and regular accounts
     println!("Fetching Accounts...");
     (first_basic_account, second_basic_account, faucet_account)
+}
+
+/// Sets up a basic client and returns (basic_account, faucet_account).
+pub async fn setup_wallet_and_faucet(
+    client: &mut TestClient,
+    accounts_storage_mode: AccountStorageMode,
+    keystore: &TestClientKeyStore,
+) -> (Account, Account) {
+    // Enusre clean state
+    assert!(client.get_account_headers().await.unwrap().is_empty());
+    assert!(client.get_transactions(TransactionFilter::All).await.unwrap().is_empty());
+    assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    let (faucet_account, ..) = insert_new_fungible_faucet(client, accounts_storage_mode, keystore)
+        .await
+        .unwrap();
+
+    let (basic_account, ..) =
+        insert_new_wallet(client, accounts_storage_mode, keystore).await.unwrap();
+
+    (basic_account, faucet_account)
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
@@ -361,6 +407,7 @@ pub async fn consume_notes(
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
+/// Asserts that the account has a single asset with the expected amount.
 pub async fn assert_account_has_single_asset(
     client: &TestClient,
     account_id: AccountId,
@@ -380,6 +427,7 @@ pub async fn assert_account_has_single_asset(
     }
 }
 
+/// Tries to consume the note and asserts that the expected error is returned.
 pub async fn assert_note_cannot_be_consumed_twice(
     client: &mut TestClient,
     consuming_account_id: AccountId,
@@ -403,6 +451,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
     }
 }
 
+/// Creates a transaction request that mint assets for each target_id account.
 pub fn mint_multiple_fungible_asset(
     asset: FungibleAsset,
     target_id: Vec<AccountId>,
@@ -427,4 +476,50 @@ pub fn mint_multiple_fungible_asset(
         .collect::<Vec<OutputNote>>();
 
     TransactionRequestBuilder::new().with_own_output_notes(notes).build().unwrap()
+}
+
+/// Executes a transaction and consumes the resulting unauthenticated notes inmediately without
+/// waiting for the first transaction to be committed.
+pub async fn execute_tx_and_consume_output_notes(
+    tx_request: TransactionRequest,
+    client: &mut TestClient,
+    executor: AccountId,
+    consumer: AccountId,
+) {
+    let output_notes = tx_request
+        .expected_output_notes()
+        .cloned()
+        .map(|note| (note, None::<NoteArgs>))
+        .collect::<Vec<(Note, Option<NoteArgs>)>>();
+
+    execute_tx(client, executor, tx_request).await;
+
+    let tx_request = TransactionRequestBuilder::new()
+        .with_unauthenticated_input_notes(output_notes)
+        .build()
+        .unwrap();
+    let transaction_id = execute_tx(client, consumer, tx_request).await;
+    wait_for_tx(client, transaction_id).await;
+}
+
+/// Mint assets for the target account and consume them inmediately without waiting for the first
+/// transaction to be committed.
+pub async fn mint_and_consume(
+    client: &mut TestClient,
+    basic_account_id: AccountId,
+    faucet_account_id: AccountId,
+    note_type: NoteType,
+) {
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap(),
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    execute_tx_and_consume_output_notes(tx_request, client, faucet_account_id, basic_account_id)
+        .await;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.7.5-next.0",
+  "version": "0.8.1-next.0",
   "description": "Polygon Miden Wasm SDK",
   "collaborators": [
     "Polygon Miden",
@@ -43,6 +43,8 @@
     "rollup": "^3.27.2",
     "rollup-plugin-copy": "^3.5.0",
     "ts-node": "^10.9.2",
+    "typedoc": "^0.28.1",
+    "typedoc-plugin-markdown": "^4.6.0",
     "typescript": "^5.5.4"
   },
   "dependencies": {

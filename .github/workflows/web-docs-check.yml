@@ -1,0 +1,39 @@
+name: Web Client Docs
+
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  docs-check:
+    name: Check that web client documentation is up-to-date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install Dependencies
+        working-directory: crates/web-client
+        run: yarn install
+
+      - name: Build Project
+        working-directory: crates/web-client
+        run: yarn build
+
+      - name: Generate Documentation
+        working-directory: crates/web-client
+        run: yarn typedoc
+
+      - name: Verify Documentation is Up-to-date
+        run: git diff --exit-code docs/src/web-client/api

@@ -98,7 +98,6 @@ describe("get_consumable_notes", () => {
   it("filter by account", async () => {
     const { createdNoteId: noteId1, accountId: accountId1 } =
       await setupMintedNote();
-    await setupMintedNote();
 
     const result = await getConsumableNotes(accountId1);
     expect(result).to.have.lengthOf(1);
@@ -144,7 +143,6 @@ describe("get_consumable_notes", () => {
       senderAccountId,
       targetAccountId,
       faucetId,
-      100,
       recallHeight
     );
 

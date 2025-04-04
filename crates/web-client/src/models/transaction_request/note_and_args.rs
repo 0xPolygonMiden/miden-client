@@ -15,6 +15,7 @@ pub struct NoteAndArgs {
 
 #[wasm_bindgen]
 impl NoteAndArgs {
+    #[wasm_bindgen(constructor)]
     pub fn new(note: Note, args: Option<NoteArgs>) -> NoteAndArgs {
         NoteAndArgs { note, args }
     }

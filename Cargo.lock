@@ -1343,7 +1343,7 @@ dependencies = [
 
 [[package]]
 name = "miden-cli"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-tests"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "async-trait",
  "miden-client",
@@ -1414,12 +1414,12 @@ dependencies = [
  "tokio",
  "toml",
  "uuid",
- "winter-maybe-async 0.11.0",
+ "winter-maybe-async",
 ]
 
 [[package]]
 name = "miden-client-web"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "miden-client",
  "miden-lib",
@@ -1592,7 +1592,7 @@ dependencies = [
  "miden-air",
  "miden-processor",
  "tracing",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
  "winter-prover",
 ]
 
@@ -1642,7 +1642,7 @@ dependencies = [
  "rand 0.9.0",
  "rand_chacha 0.9.0",
  "thiserror 2.0.12",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
 ]
 
 [[package]]
@@ -3722,16 +3722,6 @@ dependencies = [
 
 [[package]]
 name = "winter-maybe-async"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91ce144fde121b98523bb8a6c15a311773e1d534d33c1cb47f5580bba9cff8e7"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
-name = "winter-maybe-async"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaa132be74e602b707f1dab5a69c38496445e54ee940e7c281c02b15007241bd"
@@ -3751,7 +3741,7 @@ dependencies = [
  "winter-crypto",
  "winter-fri",
  "winter-math",
- "winter-maybe-async 0.12.0",
+ "winter-maybe-async",
  "winter-utils",
 ]
 

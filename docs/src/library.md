@@ -3,7 +3,7 @@ To use the Miden client library in a Rust project, include it as a dependency.
 In your project's `Cargo.toml`, add:
 
 ```toml
-miden-client = { version = "0.8" }
+miden-client = { version = "0.9" }
 ```
 
 ### Features
@@ -11,7 +11,7 @@ miden-client = { version = "0.8" }
 The Miden client library supports the [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) feature which is recommended for developing applications with the client. To use it, add the following to your project's `Cargo.toml`:
 
 ```toml
-miden-client = { version = "0.8", features = ["concurrent"] }
+miden-client = { version = "0.9", features = ["concurrent"] }
 ```
 
 The library also supports several other features. Please refer to the crate's documentation to learn more.
