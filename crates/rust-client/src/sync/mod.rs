@@ -85,7 +85,7 @@ pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, Trans
 // ================================================================================================
 
 /// The number of blocks that are considered old enough to discard pending transactions.
-pub const TX_GRACEFUL_BLOCKS: u32 = 10;
+pub const TX_GRACEFUL_BLOCKS: u32 = 20;
 
 /// Client synchronization methods.
 impl Client {

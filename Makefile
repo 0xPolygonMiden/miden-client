@@ -18,7 +18,7 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="next"
+NODE_BRANCH="main"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
@@ -125,7 +125,7 @@ build-node: update-node-branch ## Update dependencies and build the node binary 
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 5000 --batch.interval 2000
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover
@@ -148,7 +148,7 @@ build-prover: update-prover-branch ## Build the prover binary with specified fea
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT) --tx-prover --batch-prover
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker --port $(PROVER_PORT) --tx-prover --batch-prover
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process

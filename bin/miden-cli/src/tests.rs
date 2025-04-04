@@ -434,10 +434,13 @@ async fn debug_mode_outputs_logs() {
 
     // Import the note into the CLI
     let temp_dir = init_cli_with_store_path(get_network_from_rpc_config().as_str(), &store_path);
+
+    // Serialize the note
     let note_path = temp_dir.join(NOTE_FILENAME);
     let mut file = File::create(note_path.clone()).unwrap();
     file.write_all(&note_file.to_bytes()).unwrap();
 
+    // Import the note
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
     import_cmd.args(["import", note_path.to_str().unwrap()]);
     import_cmd.current_dir(&temp_dir).assert().success();

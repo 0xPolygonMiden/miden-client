@@ -71,6 +71,8 @@ before(async () => {
         FeltArray,
         FungibleAsset,
         Note,
+        NoteAndArgs,
+        NoteAndArgsArray,
         NoteAssets,
         NoteConsumability,
         NoteExecutionHint,
@@ -118,6 +120,8 @@ before(async () => {
       window.FeltArray = FeltArray;
       window.FungibleAsset = FungibleAsset;
       window.Note = Note;
+      window.NoteAndArgs = NoteAndArgs;
+      window.NoteAndArgsArray = NoteAndArgsArray;
       window.NoteAssets = NoteAssets;
       window.NoteConsumability = NoteConsumability;
       window.NoteExecutionHint = NoteExecutionHint;
@@ -159,8 +163,8 @@ before(async () => {
 
       window.helpers.waitForTransaction = async (
         transactionId,
-        maxWaitTime = 20000,
-        delayInterval = 1000
+        maxWaitTime = 10000,
+        delayInterval = 100
       ) => {
         const client = window.client;
         let timeWaited = 0;
@@ -186,6 +190,7 @@ before(async () => {
       window.helpers.refreshClient = async (initSeed) => {
         const client = await WebClient.createClient(rpcUrl, initSeed);
         window.client = client;
+        await window.client.syncState();
       };
     },
     LOCAL_MIDEN_NODE_PORT,
