@@ -65,14 +65,17 @@ impl NoteScreener {
 
         let script_root = note.script().root();
 
-        let note_relevance = if script_root == WellKnownNote::P2ID.script_root() {
-            Self::check_p2id_relevance(note, &account_ids)?
-        } else if script_root == WellKnownNote::P2IDR.script_root() {
-            Self::check_p2idr_relevance(note, &account_ids)?
-        } else if script_root == WellKnownNote::SWAP.script_root() {
-            self.check_swap_relevance(note, &account_ids).await?
-        } else {
-            NoteScreener::check_script_relevance(note, &account_ids)
+        let note_relevance = match script_root {
+            ref p2id_root if p2id_root == &WellKnownNote::P2ID.script_root() => {
+                Self::check_p2id_relevance(note, &account_ids)?
+            },
+            ref p2idr_root if p2idr_root == &WellKnownNote::P2IDR.script_root() => {
+                Self::check_p2idr_relevance(note, &account_ids)?
+            },
+            ref swap_root if swap_root == &WellKnownNote::SWAP.script_root() => {
+                self.check_swap_relevance(note, &account_ids).await?
+            },
+            _ => NoteScreener::check_script_relevance(note, &account_ids),
         };
 
         Ok(note_relevance)

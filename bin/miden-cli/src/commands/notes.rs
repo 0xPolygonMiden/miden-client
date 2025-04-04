@@ -176,12 +176,17 @@ async fn show_note(client: Client, note_id: String, with_code: bool) -> Result<(
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
 
-    if script_root == WellKnownNote::P2ID.script_root().to_string() {
-        script_root += " (P2ID)";
-    } else if script_root == WellKnownNote::P2IDR.script_root().to_string() {
-        script_root += " (P2IDR)";
-    } else if script_root == WellKnownNote::SWAP.script_root().to_string() {
-        script_root += " (SWAP)";
+    match script_root {
+        ref p2id_root if p2id_root == &WellKnownNote::P2ID.script_root().to_string() => {
+            script_root += " (P2ID)";
+        },
+        ref p2idr_root if p2idr_root == &WellKnownNote::P2IDR.script_root().to_string() => {
+            script_root += " (P2IDR)";
+        },
+        ref swap_root if swap_root == &WellKnownNote::SWAP.script_root().to_string() => {
+            script_root += " (SWAP)";
+        },
+        _ => {},
     }
 
     table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
