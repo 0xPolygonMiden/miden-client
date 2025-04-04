@@ -5,6 +5,7 @@
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
+* [BREAKING] Updated keystore to accept arbitrarily large public keys (#833).
 
 ## 0.8.1 (2025-03-28)
 

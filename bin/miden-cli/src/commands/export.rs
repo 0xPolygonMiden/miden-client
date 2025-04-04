@@ -1,11 +1,14 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    Client, Word,
+    Client, ClientError, Word,
     account::{Account, AccountFile},
     store::NoteExportType,
+    transaction::AccountInterface,
     utils::Serializable,
 };
+use miden_lib::AuthScheme;
+use miden_objects::AccountError;
 use tracing::info;
 
 use crate::{
@@ -88,7 +91,7 @@ async fn export_account(
     let account: Account = account.into();
 
     let auth = keystore
-        .get_key(get_public_key_from_account(&account))
+        .get_key(get_public_key_from_account(&account)?)
         .map_err(CliError::KeyStore)?
         .ok_or(CliError::Export("Auth not found for account".to_string()))?;
 
@@ -149,13 +152,14 @@ async fn export_note(
 }
 
 /// Gets the public key from the storage of an account. This will only work if the account is
-/// created by the CLI as it expects the public key to be stored in index 0 of the account storage
-/// if it is a regular account, and in index 1 if it is a faucet account.
-pub fn get_public_key_from_account(account: &Account) -> Word {
-    Word::from(
-        account
-            .storage()
-            .get_item(u8::from(account.is_faucet()))
-            .expect("Account should have the public key in storage"),
-    )
+/// created by the CLI as it expects the account to have the `RpoFalcon512` authentication scheme.
+pub fn get_public_key_from_account(account: &Account) -> Result<Word, ClientError> {
+    let interface: AccountInterface = account.into();
+    let auth = interface.auth().first().ok_or(ClientError::AccountError(
+        AccountError::AssumptionViolated("Account should have an auth scheme".to_string()),
+    ))?;
+
+    match auth {
+        AuthScheme::RpoFalcon512 { pub_key } => Ok(Word::from(*pub_key)),
+    }
 }
