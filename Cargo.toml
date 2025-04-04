@@ -42,3 +42,8 @@ module_name_repetitions =     "allow" # Many triggers, and is a stylistic choice
 must_use_candidate =          "allow" # This marks many fn's which isn't helpful.
 should_panic_without_expect = "allow" # We don't care about the specific panic message.
 # End of pedantic lints.
+
+[profile.test-release]
+inherits = "dev"
+opt-level = 1
+codegen-units = 16
