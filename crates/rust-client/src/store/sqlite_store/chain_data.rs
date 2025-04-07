@@ -169,15 +169,15 @@ impl SqliteStore {
     /// Removes block headers that do not contain any client notes and aren't the genesis or last
     /// block.
     pub fn prune_irrelevant_blocks(conn: &mut Connection) -> Result<(), StoreError> {
-        const GENESIS_BLOCK: u32 = 0;
         let tx = conn.transaction()?;
 
         let query = format!(
             "\
             DELETE FROM block_headers
             WHERE has_client_notes = FALSE
-            AND block_num != {GENESIS_BLOCK}
-            AND block_num NOT IN (SELECT block_num FROM state_sync)"
+            AND block_num != {}
+            AND block_num NOT IN (SELECT block_num FROM state_sync)",
+            BlockNumber::GENESIS.as_u32()
         );
         tx.execute(query.as_str(), params![])?;
         Ok(tx.commit().map(|_| ())?)

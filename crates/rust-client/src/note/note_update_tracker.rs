@@ -215,7 +215,8 @@ impl NoteUpdateTracker {
         })
     }
 
-    pub fn unverified_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
+    /// Returns all input note records that are unverified, regardless of their update type.
+    pub(crate) fn unverified_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
         self.input_notes
             .values()
             .filter(|note| matches!(note.note.state(), InputNoteState::Unverified(_)))
@@ -229,7 +230,7 @@ impl NoteUpdateTracker {
     /// Returns the tags of all notes that need to be removed from the store after the state sync.
     ///
     /// These are the tags of notes that have been committed and no longer need to be tracked.
-    pub fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
+    pub(crate) fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
         self.input_notes
             .values()
             .filter(|note| note.inner().is_committed())
