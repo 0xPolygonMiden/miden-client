@@ -348,7 +348,7 @@ impl NoteUpdateTracker {
                 .inclusion_proof()
                 .is_some_and(|proof| proof.location().block_num() == block_header.block_num())
         }) {
-            update.note.block_header_received(block_header)?;
+            update.inner_mut().block_header_received(block_header)?;
         }
 
         Ok(())

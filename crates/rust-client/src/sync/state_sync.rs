@@ -417,7 +417,7 @@ impl StateSync {
     ) -> Result<(), ClientError> {
         let missing_block_nums = state_sync_update
             .note_updates
-            .updated_input_notes()
+            .unverified_input_notes()
             .filter_map(|note| {
                 if let InputNoteState::Unverified(state) = note.inner().state() {
                     Some(state.inclusion_proof.location().block_num())
