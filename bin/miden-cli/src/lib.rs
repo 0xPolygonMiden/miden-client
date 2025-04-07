@@ -127,7 +127,7 @@ impl Cli {
 
         // Execute CLI command
         match &self.action {
-            Command::Account(account) => account.execute(client).await,
+            Command::Account(account) => account.execute(client, &cli_config).await,
             Command::NewWallet(new_wallet) => new_wallet.execute(client, keystore).await,
             Command::NewAccount(new_account) => new_account.execute(client, keystore).await,
             Command::Import(import) => import.execute(client, keystore).await,
