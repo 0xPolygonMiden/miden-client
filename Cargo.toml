@@ -43,7 +43,7 @@ must_use_candidate =          "allow" # This marks many fn's which isn't helpful
 should_panic_without_expect = "allow" # We don't care about the specific panic message.
 # End of pedantic lints.
 
-[profile.release]
+[profile.test-dev]
+inherits = "dev"
 opt-level = 1
-lto = "thin"
 codegen-units = 16

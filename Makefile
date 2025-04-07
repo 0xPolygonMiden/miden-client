@@ -85,7 +85,7 @@ test-docs: ## Run documentation tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --cargo-profile test-dev --test=integration $(FEATURES_CLI) 
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
@@ -97,8 +97,8 @@ integration-test-remote-prover-web-client: ## Run integration tests for the web 
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --cargo-profile test-dev --test=integration $(FEATURES_CLI)
+	cargo nextest run --workspace --exclude miden-client-web --cargo-profile test-dev --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
 kill-node: ## Kill node process
