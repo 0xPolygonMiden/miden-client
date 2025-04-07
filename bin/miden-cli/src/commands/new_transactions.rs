@@ -59,6 +59,11 @@ pub struct MintCmd {
     /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
+
+    /// Block Lag Delta.
+    /// Defaults to 256
+    #[clap(long, default_value_t = 256)]
+    max_block_number_delta: u32,
 }
 
 impl MintCmd {
@@ -87,6 +92,7 @@ impl MintCmd {
             transaction_request,
             force,
             self.delegate_proving,
+            self.max_block_number_delta,
         )
         .await
     }
@@ -122,6 +128,11 @@ pub struct SendCmd {
     /// Flag to delegate proving to the remote prover specified in the config file
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
+
+    /// Block Lag Delta.
+    /// Defaults to 256
+    #[clap(long, default_value_t = 256)]
+    max_block_number_delta: u32,
 }
 
 impl SendCmd {
@@ -160,6 +171,7 @@ impl SendCmd {
             transaction_request,
             force,
             self.delegate_proving,
+            self.max_block_number_delta,
         )
         .await
     }
@@ -190,6 +202,11 @@ pub struct SwapCmd {
     /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
+
+    /// Block Lag Delta.
+    /// Defaults to 256
+    #[clap(long, default_value_t = 256)]
+    max_block_number_delta: u32,
 }
 
 impl SwapCmd {
@@ -229,6 +246,7 @@ impl SwapCmd {
             transaction_request,
             force,
             self.delegate_proving,
+            self.max_block_number_delta,
         )
         .await?;
 
@@ -265,6 +283,11 @@ pub struct ConsumeNotesCmd {
     /// Flag to delegate proving to the remote prover specified in the config file.
     #[clap(long, default_value_t = false)]
     delegate_proving: bool,
+
+    /// Block Lag Delta.
+    /// Defaults to 256
+    #[clap(long, default_value_t = 256)]
+    max_block_number_delta: u32,
 }
 
 impl ConsumeNotesCmd {
@@ -328,6 +351,7 @@ impl ConsumeNotesCmd {
             transaction_request,
             force,
             self.delegate_proving,
+            self.max_block_number_delta,
         )
         .await
     }
@@ -342,10 +366,12 @@ async fn execute_transaction(
     transaction_request: TransactionRequest,
     force: bool,
     delegated_proving: bool,
+    max_block_number_delta: u32,
 ) -> Result<(), CliError> {
     println!("Executing transaction...");
-    let transaction_execution_result =
-        client.new_transaction(account_id, transaction_request).await?;
+    let transaction_execution_result = client
+        .new_transaction(account_id, transaction_request, max_block_number_delta)
+        .await?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;
