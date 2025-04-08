@@ -41,8 +41,24 @@ async fn test_fpi_execute_program() {
     client.sync_state().await.unwrap();
 
     // Deploy a foreign account
-    let (foreign_account, proc_root) =
-        deploy_test_foreign_account(&mut client, &mut keystore, AccountStorageMode::Public).await;
+    let (foreign_account, proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        AccountStorageMode::Public,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
+            end",
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
+    )
+    .await
+    .unwrap();
     let foreign_account_id = foreign_account.id();
 
     let (wallet, ..) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
@@ -101,8 +117,24 @@ async fn test_nested_fpi_calls() {
     let (mut client, mut keystore) = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let (inner_foreign_account, inner_proc_root) =
-        deploy_test_foreign_account(&mut client, &mut keystore, AccountStorageMode::Public).await;
+    let (inner_foreign_account, inner_proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        AccountStorageMode::Public,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
+            end",
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
+    )
+    .await
+    .unwrap();
     let inner_foreign_account_id = inner_foreign_account.id();
 
     let (outer_foreign_account, outer_proc_root) = deploy_foreign_account(
@@ -199,8 +231,24 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     let (mut client, mut keystore) = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let (foreign_account, proc_root) =
-        deploy_test_foreign_account(&mut client, &mut keystore, storage_mode).await;
+    let (foreign_account, proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        storage_mode,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
+            end",
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
+    )
+    .await
+    .unwrap();
 
     let foreign_account_id = foreign_account.id();
 
@@ -371,39 +419,4 @@ async fn deploy_foreign_account(
     wait_for_tx(client, tx_id).await;
 
     Ok((foreign_account, proc_root))
-}
-
-/// Deploys a foreign account to the network with a custom component that retrieves a value from its
-/// storage (map). The account is also inserted into the client and keystore.
-///
-/// # Returns
-///
-/// A tuple containing:
-/// - `Account` - The deployed foreign account.
-/// - `Digest` - The procedure root of the foreign account.
-async fn deploy_test_foreign_account(
-    client: &mut TestClient,
-    keystore: &mut TestClientKeyStore,
-    storage_mode: AccountStorageMode,
-) -> (Account, Digest) {
-    deploy_foreign_account(
-        client,
-        keystore,
-        storage_mode,
-        format!(
-            "
-    export.get_fpi_map_item
-        # map key
-        push.{map_key}
-        # item index
-        push.0
-        exec.::miden::account::get_map_item
-        swapw dropw
-    end
-    ",
-            map_key = word_to_masm_push_string(&MAP_KEY)
-        ),
-    )
-    .await
-    .unwrap()
 }
