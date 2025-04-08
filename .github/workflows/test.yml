@@ -52,7 +52,7 @@ jobs:
         run: |
           if [ ! -d "miden-node" ]; then
             echo "miden-node directory not found. Cloning repository...";
-            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+            make setup-miden-node
           else
             echo "Using cached miden-node directory.";
           fi
@@ -104,7 +104,7 @@ jobs:
         run: |
           if [ ! -d "miden-node" ]; then
             echo "miden-node directory not found. Cloning repository...";
-            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+            make setup-miden-node
           else
             echo "Using cached miden-node directory.";
           fi
@@ -114,7 +114,7 @@ jobs:
           rustup update --no-self-update
           rustup target add wasm32-unknown-unknown
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-miden-node@v4
         with:
           node-version: "20"
       - name: Configure setuid sandbox
@@ -162,7 +162,7 @@ jobs:
         run: |
           if [ ! -d "miden-node" ]; then
             echo "miden-node directory not found. Cloning repository...";
-            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+            make setup-miden-node
           else
             echo "Using cached miden-node directory.";
           fi
@@ -172,7 +172,7 @@ jobs:
           rustup update --no-self-update
           rustup target add wasm32-unknown-unknown
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-miden-node@v4
         with:
           node-version: "20"
       - name: Configure setuid sandbox
