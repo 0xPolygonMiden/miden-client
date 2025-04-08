@@ -1,4 +1,5 @@
 name: Test
+
 on:
   push:
     branches: [main, next]
@@ -16,62 +17,97 @@ jobs:
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
-      - name: make - test
+      - name: Run Tests
         run: make test
 
   doc-tests:
-    name: doc-tests
+    name: Doc Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/next' }}
-      - name: Install rust
+      - name: Install Rust
         run: rustup update --no-self-update
-      - name: Run doc-tests
+      - name: Run Documentation Tests
         run: make test-docs
 
   integration-tests:
-    name: Run integration tests on ubuntu-latest
+    name: Run Integration Tests on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      
+      # Restore full miden-node directory from cache.
+      - name: Restore miden-node Cache
+        id: restore-miden-node
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
+      # Clone miden-node if not already present.
+      - name: Clone miden-node if needed
+        run: |
+          if [ ! -d "miden-node" ]; then
+            echo "miden-node directory not found. Cloning repository...";
+            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+          else
+            echo "Using cached miden-node directory.";
+          fi
+
       - name: Install Rust
         run: rustup update --no-self-update
       - uses: taiki-e/install-action@nextest
-      
-      # Add cache for the compiled binary
-      - name: Cache miden-node binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            miden-node/target/release/miden-node
-            miden-node/target/release/miden-node.d
-          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-miden-node-
-      
+
       - name: Build miden-node (if not cached)
         run: |
           if [ ! -f "miden-node/target/release/miden-node" ]; then
             make clean-node
             make node
           fi
-      
+
+      - name: Save miden-node Cache
+        if: steps.restore-miden-node.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
-      - run: make start-node > /dev/null &
-      - run: make integration-test-full
+
+      - name: Start miden-node
+        run: make start-node > /dev/null &
+      - name: Run Integration Tests
+        run: make integration-test-full
       - name: Kill miden-node
         if: always()
         run: make kill-node
 
   integration-tests-web-client:
-    name: Run integration tests for web client on ubuntu-latest
+    name: Run Integration Tests for Web Client on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      
+      - name: Restore miden-node Cache
+        id: restore-miden-node
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
+      - name: Clone miden-node if needed
+        run: |
+          if [ ! -d "miden-node" ]; then
+            echo "miden-node directory not found. Cloning repository...";
+            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+          else
+            echo "Using cached miden-node directory.";
+          fi
+
       - name: Install Rust
         run: |
           rustup update --no-self-update
@@ -82,36 +118,54 @@ jobs:
           node-version: "20"
       - name: Configure setuid sandbox
         run: . ./scripts/configure-sandbox.sh
-      # Add cache for the compiled binary
-      - name: Cache miden-node binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            miden-node/target/release/miden-node
-            miden-node/target/release/miden-node.d
-          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-miden-node-
-      
+
       - name: Build miden-node (if not cached)
         run: |
           if [ ! -f "miden-node/target/release/miden-node" ]; then
             make clean-node
             make node
           fi
+
+      - name: Save miden-node Cache
+        if: steps.restore-miden-node.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
-      - run: make start-node > /dev/null &
-      - run: make integration-test-web-client
+
+      - name: Start miden-node
+        run: make start-node > /dev/null &
+      - name: Run Web Client Integration Tests
+        run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
         run: make kill-node
 
   integration-tests-remote-prover-web-client:
-    name: Run integration tests for remote prover on ubuntu-latest
+    name: Run Integration Tests for Remote Prover on ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      
+      - name: Restore miden-node Cache
+        id: restore-miden-node
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
+      - name: Clone miden-node if needed
+        run: |
+          if [ ! -d "miden-node" ]; then
+            echo "miden-node directory not found. Cloning repository...";
+            git clone --depth 1 --branch ${{ env.NODE_BRANCH }} https://github.com/0xPolygonMiden/miden-node.git miden-node;
+          else
+            echo "Using cached miden-node directory.";
+          fi
+
       - name: Install Rust
         run: |
           rustup update --no-self-update
@@ -122,29 +176,31 @@ jobs:
           node-version: "20"
       - name: Configure setuid sandbox
         run: . ./scripts/configure-sandbox.sh
-      # Add cache for the compiled binary
-      - name: Cache miden-node binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            miden-node/target/release/miden-node
-            miden-node/target/release/miden-node.d
-          key: ${{ runner.os }}-miden-node-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-miden-node-
+
       - name: Build miden-node (if not cached)
         run: |
           if [ ! -f "miden-node/target/release/miden-node" ]; then
             make clean-node
             make node
           fi
-      - run: make start-node > /dev/null &
-      - run: make clean-prover
-      - run: make prover
-      - name: Add Rust Cache
-        uses: Swatinem/rust-cache@v2
-      - run: make start-prover > /dev/null &
-      - run: make integration-test-remote-prover-web-client
+
+      - name: Save miden-node Cache
+        if: steps.restore-miden-node.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: miden-node
+          key: ${{ runner.os }}-miden-node-${{ env.NODE_BRANCH }}-${{ hashFiles('miden-node-version.txt') }}
+
+      - name: Start miden-node
+        run: make start-node > /dev/null &
+      - name: Clean and Start Prover
+        run: |
+          make clean-prover
+          make prover
+      - name: Start Remote Prover
+        run: make start-prover > /dev/null &
+      - name: Run Remote Prover Web Client Integration Tests
+        run: make integration-test-remote-prover-web-client
       - name: Kill miden-node
         if: always()
         run: make kill-node
