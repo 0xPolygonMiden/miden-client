@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 (TBD)
+
+### Changes
+
+* Updated Web Client README and Documentation (#808).
+* [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
+
 ## 0.8.1 (2025-03-28)
 
 ### Features

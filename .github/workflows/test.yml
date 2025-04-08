@@ -44,7 +44,7 @@ jobs:
       - run: make node
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
-      - run: make start-node > /dev/null &
+      - run: RUST_LOG=none make start-node > /dev/null &
       - run: make integration-test-full
       - name: Kill miden-node
         if: always()
@@ -69,7 +69,7 @@ jobs:
       - run: make node
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
-      - run: make start-node > /dev/null &
+      - run: RUST_LOG=none make start-node > /dev/null &
       - run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
