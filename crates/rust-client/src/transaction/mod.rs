@@ -33,7 +33,7 @@
 //! /// This transaction is executed by `sender_id`, and creates an output note
 //! /// containing 100 tokens of `faucet_id`'s fungible asset.
 //! async fn create_and_submit_transaction<R: rand::Rng>(
-//!     client: &mut Client<impl FeltRng>,
+//!     client: &mut Client,
 //!     sender_id: AccountId,
 //!     target_id: AccountId,
 //!     faucet_id: AccountId,
@@ -95,16 +95,16 @@ use miden_tx::{
 };
 use tracing::info;
 
-use super::{Client, FeltRng};
+use super::Client;
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdates},
-    rpc::domain::account::AccountProof,
+    rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
     },
-    sync::NoteTagRecord,
+    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
 };
 
 mod request;
@@ -340,10 +340,8 @@ impl TransactionStoreUpdate {
             executed_transaction,
             updated_account,
             note_updates: NoteUpdates::new(
-                created_input_notes,
+                [created_input_notes, updated_input_notes].concat(),
                 created_output_notes,
-                updated_input_notes,
-                vec![],
             ),
             new_tags,
         }
@@ -370,8 +368,66 @@ impl TransactionStoreUpdate {
     }
 }
 
+/// Contains transaction changes to apply to the store.
+#[derive(Default)]
+pub struct TransactionUpdates {
+    /// Transaction updates for any transaction that was committed between the sync request's block
+    /// number and the response's block number.
+    committed_transactions: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync.
+    discarded_transactions: Vec<TransactionId>,
+    /// Transactions that were pending before the sync and were not committed.
+    ///
+    /// These transactions have been pending for more than [`TX_GRACEFUL_BLOCKS`] blocks and can be
+    /// assumed to have been rejected by the network. They will be marked as discarded in the
+    /// store.
+    stale_transactions: Vec<TransactionRecord>,
+}
+
+impl TransactionUpdates {
+    /// Creates a new [`TransactionUpdate`]
+    pub fn new(
+        committed_transactions: Vec<TransactionUpdate>,
+        discarded_transactions: Vec<TransactionId>,
+        stale_transactions: Vec<TransactionRecord>,
+    ) -> Self {
+        Self {
+            committed_transactions,
+            discarded_transactions,
+            stale_transactions,
+        }
+    }
+
+    /// Extends the transaction update information with `other`.
+    pub fn extend(&mut self, other: Self) {
+        self.committed_transactions.extend(other.committed_transactions);
+        self.discarded_transactions.extend(other.discarded_transactions);
+        self.stale_transactions.extend(other.stale_transactions);
+    }
+
+    /// Returns a reference to committed transactions.
+    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
+        &self.committed_transactions
+    }
+
+    /// Returns a reference to discarded transactions.
+    pub fn discarded_transactions(&self) -> &[TransactionId] {
+        &self.discarded_transactions
+    }
+
+    /// Inserts a discarded transaction into the transaction updates.
+    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
+        self.discarded_transactions.push(transaction_id);
+    }
+
+    /// Returns a reference to stale transactions.
+    pub fn stale_transactions(&self) -> &[TransactionRecord] {
+        &self.stale_transactions
+    }
+}
+
 /// Transaction management methods
-impl<R: FeltRng> Client<R> {
+impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -723,7 +779,7 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<(), ClientError> {
         // Get outgoing assets
         let (fungible_balance_map, non_fungible_set) =
-            <Client<R>>::get_outgoing_assets(transaction_request);
+            Client::get_outgoing_assets(transaction_request);
 
         // Get incoming assets
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
@@ -774,14 +830,24 @@ impl<R: FeltRng> Client<R> {
 
     /// Validates that the specified transaction request can be executed by the specified account.
     ///
-    /// This function checks that the account has enough balance to cover the outgoing assets. This
-    /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
-    /// transactions that are guaranteed to fail.
+    /// This does't guarantee that the transaction will succeed, but it's useful to avoid submitting
+    /// transactions that are guaranteed to fail. Some of the validations include:
+    /// - That the account has enough balance to cover the outgoing assets.
+    /// - That the client is not too far behind the chain tip.
     pub async fn validate_request(
-        &self,
+        &mut self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
+        let current_chain_tip =
+            self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
+
+        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+            return Err(ClientError::RecencyConditionError(
+                "The client is too far behind the chain tip to execute the transaction".to_string(),
+            ));
+        }
+
         let account: Account = self.try_get_account(account_id).await?.into();
 
         if account.is_faucet() {
@@ -810,7 +876,11 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
-    /// retrieve it.
+    /// retrieve it, this implies a state sync call which may update the client in other ways.
+    ///
+    /// # Errors
+    /// - Returns a [`ClientError::RecencyConditionError`] if the foreign account proofs are too far
+    ///   in the future.
     async fn inject_foreign_account_inputs(
         &mut self,
         foreign_accounts: BTreeSet<ForeignAccount>,
@@ -921,7 +991,7 @@ impl<R: FeltRng> Client<R> {
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<R: FeltRng> Client<R> {
+impl Client {
     pub async fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,

@@ -21,7 +21,7 @@ use super::{
 };
 use crate::{
     note::NoteUpdates,
-    store::StoreError,
+    store::{StoreError, TransactionFilter},
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -37,8 +37,11 @@ use models::{NoteTagIdxdbObject, SyncHeightIdxdbObject};
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         let promise = idxdb_get_note_tags();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let tags_idxdb: Vec<NoteTagIdxdbObject> = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get note tags: {js_error:?}"))
+        })?;
+        let tags_idxdb: Vec<NoteTagIdxdbObject> = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let tags = tags_idxdb
             .into_iter()
@@ -66,8 +69,11 @@ impl WebStore {
 
     pub(super) async fn get_sync_height(&self) -> Result<BlockNumber, StoreError> {
         let promise = idxdb_get_sync_height();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to get sync height: {js_error:?}"))
+        })?;
+        let block_num_idxdb: SyncHeightIdxdbObject = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         let block_num_as_u32: u32 = block_num_idxdb.block_num.parse::<u32>().unwrap();
         Ok(block_num_as_u32.into())
@@ -85,7 +91,9 @@ impl WebStore {
         };
 
         let promise = idxdb_add_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to add note tag: {js_error:?}"))
+        })?;
 
         Ok(true)
     }
@@ -98,7 +106,11 @@ impl WebStore {
         };
 
         let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        let removed_tags = from_value(JsFuture::from(promise).await.unwrap()).unwrap();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to remove note tag: {js_error:?}"))
+        })?;
+        let removed_tags: usize = from_value(js_value)
+            .map_err(|err| StoreError::DatabaseError(format!("failed to deserialize {err:?}")))?;
 
         Ok(removed_tags)
     }
@@ -109,14 +121,13 @@ impl WebStore {
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
-            note_updates,
-            transactions_to_commit: committed_transactions,
+            block_has_relevant_notes,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard,
+            note_updates,
+            account_updates,
             tags_to_remove,
+            transaction_updates,
         } = state_sync_update;
 
         // Serialize data for updating state sync and block header
@@ -152,25 +163,34 @@ impl WebStore {
             .collect();
 
         // Serialize data for updating committed transactions
-        let transactions_to_commit_block_nums_as_str = committed_transactions
+        let transactions_to_commit_block_nums_as_str = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.block_num.to_string())
             .collect();
-        let transactions_to_commit_as_str: Vec<String> = committed_transactions
+        let transactions_to_commit_as_str: Vec<String> = transaction_updates
+            .committed_transactions()
             .iter()
             .map(|tx_update| tx_update.transaction_id.to_string())
             .collect();
-        let transactions_to_discard_as_str: Vec<String> =
-            transactions_to_discard.iter().map(TransactionId::to_string).collect();
+        let transactions_to_discard_as_str: Vec<String> = transaction_updates
+            .discarded_transactions()
+            .iter()
+            .map(TransactionId::to_string)
+            .collect();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
-            update_account(&account.clone()).await.unwrap();
+        for account in account_updates.updated_public_accounts() {
+            update_account(&account.clone()).await.map_err(|err| {
+                StoreError::DatabaseError(format!("failed to update account: {err:?}"))
+            })?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
-            lock_account(account_id).await.unwrap();
+        for (account_id, _) in account_updates.mismatched_private_accounts() {
+            lock_account(account_id).await.map_err(|err| {
+                StoreError::DatabaseError(format!("failed to lock account: {err:?}"))
+            })?;
         }
 
         let promise = idxdb_apply_state_sync(
@@ -185,7 +205,9 @@ impl WebStore {
             transactions_to_commit_block_nums_as_str,
             transactions_to_discard_as_str,
         );
-        JsFuture::from(promise).await.unwrap();
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to apply state sync: {js_error:?}"))
+        })?;
 
         Ok(())
     }
@@ -195,12 +217,29 @@ impl WebStore {
         note_updates: NoteUpdates,
         transactions_to_discard: Vec<TransactionId>,
     ) -> Result<(), StoreError> {
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+        let transactions_records_to_discard = self
+            .get_transactions(TransactionFilter::Ids(transactions_to_discard.clone()))
+            .await?;
+
         apply_note_updates_tx(&note_updates).await?;
         let transactions_ids_as_str: Vec<String> =
             transactions_to_discard.iter().map(ToString::to_string).collect();
 
         let promise = idxdb_discard_transactions(transactions_ids_as_str);
-        JsFuture::from(promise).await.unwrap();
+
+        let final_account_states = transactions_records_to_discard
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
+
+        // Remove the account states that are originated from the discarded transactions
+        self.undo_account_states(&final_account_states).await?;
+
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to discard transactions: {js_error:?}"))
+        })?;
 
         Ok(())
     }

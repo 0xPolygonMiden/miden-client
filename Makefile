@@ -18,11 +18,11 @@ WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
 NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="tomyrd-fix-renaming"
+NODE_BRANCH="main"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="main"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
@@ -55,13 +55,17 @@ format-check: ## Run format using nightly toolchain but only in check mode
 .PHONY: lint
 lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)
 
-# --- Rust documentation --------------------------------------------------------------------------
+# --- Documentation --------------------------------------------------------------------------
 
 .PHONY: doc
 doc: ## Generate & check rust documentation. You'll need `jq` in order for this to run.
 	@cd crates/rust-client && \
 	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic" and . != "idxdb")' | tr '\n' ',') && \
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
+
+.PHONY: book
+book: ## Builds the book & serves documentation site
+	mdbook serve --open docs
 
 # --- Testing -------------------------------------------------------------------------------------
 
@@ -117,11 +121,11 @@ update-node-branch: setup-miden-base ## Checkout and update the specified branch
 
 .PHONY: build-node
 build-node: update-node-branch ## Update dependencies and build the node binary with specified features
-	cd $(NODE_DIR) && rm -rf data accounts && mkdir data accounts && cargo run --locked --bin miden-node $(NODE_FEATURES_TESTING) -- bundled bootstrap --data-directory data --accounts-directory accounts
+	cd $(NODE_DIR) && rm -rf data accounts && mkdir data accounts && cargo run --locked --bin miden-node $(NODE_FEATURES_TESTING) --release -- bundled bootstrap --data-directory data --accounts-directory accounts
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --locked -- bundled start --data-directory data --rpc.url http://localhost:57291  --block.interval 5000 --batch.interval 2000
+	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --release --locked -- bundled start --data-directory data --rpc.url http://localhost:57291
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover
@@ -139,12 +143,12 @@ update-prover-branch: setup-miden-base ## Checkout and update the specified bran
 	cd $(PROVER_DIR) && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
 
 .PHONY: build-prover
-build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
-	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
+build-prover: update-prover-branch ## Build the prover binary with specified features
+	cd $(PROVER_DIR) && cargo build --bin miden-proving-service --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker --port $(PROVER_PORT) --tx-prover --batch-prover
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process

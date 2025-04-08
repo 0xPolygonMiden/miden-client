@@ -14,6 +14,8 @@ const {
   FungibleAsset,
   InputNoteState,
   Note,
+  NoteAndArgs,
+  NoteAndArgsArray,
   NoteAssets,
   NoteConsumability,
   NoteExecutionHint,
@@ -57,6 +59,8 @@ export {
   FungibleAsset,
   InputNoteState,
   Note,
+  NoteAndArgs,
+  NoteAndArgsArray,
   NoteAssets,
   NoteConsumability,
   NoteExecutionHint,
@@ -268,7 +272,7 @@ export class WebClient {
       );
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in newWallet:", error);
+      console.error("INDEX.JS: Error in newWallet:", error.toString());
       throw error;
     }
   }
@@ -297,7 +301,7 @@ export class WebClient {
 
       return wasm.Account.deserialize(new Uint8Array(serializedAccountBytes));
     } catch (error) {
-      console.error("INDEX.JS: Error in newFaucet:", error);
+      console.error("INDEX.JS: Error in newFaucet:", error.toString());
       throw error;
     }
   }
@@ -321,105 +325,7 @@ export class WebClient {
         new Uint8Array(serializedTransactionResultBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in newTransaction:", error);
-      throw error;
-    }
-  }
-
-  async newMintTransaction(targetAccountId, faucetId, noteType, amount) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.newMintTransaction(
-          targetAccountId,
-          faucetId,
-          noteType,
-          amount
-        );
-      }
-      const serializedTargetAccountId = targetAccountId.toString();
-      const serializedFaucetId = faucetId.toString();
-      const serializedNoteType = noteType.serialize();
-      const serializedAmount = amount.toString();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_MINT_TRANSACTION,
-        serializedTargetAccountId,
-        serializedFaucetId,
-        serializedNoteType,
-        serializedAmount
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error("INDEX.JS: Error in newMintTransaction:", error);
-      throw error; // Ensure the test catches and asserts
-    }
-  }
-
-  async newConsumeTransaction(targetAccountId, noteId) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.newConsumeTransaction(
-          targetAccountId,
-          noteId
-        );
-      }
-      const serializedTargetAccountId = targetAccountId.toString();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_CONSUME_TRANSACTION,
-        serializedTargetAccountId,
-        noteId
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error(
-        "INDEX.JS: Error in newConsumeTransaction:",
-        JSON.stringify(error)
-      );
-      throw error;
-    }
-  }
-
-  async newSendTransaction(
-    senderAccountId,
-    receiverAccountId,
-    faucetId,
-    noteType,
-    amount,
-    recallHeight = null
-  ) {
-    try {
-      if (!this.worker) {
-        return await this.wasmWebClient.newSendTransaction(
-          senderAccountId,
-          receiverAccountId,
-          faucetId,
-          noteType,
-          amount,
-          recallHeight
-        );
-      }
-      const serializedSenderAccountId = senderAccountId.toString();
-      const serializedReceiverAccountId = receiverAccountId.toString();
-      const serializedFaucetId = faucetId.toString();
-      const serializedNoteType = noteType.serialize();
-      const serializedAmount = amount.toString();
-      const serializedTransactionResultBytes = await this.callMethodWithWorker(
-        MethodName.NEW_SEND_TRANSACTION,
-        serializedSenderAccountId,
-        serializedReceiverAccountId,
-        serializedFaucetId,
-        serializedNoteType,
-        serializedAmount,
-        recallHeight
-      );
-      return wasm.TransactionResult.deserialize(
-        new Uint8Array(serializedTransactionResultBytes)
-      );
-    } catch (error) {
-      console.error("INDEX.JS: Error in newSendTransaction:", error);
+      console.error("INDEX.JS: Error in newTransaction:", error.toString());
       throw error;
     }
   }
@@ -443,7 +349,7 @@ export class WebClient {
       // Always call the same worker method.
       await this.callMethodWithWorker(MethodName.SUBMIT_TRANSACTION, ...args);
     } catch (error) {
-      console.error("INDEX.JS: Error in submitTransaction:", error);
+      console.error("INDEX.JS: Error in submitTransaction:", error.toString());
       throw error;
     }
   }
@@ -460,7 +366,7 @@ export class WebClient {
         new Uint8Array(serializedSyncSummaryBytes)
       );
     } catch (error) {
-      console.error("INDEX.JS: Error in syncState:", error);
+      console.error("INDEX.JS: Error in syncState:", error.toString());
       throw error;
     }
   }

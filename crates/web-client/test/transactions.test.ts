@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { testingPage } from "./mocha.global.setup.mjs";
 import {
   consumeTransaction,
+  mintAndConsumeTransaction,
   mintTransaction,
   setupWalletAndFaucet,
 } from "./webClientTestUtils";
@@ -41,18 +42,16 @@ const getAllTransactions = async (): Promise<GetAllTransactionsResult> => {
 describe("get_transactions tests", () => {
   it("get_transactions retrieves all transactions successfully", async () => {
     const { accountId, faucetId } = await setupWalletAndFaucet();
-    const { transactionId: mintTransactionId, createdNoteId } =
-      await mintTransaction(accountId, faucetId);
-    const { transactionId: consumeTransactionId } = await consumeTransaction(
+
+    const { mintResult, consumeResult } = await mintAndConsumeTransaction(
       accountId,
-      faucetId,
-      createdNoteId
+      faucetId
     );
 
     const result = await getAllTransactions();
 
-    expect(result.transactionIds).to.include(mintTransactionId);
-    expect(result.transactionIds).to.include(consumeTransactionId);
+    expect(result.transactionIds).to.include(mintResult.transactionId);
+    expect(result.transactionIds).to.include(consumeResult.transactionId);
     expect(result.uncomittedTransactionIds.length).to.equal(0);
   });
 
@@ -61,6 +60,7 @@ describe("get_transactions tests", () => {
     const { transactionId: mintTransactionId } = await mintTransaction(
       accountId,
       faucetId,
+      false,
       false
     );
 

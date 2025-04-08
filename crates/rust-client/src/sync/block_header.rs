@@ -4,7 +4,7 @@ use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     Digest,
     block::{BlockHeader, BlockNumber},
-    crypto::{self, merkle::MerklePath, rand::FeltRng},
+    crypto::{self, merkle::MerklePath},
 };
 use tracing::warn;
 
@@ -15,8 +15,12 @@ use crate::{
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
 };
 
+/// Maximum number of blocks the client can be behind the network for transactions and account
+/// proofs to be considered valid.
+pub(crate) const MAX_BLOCK_NUMBER_DELTA: u32 = 256;
+
 /// Network information management methods.
-impl<R: FeltRng> Client<R> {
+impl Client {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header isn't tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
@@ -85,11 +89,7 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes
-            .updated_input_notes()
-            .iter()
-            .chain(committed_notes.new_input_notes().iter())
-        {
+        for input_note in committed_notes.updated_input_notes() {
             if !note_screener
                 .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
                 .await?
@@ -152,7 +152,7 @@ impl<R: FeltRng> Client<R> {
     /// If the store already contains MMR data for the requested block number, the request isn't
     /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
-        &mut self,
+        &self,
         block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {

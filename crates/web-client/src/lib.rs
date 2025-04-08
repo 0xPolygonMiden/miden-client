@@ -2,7 +2,6 @@ extern crate alloc;
 use alloc::sync::Arc;
 use std::fmt::Write;
 
-use console_error_panic_hook::set_once;
 use miden_client::{
     Client,
     keystore::WebKeyStore,
@@ -30,7 +29,7 @@ pub mod utils;
 pub struct WebClient {
     store: Option<Arc<WebStore>>,
     keystore: Option<WebKeyStore<RpoRandomCoin>>,
-    inner: Option<Client<RpoRandomCoin>>,
+    inner: Option<Client>,
 }
 
 impl Default for WebClient {
@@ -43,11 +42,10 @@ impl Default for WebClient {
 impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        set_once();
         WebClient { inner: None, store: None, keystore: None }
     }
 
-    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client<RpoRandomCoin>> {
+    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut Client> {
         self.inner.as_mut()
     }
 
@@ -83,11 +81,11 @@ impl WebClient {
             Endpoint::try_from(url.as_str()).map_err(|_| JsValue::from_str("Invalid node URL"))
         })?;
 
-        let web_rpc_client = Box::new(TonicRpcClient::new(&endpoint, 0));
+        let web_rpc_client = Arc::new(TonicRpcClient::new(&endpoint, 0));
 
         self.inner = Some(Client::new(
             web_rpc_client,
-            rng,
+            Box::new(rng),
             web_store.clone(),
             Arc::new(keystore.clone()),
             false,

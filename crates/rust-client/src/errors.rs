@@ -43,7 +43,7 @@ pub enum ClientError {
     #[error("account nonce is too low to import")]
     AccountNonceTooLow,
     #[error("asset error")]
-    AssetError(#[source] AssetError),
+    AssetError(#[from] AssetError),
     #[error("account data wasn't found for account id {0}")]
     AccountDataNotFound(AccountId),
     #[error("data deserialization error")]
@@ -68,6 +68,8 @@ pub enum ClientError {
     NoConsumableNoteForAccount(AccountId),
     #[error("rpc api error")]
     RpcError(#[from] RpcError),
+    #[error("recency condition error")]
+    RecencyConditionError(String),
     #[error("note screener error")]
     NoteScreenerError(#[from] NoteScreenerError),
     #[error("store error")]

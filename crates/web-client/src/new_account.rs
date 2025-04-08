@@ -6,6 +6,7 @@ use miden_client::{
 };
 use miden_lib::account::{auth::RpoFalcon512, faucets::BasicFungibleFaucet};
 use miden_objects::{AccountIdError, asset::TokenSymbol};
+use rand::RngCore;
 use wasm_bindgen::prelude::*;
 
 use super::models::{account::Account, account_storage_mode::AccountStorageMode};

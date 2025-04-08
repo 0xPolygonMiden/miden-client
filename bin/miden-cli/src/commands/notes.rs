@@ -4,13 +4,13 @@ use miden_client::{
     Client, ClientError, IdPrefixFetchError,
     account::AccountId,
     asset::Asset,
-    crypto::{Digest, FeltRng},
+    crypto::Digest,
     note::{
-        NoteConsumability, NoteInputs, NoteMetadata, get_input_note_with_id_prefix,
-        script_roots::{P2ID, P2IDR, SWAP},
+        NoteConsumability, NoteInputs, NoteMetadata, WellKnownNote, get_input_note_with_id_prefix,
     },
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
 };
+use miden_objects::PrettyPrint;
 
 use crate::{
     Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
@@ -51,6 +51,9 @@ pub struct NotesCmd {
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
+    /// When using --show, include the note code in the output.
+    #[clap(long, requires = "show")]
+    with_code: bool,
     /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
     /// consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
@@ -58,7 +61,7 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
                 list_consumable_notes(client, None).await?;
@@ -71,7 +74,7 @@ impl NotesCmd {
                 .await?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned()).await?;
+                show_note(client, id.to_owned(), self.with_code).await?;
             },
             _ => {
                 list_notes(client, ClientNoteFilter::All).await?;
@@ -96,10 +99,7 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-async fn list_notes(
-    client: Client<impl FeltRng>,
-    filter: ClientNoteFilter,
-) -> Result<(), CliError> {
+async fn list_notes(client: Client, filter: ClientNoteFilter) -> Result<(), CliError> {
     let input_notes = client
         .get_input_notes(filter.clone())
         .await?
@@ -122,7 +122,7 @@ async fn list_notes(
 // SHOW NOTE
 // ================================================================================================
 #[allow(clippy::too_many_lines)]
-async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), CliError> {
+async fn show_note(client: Client, note_id: String, with_code: bool) -> Result<(), CliError> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
@@ -175,12 +175,19 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
         exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref());
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
-    match script_root.clone().as_str() {
-        P2ID => script_root += " (P2ID)",
-        P2IDR => script_root += " (P2IDR)",
-        SWAP => script_root += " (SWAP)",
+
+    match script_root {
+        ref p2id_root if p2id_root == &WellKnownNote::P2ID.script_root().to_string() => {
+            script_root += " (P2ID)";
+        },
+        ref p2idr_root if p2idr_root == &WellKnownNote::P2IDR.script_root().to_string() => {
+            script_root += " (P2IDR)";
+        },
+        ref swap_root if swap_root == &WellKnownNote::SWAP.script_root().to_string() => {
+            script_root += " (SWAP)";
+        },
         _ => {},
-    };
+    }
 
     table.add_row(vec![Cell::new("Script Root"), Cell::new(script_root)]);
     table.add_row(vec![Cell::new("Assets Commitment"), Cell::new(assets_commitment)]);
@@ -208,8 +215,9 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
     };
 
     let assets = input_note_record
+        .clone()
         .map(|record| record.assets().clone())
-        .or(output_note_record.map(|record| record.assets().clone()))
+        .or(output_note_record.clone().map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
 
     // print note vault
@@ -258,7 +266,24 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
         println!("{table}");
-    };
+    }
+
+    if with_code {
+        let mut table = create_dynamic_table(&["Note Code"]);
+        let code = match (&input_note_record, &output_note_record) {
+            (Some(record), _) => record.details().script().to_pretty_string(),
+            (_, Some(record)) => {
+                record.state().recipient().map_or("Code unavailable".to_string(), |recipient| {
+                    recipient.script().to_pretty_string()
+                })
+            },
+            (None, None) => {
+                panic!("One of the two records should be Some")
+            },
+        };
+        table.add_row(vec![Cell::new(code)]);
+        println!("{table}");
+    }
 
     Ok(())
 }
@@ -266,7 +291,7 @@ async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
 async fn list_consumable_notes(
-    client: Client<impl FeltRng>,
+    client: Client,
     account_id: Option<&String>,
 ) -> Result<(), CliError> {
     let account_id = match account_id {

@@ -1,5 +1,5 @@
 use miden_client::{
-    note::{BlockNumber, get_input_note_with_id_prefix},
+    note::BlockNumber,
     transaction::{
         PaymentTransactionData, SwapTransactionData,
         TransactionRequestBuilder as NativeTransactionRequestBuilder,
@@ -7,7 +7,9 @@ use miden_client::{
     },
 };
 use miden_lib::note::utils::build_swap_tag;
-use miden_objects::{account::AccountId as NativeAccountId, asset::FungibleAsset};
+use miden_objects::{
+    account::AccountId as NativeAccountId, asset::FungibleAsset, note::NoteId as NativeNoteId,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -71,14 +73,14 @@ impl WebClient {
         }
     }
 
-    #[wasm_bindgen(js_name = "newMintTransaction")]
-    pub async fn new_mint_transaction(
+    #[wasm_bindgen(js_name = "newMintTransactionRequest")]
+    pub fn new_mint_transaction_request(
         &mut self,
         target_account_id: &AccountId,
         faucet_id: &AccountId,
         note_type: &NoteType,
         amount: u64,
-    ) -> Result<TransactionResult, JsValue> {
+    ) -> Result<TransactionRequest, JsValue> {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
             .map_err(|err| js_error_with_context(err, "failed to create fungible asset"))?;
 
@@ -99,12 +101,11 @@ impl WebClient {
             })?
         };
 
-        self.execute_and_submit_transaction(faucet_id, &mint_transaction_request.into(), "Mint")
-            .await
+        Ok(mint_transaction_request.into())
     }
 
-    #[wasm_bindgen(js_name = "newSendTransaction")]
-    pub async fn new_send_transaction(
+    #[wasm_bindgen(js_name = "newSendTransactionRequest")]
+    pub fn new_send_transaction_request(
         &mut self,
         sender_account_id: &AccountId,
         target_account_id: &AccountId,
@@ -112,7 +113,7 @@ impl WebClient {
         note_type: &NoteType,
         amount: u64,
         recall_height: Option<u32>,
-    ) -> Result<TransactionResult, JsValue> {
+    ) -> Result<TransactionRequest, JsValue> {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
             .map_err(|err| js_error_with_context(err, "failed to create fungible asset"))?;
 
@@ -155,46 +156,38 @@ impl WebClient {
             }
         };
 
-        self.execute_and_submit_transaction(
-            sender_account_id,
-            &send_transaction_request.into(),
-            "Send",
-        )
-        .await
+        Ok(send_transaction_request.into())
     }
 
-    #[wasm_bindgen(js_name = "newConsumeTransaction")]
-    pub async fn new_consume_transaction(
+    #[wasm_bindgen(js_name = "newConsumeTransactionRequest")]
+    pub fn new_consume_transaction_request(
         &mut self,
-        account_id: &AccountId,
         list_of_note_ids: Vec<String>,
-    ) -> Result<TransactionResult, JsValue> {
+    ) -> Result<TransactionRequest, JsValue> {
         let consume_transaction_request = {
-            let client = self.get_mut_inner().ok_or_else(|| {
-                JsValue::from_str("Client not initialized while generating transaction request")
-            })?;
+            let native_note_ids = list_of_note_ids
+                .into_iter()
+                .map(|note_id| NativeNoteId::try_from_hex(note_id.as_str()))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to convert note id to native note id: {err}"
+                    ))
+                })?;
 
-            let mut result = Vec::new();
-            for note_id in list_of_note_ids {
-                let note_record = get_input_note_with_id_prefix(client, &note_id)
-                    .await
-                    .map_err(|err| js_error_with_context(err, "failed to get input note"))?;
-                result.push(note_record.id());
-            }
-
-            NativeTransactionRequestBuilder::consume_notes(result).build().map_err(|err| {
-                js_error_with_context(err, "failed to create consume transaction request")
-            })?
+            NativeTransactionRequestBuilder::consume_notes(native_note_ids)
+                .build()
+                .map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to create Consume Transaction Request: {err}"
+                    ))
+                })?
         };
 
-        self.execute_and_submit_transaction(
-            account_id,
-            &consume_transaction_request.into(),
-            "Consume",
-        )
-        .await
+        Ok(consume_transaction_request.into())
     }
 
+    // TODO: Needs work
     #[wasm_bindgen(js_name = "newSwapTransaction")]
     pub async fn new_swap_transaction(
         &mut self,
@@ -285,32 +278,5 @@ impl WebClient {
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
-    }
-
-    /// Helper function to execute a transaction and submit it.
-    async fn execute_and_submit_transaction(
-        &mut self,
-        account_id: &AccountId,
-        transaction_request: &TransactionRequest,
-        transaction_type: &str, // For logging error messages
-    ) -> Result<TransactionResult, JsValue> {
-        let transaction_execution_result =
-            self.new_transaction(account_id, transaction_request).await.map_err(|err| {
-                JsValue::from_str(&format!(
-                    "failed to create {transaction_type} transaction: {}",
-                    err.as_string().expect("error message should be a string")
-                ))
-            })?;
-
-        self.submit_transaction(&transaction_execution_result, None)
-            .await
-            .map_err(|err| {
-                JsValue::from_str(&format!(
-                    "failed to submit {transaction_type} transaction: {}",
-                    err.as_string().expect("error message should be a string")
-                ))
-            })?;
-
-        Ok(transaction_execution_result)
     }
 }

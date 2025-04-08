@@ -10,6 +10,7 @@ use miden_objects::{
     note::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
+use rand::RngCore;
 
 use super::common::*;
 
@@ -147,6 +148,7 @@ async fn test_onchain_accounts() {
 
     // First Mint necesary token
     println!("First client consuming note");
+    client_1.sync_state().await.unwrap();
     let note =
         mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Private).await;
 
@@ -376,11 +378,7 @@ async fn test_import_account_by_id() {
     let faucet_account_id = faucet_account_header.id();
 
     // First mint and consume in the first client
-    println!("First client consuming note");
-    let note =
-        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
-
-    consume_notes(&mut client_1, target_account_id, &[note]).await;
+    mint_and_consume(&mut client_1, target_account_id, faucet_account_id, NoteType::Public).await;
 
     // Mint a note for the second client
     let note =

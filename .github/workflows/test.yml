@@ -82,6 +82,7 @@ jobs:
         run: make start-node > /dev/null &
       - name: Run Integration Tests
         run: make integration-test-full
+
       - name: Kill miden-node
         if: always()
         run: make kill-node

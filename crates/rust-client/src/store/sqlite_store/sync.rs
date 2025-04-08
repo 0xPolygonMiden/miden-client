@@ -2,15 +2,15 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{Digest, block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
-use super::SqliteStore;
+use super::{SqliteStore, account::undo_account_state};
 use crate::{
     note::NoteUpdates,
     store::{
-        StoreError,
+        StoreError, TransactionFilter,
         sqlite_store::{
             account::{lock_account, update_account},
             note::apply_note_updates_tx,
@@ -104,13 +104,12 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
             block_header,
-            note_updates,
-            transactions_to_commit: committed_transactions,
+            block_has_relevant_notes,
             new_mmr_peaks,
             new_authentication_nodes,
-            updated_accounts,
-            block_has_relevant_notes,
-            transactions_to_discard: discarded_transactions,
+            note_updates,
+            transaction_updates,
+            account_updates,
             tags_to_remove,
         } = state_sync_update;
 
@@ -134,17 +133,31 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
 
-        // Marc transactions as discarded
+        // Delete accounts for old pending transactions
+        let account_hashes_to_delete: Vec<Digest> = transaction_updates
+            .stale_transactions()
+            .iter()
+            .map(|tx| tx.final_account_state)
+            .collect();
+
+        undo_account_state(&tx, &account_hashes_to_delete)?;
+
+        // Combine discarded transactions from sync and old pending transactions
+        let mut discarded_transactions = transaction_updates.discarded_transactions().to_vec();
+        discarded_transactions
+            .extend(transaction_updates.stale_transactions().iter().map(|tx| tx.id));
+
+        // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update public accounts on the db that have been updated onchain
-        for account in updated_accounts.updated_public_accounts() {
+        for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in updated_accounts.mismatched_private_accounts() {
+        for (account_id, _) in account_updates.mismatched_private_accounts() {
             lock_account(&tx, *account_id)?;
         }
 
@@ -159,11 +172,27 @@ impl SqliteStore {
         note_updates: &NoteUpdates,
         transactions_to_discard: &[TransactionId],
     ) -> Result<(), StoreError> {
+        // First we need the `transaction` entries from the `transactions` table that matches the
+        // `transactions_to_discard`
+
+        let transactions_records_to_discard = Self::get_transactions(
+            conn,
+            &TransactionFilter::Ids(transactions_to_discard.to_vec()),
+        )?;
+
         let tx = conn.transaction()?;
 
         apply_note_updates_tx(&tx, note_updates)?;
 
         Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
+
+        let final_account_states = transactions_records_to_discard
+            .iter()
+            .map(|tx_record| tx_record.final_account_state)
+            .collect::<Vec<_>>();
+
+        // Remove the accounts that are originated from the discarded transactions
+        undo_account_state(&tx, &final_account_states)?;
 
         tx.commit()?;
 

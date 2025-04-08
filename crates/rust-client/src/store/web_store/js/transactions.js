@@ -1,5 +1,6 @@
 import { transactions, transactionScripts } from "./schema.js";
 
+const IDS_FILTER_PREFIX = "Ids:";
 export async function getTransactions(filter) {
   let transactionRecords;
 
@@ -10,6 +11,18 @@ export async function getTransactions(filter) {
           (tx) => tx.commitHeight === undefined || tx.commitHeight === null
         )
         .toArray();
+    } else if (filter.startsWith(IDS_FILTER_PREFIX)) {
+      const idsString = filter.substring(IDS_FILTER_PREFIX.length);
+      const ids = idsString.split(",");
+
+      if (ids.length > 0) {
+        transactionRecords = await transactions
+          .where("id")
+          .anyOf(ids)
+          .toArray();
+      } else {
+        transactionRecords = [];
+      }
     } else {
       transactionRecords = await transactions.toArray();
     }
@@ -82,8 +95,8 @@ export async function getTransactions(filter) {
     );
 
     return processedTransactions;
-  } catch {
-    console.error("Failed to get transactions: ", err);
+  } catch (err) {
+    console.error("Failed to get transactions: ", err.toString());
     throw err;
   }
 }
@@ -122,7 +135,7 @@ export async function insertTransactionScript(scriptRoot, txScript) {
     // Check if the error is because the record already exists
     if (error.name === "ConstraintError") {
     } else {
-      // Re-throw the error if it's not a constraint error
+      console.error("Failed to insert transaction script: ", error.toString());
       throw error;
     }
   }
@@ -163,7 +176,7 @@ export async function insertProvenTransactionData(
 
     await transactions.add(data);
   } catch (err) {
-    console.error("Failed to insert proven transaction data: ", err);
+    console.error("Failed to insert proven transaction data: ", err.toString());
     throw err;
   }
 }

@@ -37,12 +37,15 @@ import {
   TransactionScriptInputPairArray,
   Word,
   WebClient,
+  NoteAndArgs,
+  NoteAndArgsArray,
 } from "../dist/index";
 
 declare global {
   interface Window {
     client: WebClient;
     remoteProverUrl: string;
+    remoteProverInstance: TransactionProver;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountId: typeof AccountId;
@@ -54,6 +57,8 @@ declare global {
     FeltArray: typeof FeltArray;
     FungibleAsset: typeof FungibleAsset;
     Note: typeof Note;
+    NoteAndArgs: typeof NoteAndArgs;
+    NoteAndArgsArray: typeof NoteAndArgsArray;
     NoteAssets: typeof NoteAssets;
     NoteConsumability: typeof NoteConsumability;
     NoteExecutionHint: typeof NoteExecutionHint;

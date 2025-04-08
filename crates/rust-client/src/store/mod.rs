@@ -133,14 +133,11 @@ pub trait Store: Send + Sync {
     ///
     /// The default implementation of this method uses [Store::get_input_notes].
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        let nullifiers = self
-            .get_input_notes(NoteFilter::Unspent)
+        self.get_input_notes(NoteFilter::Unspent)
             .await?
             .iter()
             .map(|input_note| Ok(input_note.nullifier()))
-            .collect::<Result<Vec<_>, _>>();
-
-        nullifiers
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// Inserts the provided input notes into the database. If a note with the same ID already
@@ -345,6 +342,15 @@ pub enum TransactionFilter {
     /// Filter by transactions that haven't yet been committed to the blockchain as per the last
     /// sync.
     Uncomitted,
+    /// Return a list of the transaction that matches the provided [`TransactionId`]s.
+    Ids(Vec<TransactionId>),
+    /// Return a list of the expired transactions that were executed before the provided
+    /// [`BlockNumber`]. Transactions created after the provided block number are not
+    /// considered.
+    ///
+    /// A transaction is considered expired if is uncommitted and the transaction's block number
+    /// is less than the provided block number.
+    ExpiredBefore(BlockNumber),
 }
 
 // NOTE FILTER
