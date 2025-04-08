@@ -41,11 +41,7 @@ impl NoteMetadata {
 
     #[wasm_bindgen(js_name = "noteType")]
     pub fn note_type(&self) -> NoteType {
-        match self.0.note_type() {
-            NativeNoteType::Private => NoteType::Private,
-            NativeNoteType::Public => NoteType::Public,
-            NativeNoteType::Encrypted => NoteType::Encrypted,
-        }
+        self.0.note_type().into()
     }
 }
 

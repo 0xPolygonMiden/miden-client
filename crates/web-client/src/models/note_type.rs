@@ -1,8 +1,5 @@
 use miden_objects::note::NoteType as NativeNoteType;
 use wasm_bindgen::prelude::*;
-//use wasm_bindgen_futures::js_sys::Uint8Array;
-
-//use crate::utils::{deserialize_from_uint8array, serialize_to_uint8array};
 
 // Keep these masks in sync with `miden-lib/asm/miden/kernels/tx/tx.masm`
 #[wasm_bindgen]
@@ -29,29 +26,9 @@ impl From<NativeNoteType> for NoteType {
     }
 }
 
-impl From<&NativeNoteType> for NoteType {
-    fn from(value: &NativeNoteType) -> Self {
-        match *value {
-            NativeNoteType::Private => NoteType::Private,
-            NativeNoteType::Public => NoteType::Public,
-            NativeNoteType::Encrypted => NoteType::Encrypted,
-        }
-    }
-}
-
 impl From<NoteType> for NativeNoteType {
     fn from(value: NoteType) -> Self {
         match value {
-            NoteType::Private => NativeNoteType::Private,
-            NoteType::Public => NativeNoteType::Public,
-            NoteType::Encrypted => NativeNoteType::Encrypted,
-        }
-    }
-}
-
-impl From<&NoteType> for NativeNoteType {
-    fn from(value: &NoteType) -> Self {
-        match *value {
             NoteType::Private => NativeNoteType::Private,
             NoteType::Public => NativeNoteType::Public,
             NoteType::Encrypted => NativeNoteType::Encrypted,
