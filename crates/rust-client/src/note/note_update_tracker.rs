@@ -11,8 +11,7 @@ use crate::{
     rpc::domain::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
-    store::{InputNoteRecord, InputNoteState, OutputNoteRecord},
-    sync::NoteTagRecord,
+    store::{InputNoteRecord, OutputNoteRecord},
 };
 
 // NOTE UPDATE
@@ -215,31 +214,9 @@ impl NoteUpdateTracker {
         })
     }
 
-    /// Returns all input note records that are unverified, regardless of their update type.
-    pub(crate) fn unverified_input_notes(&self) -> impl Iterator<Item = &InputNoteUpdate> {
-        self.input_notes
-            .values()
-            .filter(|note| matches!(note.note.state(), InputNoteState::Unverified(_)))
-    }
-
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
         self.input_notes.is_empty() && self.output_notes.is_empty()
-    }
-
-    /// Returns the tags of all notes that need to be removed from the store after the state sync.
-    ///
-    /// These are the tags of notes that have been committed and no longer need to be tracked.
-    pub(crate) fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
-        self.input_notes
-            .values()
-            .filter(|note| note.inner().is_committed())
-            .map(|note| {
-                NoteTagRecord::with_note_source(
-                    note.inner().metadata().expect("Committed notes should have metadata").tag(),
-                    note.inner().id(),
-                )
-            })
     }
 
     pub fn unspent_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
@@ -333,26 +310,6 @@ impl NoteUpdateTracker {
         }
 
         Ok(discarded_transaction)
-    }
-
-    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a block header
-    /// is received.
-    ///
-    /// This transition is mostly used to update unverified notes with the necessary chain MMR data.
-    pub(crate) fn apply_block_header_state_transitions(
-        &mut self,
-        block_header: &BlockHeader,
-    ) -> Result<(), ClientError> {
-        for update in self.input_notes.values_mut().filter(|update| {
-            update
-                .note
-                .inclusion_proof()
-                .is_some_and(|proof| proof.location().block_num() == block_header.block_num())
-        }) {
-            update.inner_mut().block_header_received(block_header)?;
-        }
-
-        Ok(())
     }
 
     // PRIVATE HELPERS

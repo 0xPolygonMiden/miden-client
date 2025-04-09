@@ -1337,7 +1337,7 @@ async fn test_import_note_with_proof() {
     let tx_request = TransactionRequestBuilder::pay_to_id(
         PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(current_block_num),
-        NoteType::Public,
+        NoteType::Private,
         client_1.rng(),
     )
     .unwrap()

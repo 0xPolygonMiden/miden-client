@@ -13,13 +13,12 @@ use tracing::info;
 
 use super::{
     AccountUpdates, BlockUpdates, StateSyncUpdate, TX_GRACEFUL_BLOCKS, TransactionUpdates,
-    block_header::fetch_block_header,
 };
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
     rpc::{NodeRpcClient, domain::note::CommittedNote},
-    store::{InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, Store, StoreError},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     transaction::TransactionRecord,
 };
 
@@ -145,9 +144,6 @@ impl StateSync {
             vec![],
             uncommitted_transactions,
         ));
-
-        self.update_unverified_notes(&mut state_sync_update, &mut current_chain_mmr)
-            .await?;
 
         Ok(state_sync_update)
     }
@@ -401,54 +397,6 @@ impl StateSync {
 
         let transaction_updates = TransactionUpdates::new(vec![], discarded_transactions, vec![]);
         state_sync_update.transaction_updates.extend(transaction_updates);
-
-        Ok(())
-    }
-
-    /// Updates committed unverified notes. These could be notes that were
-    /// imported with an inclusion proof, but its block header isn't tracked.
-    ///
-    /// The method will request the block header and also update the chain MMR
-    /// with the new peaks and authentication nodes.
-    async fn update_unverified_notes(
-        &self,
-        state_sync_update: &mut StateSyncUpdate,
-        current_chain_mmr: &mut ChainMmr,
-    ) -> Result<(), ClientError> {
-        let missing_block_nums = state_sync_update
-            .note_updates
-            .unverified_input_notes()
-            .filter_map(|note| {
-                if let InputNoteState::Unverified(state) = note.inner().state() {
-                    Some(state.inclusion_proof.location().block_num())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        for block_num in missing_block_nums {
-            let block_header = if let Some(block) = current_chain_mmr.get_block(block_num) {
-                block.clone()
-            } else {
-                let current_partial_mmr = current_chain_mmr.partial_mmr_mut();
-
-                let (block_header, path_nodes) =
-                    fetch_block_header(self.rpc_api.clone(), block_num, current_partial_mmr)
-                        .await?;
-
-                state_sync_update.block_updates.extend(BlockUpdates::new(
-                    vec![(block_header.clone(), true, current_partial_mmr.peaks())],
-                    path_nodes,
-                ));
-
-                block_header
-            };
-
-            state_sync_update
-                .note_updates
-                .apply_block_header_state_transitions(&block_header)?;
-        }
 
         Ok(())
     }
