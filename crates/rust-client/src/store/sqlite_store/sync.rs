@@ -155,7 +155,22 @@ impl SqliteStore {
         apply_note_updates_tx(&tx, &note_updates)?;
 
         // Remove tags
-        for tag in note_updates.tags_to_remove() {
+        let tags_to_remove = note_updates
+            .updated_input_notes()
+            .filter_map(|note_update| {
+                let note = note_update.inner();
+                if note.is_committed() {
+                    Some(NoteTagRecord {
+                        tag: note.metadata().expect("Committed notes should have metadata").tag(),
+                        source: NoteTagSource::Note(note.id()),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for tag in tags_to_remove {
             remove_note_tag_tx(&tx, tag)?;
         }
 

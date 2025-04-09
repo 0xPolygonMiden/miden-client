@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 
 use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -10,7 +10,8 @@ use tracing::warn;
 
 use crate::{
     Client, ClientError,
-    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
+    rpc::NodeRpcClient,
+    store::{ChainMmrNodeFilter, StoreError},
 };
 
 /// Maximum number of blocks the client can be behind the network for transactions and account
@@ -19,32 +20,6 @@ pub(crate) const MAX_BLOCK_NUMBER_DELTA: u32 = 256;
 
 /// Network information management methods.
 impl Client {
-    /// Updates committed notes with no MMR data. These could be notes that were
-    /// imported with an inclusion proof, but its block header isn't tracked.
-    pub(crate) async fn update_mmr_data(&self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = self.build_current_partial_mmr().await?;
-
-        let mut changed_notes = vec![];
-        for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
-            let block_num = note
-                .inclusion_proof()
-                .expect("Committed notes should have inclusion proofs")
-                .location()
-                .block_num();
-            let block_header = self
-                .get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
-                .await?;
-
-            if note.block_header_received(&block_header)? {
-                changed_notes.push(note);
-            }
-        }
-
-        self.store.upsert_input_notes(&changed_notes).await?;
-
-        Ok(())
-    }
-
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     pub async fn ensure_genesis_in_place(&mut self) -> Result<BlockHeader, ClientError> {
@@ -133,21 +108,10 @@ impl Client {
                 .expect("Block header should be tracked");
             return Ok(block_header);
         }
-        let (block_header, mmr_proof) = self.rpc_api.get_block_header_with_proof(block_num).await?;
 
-        // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
-        // might be of a forest arbitrarily higher
-        let path_nodes = adjust_merkle_path_for_forest(
-            &mmr_proof.merkle_path,
-            block_num,
-            current_partial_mmr.forest(),
-        );
-
-        let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
-
-        current_partial_mmr
-            .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
-            .map_err(StoreError::MmrError)?;
+        // Fetch the block header and MMR proof from the node
+        let (block_header, path_nodes) =
+            fetch_block_header(self.rpc_api.clone(), block_num, current_partial_mmr).await?;
 
         // Insert header and MMR nodes
         self.store
@@ -206,7 +170,7 @@ impl Client {
 /// - `merkle_path`: Original merkle path.
 /// - `block_num`: The block number for which the path is computed.
 /// - `forest`: The target size of the forest.
-fn adjust_merkle_path_for_forest(
+pub(crate) fn adjust_merkle_path_for_forest(
     merkle_path: &MerklePath,
     block_num: BlockNumber,
     forest: usize,
@@ -231,4 +195,28 @@ fn adjust_merkle_path_for_forest(
     }
 
     path_nodes
+}
+
+pub(crate) async fn fetch_block_header(
+    rpc_api: Arc<dyn NodeRpcClient>,
+    block_num: BlockNumber,
+    current_partial_mmr: &mut PartialMmr,
+) -> Result<(BlockHeader, Vec<(InOrderIndex, Digest)>), ClientError> {
+    let (block_header, mmr_proof) = rpc_api.get_block_header_with_proof(block_num).await?;
+
+    // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
+    // might be of a forest arbitrarily higher
+    let path_nodes = adjust_merkle_path_for_forest(
+        &mmr_proof.merkle_path,
+        block_num,
+        current_partial_mmr.forest(),
+    );
+
+    let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
+
+    current_partial_mmr
+        .track(block_num.as_usize(), block_header.commitment(), &merkle_path)
+        .map_err(StoreError::MmrError)?;
+
+    Ok((block_header, path_nodes))
 }
