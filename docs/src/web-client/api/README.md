@@ -8,6 +8,7 @@
 
 - [InputNoteState](enumerations/InputNoteState.md)
 - [NoteFilterTypes](enumerations/NoteFilterTypes.md)
+- [NoteType](enumerations/NoteType.md)
 
 ## Classes
 
@@ -60,7 +61,6 @@
 - [NotesArray](classes/NotesArray.md)
 - [NoteScript](classes/NoteScript.md)
 - [NoteTag](classes/NoteTag.md)
-- [NoteType](classes/NoteType.md)
 - [OutputNote](classes/OutputNote.md)
 - [OutputNotes](classes/OutputNotes.md)
 - [OutputNotesArray](classes/OutputNotesArray.md)

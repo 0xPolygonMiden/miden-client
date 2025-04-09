@@ -410,7 +410,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### amount
 
@@ -442,7 +442,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### amount
 
@@ -486,7 +486,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 #### Returns
 
