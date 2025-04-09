@@ -104,7 +104,7 @@ use crate::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
     },
-    sync::{MAX_BLOCK_NUMBER_DELTA, NoteTagRecord},
+    sync::{NoteTagRecord},
 };
 
 mod request;
@@ -459,9 +459,10 @@ impl Client {
         &mut self,
         account_id: AccountId,
         transaction_request: TransactionRequest,
+        max_block_number_delta:u32
     ) -> Result<TransactionResult, ClientError> {
         // Validates the transaction request before executing
-        self.validate_request(account_id, &transaction_request).await?;
+        self.validate_request(account_id, &transaction_request,max_block_number_delta).await?;
 
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
         // state). TODO: we should consider refactoring this in a way we can handle this in
@@ -838,11 +839,12 @@ impl Client {
         &mut self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
+        max_block_number_delta:u32
     ) -> Result<(), ClientError> {
         let current_chain_tip =
             self.rpc_api.get_block_header_by_number(None, false).await?.0.block_num();
 
-        if current_chain_tip > self.store.get_sync_height().await? + MAX_BLOCK_NUMBER_DELTA {
+        if current_chain_tip > self.store.get_sync_height().await? + max_block_number_delta {
             return Err(ClientError::RecencyConditionError(
                 "The client is too far behind the chain tip to execute the transaction".to_string(),
             ));
@@ -1177,7 +1179,7 @@ mod test {
         .build()
         .unwrap();
 
-        let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
+        let tx_result = client.new_transaction(account.id(), tx_request,256).await.unwrap();
         assert!(
             tx_result
                 .created_notes()
