@@ -10,12 +10,13 @@ use miden_client::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
+    sync::NoteTagSource,
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
+use miden_client_tests::common::create_test_client_builder;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -34,7 +35,11 @@ mod swap_transactions_tests;
 
 /// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
 /// too low, some tests might fail due to expected recall failures not happening.
-const RECALL_HEIGHT_DELTA: u32 = 50;
+const RECALL_HEIGHT_DELTA: u32 = 10;
+
+/// Constant that represents the number of blocks until the transaction is considered
+/// stale.
+const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -1638,7 +1643,13 @@ async fn test_unused_rpc_api() {
 
 #[tokio::test]
 async fn test_stale_transactions_discarded() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (builder, authenticator) = create_test_client_builder().await;
+
+    let mut client =
+        builder.with_tx_graceful_blocks(Some(TX_GRACEFUL_BLOCKS)).build().await.unwrap();
+
+    client.sync_state().await.unwrap();
+
     let (regular_account, faucet_account_header) =
         setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
 
