@@ -34,7 +34,7 @@ mod swap_transactions_tests;
 
 /// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
 /// too low, some tests might fail due to expected recall failures not happening.
-const RECALL_HEIGHT_DELTA: u32 = 50;
+const RECALL_HEIGHT_DELTA: u32 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
