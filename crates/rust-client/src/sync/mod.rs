@@ -81,12 +81,6 @@ pub use state_sync::{OnNoteReceived, StateSync, on_note_received};
 mod state_sync_update;
 pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 
-// CONSTANTS
-// ================================================================================================
-
-/// The number of blocks that are considered old enough to discard pending transactions.
-pub const TX_GRACEFUL_BLOCKS: u32 = 20;
-
 /// Client synchronization methods.
 impl Client {
     // SYNC STATE
@@ -127,6 +121,7 @@ impl Client {
                     Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
                 }
             }),
+            self.tx_graceful_blocks,
         );
 
         // Get current state of the client

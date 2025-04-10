@@ -214,7 +214,7 @@ async fn test_multiple_tx_on_same_block() {
     ));
     assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
 
-    let note_id = transactions[0].output_notes.iter().next().unwrap().id();
+    let note_id = transactions[0].metadata.output_notes.iter().next().unwrap().id();
     let note = client.get_output_note(note_id).await.unwrap().unwrap();
     assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
