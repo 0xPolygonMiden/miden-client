@@ -76,6 +76,10 @@
 //! let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 //! let keystore = FilesystemKeyStore::new("path/to/keys/directory".try_into()?)?;
 //!
+//! // Determine the number of blocks to consider a transaction stale.
+//! // 20 is simply an example value.
+//! let tx_graceful_blocks = Some(20);
+//!
 //! // Instantiate the client using a Tonic RPC client
 //! let endpoint = Endpoint::new("https".into(), "localhost".into(), Some(57291));
 //! let client: Client = Client::new(
@@ -84,6 +88,7 @@
 //!     store,
 //!     Arc::new(keystore),
 //!     false, // Set to true for debug mode, if needed.
+//!     tx_graceful_blocks,
 //! );
 //!
 //! # Ok(())
@@ -223,6 +228,8 @@ pub struct Client {
     tx_executor: TransactionExecutor,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
+    /// The number of blocks that are considered old enough to discard pending transactions.
+    tx_graceful_blocks: Option<u32>,
 }
 
 /// Construction and access methods.
@@ -246,6 +253,8 @@ impl Client {
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
     ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
     ///   MASM debugging.
+    /// - `tx_graceful_blocks`: The number of blocks that are considered old enough to discard
+    ///   pending transactions.
     ///
     /// # Errors
     ///
@@ -256,6 +265,7 @@ impl Client {
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
+        tx_graceful_blocks: Option<u32>,
     ) -> Self {
         let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
@@ -274,6 +284,7 @@ impl Client {
             tx_prover,
             tx_executor,
             in_debug_mode,
+            tx_graceful_blocks,
         }
     }
 

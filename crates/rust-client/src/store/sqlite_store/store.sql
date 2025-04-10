@@ -51,11 +51,7 @@ CREATE UNIQUE INDEX idx_account_commitment ON accounts(account_commitment);
 -- Create transactions table
 CREATE TABLE transactions (
     id TEXT NOT NULL,                                -- Transaction ID (commitment of various components)
-    account_id TEXT NOT NULL,                        -- ID of the account against which the transaction was executed.
-    init_account_state BLOB NOT NULL,                -- Commitment of the account state before the transaction was executed.
-    final_account_state BLOB NOT NULL,               -- Commitment of the account state after the transaction was executed.
-    input_notes BLOB,                                -- Serialized list of input note commitments
-    output_notes BLOB,                               -- Serialized list of output note commitments
+    metadata BLOB NOT NULL,                          -- Serialized transaction metadata
     script_root TEXT,                                -- Transaction script root
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.

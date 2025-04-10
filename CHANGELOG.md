@@ -10,6 +10,7 @@
 
 * Updated Web Client README and Documentation (#808).
 * [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
+* [BREAKING] Added `tx_graceful_blocks` to `Client` constructor and refactored `TransactionRecord` (#848).
 
 ## 0.8.1 (2025-03-28)
 

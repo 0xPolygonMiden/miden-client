@@ -1,5 +1,4 @@
 use alloc::{
-    borrow::ToOwned,
     string::{String, ToString},
     vec::Vec,
 };
@@ -12,18 +11,14 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::JsFuture;
 
 use super::js_bindings::{idxdb_insert_proven_transaction_data, idxdb_insert_transaction_script};
-use crate::store::StoreError;
+use crate::{store::StoreError, transaction::TransactionMetadata};
 
 // TYPES
 // ================================================================================================
 
 pub struct SerializedTransactionData {
     pub transaction_id: String,
-    pub account_id: String,
-    pub init_account_state: String,
-    pub final_account_state: String,
-    pub input_notes: Vec<u8>,
-    pub output_notes: Vec<u8>,
+    pub metadata: Vec<u8>,
     pub script_root: Option<Vec<u8>>,
     pub tx_script: Option<Vec<u8>>,
     pub block_num: String,
@@ -46,11 +41,7 @@ pub async fn insert_proven_transaction_data(
 
     let promise = idxdb_insert_proven_transaction_data(
         serialized_data.transaction_id,
-        serialized_data.account_id,
-        serialized_data.init_account_state,
-        serialized_data.final_account_state,
-        serialized_data.input_notes,
-        serialized_data.output_notes,
+        serialized_data.metadata,
         serialized_data.script_root.clone(),
         serialized_data.block_num,
         serialized_data.commit_height,
@@ -67,20 +58,12 @@ pub(super) fn serialize_transaction_data(
 ) -> SerializedTransactionData {
     let transaction_id: String = executed_transaction.id().inner().into();
 
-    let account_id_as_str: String = executed_transaction.account_id().to_string();
-    let init_account_state = &executed_transaction.initial_account().commitment().to_string();
-    let final_account_state = &executed_transaction.final_account().commitment().to_string();
-
     // TODO: Double check if saving nullifiers as input notes is enough
     let nullifiers: Vec<Digest> = executed_transaction
         .input_notes()
         .iter()
         .map(|x| x.nullifier().inner())
         .collect();
-
-    let input_notes = nullifiers.to_bytes();
-
-    let output_notes = executed_transaction.output_notes();
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = executed_transaction.tx_args();
@@ -92,13 +75,19 @@ pub(super) fn serialize_transaction_data(
         tx_script = Some(script.to_bytes());
     }
 
+    let tx_metadata = TransactionMetadata {
+        account_id: executed_transaction.account_id(),
+        init_account_state: executed_transaction.initial_account().commitment(),
+        final_account_state: executed_transaction.final_account().commitment(),
+        input_note_nullifiers: nullifiers,
+        output_notes: executed_transaction.output_notes().clone(),
+        block_num: executed_transaction.block_header().block_num(),
+        expiration_block_num: executed_transaction.expiration_block_num(),
+    };
+
     SerializedTransactionData {
         transaction_id,
-        account_id: account_id_as_str,
-        init_account_state: init_account_state.to_owned(),
-        final_account_state: final_account_state.to_owned(),
-        input_notes,
-        output_notes: output_notes.to_bytes(),
+        metadata: tx_metadata.to_bytes(),
         script_root,
         tx_script,
         block_num: executed_transaction.block_header().block_num().to_string(),

@@ -10,9 +10,7 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{
-    AccountUpdates, BlockUpdates, StateSyncUpdate, TX_GRACEFUL_BLOCKS, TransactionUpdates,
-};
+use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
@@ -52,6 +50,7 @@ pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// Callback to be executed when a new note inclusion is received.
     on_note_received: OnNoteReceived,
+    tx_graceful_blocks: Option<u32>,
 }
 
 impl StateSync {
@@ -61,8 +60,16 @@ impl StateSync {
     ///
     /// * `rpc_api` - The RPC client used to communicate with the node.
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
-    pub fn new(rpc_api: Arc<dyn NodeRpcClient + Send>, on_note_received: OnNoteReceived) -> Self {
-        Self { rpc_api, on_note_received }
+    pub fn new(
+        rpc_api: Arc<dyn NodeRpcClient + Send>,
+        on_note_received: OnNoteReceived,
+        tx_graceful_blocks: Option<u32>,
+    ) -> Self {
+        Self {
+            rpc_api,
+            on_note_received,
+            tx_graceful_blocks,
+        }
     }
 
     /// Syncs the state of the client with the chain tip of the node, returning the updates that
@@ -126,25 +133,30 @@ impl StateSync {
         self.sync_nullifiers(&mut state_sync_update, block_num).await?;
 
         // Add stale transactions to the state sync update
-        let mut updated_transactions = state_sync_update
-            .transaction_updates
-            .committed_transactions()
-            .iter()
-            .map(|tx| tx.transaction_id)
-            .chain(state_sync_update.transaction_updates.discarded_transactions().iter().copied());
+        if let Some(tx_graceful_blocks) = self.tx_graceful_blocks {
+            let mut updated_transactions = state_sync_update
+                .transaction_updates
+                .committed_transactions()
+                .iter()
+                .map(|tx| tx.transaction_id)
+                .chain(
+                    state_sync_update.transaction_updates.discarded_transactions().iter().copied(),
+                );
 
-        let graceful_block_num =
-            state_sync_update.block_num.checked_sub(TX_GRACEFUL_BLOCKS).unwrap_or_default();
+            let graceful_block_num =
+                state_sync_update.block_num.checked_sub(tx_graceful_blocks).unwrap_or_default();
 
-        uncommitted_transactions.retain(|tx| {
-            tx.block_num < graceful_block_num && !updated_transactions.any(|tx_id| tx_id == tx.id)
-        });
+            uncommitted_transactions.retain(|tx| {
+                tx.metadata.block_num < graceful_block_num
+                    && !updated_transactions.any(|tx_id| tx_id == tx.id)
+            });
 
-        state_sync_update.transaction_updates.extend(TransactionUpdates::new(
-            vec![],
-            vec![],
-            uncommitted_transactions,
-        ));
+            state_sync_update.transaction_updates.extend(TransactionUpdates::new(
+                vec![],
+                vec![],
+                uncommitted_transactions,
+            ));
+        }
 
         Ok(state_sync_update)
     }

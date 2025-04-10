@@ -10,12 +10,13 @@ use miden_client::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
+    sync::NoteTagSource,
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
+use miden_client_tests::common::create_test_client_builder;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -34,7 +35,11 @@ mod swap_transactions_tests;
 
 /// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
 /// too low, some tests might fail due to expected recall failures not happening.
-const RECALL_HEIGHT_DELTA: u32 = 50;
+const RECALL_HEIGHT_DELTA: u32 = 10;
+
+/// Constant that represents the number of blocks until the transaction is considered
+/// stale.
+const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -203,13 +208,10 @@ async fn test_multiple_tx_on_same_block() {
         .collect::<Vec<_>>();
 
     assert_eq!(transactions.len(), 2);
-    assert!(matches!(
-        transactions[0].transaction_status,
-        TransactionStatus::Committed { .. }
-    ));
-    assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
+    assert!(matches!(transactions[0].status, TransactionStatus::Committed { .. }));
+    assert_eq!(transactions[0].status, transactions[1].status);
 
-    let note_id = transactions[0].output_notes.iter().next().unwrap().id();
+    let note_id = transactions[0].metadata.output_notes.iter().next().unwrap().id();
     let note = client.get_output_note(note_id).await.unwrap().unwrap();
     assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
@@ -1082,11 +1084,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
     let second_tx = all_transactions.iter().find(|tx| tx.id == second_note_tx_id).unwrap();
     let third_tx = all_transactions.iter().find(|tx| tx.id == third_note_tx_id).unwrap();
 
-    match (
-        first_tx.transaction_status.clone(),
-        second_tx.transaction_status.clone(),
-        third_tx.transaction_status.clone(),
-    ) {
+    match (first_tx.status.clone(), second_tx.status.clone(), third_tx.status.clone()) {
         (
             TransactionStatus::Committed(first_tx_commit_height),
             TransactionStatus::Committed(second_tx_commit_height),
@@ -1398,7 +1396,7 @@ async fn test_discarded_transaction() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
@@ -1638,7 +1636,13 @@ async fn test_unused_rpc_api() {
 
 #[tokio::test]
 async fn test_stale_transactions_discarded() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (builder, authenticator) = create_test_client_builder().await;
+
+    let mut client =
+        builder.with_tx_graceful_blocks(Some(TX_GRACEFUL_BLOCKS)).build().await.unwrap();
+
+    client.sync_state().await.unwrap();
+
     let (regular_account, faucet_account_header) =
         setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
 
@@ -1691,7 +1695,7 @@ async fn test_stale_transactions_discarded() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
+    assert!(matches!(tx_record.status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
     wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
@@ -1705,7 +1709,7 @@ async fn test_stale_transactions_discarded() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
