@@ -43,10 +43,11 @@ pub(crate) async fn get_input_acc_id_by_prefix_or_default(
 
 /// Parses a user provided account ID string and returns the corresponding `AccountId`.
 ///
-/// `account_id` can fall into two categories:
+/// `account_id` can fall into three categories:
 ///
-/// - It's a prefix of an account ID of an account tracked by the client.
-/// - It's a full account ID.
+/// - It's a hex prefix of an account ID of an account tracked by the client.
+/// - It's a full hex account ID.
+/// - It's a full bech32 account ID.
 ///
 /// # Errors
 ///
@@ -56,16 +57,24 @@ pub(crate) async fn parse_account_id(
     client: &Client,
     account_id: &str,
 ) -> Result<AccountId, CliError> {
-    if let Ok(account_id) = AccountId::from_hex(account_id) {
-        return Ok(account_id);
+    if account_id.starts_with("0x") {
+        if let Ok(account_id) = AccountId::from_hex(account_id) {
+            return Ok(account_id);
+        }
+
+        Ok(get_account_with_id_prefix(client, account_id)
+        .await
+        .map_err(|_| CliError::Input(format!("Input account ID {account_id} is neither a valid Account ID nor a hex prefix of a known Account ID")))?
+        .id())
+    } else {
+        Ok(AccountId::from_bech32(account_id)
+            .map_err(|_| {
+                CliError::Input(format!(
+                    "Input account ID {account_id} is not a valid bech32 encoded Account ID"
+                ))
+            })?
+            .1)
     }
-
-    let account_id = get_account_with_id_prefix(client, account_id)
-    .await
-    .map_err(|_| CliError::Input(format!("Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")))?
-    .id();
-
-    Ok(account_id)
 }
 
 pub(crate) fn update_config(config_path: &Path, client_config: &CliConfig) -> Result<(), CliError> {

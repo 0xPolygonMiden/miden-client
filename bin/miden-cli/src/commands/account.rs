@@ -36,7 +36,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client, cli_config: &CliConfig) -> Result<(), CliError> {
         match self {
             AccountCmd {
                 list: false,
@@ -44,7 +44,7 @@ impl AccountCmd {
                 default: None,
             } => {
                 let account_id = parse_account_id(&client, id).await?;
-                show_account(client, account_id).await?;
+                show_account(client, account_id, cli_config).await?;
             },
             AccountCmd {
                 list: false,
@@ -59,12 +59,7 @@ impl AccountCmd {
                         let default_account = if id == "none" {
                             None
                         } else {
-                            let account_id: AccountId = AccountId::from_hex(id).map_err(|err| {
-                                CliError::AccountId(
-                                    err,
-                                    "Input number was not a valid Account ID".to_string(),
-                                )
-                            })?;
+                            let account_id: AccountId = parse_account_id(&client, id).await?;
 
                             // Check whether we're tracking that account
                             let (account, _) = client.try_get_account_header(account_id).await?;
@@ -120,7 +115,11 @@ async fn list_accounts(client: Client) -> Result<(), CliError> {
     Ok(())
 }
 
-pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), CliError> {
+pub async fn show_account(
+    client: Client,
+    account_id: AccountId,
+    cli_config: &CliConfig,
+) -> Result<(), CliError> {
     let account: Account = client
         .get_account(account_id)
         .await?
@@ -128,7 +127,8 @@ pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), C
         .into();
 
     let mut table = create_dynamic_table(&[
-        "Account ID",
+        "Account ID (hex)",
+        "Account ID (bech32)",
         "Account Commitment",
         "Type",
         "Storage mode",
@@ -139,6 +139,7 @@ pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), C
     ]);
     table.add_row(vec![
         account.id().to_string(),
+        account.id().to_bech32(cli_config.network.to_network_id()?),
         account.commitment().to_string(),
         account_type_display_name(&account_id)?,
         account_id.storage_mode().to_string(),
@@ -207,8 +208,6 @@ pub async fn show_account(client: Client, account_id: AccountId) -> Result<(), C
         }
         println!("{table}\n");
     }
-    println!("{table}\n");
-    //}
 
     Ok(())
 }

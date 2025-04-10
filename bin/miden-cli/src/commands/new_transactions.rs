@@ -66,7 +66,7 @@ impl MintCmd {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
-        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&client, &self.asset).await?;
 
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str()).await?;
 
@@ -130,7 +130,7 @@ impl SendCmd {
 
         let faucet_details_map = load_faucet_details_map()?;
 
-        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&client, &self.asset).await?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -199,9 +199,9 @@ impl SwapCmd {
         let faucet_details_map = load_faucet_details_map()?;
 
         let offered_fungible_asset =
-            faucet_details_map.parse_fungible_asset(&self.offered_asset)?;
+            faucet_details_map.parse_fungible_asset(&client, &self.offered_asset).await?;
         let requested_fungible_asset =
-            faucet_details_map.parse_fungible_asset(&self.requested_asset)?;
+            faucet_details_map.parse_fungible_asset(&client, &self.requested_asset).await?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =

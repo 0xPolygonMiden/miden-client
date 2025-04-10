@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use miden_client::{ClientError, keystore::KeyStoreError};
-use miden_objects::{AccountError, AccountIdError, AssetError};
+use miden_objects::{AccountError, AccountIdError, AssetError, NetworkIdError};
 use miette::Diagnostic;
 use thiserror::Error;
 
@@ -56,6 +56,8 @@ pub enum CliError {
     #[error("missing flag: {0}")]
     #[diagnostic(code(cli::config_error), help("Check the configuration file format."))]
     MissingFlag(String),
+    #[error("network id error")]
+    NetworkIdError(#[from] NetworkIdError),
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
     #[error("parse error: {1}")]

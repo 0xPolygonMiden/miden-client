@@ -2,6 +2,10 @@
 
 ## 0.9.0 (TBD)
 
+### Features
+
+* Added support for `bech32` account IDs in the CLI (#840).
+
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
