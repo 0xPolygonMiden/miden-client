@@ -322,9 +322,9 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.11.3"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "531a9155a481e2ee699d4f98f43c0ca4ff8ee1bfd55c31e9e98fb29d2b176fe0"
+checksum = "234113d19d0d7d613b40e86fb654acf958910802bcceab913a4f9e7cda03b1a4"
 dependencies = [
  "memchr",
  "regex-automata 0.4.9",
@@ -1214,9 +1214,9 @@ checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe7db12097d22ec582439daf8618b8fdd1a7bef6270e9af3b1ebcd30893cf413"
+checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "lock_api"
@@ -1473,7 +1473,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#9e85f19ddd81de4196990684d1ffb170de0a0d68"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#95ab9332254f3f33795c0730482a593f9b506ca5"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1540,7 +1540,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#9e85f19ddd81de4196990684d1ffb170de0a0d68"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#95ab9332254f3f33795c0730482a593f9b506ca5"
 dependencies = [
  "bech32",
  "getrandom 0.3.2",
@@ -1587,7 +1587,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#9e85f19ddd81de4196990684d1ffb170de0a0d68"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#95ab9332254f3f33795c0730482a593f9b506ca5"
 dependencies = [
  "async-trait",
  "getrandom 0.3.2",
@@ -1617,7 +1617,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#9e85f19ddd81de4196990684d1ffb170de0a0d68"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-reexport-networkiderror#95ab9332254f3f33795c0730482a593f9b506ca5"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -1683,9 +1683,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff70ce3e48ae43fa075863cef62e8b43b71a4f2382229920e0df362592919430"
+checksum = "3be647b768db090acb35d5ec5db2b0e1f1de11133ca123b9eacf5137868f892a"
 dependencies = [
  "adler2",
 ]
@@ -2387,15 +2387,15 @@ dependencies = [
  "bitflags",
  "errno",
  "libc",
- "linux-raw-sys 0.9.3",
+ "linux-raw-sys 0.9.4",
  "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "rustls"
-version = "0.23.25"
+version = "0.23.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "822ee9188ac4ec04a2f0531e55d035fb2de73f18b41a63c70c2712503b6fb13c"
+checksum = "df51b5869f3a441595eac5e8ff14d486ff285f7b8c0df8770e49c3b56351f0f0"
 dependencies = [
  "log",
  "once_cell",
@@ -3111,7 +3111,7 @@ checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "pin-project-lite",
  "slab",
  "sync_wrapper",
