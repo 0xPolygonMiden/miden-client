@@ -19,6 +19,14 @@
 
 ---
 
+# Web Client
+
+- [Web Client](./web-client/index.md)
+- [API Reference](./web-client/api/README.md)
+- [Examples](./web-client/examples/index.md)
+
+---
+
 # Library
 
 - [Library](./library.md)
