@@ -7,6 +7,7 @@
 * Updated Web Client README and Documentation (#808).
 * [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
 * Made non-default options lowercase when prompting for transaction confirmation (#843)
+* Added Examples to Mdbook for Web Client (#850).
 
 ## 0.8.2 (TBD)
 

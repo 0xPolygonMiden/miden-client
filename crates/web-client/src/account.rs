@@ -41,8 +41,7 @@ impl WebClient {
         }
     }
 
-    #[wasm_bindgen(js_name = "fetchAndCacheAccountAuthByAccountId")]
-    pub async fn fetch_and_cache_account_auth_by_account_id(
+    pub(crate) async fn fetch_and_cache_account_auth_by_account_id(
         &mut self,
         account_id: &AccountId,
     ) -> Result<Option<String>, JsValue> {
