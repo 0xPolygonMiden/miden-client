@@ -205,7 +205,7 @@ impl WebStore {
             ))
             .await?
             .iter()
-            .map(|tx_record| tx_record.final_account_state)
+            .map(|tx_record| tx_record.metadata.final_account_state)
             .collect::<Vec<_>>();
 
         // Remove the account states that are originated from the discarded transactions

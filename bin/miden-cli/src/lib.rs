@@ -43,6 +43,9 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 /// Client binary name.
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
+/// The number of blocks that are considered old enough to discard pending transactions.
+const CLI_TX_GRACEFUL_BLOCKS: u32 = 20;
+
 /// Root CLI struct.
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
@@ -123,6 +126,7 @@ impl Cli {
             store as Arc<dyn Store>,
             Arc::new(keystore.clone()),
             in_debug_mode,
+            Some(CLI_TX_GRACEFUL_BLOCKS),
         );
 
         // Execute CLI command
