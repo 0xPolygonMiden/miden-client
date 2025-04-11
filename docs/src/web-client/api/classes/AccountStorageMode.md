@@ -8,6 +8,16 @@
 
 ## Methods
 
+### asStr()
+
+> **asStr**(): `string`
+
+#### Returns
+
+`string`
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -51,13 +61,3 @@
 #### Returns
 
 `AccountStorageMode`
-
-***
-
-### asStr()
-
-> **asStr**(): `string`
-
-#### Returns
-
-`string`

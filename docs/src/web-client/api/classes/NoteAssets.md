@@ -34,6 +34,16 @@
 
 ***
 
+### fungibleAssets()
+
+> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
+
+#### Returns
+
+[`FungibleAsset`](FungibleAsset.md)[]
+
+***
+
 ### push()
 
 > **push**(`asset`): `void`
@@ -47,13 +57,3 @@
 #### Returns
 
 `void`
-
-***
-
-### fungibleAssets()
-
-> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
-
-#### Returns
-
-[`FungibleAsset`](FungibleAsset.md)[]

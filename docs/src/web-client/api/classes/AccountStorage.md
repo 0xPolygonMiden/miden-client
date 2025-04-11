@@ -8,16 +8,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### commitment()
 
 > **commitment**(): [`RpoDigest`](RpoDigest.md)
@@ -25,6 +15,16 @@
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
 
 ***
 

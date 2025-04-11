@@ -8,13 +8,13 @@
 
 ## Methods
 
-### free()
+### asBytes()
 
-> **free**(): `void`
+> **asBytes**(): `Uint8Array`
 
 #### Returns
 
-`void`
+`Uint8Array`
 
 ***
 
@@ -28,23 +28,13 @@
 
 ***
 
-### asBytes()
+### free()
 
-> **asBytes**(): `Uint8Array`
-
-#### Returns
-
-`Uint8Array`
-
-***
-
-### toHex()
-
-> **toHex**(): `string`
+> **free**(): `void`
 
 #### Returns
 
-`string`
+`void`
 
 ***
 
@@ -55,3 +45,13 @@
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
+
+***
+
+### toHex()
+
+> **toHex**(): `string`
+
+#### Returns
+
+`string`

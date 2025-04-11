@@ -24,16 +24,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### asInt()
 
 > **asInt**(): `bigint`
@@ -41,6 +31,16 @@
 #### Returns
 
 `bigint`
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
 
 ***
 

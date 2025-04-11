@@ -8,6 +8,16 @@
 
 ## Methods
 
+### assets()
+
+> **assets**(): [`NoteAssets`](NoteAssets.md)
+
+#### Returns
+
+[`NoteAssets`](NoteAssets.md)
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -45,13 +55,3 @@
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
-
-***
-
-### assets()
-
-> **assets**(): [`NoteAssets`](NoteAssets.md)
-
-#### Returns
-
-[`NoteAssets`](NoteAssets.md)

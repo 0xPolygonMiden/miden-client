@@ -8,16 +8,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### blockNum()
 
 > **blockNum**(): `number`
@@ -38,26 +28,6 @@
 
 ***
 
-### consumedNotes()
-
-> **consumedNotes**(): [`NoteId`](NoteId.md)[]
-
-#### Returns
-
-[`NoteId`](NoteId.md)[]
-
-***
-
-### updatedAccounts()
-
-> **updatedAccounts**(): [`AccountId`](AccountId.md)[]
-
-#### Returns
-
-[`AccountId`](AccountId.md)[]
-
-***
-
 ### committedTransactions()
 
 > **committedTransactions**(): [`TransactionId`](TransactionId.md)[]
@@ -68,6 +38,26 @@
 
 ***
 
+### consumedNotes()
+
+> **consumedNotes**(): [`NoteId`](NoteId.md)[]
+
+#### Returns
+
+[`NoteId`](NoteId.md)[]
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
 ### serialize()
 
 > **serialize**(): `Uint8Array`
@@ -75,6 +65,16 @@
 #### Returns
 
 `Uint8Array`
+
+***
+
+### updatedAccounts()
+
+> **updatedAccounts**(): [`AccountId`](AccountId.md)[]
+
+#### Returns
+
+[`AccountId`](AccountId.md)[]
 
 ***
 

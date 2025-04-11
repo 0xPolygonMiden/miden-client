@@ -8,16 +8,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### blockNum()
 
 > **blockNum**(): `number`
@@ -25,6 +15,16 @@
 #### Returns
 
 `number`
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
 
 ***
 

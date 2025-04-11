@@ -18,22 +18,6 @@
 
 ***
 
-### fromHex()
-
-> `static` **fromHex**(`hex`): `AccountId`
-
-#### Parameters
-
-##### hex
-
-`string`
-
-#### Returns
-
-`AccountId`
-
-***
-
 ### isFaucet()
 
 > **isFaucet**(): `boolean`
@@ -54,16 +38,6 @@
 
 ***
 
-### toString()
-
-> **toString**(): `string`
-
-#### Returns
-
-`string`
-
-***
-
 ### prefix()
 
 > **prefix**(): [`Felt`](Felt.md)
@@ -81,3 +55,29 @@
 #### Returns
 
 [`Felt`](Felt.md)
+
+***
+
+### toString()
+
+> **toString**(): `string`
+
+#### Returns
+
+`string`
+
+***
+
+### fromHex()
+
+> `static` **fromHex**(`hex`): `AccountId`
+
+#### Parameters
+
+##### hex
+
+`string`
+
+#### Returns
+
+`AccountId`

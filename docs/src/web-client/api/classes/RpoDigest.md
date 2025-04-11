@@ -34,16 +34,6 @@
 
 ***
 
-### toWord()
-
-> **toWord**(): [`Word`](Word.md)
-
-#### Returns
-
-[`Word`](Word.md)
-
-***
-
 ### toHex()
 
 > **toHex**(): `string`
@@ -51,3 +41,13 @@
 #### Returns
 
 `string`
+
+***
+
+### toWord()
+
+> **toWord**(): [`Word`](Word.md)
+
+#### Returns
+
+[`Word`](Word.md)

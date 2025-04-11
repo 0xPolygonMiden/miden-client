@@ -18,16 +18,6 @@
 
 ***
 
-### stack()
-
-> **stack**(): [`Felt`](Felt.md)[]
-
-#### Returns
-
-[`Felt`](Felt.md)[]
-
-***
-
 ### mappedValues()
 
 > **mappedValues**(`key`): [`Felt`](Felt.md)[]
@@ -37,6 +27,16 @@
 ##### key
 
 [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`Felt`](Felt.md)[]
+
+***
+
+### stack()
+
+> **stack**(): [`Felt`](Felt.md)[]
 
 #### Returns
 

@@ -8,6 +8,16 @@
 
 ## Methods
 
+### executionMode()
+
+> **executionMode**(): [`NoteExecutionMode`](NoteExecutionMode.md)
+
+#### Returns
+
+[`NoteExecutionMode`](NoteExecutionMode.md)
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -18,19 +28,29 @@
 
 ***
 
-### fromAccountId()
+### isSingleTarget()
 
-> `static` **fromAccountId**(`account_id`, `execution`): `NoteTag`
+> **isSingleTarget**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### forLocalUseCase()
+
+> `static` **forLocalUseCase**(`use_case_id`, `payload`): `NoteTag`
 
 #### Parameters
 
-##### account\_id
+##### use\_case\_id
 
-[`AccountId`](AccountId.md)
+`number`
 
-##### execution
+##### payload
 
-[`NoteExecutionMode`](NoteExecutionMode.md)
+`number`
 
 #### Returns
 
@@ -62,40 +82,20 @@
 
 ***
 
-### forLocalUseCase()
+### fromAccountId()
 
-> `static` **forLocalUseCase**(`use_case_id`, `payload`): `NoteTag`
+> `static` **fromAccountId**(`account_id`, `execution`): `NoteTag`
 
 #### Parameters
 
-##### use\_case\_id
+##### account\_id
 
-`number`
+[`AccountId`](AccountId.md)
 
-##### payload
+##### execution
 
-`number`
+[`NoteExecutionMode`](NoteExecutionMode.md)
 
 #### Returns
 
 `NoteTag`
-
-***
-
-### isSingleTarget()
-
-> **isSingleTarget**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-***
-
-### executionMode()
-
-> **executionMode**(): [`NoteExecutionMode`](NoteExecutionMode.md)
-
-#### Returns
-
-[`NoteExecutionMode`](NoteExecutionMode.md)

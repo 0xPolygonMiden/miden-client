@@ -8,49 +8,9 @@
 
 ## Methods
 
-### free()
+### accountRoot()
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### version()
-
-> **version**(): `number`
-
-#### Returns
-
-`number`
-
-***
-
-### commitment()
-
-> **commitment**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
-### subCommitment()
-
-> **subCommitment**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
-### prevBlockCommitment()
-
-> **prevBlockCommitment**(): [`RpoDigest`](RpoDigest.md)
+> **accountRoot**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
@@ -78,9 +38,29 @@
 
 ***
 
-### accountRoot()
+### commitment()
 
-> **accountRoot**(): [`RpoDigest`](RpoDigest.md)
+> **commitment**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
+### noteRoot()
+
+> **noteRoot**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
@@ -98,13 +78,43 @@
 
 ***
 
-### noteRoot()
+### prevBlockCommitment()
 
-> **noteRoot**(): [`RpoDigest`](RpoDigest.md)
+> **prevBlockCommitment**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
+
+***
+
+### proofCommitment()
+
+> **proofCommitment**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
+### subCommitment()
+
+> **subCommitment**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
+### timestamp()
+
+> **timestamp**(): `number`
+
+#### Returns
+
+`number`
 
 ***
 
@@ -128,19 +138,9 @@
 
 ***
 
-### proofCommitment()
+### version()
 
-> **proofCommitment**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
-### timestamp()
-
-> **timestamp**(): `number`
+> **version**(): `number`
 
 #### Returns
 

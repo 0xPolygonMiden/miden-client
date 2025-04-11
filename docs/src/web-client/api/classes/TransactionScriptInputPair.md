@@ -28,6 +28,16 @@
 
 ## Methods
 
+### felts()
+
+> **felts**(): [`Felt`](Felt.md)[]
+
+#### Returns
+
+[`Felt`](Felt.md)[]
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -45,13 +55,3 @@
 #### Returns
 
 [`Word`](Word.md)
-
-***
-
-### felts()
-
-> **felts**(): [`Felt`](Felt.md)[]
-
-#### Returns
-
-[`Felt`](Felt.md)[]

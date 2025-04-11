@@ -8,13 +8,13 @@
 
 ## Methods
 
-### free()
+### codeCommitment()
 
-> **free**(): `void`
+> **codeCommitment**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
-`void`
+[`RpoDigest`](RpoDigest.md)
 
 ***
 
@@ -25,6 +25,16 @@
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
 
 ***
 
@@ -48,16 +58,6 @@
 
 ***
 
-### vaultCommitment()
-
-> **vaultCommitment**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
 ### storageCommitment()
 
 > **storageCommitment**(): [`RpoDigest`](RpoDigest.md)
@@ -68,9 +68,9 @@
 
 ***
 
-### codeCommitment()
+### vaultCommitment()
 
-> **codeCommitment**(): [`RpoDigest`](RpoDigest.md)
+> **vaultCommitment**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 

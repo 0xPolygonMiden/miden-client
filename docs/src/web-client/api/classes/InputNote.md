@@ -28,6 +28,16 @@
 
 ***
 
+### location()
+
+> **location**(): [`NoteLocation`](NoteLocation.md)
+
+#### Returns
+
+[`NoteLocation`](NoteLocation.md)
+
+***
+
 ### note()
 
 > **note**(): [`Note`](Note.md)
@@ -45,13 +55,3 @@
 #### Returns
 
 [`NoteInclusionProof`](NoteInclusionProof.md)
-
-***
-
-### location()
-
-> **location**(): [`NoteLocation`](NoteLocation.md)
-
-#### Returns
-
-[`NoteLocation`](NoteLocation.md)

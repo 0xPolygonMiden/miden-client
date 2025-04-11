@@ -8,6 +8,26 @@
 
 ## Methods
 
+### code()
+
+> **code**(): [`AccountCode`](AccountCode.md)
+
+#### Returns
+
+[`AccountCode`](AccountCode.md)
+
+***
+
+### commitment()
+
+> **commitment**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -28,59 +48,29 @@
 
 ***
 
-### commitment()
-
-> **commitment**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
-### nonce()
-
-> **nonce**(): [`Felt`](Felt.md)
-
-#### Returns
-
-[`Felt`](Felt.md)
-
-***
-
-### vault()
-
-> **vault**(): [`AssetVault`](AssetVault.md)
-
-#### Returns
-
-[`AssetVault`](AssetVault.md)
-
-***
-
-### storage()
-
-> **storage**(): [`AccountStorage`](AccountStorage.md)
-
-#### Returns
-
-[`AccountStorage`](AccountStorage.md)
-
-***
-
-### code()
-
-> **code**(): [`AccountCode`](AccountCode.md)
-
-#### Returns
-
-[`AccountCode`](AccountCode.md)
-
-***
-
 ### isFaucet()
 
 > **isFaucet**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### isNew()
+
+> **isNew**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### isPublic()
+
+> **isPublic**(): `boolean`
 
 #### Returns
 
@@ -108,23 +98,13 @@
 
 ***
 
-### isPublic()
+### nonce()
 
-> **isPublic**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isNew()
-
-> **isNew**(): `boolean`
+> **nonce**(): [`Felt`](Felt.md)
 
 #### Returns
 
-`boolean`
+[`Felt`](Felt.md)
 
 ***
 
@@ -135,6 +115,26 @@
 #### Returns
 
 `Uint8Array`
+
+***
+
+### storage()
+
+> **storage**(): [`AccountStorage`](AccountStorage.md)
+
+#### Returns
+
+[`AccountStorage`](AccountStorage.md)
+
+***
+
+### vault()
+
+> **vault**(): [`AssetVault`](AssetVault.md)
+
+#### Returns
+
+[`AssetVault`](AssetVault.md)
 
 ***
 

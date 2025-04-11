@@ -28,16 +28,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### assets()
 
 > **assets**(): [`NoteAssets`](NoteAssets.md)
@@ -45,6 +35,16 @@
 #### Returns
 
 [`NoteAssets`](NoteAssets.md)
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
 
 ***
 

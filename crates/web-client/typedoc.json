@@ -4,7 +4,5 @@
   "readme": "none",
   "out": "../../docs/src/web-client/api",
   "plugin": ["typedoc-plugin-markdown"],
-  "disableSources": true,
-  "basePath": "/web-client/api",
-  "sort": ["source-order"]
+  "disableSources": true
 }

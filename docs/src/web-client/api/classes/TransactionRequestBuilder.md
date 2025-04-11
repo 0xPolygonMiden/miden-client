@@ -18,6 +18,32 @@
 
 ## Methods
 
+### build()
+
+> **build**(): [`TransactionRequest`](TransactionRequest.md)
+
+#### Returns
+
+[`TransactionRequest`](TransactionRequest.md)
+
+***
+
+### extendAdviceMap()
+
+> **extendAdviceMap**(`advice_map`): `TransactionRequestBuilder`
+
+#### Parameters
+
+##### advice\_map
+
+[`AdviceMap`](AdviceMap.md)
+
+#### Returns
+
+`TransactionRequestBuilder`
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -25,22 +51,6 @@
 #### Returns
 
 `void`
-
-***
-
-### withUnauthenticatedInputNotes()
-
-> **withUnauthenticatedInputNotes**(`notes`): `TransactionRequestBuilder`
-
-#### Parameters
-
-##### notes
-
-[`NoteAndArgsArray`](NoteAndArgsArray.md)
-
-#### Returns
-
-`TransactionRequestBuilder`
 
 ***
 
@@ -53,22 +63,6 @@
 ##### notes
 
 [`NoteIdAndArgsArray`](NoteIdAndArgsArray.md)
-
-#### Returns
-
-`TransactionRequestBuilder`
-
-***
-
-### withOwnOutputNotes()
-
-> **withOwnOutputNotes**(`notes`): `TransactionRequestBuilder`
-
-#### Parameters
-
-##### notes
-
-[`OutputNotesArray`](OutputNotesArray.md)
 
 #### Returns
 
@@ -92,22 +86,6 @@
 
 ***
 
-### withExpectedOutputNotes()
-
-> **withExpectedOutputNotes**(`notes`): `TransactionRequestBuilder`
-
-#### Parameters
-
-##### notes
-
-[`NotesArray`](NotesArray.md)
-
-#### Returns
-
-`TransactionRequestBuilder`
-
-***
-
 ### withExpectedFutureNotes()
 
 > **withExpectedFutureNotes**(`note_details_and_tag`): `TransactionRequestBuilder`
@@ -124,15 +102,15 @@
 
 ***
 
-### extendAdviceMap()
+### withExpectedOutputNotes()
 
-> **extendAdviceMap**(`advice_map`): `TransactionRequestBuilder`
+> **withExpectedOutputNotes**(`notes`): `TransactionRequestBuilder`
 
 #### Parameters
 
-##### advice\_map
+##### notes
 
-[`AdviceMap`](AdviceMap.md)
+[`NotesArray`](NotesArray.md)
 
 #### Returns
 
@@ -140,10 +118,32 @@
 
 ***
 
-### build()
+### withOwnOutputNotes()
 
-> **build**(): [`TransactionRequest`](TransactionRequest.md)
+> **withOwnOutputNotes**(`notes`): `TransactionRequestBuilder`
+
+#### Parameters
+
+##### notes
+
+[`OutputNotesArray`](OutputNotesArray.md)
 
 #### Returns
 
-[`TransactionRequest`](TransactionRequest.md)
+`TransactionRequestBuilder`
+
+***
+
+### withUnauthenticatedInputNotes()
+
+> **withUnauthenticatedInputNotes**(`notes`): `TransactionRequestBuilder`
+
+#### Parameters
+
+##### notes
+
+[`NoteAndArgsArray`](NoteAndArgsArray.md)
+
+#### Returns
+
+`TransactionRequestBuilder`

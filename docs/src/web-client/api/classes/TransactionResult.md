@@ -8,33 +8,13 @@
 
 ## Methods
 
-### free()
+### accountDelta()
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### executedTransaction()
-
-> **executedTransaction**(): [`ExecutedTransaction`](ExecutedTransaction.md)
+> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
 
 #### Returns
 
-[`ExecutedTransaction`](ExecutedTransaction.md)
-
-***
-
-### createdNotes()
-
-> **createdNotes**(): [`OutputNotes`](OutputNotes.md)
-
-#### Returns
-
-[`OutputNotes`](OutputNotes.md)
+[`AccountDelta`](AccountDelta.md)
 
 ***
 
@@ -48,26 +28,6 @@
 
 ***
 
-### transactionArguments()
-
-> **transactionArguments**(): [`TransactionArgs`](TransactionArgs.md)
-
-#### Returns
-
-[`TransactionArgs`](TransactionArgs.md)
-
-***
-
-### accountDelta()
-
-> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
-
-#### Returns
-
-[`AccountDelta`](AccountDelta.md)
-
-***
-
 ### consumedNotes()
 
 > **consumedNotes**(): [`InputNotes`](InputNotes.md)
@@ -78,6 +38,36 @@
 
 ***
 
+### createdNotes()
+
+> **createdNotes**(): [`OutputNotes`](OutputNotes.md)
+
+#### Returns
+
+[`OutputNotes`](OutputNotes.md)
+
+***
+
+### executedTransaction()
+
+> **executedTransaction**(): [`ExecutedTransaction`](ExecutedTransaction.md)
+
+#### Returns
+
+[`ExecutedTransaction`](ExecutedTransaction.md)
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
 ### serialize()
 
 > **serialize**(): `Uint8Array`
@@ -85,6 +75,16 @@
 #### Returns
 
 `Uint8Array`
+
+***
+
+### transactionArguments()
+
+> **transactionArguments**(): [`TransactionArgs`](TransactionArgs.md)
+
+#### Returns
+
+[`TransactionArgs`](TransactionArgs.md)
 
 ***
 

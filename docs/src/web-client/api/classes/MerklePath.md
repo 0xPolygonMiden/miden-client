@@ -8,36 +8,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### depth()
-
-> **depth**(): `number`
-
-#### Returns
-
-`number`
-
-***
-
-### nodes()
-
-> **nodes**(): [`RpoDigest`](RpoDigest.md)[]
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)[]
-
-***
-
 ### computeRoot()
 
 > **computeRoot**(`index`, `node`): [`RpoDigest`](RpoDigest.md)
@@ -55,6 +25,36 @@
 #### Returns
 
 [`RpoDigest`](RpoDigest.md)
+
+***
+
+### depth()
+
+> **depth**(): `number`
+
+#### Returns
+
+`number`
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
+### nodes()
+
+> **nodes**(): [`RpoDigest`](RpoDigest.md)[]
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)[]
 
 ***
 

@@ -18,39 +18,71 @@
 
 ## Methods
 
-### free()
+### addTag()
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### getAccounts()
-
-> **getAccounts**(): `Promise`\<[`AccountHeader`](AccountHeader.md)[]\>
-
-#### Returns
-
-`Promise`\<[`AccountHeader`](AccountHeader.md)[]\>
-
-***
-
-### getAccount()
-
-> **getAccount**(`account_id`): `Promise`\<[`Account`](Account.md)\>
+> **addTag**(`tag`): `Promise`\<`void`\>
 
 #### Parameters
 
-##### account\_id
+##### tag
 
-[`AccountId`](AccountId.md)
+`string`
 
 #### Returns
 
-`Promise`\<[`Account`](Account.md)\>
+`Promise`\<`void`\>
+
+***
+
+### compileNoteScript()
+
+> **compileNoteScript**(`script`): [`NoteScript`](NoteScript.md)
+
+#### Parameters
+
+##### script
+
+`string`
+
+#### Returns
+
+[`NoteScript`](NoteScript.md)
+
+***
+
+### compileTxScript()
+
+> **compileTxScript**(`script`): [`TransactionScript`](TransactionScript.md)
+
+#### Parameters
+
+##### script
+
+`string`
+
+#### Returns
+
+[`TransactionScript`](TransactionScript.md)
+
+***
+
+### createClient()
+
+> **createClient**(`node_url`?, `seed`?): `Promise`\<`any`\>
+
+#### Parameters
+
+##### node\_url?
+
+`string`
+
+##### seed?
+
+`Uint8Array`
+
+#### Returns
+
+`Promise`\<`any`\>
 
 ***
 
@@ -88,6 +120,154 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
+### forceImportStore()
+
+> **forceImportStore**(`store_dump`): `Promise`\<`any`\>
+
+#### Parameters
+
+##### store\_dump
+
+`any`
+
+#### Returns
+
+`Promise`\<`any`\>
+
+***
+
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
+### getAccount()
+
+> **getAccount**(`account_id`): `Promise`\<[`Account`](Account.md)\>
+
+#### Parameters
+
+##### account\_id
+
+[`AccountId`](AccountId.md)
+
+#### Returns
+
+`Promise`\<[`Account`](Account.md)\>
+
+***
+
+### getAccounts()
+
+> **getAccounts**(): `Promise`\<[`AccountHeader`](AccountHeader.md)[]\>
+
+#### Returns
+
+`Promise`\<[`AccountHeader`](AccountHeader.md)[]\>
+
+***
+
+### getConsumableNotes()
+
+> **getConsumableNotes**(`account_id`?): `Promise`\<[`ConsumableNoteRecord`](ConsumableNoteRecord.md)[]\>
+
+#### Parameters
+
+##### account\_id?
+
+[`AccountId`](AccountId.md)
+
+#### Returns
+
+`Promise`\<[`ConsumableNoteRecord`](ConsumableNoteRecord.md)[]\>
+
+***
+
+### getInputNote()
+
+> **getInputNote**(`note_id`): `Promise`\<[`InputNoteRecord`](InputNoteRecord.md)\>
+
+#### Parameters
+
+##### note\_id
+
+`string`
+
+#### Returns
+
+`Promise`\<[`InputNoteRecord`](InputNoteRecord.md)\>
+
+***
+
+### getInputNotes()
+
+> **getInputNotes**(`filter`): `Promise`\<[`InputNoteRecord`](InputNoteRecord.md)[]\>
+
+#### Parameters
+
+##### filter
+
+[`NoteFilter`](NoteFilter.md)
+
+#### Returns
+
+`Promise`\<[`InputNoteRecord`](InputNoteRecord.md)[]\>
+
+***
+
+### getOutputNote()
+
+> **getOutputNote**(`note_id`): `Promise`\<`any`\>
+
+#### Parameters
+
+##### note\_id
+
+`string`
+
+#### Returns
+
+`Promise`\<`any`\>
+
+***
+
+### getOutputNotes()
+
+> **getOutputNotes**(`filter`): `Promise`\<`any`\>
+
+#### Parameters
+
+##### filter
+
+[`NoteFilter`](NoteFilter.md)
+
+#### Returns
+
+`Promise`\<`any`\>
+
+***
+
+### getTransactions()
+
+> **getTransactions**(`transaction_filter`): `Promise`\<[`TransactionRecord`](TransactionRecord.md)[]\>
+
+#### Parameters
+
+##### transaction\_filter
+
+[`TransactionFilter`](TransactionFilter.md)
+
+#### Returns
+
+`Promise`\<[`TransactionRecord`](TransactionRecord.md)[]\>
+
+***
+
 ### importAccount()
 
 > **importAccount**(`account_bytes`): `Promise`\<`any`\>
@@ -95,6 +275,22 @@ Meant to be used in conjunction with the force_import_store method
 #### Parameters
 
 ##### account\_bytes
+
+`any`
+
+#### Returns
+
+`Promise`\<`any`\>
+
+***
+
+### importNote()
+
+> **importNote**(`note_bytes`): `Promise`\<`any`\>
+
+#### Parameters
+
+##### note\_bytes
 
 `any`
 
@@ -124,15 +320,9 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### importNote()
+### listTags()
 
-> **importNote**(`note_bytes`): `Promise`\<`any`\>
-
-#### Parameters
-
-##### note\_bytes
-
-`any`
+> **listTags**(): `Promise`\<`any`\>
 
 #### Returns
 
@@ -140,43 +330,19 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### forceImportStore()
+### newConsumeTransactionRequest()
 
-> **forceImportStore**(`store_dump`): `Promise`\<`any`\>
-
-#### Parameters
-
-##### store\_dump
-
-`any`
-
-#### Returns
-
-`Promise`\<`any`\>
-
-***
-
-### newWallet()
-
-> **newWallet**(`storage_mode`, `mutable`, `init_seed`?): `Promise`\<[`Account`](Account.md)\>
+> **newConsumeTransactionRequest**(`list_of_note_ids`): [`TransactionRequest`](TransactionRequest.md)
 
 #### Parameters
 
-##### storage\_mode
+##### list\_of\_note\_ids
 
-[`AccountStorageMode`](AccountStorageMode.md)
-
-##### mutable
-
-`boolean`
-
-##### init\_seed?
-
-`Uint8Array`
+`string`[]
 
 #### Returns
 
-`Promise`\<[`Account`](Account.md)\>
+[`TransactionRequest`](TransactionRequest.md)
 
 ***
 
@@ -209,46 +375,6 @@ Meant to be used in conjunction with the force_import_store method
 #### Returns
 
 `Promise`\<[`Account`](Account.md)\>
-
-***
-
-### newTransaction()
-
-> **newTransaction**(`account_id`, `transaction_request`): `Promise`\<[`TransactionResult`](TransactionResult.md)\>
-
-#### Parameters
-
-##### account\_id
-
-[`AccountId`](AccountId.md)
-
-##### transaction\_request
-
-[`TransactionRequest`](TransactionRequest.md)
-
-#### Returns
-
-`Promise`\<[`TransactionResult`](TransactionResult.md)\>
-
-***
-
-### submitTransaction()
-
-> **submitTransaction**(`transaction_result`, `prover`?): `Promise`\<`void`\>
-
-#### Parameters
-
-##### transaction\_result
-
-[`TransactionResult`](TransactionResult.md)
-
-##### prover?
-
-[`TransactionProver`](TransactionProver.md)
-
-#### Returns
-
-`Promise`\<`void`\>
 
 ***
 
@@ -316,22 +442,6 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### newConsumeTransactionRequest()
-
-> **newConsumeTransactionRequest**(`list_of_note_ids`): [`TransactionRequest`](TransactionRequest.md)
-
-#### Parameters
-
-##### list\_of\_note\_ids
-
-`string`[]
-
-#### Returns
-
-[`TransactionRequest`](TransactionRequest.md)
-
-***
-
 ### newSwapTransaction()
 
 > **newSwapTransaction**(`sender_account_id`, `offered_asset_faucet_id`, `offered_asset_amount`, `requested_asset_faucet_id`, `requested_asset_amount`, `note_type`): `Promise`\<[`NewSwapTransactionResult`](NewSwapTransactionResult.md)\>
@@ -368,125 +478,47 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### getInputNotes()
+### newTransaction()
 
-> **getInputNotes**(`filter`): `Promise`\<[`InputNoteRecord`](InputNoteRecord.md)[]\>
-
-#### Parameters
-
-##### filter
-
-[`NoteFilter`](NoteFilter.md)
-
-#### Returns
-
-`Promise`\<[`InputNoteRecord`](InputNoteRecord.md)[]\>
-
-***
-
-### getInputNote()
-
-> **getInputNote**(`note_id`): `Promise`\<[`InputNoteRecord`](InputNoteRecord.md)\>
+> **newTransaction**(`account_id`, `transaction_request`): `Promise`\<[`TransactionResult`](TransactionResult.md)\>
 
 #### Parameters
 
-##### note\_id
-
-`string`
-
-#### Returns
-
-`Promise`\<[`InputNoteRecord`](InputNoteRecord.md)\>
-
-***
-
-### getOutputNotes()
-
-> **getOutputNotes**(`filter`): `Promise`\<`any`\>
-
-#### Parameters
-
-##### filter
-
-[`NoteFilter`](NoteFilter.md)
-
-#### Returns
-
-`Promise`\<`any`\>
-
-***
-
-### getOutputNote()
-
-> **getOutputNote**(`note_id`): `Promise`\<`any`\>
-
-#### Parameters
-
-##### note\_id
-
-`string`
-
-#### Returns
-
-`Promise`\<`any`\>
-
-***
-
-### compileNoteScript()
-
-> **compileNoteScript**(`script`): [`NoteScript`](NoteScript.md)
-
-#### Parameters
-
-##### script
-
-`string`
-
-#### Returns
-
-[`NoteScript`](NoteScript.md)
-
-***
-
-### getConsumableNotes()
-
-> **getConsumableNotes**(`account_id`?): `Promise`\<[`ConsumableNoteRecord`](ConsumableNoteRecord.md)[]\>
-
-#### Parameters
-
-##### account\_id?
+##### account\_id
 
 [`AccountId`](AccountId.md)
 
-#### Returns
+##### transaction\_request
 
-`Promise`\<[`ConsumableNoteRecord`](ConsumableNoteRecord.md)[]\>
-
-***
-
-### syncState()
-
-> **syncState**(): `Promise`\<[`SyncSummary`](SyncSummary.md)\>
+[`TransactionRequest`](TransactionRequest.md)
 
 #### Returns
 
-`Promise`\<[`SyncSummary`](SyncSummary.md)\>
+`Promise`\<[`TransactionResult`](TransactionResult.md)\>
 
 ***
 
-### addTag()
+### newWallet()
 
-> **addTag**(`tag`): `Promise`\<`void`\>
+> **newWallet**(`storage_mode`, `mutable`, `init_seed`?): `Promise`\<[`Account`](Account.md)\>
 
 #### Parameters
 
-##### tag
+##### storage\_mode
 
-`string`
+[`AccountStorageMode`](AccountStorageMode.md)
+
+##### mutable
+
+`boolean`
+
+##### init\_seed?
+
+`Uint8Array`
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<[`Account`](Account.md)\>
 
 ***
 
@@ -506,45 +538,33 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### listTags()
+### submitTransaction()
 
-> **listTags**(): `Promise`\<`any`\>
-
-#### Returns
-
-`Promise`\<`any`\>
-
-***
-
-### getTransactions()
-
-> **getTransactions**(`transaction_filter`): `Promise`\<[`TransactionRecord`](TransactionRecord.md)[]\>
+> **submitTransaction**(`transaction_result`, `prover`?): `Promise`\<`void`\>
 
 #### Parameters
 
-##### transaction\_filter
+##### transaction\_result
 
-[`TransactionFilter`](TransactionFilter.md)
+[`TransactionResult`](TransactionResult.md)
+
+##### prover?
+
+[`TransactionProver`](TransactionProver.md)
 
 #### Returns
 
-`Promise`\<[`TransactionRecord`](TransactionRecord.md)[]\>
+`Promise`\<`void`\>
 
 ***
 
-### compileTxScript()
+### syncState()
 
-> **compileTxScript**(`script`): [`TransactionScript`](TransactionScript.md)
-
-#### Parameters
-
-##### script
-
-`string`
+> **syncState**(): `Promise`\<[`SyncSummary`](SyncSummary.md)\>
 
 #### Returns
 
-[`TransactionScript`](TransactionScript.md)
+`Promise`\<[`SyncSummary`](SyncSummary.md)\>
 
 ***
 
@@ -561,23 +581,3 @@ Meant to be used in conjunction with the force_import_store method
 #### Returns
 
 `Promise`\<`void`\>
-
-***
-
-### createClient()
-
-> **createClient**(`node_url`?, `seed`?): `Promise`\<`any`\>
-
-#### Parameters
-
-##### node\_url?
-
-`string`
-
-##### seed?
-
-`Uint8Array`
-
-#### Returns
-
-`Promise`\<`any`\>

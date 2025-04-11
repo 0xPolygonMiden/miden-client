@@ -18,22 +18,6 @@
 
 ***
 
-### newFromU64s()
-
-> `static` **newFromU64s**(`u64_vec`): `Word`
-
-#### Parameters
-
-##### u64\_vec
-
-`BigUint64Array`
-
-#### Returns
-
-`Word`
-
-***
-
 ### newFromFelts()
 
 > `static` **newFromFelts**(`felt_vec`): `Word`
@@ -43,6 +27,22 @@
 ##### felt\_vec
 
 [`Felt`](Felt.md)[]
+
+#### Returns
+
+`Word`
+
+***
+
+### newFromU64s()
+
+> `static` **newFromU64s**(`u64_vec`): `Word`
+
+#### Parameters
+
+##### u64\_vec
+
+`BigUint64Array`
 
 #### Returns
 

@@ -24,16 +24,6 @@
 
 ## Methods
 
-### free()
-
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### append()
 
 > **append**(`output_note`): `void`
@@ -43,6 +33,16 @@
 ##### output\_note
 
 [`OutputNote`](OutputNote.md)
+
+#### Returns
+
+`void`
+
+***
+
+### free()
+
+> **free**(): `void`
 
 #### Returns
 

@@ -8,6 +8,16 @@
 
 ## Methods
 
+### endpoint()
+
+> **endpoint**(): `string`
+
+#### Returns
+
+`string`
+
+***
+
 ### free()
 
 > **free**(): `void`
@@ -15,32 +25,6 @@
 #### Returns
 
 `void`
-
-***
-
-### newLocalProver()
-
-> `static` **newLocalProver**(): `TransactionProver`
-
-#### Returns
-
-`TransactionProver`
-
-***
-
-### newRemoteProver()
-
-> `static` **newRemoteProver**(`endpoint`): `TransactionProver`
-
-#### Parameters
-
-##### endpoint
-
-`string`
-
-#### Returns
-
-`TransactionProver`
 
 ***
 
@@ -74,10 +58,26 @@
 
 ***
 
-### endpoint()
+### newLocalProver()
 
-> **endpoint**(): `string`
+> `static` **newLocalProver**(): `TransactionProver`
 
 #### Returns
 
+`TransactionProver`
+
+***
+
+### newRemoteProver()
+
+> `static` **newRemoteProver**(`endpoint`): `TransactionProver`
+
+#### Parameters
+
+##### endpoint
+
 `string`
+
+#### Returns
+
+`TransactionProver`
