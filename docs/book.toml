@@ -14,3 +14,4 @@ after = ["links"]
 [preprocessor.alerts]
 
 [output.linkcheck]
+exclude = ["web-client/api/**"]

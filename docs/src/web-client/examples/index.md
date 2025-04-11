@@ -25,7 +25,7 @@ The examples in this section showcase various capabilities of the Miden SDK, inc
   - Import and export notes
   - Working with consumable notes
 
-For installation instructions, prerequisites, and setup details, please refer to the [SDK README](../../../../crates/web-client/README.md).
+For installation instructions, prerequisites, and setup details, please refer to the [SDK documentation](../index.md).
 
 Each example is self-contained and includes:
 - Complete source code
