@@ -3,12 +3,7 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::{
-    Digest,
-    account::AccountId,
-    block::BlockNumber,
-    transaction::{OutputNotes, TransactionScript},
-};
+use miden_objects::{Digest, block::BlockNumber, transaction::TransactionScript};
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
@@ -16,7 +11,9 @@ use wasm_bindgen_futures::JsFuture;
 use super::{WebStore, account::utils::update_account, note::utils::apply_note_updates_tx};
 use crate::{
     store::{StoreError, TransactionFilter},
-    transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
+    transaction::{
+        TransactionMetadata, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+    },
 };
 
 mod js_bindings;
@@ -56,20 +53,12 @@ impl WebStore {
         let transaction_records: Result<Vec<TransactionRecord>, StoreError> = transactions_idxdb
             .into_iter()
             .map(|tx_idxdb| {
-                let native_account_id = AccountId::from_hex(&tx_idxdb.account_id)?;
-                let block_num: BlockNumber = tx_idxdb.block_num.parse::<u32>().unwrap().into();
                 let commit_height: Option<BlockNumber> =
                     tx_idxdb.commit_height.map(|height| height.parse::<u32>().unwrap().into());
 
                 let id: Digest = tx_idxdb.id.try_into()?;
-                let init_account_state: Digest = tx_idxdb.init_account_state.try_into()?;
 
-                let final_account_state: Digest = tx_idxdb.final_account_state.try_into()?;
-
-                let input_note_nullifiers: Vec<Digest> =
-                    Vec::<Digest>::read_from_bytes(&tx_idxdb.input_notes)?;
-
-                let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
+                let metadata = TransactionMetadata::read_from_bytes(&tx_idxdb.metadata)?;
 
                 let transaction_script: Option<TransactionScript> =
                     if tx_idxdb.script_root.is_some() {
@@ -92,13 +81,8 @@ impl WebStore {
 
                 Ok(TransactionRecord {
                     id: id.into(),
-                    account_id: native_account_id,
-                    init_account_state,
-                    final_account_state,
-                    input_note_nullifiers,
-                    output_notes,
-                    transaction_script,
-                    block_num,
+                    metadata,
+                    script: transaction_script,
                     transaction_status,
                 })
             })
