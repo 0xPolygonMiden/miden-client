@@ -21,9 +21,8 @@ pub(crate) mod api_client_wrapper {
 
 #[cfg(feature = "tonic")]
 pub(crate) mod api_client_wrapper {
-
+    use alloc::{boxed::Box, string::String};
     use core::time::Duration;
-    use std::string::{String, ToString};
 
     use crate::rpc::RpcError;
 
@@ -33,12 +32,12 @@ pub(crate) mod api_client_wrapper {
     impl ApiClient {
         pub async fn new_client(endpoint: String, timeout_ms: u64) -> Result<ApiClient, RpcError> {
             let endpoint = tonic::transport::Endpoint::try_from(endpoint)
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))?
+                .map_err(|err| RpcError::ConnectionError(Box::new(err)))?
                 .timeout(Duration::from_millis(timeout_ms));
 
             ApiClient::connect(endpoint)
                 .await
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))
+                .map_err(|err| RpcError::ConnectionError(Box::new(err)))
         }
     }
 }
