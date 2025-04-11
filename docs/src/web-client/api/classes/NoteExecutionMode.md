@@ -18,16 +18,6 @@
 
 ***
 
-### toString()
-
-> **toString**(): `string`
-
-#### Returns
-
-`string`
-
-***
-
 ### newLocal()
 
 > `static` **newLocal**(): `NoteExecutionMode`
@@ -45,3 +35,13 @@
 #### Returns
 
 `NoteExecutionMode`
+
+***
+
+### toString()
+
+> **toString**(): `string`
+
+#### Returns
+
+`string`

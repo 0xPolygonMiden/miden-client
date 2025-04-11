@@ -32,16 +32,6 @@
 
 ## Methods
 
-### digest()
-
-> **digest**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -49,3 +39,13 @@
 #### Returns
 
 `void`
+
+***
+
+### digest()
+
+> **digest**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)

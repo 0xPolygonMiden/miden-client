@@ -8,33 +8,21 @@
 
 ## Enumeration Members
 
-### Committed
-
-> **Committed**: `2`
-
-***
-
-### ConsumedAuthenticatedLocal
-
-> **ConsumedAuthenticatedLocal**: `6`
-
-***
-
-### ConsumedExternal
-
-> **ConsumedExternal**: `8`
-
-***
-
-### ConsumedUnauthenticatedLocal
-
-> **ConsumedUnauthenticatedLocal**: `7`
-
-***
-
 ### Expected
 
 > **Expected**: `0`
+
+***
+
+### Unverified
+
+> **Unverified**: `1`
+
+***
+
+### Committed
+
+> **Committed**: `2`
 
 ***
 
@@ -56,6 +44,18 @@
 
 ***
 
-### Unverified
+### ConsumedAuthenticatedLocal
 
-> **Unverified**: `1`
+> **ConsumedAuthenticatedLocal**: `6`
+
+***
+
+### ConsumedUnauthenticatedLocal
+
+> **ConsumedUnauthenticatedLocal**: `7`
+
+***
+
+### ConsumedExternal
+
+> **ConsumedExternal**: `8`

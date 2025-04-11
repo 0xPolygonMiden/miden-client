@@ -50,16 +50,6 @@
 
 ***
 
-### noteType()
-
-> **noteType**(): [`NoteType`](../enumerations/NoteType.md)
-
-#### Returns
-
-[`NoteType`](../enumerations/NoteType.md)
-
-***
-
 ### sender()
 
 > **sender**(): [`AccountId`](AccountId.md)
@@ -77,3 +67,13 @@
 #### Returns
 
 [`NoteTag`](NoteTag.md)
+
+***
+
+### noteType()
+
+> **noteType**(): [`NoteType`](../enumerations/NoteType.md)
+
+#### Returns
+
+[`NoteType`](../enumerations/NoteType.md)

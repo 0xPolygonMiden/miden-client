@@ -8,16 +8,6 @@
 
 ## Methods
 
-### assets()
-
-> **assets**(): [`NoteAssets`](NoteAssets.md)
-
-#### Returns
-
-[`NoteAssets`](NoteAssets.md)
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -25,56 +15,6 @@
 #### Returns
 
 `void`
-
-***
-
-### id()
-
-> **id**(): [`NoteId`](NoteId.md)
-
-#### Returns
-
-[`NoteId`](NoteId.md)
-
-***
-
-### intoFull()
-
-> **intoFull**(): [`Note`](Note.md)
-
-#### Returns
-
-[`Note`](Note.md)
-
-***
-
-### metadata()
-
-> **metadata**(): [`NoteMetadata`](NoteMetadata.md)
-
-#### Returns
-
-[`NoteMetadata`](NoteMetadata.md)
-
-***
-
-### recipientDigest()
-
-> **recipientDigest**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
-### shrink()
-
-> **shrink**(): `OutputNote`
-
-#### Returns
-
-`OutputNote`
 
 ***
 
@@ -87,6 +27,22 @@
 ##### note
 
 [`Note`](Note.md)
+
+#### Returns
+
+`OutputNote`
+
+***
+
+### partial()
+
+> `static` **partial**(`partial_note`): `OutputNote`
+
+#### Parameters
+
+##### partial\_note
+
+[`PartialNote`](PartialNote.md)
 
 #### Returns
 
@@ -110,16 +66,60 @@
 
 ***
 
-### partial()
+### assets()
 
-> `static` **partial**(`partial_note`): `OutputNote`
+> **assets**(): [`NoteAssets`](NoteAssets.md)
 
-#### Parameters
+#### Returns
 
-##### partial\_note
+[`NoteAssets`](NoteAssets.md)
 
-[`PartialNote`](PartialNote.md)
+***
+
+### id()
+
+> **id**(): [`NoteId`](NoteId.md)
+
+#### Returns
+
+[`NoteId`](NoteId.md)
+
+***
+
+### recipientDigest()
+
+> **recipientDigest**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
+### metadata()
+
+> **metadata**(): [`NoteMetadata`](NoteMetadata.md)
+
+#### Returns
+
+[`NoteMetadata`](NoteMetadata.md)
+
+***
+
+### shrink()
+
+> **shrink**(): `OutputNote`
 
 #### Returns
 
 `OutputNote`
+
+***
+
+### intoFull()
+
+> **intoFull**(): [`Note`](Note.md)
+
+#### Returns
+
+[`Note`](Note.md)

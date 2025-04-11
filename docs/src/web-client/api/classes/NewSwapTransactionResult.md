@@ -8,26 +8,6 @@
 
 ## Methods
 
-### expectedOutputNoteIds()
-
-> **expectedOutputNoteIds**(): `any`
-
-#### Returns
-
-`any`
-
-***
-
-### expectedPartialNoteIds()
-
-> **expectedPartialNoteIds**(): `any`
-
-#### Returns
-
-`any`
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -38,13 +18,31 @@
 
 ***
 
-### paybackNoteTag()
+### new()
 
-> **paybackNoteTag**(): `string`
+> `static` **new**(`transaction_id`, `expected_output_note_ids`, `expected_partial_note_ids`, `payback_note_tag`?): `NewSwapTransactionResult`
+
+#### Parameters
+
+##### transaction\_id
+
+`string`
+
+##### expected\_output\_note\_ids
+
+`string`[]
+
+##### expected\_partial\_note\_ids
+
+`string`[]
+
+##### payback\_note\_tag?
+
+`string`
 
 #### Returns
 
-`string`
+`NewSwapTransactionResult`
 
 ***
 
@@ -74,28 +72,30 @@
 
 ***
 
-### new()
+### expectedOutputNoteIds()
 
-> `static` **new**(`transaction_id`, `expected_output_note_ids`, `expected_partial_note_ids`, `payback_note_tag`?): `NewSwapTransactionResult`
-
-#### Parameters
-
-##### transaction\_id
-
-`string`
-
-##### expected\_output\_note\_ids
-
-`string`[]
-
-##### expected\_partial\_note\_ids
-
-`string`[]
-
-##### payback\_note\_tag?
-
-`string`
+> **expectedOutputNoteIds**(): `any`
 
 #### Returns
 
-`NewSwapTransactionResult`
+`any`
+
+***
+
+### expectedPartialNoteIds()
+
+> **expectedPartialNoteIds**(): `any`
+
+#### Returns
+
+`any`
+
+***
+
+### paybackNoteTag()
+
+> **paybackNoteTag**(): `string`
+
+#### Returns
+
+`string`

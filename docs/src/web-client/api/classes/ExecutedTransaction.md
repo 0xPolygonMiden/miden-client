@@ -8,46 +8,6 @@
 
 ## Methods
 
-### accountDelta()
-
-> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
-
-#### Returns
-
-[`AccountDelta`](AccountDelta.md)
-
-***
-
-### accountId()
-
-> **accountId**(): [`AccountId`](AccountId.md)
-
-#### Returns
-
-[`AccountId`](AccountId.md)
-
-***
-
-### blockHeader()
-
-> **blockHeader**(): [`BlockHeader`](BlockHeader.md)
-
-#### Returns
-
-[`BlockHeader`](BlockHeader.md)
-
-***
-
-### finalAccount()
-
-> **finalAccount**(): [`AccountHeader`](AccountHeader.md)
-
-#### Returns
-
-[`AccountHeader`](AccountHeader.md)
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -68,6 +28,16 @@
 
 ***
 
+### accountId()
+
+> **accountId**(): [`AccountId`](AccountId.md)
+
+#### Returns
+
+[`AccountId`](AccountId.md)
+
+***
+
 ### initialAccount()
 
 > **initialAccount**(): [`Account`](Account.md)
@@ -75,6 +45,16 @@
 #### Returns
 
 [`Account`](Account.md)
+
+***
+
+### finalAccount()
+
+> **finalAccount**(): [`AccountHeader`](AccountHeader.md)
+
+#### Returns
+
+[`AccountHeader`](AccountHeader.md)
 
 ***
 
@@ -105,3 +85,23 @@
 #### Returns
 
 [`TransactionArgs`](TransactionArgs.md)
+
+***
+
+### blockHeader()
+
+> **blockHeader**(): [`BlockHeader`](BlockHeader.md)
+
+#### Returns
+
+[`BlockHeader`](BlockHeader.md)
+
+***
+
+### accountDelta()
+
+> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
+
+#### Returns
+
+[`AccountDelta`](AccountDelta.md)

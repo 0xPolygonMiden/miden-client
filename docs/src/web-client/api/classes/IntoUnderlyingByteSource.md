@@ -8,21 +8,21 @@
 
 ## Properties
 
-### autoAllocateChunkSize
-
-> `readonly` **autoAllocateChunkSize**: `number`
-
-***
-
 ### type
 
 > `readonly` **type**: `"bytes"`
 
+***
+
+### autoAllocateChunkSize
+
+> `readonly` **autoAllocateChunkSize**: `number`
+
 ## Methods
 
-### cancel()
+### free()
 
-> **cancel**(): `void`
+> **free**(): `void`
 
 #### Returns
 
@@ -30,9 +30,15 @@
 
 ***
 
-### free()
+### start()
 
-> **free**(): `void`
+> **start**(`controller`): `void`
+
+#### Parameters
+
+##### controller
+
+`ReadableByteStreamController`
 
 #### Returns
 
@@ -56,15 +62,9 @@
 
 ***
 
-### start()
+### cancel()
 
-> **start**(`controller`): `void`
-
-#### Parameters
-
-##### controller
-
-`ReadableByteStreamController`
+> **cancel**(): `void`
 
 #### Returns
 

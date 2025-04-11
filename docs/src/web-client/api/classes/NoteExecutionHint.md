@@ -8,22 +8,6 @@
 
 ## Methods
 
-### canBeConsumed()
-
-> **canBeConsumed**(`block_num`): `boolean`
-
-#### Parameters
-
-##### block\_num
-
-`number`
-
-#### Returns
-
-`boolean`
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -34,15 +18,9 @@
 
 ***
 
-### afterBlock()
+### none()
 
-> `static` **afterBlock**(`block_num`): `NoteExecutionHint`
-
-#### Parameters
-
-##### block\_num
-
-`number`
+> `static` **none**(): `NoteExecutionHint`
 
 #### Returns
 
@@ -60,29 +38,15 @@
 
 ***
 
-### fromParts()
+### afterBlock()
 
-> `static` **fromParts**(`tag`, `payload`): `NoteExecutionHint`
+> `static` **afterBlock**(`block_num`): `NoteExecutionHint`
 
 #### Parameters
 
-##### tag
+##### block\_num
 
 `number`
-
-##### payload
-
-`number`
-
-#### Returns
-
-`NoteExecutionHint`
-
-***
-
-### none()
-
-> `static` **none**(): `NoteExecutionHint`
 
 #### Returns
 
@@ -111,3 +75,39 @@
 #### Returns
 
 `NoteExecutionHint`
+
+***
+
+### fromParts()
+
+> `static` **fromParts**(`tag`, `payload`): `NoteExecutionHint`
+
+#### Parameters
+
+##### tag
+
+`number`
+
+##### payload
+
+`number`
+
+#### Returns
+
+`NoteExecutionHint`
+
+***
+
+### canBeConsumed()
+
+> **canBeConsumed**(`block_num`): `boolean`
+
+#### Parameters
+
+##### block\_num
+
+`number`
+
+#### Returns
+
+`boolean`

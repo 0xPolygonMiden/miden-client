@@ -8,6 +8,16 @@
 
 ## Methods
 
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
 ### blockNum()
 
 > **blockNum**(): `number`
@@ -28,16 +38,6 @@
 
 ***
 
-### committedTransactions()
-
-> **committedTransactions**(): [`TransactionId`](TransactionId.md)[]
-
-#### Returns
-
-[`TransactionId`](TransactionId.md)[]
-
-***
-
 ### consumedNotes()
 
 > **consumedNotes**(): [`NoteId`](NoteId.md)[]
@@ -48,13 +48,23 @@
 
 ***
 
-### free()
+### updatedAccounts()
 
-> **free**(): `void`
+> **updatedAccounts**(): [`AccountId`](AccountId.md)[]
 
 #### Returns
 
-`void`
+[`AccountId`](AccountId.md)[]
+
+***
+
+### committedTransactions()
+
+> **committedTransactions**(): [`TransactionId`](TransactionId.md)[]
+
+#### Returns
+
+[`TransactionId`](TransactionId.md)[]
 
 ***
 
@@ -65,16 +75,6 @@
 #### Returns
 
 `Uint8Array`
-
-***
-
-### updatedAccounts()
-
-> **updatedAccounts**(): [`AccountId`](AccountId.md)[]
-
-#### Returns
-
-[`AccountId`](AccountId.md)[]
 
 ***
 

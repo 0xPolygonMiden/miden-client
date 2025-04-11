@@ -24,6 +24,16 @@
 
 ## Methods
 
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
 ### append()
 
 > **append**(`felt`): `void`
@@ -33,16 +43,6 @@
 ##### felt
 
 [`Felt`](Felt.md)
-
-#### Returns
-
-`void`
-
-***
-
-### free()
-
-> **free**(): `void`
 
 #### Returns
 

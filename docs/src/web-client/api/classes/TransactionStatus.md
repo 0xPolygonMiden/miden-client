@@ -18,43 +18,13 @@
 
 ***
 
-### getBlockNum()
+### pending()
 
-> **getBlockNum**(): `number`
-
-#### Returns
-
-`number`
-
-***
-
-### isCommitted()
-
-> **isCommitted**(): `boolean`
+> `static` **pending**(): `TransactionStatus`
 
 #### Returns
 
-`boolean`
-
-***
-
-### isDiscarded()
-
-> **isDiscarded**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-***
-
-### isPending()
-
-> **isPending**(): `boolean`
-
-#### Returns
-
-`boolean`
+`TransactionStatus`
 
 ***
 
@@ -84,10 +54,40 @@
 
 ***
 
-### pending()
+### isPending()
 
-> `static` **pending**(): `TransactionStatus`
+> **isPending**(): `boolean`
 
 #### Returns
 
-`TransactionStatus`
+`boolean`
+
+***
+
+### isCommitted()
+
+> **isCommitted**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### isDiscarded()
+
+> **isDiscarded**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+***
+
+### getBlockNum()
+
+> **getBlockNum**(): `number`
+
+#### Returns
+
+`number`

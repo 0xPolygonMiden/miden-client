@@ -8,13 +8,23 @@
 
 ## Methods
 
-### abort()
+### free()
 
-> **abort**(`reason`): `Promise`\<`any`\>
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
+### write()
+
+> **write**(`chunk`): `Promise`\<`any`\>
 
 #### Parameters
 
-##### reason
+##### chunk
 
 `any`
 
@@ -34,23 +44,13 @@
 
 ***
 
-### free()
+### abort()
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### write()
-
-> **write**(`chunk`): `Promise`\<`any`\>
+> **abort**(`reason`): `Promise`\<`any`\>
 
 #### Parameters
 
-##### chunk
+##### reason
 
 `any`
 

@@ -8,43 +8,13 @@
 
 ## Methods
 
-### accountDelta()
+### free()
 
-> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
-
-#### Returns
-
-[`AccountDelta`](AccountDelta.md)
-
-***
-
-### blockNum()
-
-> **blockNum**(): `number`
+> **free**(): `void`
 
 #### Returns
 
-`number`
-
-***
-
-### consumedNotes()
-
-> **consumedNotes**(): [`InputNotes`](InputNotes.md)
-
-#### Returns
-
-[`InputNotes`](InputNotes.md)
-
-***
-
-### createdNotes()
-
-> **createdNotes**(): [`OutputNotes`](OutputNotes.md)
-
-#### Returns
-
-[`OutputNotes`](OutputNotes.md)
+`void`
 
 ***
 
@@ -58,23 +28,23 @@
 
 ***
 
-### free()
+### createdNotes()
 
-> **free**(): `void`
+> **createdNotes**(): [`OutputNotes`](OutputNotes.md)
 
 #### Returns
 
-`void`
+[`OutputNotes`](OutputNotes.md)
 
 ***
 
-### serialize()
+### blockNum()
 
-> **serialize**(): `Uint8Array`
+> **blockNum**(): `number`
 
 #### Returns
 
-`Uint8Array`
+`number`
 
 ***
 
@@ -85,6 +55,36 @@
 #### Returns
 
 [`TransactionArgs`](TransactionArgs.md)
+
+***
+
+### accountDelta()
+
+> **accountDelta**(): [`AccountDelta`](AccountDelta.md)
+
+#### Returns
+
+[`AccountDelta`](AccountDelta.md)
+
+***
+
+### consumedNotes()
+
+> **consumedNotes**(): [`InputNotes`](InputNotes.md)
+
+#### Returns
+
+[`InputNotes`](InputNotes.md)
+
+***
+
+### serialize()
+
+> **serialize**(): `Uint8Array`
+
+#### Returns
+
+`Uint8Array`
 
 ***
 

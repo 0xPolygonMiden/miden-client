@@ -8,13 +8,13 @@
 
 ## Methods
 
-### asBytes()
+### free()
 
-> **asBytes**(): `Uint8Array`
+> **free**(): `void`
 
 #### Returns
 
-`Uint8Array`
+`void`
 
 ***
 
@@ -28,23 +28,13 @@
 
 ***
 
-### free()
+### asBytes()
 
-> **free**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
-### inner()
-
-> **inner**(): [`RpoDigest`](RpoDigest.md)
+> **asBytes**(): `Uint8Array`
 
 #### Returns
 
-[`RpoDigest`](RpoDigest.md)
+`Uint8Array`
 
 ***
 
@@ -55,3 +45,13 @@
 #### Returns
 
 `string`
+
+***
+
+### inner()
+
+> **inner**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)

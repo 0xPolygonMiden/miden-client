@@ -8,36 +8,6 @@
 
 ## Methods
 
-### accountId()
-
-> **accountId**(): [`AccountId`](AccountId.md)
-
-#### Returns
-
-[`AccountId`](AccountId.md)
-
-***
-
-### blockNum()
-
-> **blockNum**(): `number`
-
-#### Returns
-
-`number`
-
-***
-
-### finalAccountState()
-
-> **finalAccountState**(): [`RpoDigest`](RpoDigest.md)
-
-#### Returns
-
-[`RpoDigest`](RpoDigest.md)
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -58,9 +28,29 @@
 
 ***
 
+### accountId()
+
+> **accountId**(): [`AccountId`](AccountId.md)
+
+#### Returns
+
+[`AccountId`](AccountId.md)
+
+***
+
 ### initAccountState()
 
 > **initAccountState**(): [`RpoDigest`](RpoDigest.md)
+
+#### Returns
+
+[`RpoDigest`](RpoDigest.md)
+
+***
+
+### finalAccountState()
+
+> **finalAccountState**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
@@ -85,6 +75,16 @@
 #### Returns
 
 [`OutputNotes`](OutputNotes.md)
+
+***
+
+### blockNum()
+
+> **blockNum**(): `number`
+
+#### Returns
+
+`number`
 
 ***
 

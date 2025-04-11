@@ -8,16 +8,6 @@
 
 ## Methods
 
-### adviceInputs()
-
-> **adviceInputs**(): [`AdviceInputs`](AdviceInputs.md)
-
-#### Returns
-
-[`AdviceInputs`](AdviceInputs.md)
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -25,6 +15,16 @@
 #### Returns
 
 `void`
+
+***
+
+### txScript()
+
+> **txScript**(): [`TransactionScript`](TransactionScript.md)
+
+#### Returns
+
+[`TransactionScript`](TransactionScript.md)
 
 ***
 
@@ -44,10 +44,10 @@
 
 ***
 
-### txScript()
+### adviceInputs()
 
-> **txScript**(): [`TransactionScript`](TransactionScript.md)
+> **adviceInputs**(): [`AdviceInputs`](AdviceInputs.md)
 
 #### Returns
 
-[`TransactionScript`](TransactionScript.md)
+[`AdviceInputs`](AdviceInputs.md)

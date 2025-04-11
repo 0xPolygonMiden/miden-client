@@ -8,16 +8,6 @@
 
 ## Methods
 
-### cancel()
-
-> **cancel**(): `void`
-
-#### Returns
-
-`void`
-
-***
-
 ### free()
 
 > **free**(): `void`
@@ -41,3 +31,13 @@
 #### Returns
 
 `Promise`\<`any`\>
+
+***
+
+### cancel()
+
+> **cancel**(): `void`
+
+#### Returns
+
+`void`

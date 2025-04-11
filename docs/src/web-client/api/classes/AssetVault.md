@@ -18,13 +18,13 @@
 
 ***
 
-### fungibleAssets()
+### root()
 
-> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
+> **root**(): [`RpoDigest`](RpoDigest.md)
 
 #### Returns
 
-[`FungibleAsset`](FungibleAsset.md)[]
+[`RpoDigest`](RpoDigest.md)
 
 ***
 
@@ -44,10 +44,10 @@
 
 ***
 
-### root()
+### fungibleAssets()
 
-> **root**(): [`RpoDigest`](RpoDigest.md)
+> **fungibleAssets**(): [`FungibleAsset`](FungibleAsset.md)[]
 
 #### Returns
 
-[`RpoDigest`](RpoDigest.md)
+[`FungibleAsset`](FungibleAsset.md)[]

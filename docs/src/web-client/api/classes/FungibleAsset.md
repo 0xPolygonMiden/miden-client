@@ -28,13 +28,13 @@
 
 ## Methods
 
-### amount()
+### free()
 
-> **amount**(): `bigint`
+> **free**(): `void`
 
 #### Returns
 
-`bigint`
+`void`
 
 ***
 
@@ -48,13 +48,13 @@
 
 ***
 
-### free()
+### amount()
 
-> **free**(): `void`
+> **amount**(): `bigint`
 
 #### Returns
 
-`void`
+`bigint`
 
 ***
 

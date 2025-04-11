@@ -14,15 +14,15 @@
 
 ***
 
-### Committed
-
-> **Committed**: `2`
-
-***
-
 ### Consumed
 
 > **Consumed**: `1`
+
+***
+
+### Committed
+
+> **Committed**: `2`
 
 ***
 
@@ -32,27 +32,27 @@
 
 ***
 
-### List
-
-> **List**: `5`
-
-***
-
-### Nullifiers
-
-> **Nullifiers**: `7`
-
-***
-
 ### Processing
 
 > **Processing**: `4`
 
 ***
 
+### List
+
+> **List**: `5`
+
+***
+
 ### Unique
 
 > **Unique**: `6`
+
+***
+
+### Nullifiers
+
+> **Nullifiers**: `7`
 
 ***
 

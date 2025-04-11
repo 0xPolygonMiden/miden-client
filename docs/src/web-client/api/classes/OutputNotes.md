@@ -8,6 +8,16 @@
 
 ## Methods
 
+### free()
+
+> **free**(): `void`
+
+#### Returns
+
+`void`
+
+***
+
 ### commitment()
 
 > **commitment**(): [`RpoDigest`](RpoDigest.md)
@@ -18,13 +28,23 @@
 
 ***
 
-### free()
+### numNotes()
 
-> **free**(): `void`
+> **numNotes**(): `number`
 
 #### Returns
 
-`void`
+`number`
+
+***
+
+### isEmpty()
+
+> **isEmpty**(): `boolean`
+
+#### Returns
+
+`boolean`
 
 ***
 
@@ -44,16 +64,6 @@
 
 ***
 
-### isEmpty()
-
-> **isEmpty**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-***
-
 ### notes()
 
 > **notes**(): [`OutputNote`](OutputNote.md)[]
@@ -61,13 +71,3 @@
 #### Returns
 
 [`OutputNote`](OutputNote.md)[]
-
-***
-
-### numNotes()
-
-> **numNotes**(): `number`
-
-#### Returns
-
-`number`
