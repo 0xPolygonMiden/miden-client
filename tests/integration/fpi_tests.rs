@@ -37,42 +37,29 @@ async fn test_standard_fpi_private() {
 
 #[tokio::test]
 async fn test_fpi_execute_program() {
-    let (mut client, keystore) = create_test_client().await;
+    let (mut client, mut keystore) = create_test_client().await;
     client.sync_state().await.unwrap();
 
-    // Add a foreign account
-    let anchor_block = client.get_latest_epoch_block().await.unwrap();
-    let (foreign_account, foreign_seed, proc_root, secret_key) =
-        foreign_account(AccountStorageMode::Public, &anchor_block);
-    let foreign_account_id = foreign_account.id();
-
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
-    client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
-
-    let deployment_tx_script = TransactionScript::compile(
-        "begin 
-                call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+    // Deploy a foreign account
+    let (foreign_account, proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        AccountStorageMode::Public,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
             end",
-        vec![],
-        TransactionKernel::assembler(),
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
     )
+    .await
     .unwrap();
-
-    println!("Deploying foreign account with an auth transaction");
-
-    let tx = client
-        .new_transaction(
-            foreign_account_id,
-            TransactionRequestBuilder::new()
-                .with_custom_script(deployment_tx_script)
-                .build()
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    let tx_id = tx.executed_transaction().id();
-    client.submit_transaction(tx).await.unwrap();
-    wait_for_tx(&mut client, tx_id).await;
+    let foreign_account_id = foreign_account.id();
 
     let (wallet, ..) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
         .await
@@ -125,6 +112,115 @@ async fn test_fpi_execute_program() {
     assert_eq!(output_stack, expected_stack);
 }
 
+#[tokio::test]
+async fn test_nested_fpi_calls() {
+    let (mut client, mut keystore) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let (inner_foreign_account, inner_proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        AccountStorageMode::Public,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
+            end",
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
+    )
+    .await
+    .unwrap();
+    let inner_foreign_account_id = inner_foreign_account.id();
+
+    let (outer_foreign_account, outer_proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        AccountStorageMode::Public,
+        format!(
+            "
+            use.miden::tx
+            export.get_fpi_map_item
+                # push the hash of the `get_fpi_item` account procedure
+                push.{inner_proc_root}
+
+                # push the foreign account id
+                push.{account_id_suffix} push.{account_id_prefix}
+                # => [foreign_id_prefix, foreign_id_suffix, FOREIGN_PROC_ROOT, storage_item_index]
+
+                exec.tx::execute_foreign_procedure
+
+                # add one to the result of the foreign procedure call
+                add.1
+            end
+            ",
+            account_id_prefix = inner_foreign_account_id.prefix().as_u64(),
+            account_id_suffix = inner_foreign_account_id.suffix(),
+        ),
+    )
+    .await
+    .unwrap();
+    let outer_foreign_account_id = outer_foreign_account.id();
+
+    println!("Calling FPI function inside a FPI function with new account");
+
+    let (native_account, _native_seed, _) =
+        insert_new_wallet(&mut client, AccountStorageMode::Public, &keystore)
+            .await
+            .unwrap();
+
+    let tx_script = format!(
+        "
+        use.miden::tx
+        use.miden::account
+        begin
+            # push the hash of the `get_fpi_item` account procedure
+            push.{outer_proc_root}
+    
+            # push the foreign account id
+            push.{account_id_suffix} push.{account_id_prefix}
+            # => [foreign_id_prefix, foreign_id_suffix, FOREIGN_PROC_ROOT, storage_item_index]
+    
+            exec.tx::execute_foreign_procedure
+            push.{fpi_value} add.1 assert_eqw
+
+            call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+        end
+        ",
+        fpi_value = word_to_masm_push_string(&FPI_STORAGE_VALUE),
+        account_id_prefix = outer_foreign_account_id.prefix().as_u64(),
+        account_id_suffix = outer_foreign_account_id.suffix(),
+    );
+
+    let tx_script =
+        TransactionScript::compile(tx_script, vec![], TransactionKernel::assembler()).unwrap();
+    client.sync_state().await.unwrap();
+
+    // Wait for a couple of blocks so that the account gets committed
+    wait_for_blocks(&mut client, 2).await;
+
+    // Create transaction request with FPI
+    let builder = TransactionRequestBuilder::new().with_custom_script(tx_script);
+
+    // We will require slot 0, key `MAP_KEY` as well as account proof
+    let storage_requirements =
+        AccountStorageRequirements::new([(0u8, &[StorageMapKey::from(MAP_KEY)])]);
+
+    let foreign_accounts = [
+        ForeignAccount::public(inner_foreign_account_id, storage_requirements.clone()).unwrap(),
+        ForeignAccount::public(outer_foreign_account_id, storage_requirements).unwrap(),
+    ];
+
+    let tx_request = builder.with_foreign_accounts(foreign_accounts).build().unwrap();
+    let tx_result = client.new_transaction(native_account.id(), tx_request).await.unwrap();
+
+    client.submit_transaction(tx_result).await.unwrap();
+}
+
 /// Tests the standard FPI functionality for the given storage mode.
 ///
 /// This function sets up a foreign account with a custom component that retrieves a value from its
@@ -132,41 +228,29 @@ async fn test_fpi_execute_program() {
 /// transaction that calls the foreign account's procedure via FPI. The test also verifies that the
 /// foreign account's code is correctly cached after the transaction.
 async fn test_standard_fpi(storage_mode: AccountStorageMode) {
-    let (mut client, keystore) = create_test_client().await;
+    let (mut client, mut keystore) = create_test_client().await;
     wait_for_node(&mut client).await;
 
-    let anchor_block = client.get_latest_epoch_block().await.unwrap();
-    let (foreign_account, foreign_seed, proc_root, secret_key) =
-        foreign_account(storage_mode, &anchor_block);
-    let foreign_account_id = foreign_account.id();
-
-    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
-    client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
-
-    let deployment_tx_script = TransactionScript::compile(
-        "begin 
-                call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+    let (foreign_account, proc_root) = deploy_foreign_account(
+        &mut client,
+        &mut keystore,
+        storage_mode,
+        format!(
+            "export.get_fpi_map_item
+                # map key
+                push.{map_key}
+                # item index
+                push.0
+                exec.::miden::account::get_map_item
+                swapw dropw
             end",
-        vec![],
-        TransactionKernel::assembler(),
+            map_key = word_to_masm_push_string(&MAP_KEY)
+        ),
     )
+    .await
     .unwrap();
 
-    println!("Deploying foreign account with an auth transaction");
-
-    let tx = client
-        .new_transaction(
-            foreign_account_id,
-            TransactionRequestBuilder::new()
-                .with_custom_script(deployment_tx_script)
-                .build()
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    let tx_id = tx.executed_transaction().id();
-    client.submit_transaction(tx).await.unwrap();
-    wait_for_tx(&mut client, tx_id).await;
+    let foreign_account_id = foreign_account.id();
 
     println!("Calling FPI functions with new account");
 
@@ -247,7 +331,7 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
     }
 }
 
-/// Builds a foreign account with a custom component that retrieves a value from its storage (map).
+/// Builds a foreign account with a custom component that exports the specified code.
 ///
 /// # Returns
 ///
@@ -255,28 +339,17 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
 /// - `Account` - The constructed foreign account.
 /// - `Word` - The seed used to initialize the account.
 /// - `Digest` - The procedure root of the custom component's procedure.
-pub fn foreign_account(
+fn foreign_account_with_code(
     storage_mode: AccountStorageMode,
     anchor_block_header: &BlockHeader,
+    code: String,
 ) -> (Account, Word, Digest, SecretKey) {
     // store our expected value on map from slot 0 (map key 15)
     let mut storage_map = StorageMap::new();
     storage_map.insert(MAP_KEY.into(), FPI_STORAGE_VALUE);
 
     let get_item_component = AccountComponent::compile(
-        format!(
-            "
-        export.get_fpi_map_item
-            # map key
-            push.{map_key}
-            # item index
-            push.0
-            exec.::miden::account::get_map_item
-            swapw dropw
-        end
-        ",
-            map_key = word_to_masm_push_string(&MAP_KEY)
-        ),
+        code,
         TransactionKernel::assembler(),
         vec![StorageSlot::Map(storage_map)],
     )
@@ -296,4 +369,54 @@ pub fn foreign_account(
 
     let proc_root = get_item_component.mast_forest().procedure_digests().next().unwrap();
     (account, seed, proc_root, secret_key)
+}
+
+/// Deploys a foreign account to the network with the specified code and storage mode. The account
+/// is also inserted into the client and keystore.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - `Account` - The deployed foreign account.
+/// - `Digest` - The procedure root of the foreign account.
+async fn deploy_foreign_account(
+    client: &mut TestClient,
+    keystore: &mut TestClientKeyStore,
+    storage_mode: AccountStorageMode,
+    code: String,
+) -> Result<(Account, Digest), String> {
+    let anchor_block = client.get_latest_epoch_block().await.unwrap();
+    let (foreign_account, foreign_seed, proc_root, secret_key) =
+        foreign_account_with_code(storage_mode, &anchor_block, code);
+    let foreign_account_id = foreign_account.id();
+
+    keystore.add_key(&AuthSecretKey::RpoFalcon512(secret_key)).unwrap();
+    client.add_account(&foreign_account, Some(foreign_seed), false).await.unwrap();
+
+    let deployment_tx_script = TransactionScript::compile(
+        "begin 
+                call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+            end",
+        vec![],
+        TransactionKernel::assembler(),
+    )
+    .unwrap();
+
+    println!("Deploying foreign account with an auth transaction");
+
+    let tx = client
+        .new_transaction(
+            foreign_account_id,
+            TransactionRequestBuilder::new()
+                .with_custom_script(deployment_tx_script)
+                .build()
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let tx_id = tx.executed_transaction().id();
+    client.submit_transaction(tx).await.unwrap();
+    wait_for_tx(client, tx_id).await;
+
+    Ok((foreign_account, proc_root))
 }

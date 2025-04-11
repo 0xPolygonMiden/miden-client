@@ -5,7 +5,13 @@
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
+* [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
+* Made non-default options lowercase when prompting for transaction confirmation (#843)
 * [BREAKING] Updated keystore to accept arbitrarily large public keys (#833).
+
+## 0.8.2 (TBD)
+
+* Converted Web Client `NoteType` class to `enum` (#831)
 
 ## 0.8.1 (2025-03-28)
 

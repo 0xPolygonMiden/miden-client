@@ -15,7 +15,7 @@ impl NoteMetadata {
     #[wasm_bindgen(constructor)]
     pub fn new(
         sender: &AccountId,
-        note_type: &NoteType,
+        note_type: NoteType,
         note_tag: &NoteTag,
         note_execution_hint: &NoteExecutionHint,
         aux: Option<Felt>, // Create an OptionFelt type so user has choice to consume or not
