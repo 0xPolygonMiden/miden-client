@@ -36,7 +36,8 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub async fn execute(&self, client: Client, cli_config: &CliConfig) -> Result<(), CliError> {
+    pub async fn execute(&self, client: Client) -> Result<(), CliError> {
+        let (cli_config, _) = load_config_file()?;
         match self {
             AccountCmd {
                 list: false,
@@ -44,7 +45,7 @@ impl AccountCmd {
                 default: None,
             } => {
                 let account_id = parse_account_id(&client, id).await?;
-                show_account(client, account_id, cli_config).await?;
+                show_account(client, account_id, &cli_config).await?;
             },
             AccountCmd {
                 list: false,

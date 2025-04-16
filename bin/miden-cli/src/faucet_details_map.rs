@@ -97,11 +97,11 @@ impl FaucetDetailsMap {
             "separator `::` not found".into(),
             "Failed to parse amount and asset".to_string(),
         ))?;
-        let (faucet_id, amount) = if asset.starts_with("0x") {
+        let (faucet_id, amount) = if let Ok(id) = parse_account_id(client, asset).await {
             let amount = amount
                 .parse::<u64>()
                 .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
-            (parse_account_id(client, asset).await?, amount)
+            (id, amount)
         } else {
             let FaucetDetails { id, decimals: faucet_decimals } =
                 self.0.get(asset).ok_or(CliError::Config(
