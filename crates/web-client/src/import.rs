@@ -1,5 +1,9 @@
 use miden_client::auth::AuthSecretKey;
-use miden_objects::{account::AccountFile, note::NoteFile, utils::Deserializable};
+use miden_objects::{
+    account::{AccountFile, AccountId},
+    note::NoteFile,
+    utils::Deserializable,
+};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
@@ -67,6 +71,33 @@ impl WebClient {
             .map_err(|err| js_error_with_context(err, "failed to import account"))?;
 
         Ok(Account::from(generated_acct))
+    }
+
+    #[wasm_bindgen(js_name = "importAccountById")]
+    pub async fn import_account_by_id(&mut self, account_id: String) -> Result<Account, JsValue> {
+        let client = self
+            .get_mut_inner()
+            .ok_or_else(|| JsValue::from_str("Client not initialized"))?;
+
+        let account_id = AccountId::from_hex(&account_id)
+            .map_err(|e| JsValue::from_str(&format!("invalid account id: {}", e)))?;
+
+        client
+            .import_account_by_id(account_id.clone())
+            .await
+            .map_err(|err| js_error_with_context(err, "failed to import public account"))?;
+
+        let record_opt = client
+            .get_account(account_id)
+            .await
+            .map_err(|err| js_error_with_context(err, "failed to retrieve account"))?;
+
+        if let Some(record) = record_opt {
+            let inner_acct = record.account().clone();
+            Ok(Account::from(inner_acct))
+        } else {
+            Err(JsValue::from_str("failed to parse account record"))
+        }
     }
 
     #[wasm_bindgen(js_name = "importNote")]
