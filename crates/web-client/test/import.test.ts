@@ -34,17 +34,16 @@ const importWalletFromSeed = async (
 };
 
 const importAccountById = async (accountId: string) => {
-  return await testingPage.evaluate(
-    async (id) => {
-      const client = window.client;
-      const account = await client.importAccountById(id);
-      return {
-        accountId: account.id().toString(),
-        accountCommitment: account.commitment().toHex(),
-      };
-    },
-    accountId
-  );
+  return await testingPage.evaluate(async (id) => {
+    const client = window.client;
+    const _accountId = window.AccountId.fromHex(id);
+    await client.importAccountById(_accountId);
+    const account = await client.getAccount(_accountId);
+    return {
+      accountId: account?.id().toString(),
+      accountCommitment: account?.commitment().toHex(),
+    };
+  }, accountId);
 };
 
 describe("import from seed", () => {
@@ -108,10 +107,8 @@ describe("import public account by id", () => {
       walletSeed,
     });
     const faucet = await createNewFaucet();
-    const { targetAccountBalanace: initialBalance } = await fundAccountFromFaucet(
-      initialWallet.id,
-      faucet.id
-    );
+    const { targetAccountBalanace: initialBalance } =
+      await fundAccountFromFaucet(initialWallet.id, faucet.id);
     const { commitment: initialCommitment } = await getAccount(
       initialWallet.id
     );
