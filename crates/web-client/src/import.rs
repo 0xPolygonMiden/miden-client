@@ -87,7 +87,7 @@ impl WebClient {
             .get_mut_inner()
             .ok_or_else(|| JsValue::from_str("Client not initialized"))?;
 
-        let native_id: NativeAccountId = NativeAccountId::from(account_id);
+        let native_id: NativeAccountId = account_id.into();
 
         client
             .import_account_by_id(native_id)
