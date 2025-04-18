@@ -79,8 +79,7 @@ use miden_objects::{
     AssetError, Digest, Felt, Word, ZERO,
     account::{Account, AccountCode, AccountDelta, AccountId},
     asset::{Asset, NonFungibleAsset},
-    block::BlockNumber,
-    crypto::merkle::MerklePath,
+    block::{AccountWitness, BlockNumber},
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     vm::AdviceInputs,
@@ -910,7 +909,7 @@ impl Client {
                         .remove(account_id)
                         .expect("Proof was requested and received");
 
-                    let (foreign_account_inputs, merkle_path) = account_proof.try_into()?;
+                    let (foreign_account_inputs, account_witness) = account_proof.try_into()?;
 
                     // Update  our foreign account code cache
                     self.store
@@ -920,16 +919,15 @@ impl Client {
                         )
                         .await?;
 
-                    (foreign_account_inputs, merkle_path)
+                    (foreign_account_inputs, account_witness)
                 },
                 ForeignAccount::Private(foreign_account_inputs) => {
                     let account_id = foreign_account_inputs.account_header().id();
                     let proof = account_proofs
                         .remove(&account_id)
                         .expect("Proof was requested and received");
-                    let merkle_path = proof.merkle_proof();
 
-                    (foreign_account_inputs.clone(), merkle_path.clone())
+                    (foreign_account_inputs.clone(), proof.account_witness().clone())
                 },
             };
 
@@ -1020,7 +1018,7 @@ fn extend_advice_inputs_for_foreign_account(
     tx_args: &mut TransactionArgs,
     tx_executor: &mut TransactionExecutor,
     foreign_account_inputs: ForeignAccountInputs,
-    merkle_path: &MerklePath,
+    account_witness: &AccountWitness,
 ) -> Result<(), ClientError> {
     let (account_header, storage_header, account_code, proofs) =
         foreign_account_inputs.into_parts();
@@ -1050,10 +1048,17 @@ fn extend_advice_inputs_for_foreign_account(
             .extend_advice_map(core::iter::once((proof.leaf().hash(), proof.leaf().to_elements())));
     }
 
+    let account_leaf = account_witness.leaf();
+    let account_leaf_hash = account_leaf.hash();
+
     // Extend the advice inputs with Merkle store data
     tx_args.extend_merkle_store(
-        merkle_path.inner_nodes(account_id.prefix().as_u64(), account_header.commitment())?,
+        account_witness
+            .path()
+            .inner_nodes(account_id.prefix().as_u64(), account_leaf_hash)?,
     );
+    // populate advice map with the account's leaf
+    tx_args.extend_advice_map([(account_leaf_hash, account_leaf.to_elements())]);
 
     tx_executor.load_account_code(&account_code);
 
