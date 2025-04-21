@@ -22,7 +22,7 @@ NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="next"
+PROVER_BRANCH="santiagopittella-merge-main-in-next"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
@@ -148,7 +148,7 @@ build-prover: update-prover-branch ## Build the prover binary with specified fea
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker --port $(PROVER_PORT) --tx-prover --batch-prover
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-proving-service $(PROVER_FEATURES_TESTING) --release --locked -- start-worker --port $(PROVER_PORT) --prover-type transaction
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
