@@ -34,7 +34,7 @@ base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 deadpool-sqlite = { version = "0.10", features = ["rt_tokio_1"], optional = true }
 hex = { version = "0.4" }
-miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "santiagopittella-pretty-print-account-code", features = ["tx-prover"]}
+miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", features = ["tx-prover"]}
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true, features = ["async"] }

@@ -1471,7 +1471,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-pretty-print-account-code#dbea04244f9246cf58d4f91fb5d8b2580078b357"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1537,7 +1537,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-pretty-print-account-code#dbea04244f9246cf58d4f91fb5d8b2580078b357"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
 dependencies = [
  "bech32",
  "getrandom 0.3.2",
@@ -1584,7 +1584,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-pretty-print-account-code#dbea04244f9246cf58d4f91fb5d8b2580078b357"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
 dependencies = [
  "async-trait",
  "getrandom 0.3.2",
@@ -1614,7 +1614,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=santiagopittella-pretty-print-account-code#dbea04244f9246cf58d4f91fb5d8b2580078b357"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
 dependencies = [
  "async-trait",
  "miden-lib",
