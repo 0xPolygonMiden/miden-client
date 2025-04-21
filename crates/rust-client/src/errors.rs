@@ -68,7 +68,7 @@ pub enum ClientError {
     NoConsumableNoteForAccount(AccountId),
     #[error("rpc api error")]
     RpcError(#[from] RpcError),
-    #[error("recency condition error")]
+    #[error("recency condition error: {0}")]
     RecencyConditionError(String),
     #[error("note screener error")]
     NoteScreenerError(#[from] NoteScreenerError),
