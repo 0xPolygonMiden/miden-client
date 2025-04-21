@@ -5,6 +5,7 @@ use miden_client::{
     account::{Account, AccountId, AccountType, StorageSlot},
     asset::Asset,
 };
+use miden_objects::PrettyPrint;
 
 use crate::{
     CLIENT_BINARY_NAME,
@@ -27,6 +28,9 @@ pub struct AccountCmd {
     /// Show details of the account for the specified ID or hex prefix.
     #[clap(short, long, group = "action", value_name = "ID")]
     show: Option<String>,
+    /// When using --show, include the account code in the output.
+    #[clap(long, requires = "show")]
+    with_code: bool,
     /// Manages default account for transaction execution.
     ///
     /// If no ID is provided it will display the current default account ID.
@@ -44,14 +48,16 @@ impl AccountCmd {
                 list: false,
                 show: Some(id),
                 default: None,
+                ..
             } => {
                 let account_id = parse_account_id(&client, id).await?;
-                show_account(client, account_id, &cli_config).await?;
+                show_account(client, account_id, &cli_config, self.with_code).await?;
             },
             AccountCmd {
                 list: false,
                 show: None,
                 default: Some(id),
+                ..
             } => {
                 match id {
                     None => {
@@ -124,6 +130,7 @@ pub async fn show_account(
     client: Client,
     account_id: AccountId,
     cli_config: &CliConfig,
+    with_code: bool,
 ) -> Result<(), CliError> {
     let account: Account = client
         .get_account(account_id)
@@ -190,6 +197,15 @@ pub async fn show_account(
             table.add_row(vec![&idx.to_string(), slot_type, &item.to_hex()]);
         }
         println!("{table}\n");
+    }
+
+    // Account code
+    if with_code {
+        println!("Code: \n");
+
+        let mut table = create_dynamic_table(&["Code"]);
+        table.add_row(vec![&account.code().to_pretty_string()]);
+        println!("{table}");
     }
 
     Ok(())
