@@ -4,7 +4,8 @@ use core::cmp::Ordering;
 
 use miden_objects::{
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader, StorageSlot},
-    crypto::merkle::{MerklePath, SmtProof},
+    block::AccountWitness,
+    crypto::merkle::SmtProof,
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
@@ -272,11 +273,12 @@ impl Deserializable for ForeignAccountInputs {
     }
 }
 
-impl TryFrom<AccountProof> for (ForeignAccountInputs, MerklePath) {
+impl TryFrom<AccountProof> for (ForeignAccountInputs, AccountWitness) {
     type Error = TransactionRequestError;
 
     fn try_from(value: AccountProof) -> Result<Self, Self::Error> {
-        let (_, merkle_proof, _, state_headers) = value.into_parts();
+        let (account_witness, state_headers) = value.into_parts();
+
         if let Some(StateHeaders {
             account_header,
             storage_header,
@@ -287,7 +289,7 @@ impl TryFrom<AccountProof> for (ForeignAccountInputs, MerklePath) {
             // discard slot indices - not needed for execution
             let slots = storage_slots.into_iter().flat_map(|(_, slots)| slots).collect();
             let inputs = ForeignAccountInputs::new(account_header, storage_header, code, slots);
-            return Ok((inputs, merkle_proof));
+            return Ok((inputs, account_witness));
         }
         Err(TransactionRequestError::ForeignAccountDataMissing)
     }

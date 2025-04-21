@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use miden_objects::{
     Digest,
     account::{Account, AccountCode, AccountDelta, AccountId},
-    block::{BlockHeader, BlockNumber, ProvenBlock},
+    block::{AccountWitness, BlockHeader, BlockNumber, ProvenBlock},
     crypto::merkle::{MerklePath, MmrProof, SmtProof},
     note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
@@ -341,35 +341,25 @@ impl NodeRpcClient for TonicRpcClient {
         }
 
         for account in response.account_proofs {
-            let merkle_proof = account
-                .account_proof
-                .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
+            let account_witness: AccountWitness = account
+                .witness
+                .ok_or(RpcError::ExpectedDataMissing("AccountWitness".to_string()))?
                 .try_into()?;
 
-            let account_commitment = account
-                .account_commitment
-                .ok_or(RpcError::ExpectedDataMissing("AccountCommitment".to_string()))?
-                .try_into()?;
-
-            let account_id: AccountId = account
-                .account_id
-                .ok_or(RpcError::ExpectedDataMissing("AccountId".to_string()))?
-                .try_into()?;
-
-            // Because we set `include_headers` to true, for any public account we requeted we
+            // Because we set `include_headers` to true, for any public account we requested we
             // should have the corresponding `state_header` field
-            let headers = if account_id.is_public() {
+            let headers = if account_witness.id().is_public() {
                 Some(
                     account
                         .state_header
                         .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
-                        .into_domain(account_id, &known_account_codes)?,
+                        .into_domain(account_witness.id(), &known_account_codes)?,
                 )
             } else {
                 None
             };
 
-            let proof = AccountProof::new(account_id, merkle_proof, account_commitment, headers)
+            let proof = AccountProof::new(account_witness, headers)
                 .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
             account_proofs.push(proof);
         }
