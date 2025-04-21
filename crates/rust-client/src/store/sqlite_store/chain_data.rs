@@ -170,27 +170,19 @@ impl SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let serialized_block_header_data =
-            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
+        let SerializedBlockHeaderData {
+            block_num,
+            header,
+            chain_mmr_peaks,
+            has_client_notes,
+        } = serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
         const QUERY: &str = "\
         INSERT OR IGNORE INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
-        tx.execute(
-            QUERY,
-            params![
-                serialized_block_header_data.block_num,
-                serialized_block_header_data.header,
-                serialized_block_header_data.chain_mmr_peaks,
-                has_client_notes
-            ],
-        )?;
+        tx.execute(QUERY, params![block_num, header, chain_mmr_peaks, has_client_notes])?;
 
-        set_block_header_has_client_notes(
-            tx,
-            u64::from(serialized_block_header_data.block_num),
-            has_client_notes,
-        )?;
+        set_block_header_has_client_notes(tx, u64::from(block_num), has_client_notes)?;
         Ok(())
     }
 }
@@ -204,12 +196,9 @@ fn insert_chain_mmr_node(
     id: InOrderIndex,
     node: Digest,
 ) -> Result<(), StoreError> {
-    let serialized_chainmmr_node_data = serialize_chain_mmr_node(id, node);
+    let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(id, node);
     const QUERY: &str = "INSERT OR IGNORE INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
-    tx.execute(
-        QUERY,
-        params![serialized_chainmmr_node_data.id, serialized_chainmmr_node_data.node],
-    )?;
+    tx.execute(QUERY, params![id, node])?;
     Ok(())
 }
 
