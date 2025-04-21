@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error};
 pub struct TransactionIdxdbObject {
     pub id: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub metadata: Vec<u8>,
+    pub details: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub script_root: Option<Vec<u8>>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]

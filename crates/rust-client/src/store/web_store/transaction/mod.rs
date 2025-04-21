@@ -12,7 +12,7 @@ use super::{WebStore, account::utils::update_account, note::utils::apply_note_up
 use crate::{
     store::{StoreError, TransactionFilter},
     transaction::{
-        TransactionMetadata, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
     },
 };
 
@@ -58,7 +58,7 @@ impl WebStore {
 
                 let id: Digest = tx_idxdb.id.try_into()?;
 
-                let metadata = TransactionMetadata::read_from_bytes(&tx_idxdb.metadata)?;
+                let details = TransactionDetails::read_from_bytes(&tx_idxdb.details)?;
 
                 let script: Option<TransactionScript> = if tx_idxdb.script_root.is_some() {
                     let tx_script = tx_idxdb
@@ -78,7 +78,7 @@ impl WebStore {
                     (None, false) => TransactionStatus::Pending,
                 };
 
-                Ok(TransactionRecord { id: id.into(), metadata, script, status })
+                Ok(TransactionRecord { id: id.into(), details, script, status })
             })
             .collect();
 

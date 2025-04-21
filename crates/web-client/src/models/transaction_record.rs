@@ -18,27 +18,27 @@ impl TransactionRecord {
 
     #[wasm_bindgen(js_name = "accountId")]
     pub fn account_id(&self) -> AccountId {
-        self.0.metadata.account_id.into()
+        self.0.details.account_id.into()
     }
 
     #[wasm_bindgen(js_name = "initAccountState")]
     pub fn init_account_state(&self) -> RpoDigest {
-        self.0.metadata.init_account_state.into()
+        self.0.details.init_account_state.into()
     }
 
     #[wasm_bindgen(js_name = "finalAccountState")]
     pub fn final_account_state(&self) -> RpoDigest {
-        self.0.metadata.final_account_state.into()
+        self.0.details.final_account_state.into()
     }
 
     #[wasm_bindgen(js_name = "inputNoteNullifiers")]
     pub fn input_note_nullifiers(&self) -> Vec<RpoDigest> {
-        self.0.metadata.input_note_nullifiers.iter().map(Into::into).collect()
+        self.0.details.input_note_nullifiers.iter().map(Into::into).collect()
     }
 
     #[wasm_bindgen(js_name = "outputNotes")]
     pub fn output_notes(&self) -> OutputNotes {
-        self.0.metadata.output_notes.clone().into()
+        self.0.details.output_notes.clone().into()
     }
 
     // pub fn transaction_script(&self) -> Option<TransactionScript> {
@@ -47,7 +47,7 @@ impl TransactionRecord {
 
     #[wasm_bindgen(js_name = "blockNum")]
     pub fn block_num(&self) -> u32 {
-        self.0.metadata.block_num.as_u32()
+        self.0.details.block_num.as_u32()
     }
 
     #[wasm_bindgen(js_name = "transactionStatus")]

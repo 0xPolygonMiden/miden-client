@@ -60,15 +60,14 @@ export async function getTransactions(filter) {
           }
         }
 
-        let metadataArrayBuffer =
-          await transactionRecord.metadata.arrayBuffer();
-        let metadataArray = new Uint8Array(metadataArrayBuffer);
-        let metadataBase64 = uint8ArrayToBase64(metadataArray);
-        transactionRecord.metadata = metadataBase64;
+        let detailsArrayBuffer = await transactionRecord.details.arrayBuffer();
+        let detailsArray = new Uint8Array(detailsArrayBuffer);
+        let detailsBase64 = uint8ArrayToBase64(detailsArray);
+        transactionRecord.details = detailsBase64;
 
         let data = {
           id: transactionRecord.id,
-          metadata: transactionRecord.metadata,
+          details: transactionRecord.details,
           scriptRoot: transactionRecord.scriptRoot
             ? transactionRecord.scriptRoot
             : null,
@@ -133,13 +132,13 @@ export async function insertTransactionScript(scriptRoot, txScript) {
 
 export async function insertProvenTransactionData(
   transactionId,
-  metadata,
+  details,
   scriptRoot,
   blockNum,
   committed
 ) {
   try {
-    let metadataBlob = new Blob([new Uint8Array(metadata)]);
+    let detailsBlob = new Blob([new Uint8Array(details)]);
     let scriptRootBase64 = null;
     if (scriptRoot !== null) {
       let scriptRootArray = new Uint8Array(scriptRoot);
@@ -148,7 +147,7 @@ export async function insertProvenTransactionData(
 
     const data = {
       id: transactionId,
-      metadata: metadataBlob,
+      details: detailsBlob,
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,

@@ -22,11 +22,11 @@ use crate::{
     rpc::domain::transaction::TransactionUpdate,
     store::{StoreError, TransactionFilter},
     transaction::{
-        TransactionMetadata, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
     },
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, metadata, script_root, block_num, commit_height, discarded) \
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, details, script_root, block_num, commit_height, discarded) \
     VALUES (?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_root, script) \
@@ -38,7 +38,7 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO 
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT tx.id, script.script, tx.metadata, tx.commit_height, tx.discarded \
+        const QUERY: &str = "SELECT tx.id, script.script, tx.details, tx.commit_height, tx.discarded \
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_root = script.script_root";
         match self {
             TransactionFilter::All => QUERY.to_string(),
@@ -67,8 +67,8 @@ struct SerializedTransactionData {
     script_root: Option<Vec<u8>>,
     /// Transaction script
     tx_script: Option<Vec<u8>>,
-    /// Transaction Metadata
-    metadata: Vec<u8>,
+    /// Transaction details
+    details: Vec<u8>,
     /// Block number
     block_num: u32,
     /// Commit height
@@ -82,8 +82,8 @@ struct SerializedTransactionParts {
     id: String,
     /// Transaction script
     tx_script: Option<Vec<u8>>,
-    /// Transaction Metadata
-    metadata: Vec<u8>,
+    /// Transaction details
+    details: Vec<u8>,
     /// Block number of the block at which the transaction was included in the chain.
     commit_height: Option<u32>,
     /// Indicates whether the transaction has been discarded.
@@ -197,7 +197,7 @@ pub(super) fn insert_proven_transaction_data(
         id,
         script_root,
         tx_script,
-        metadata,
+        details,
         block_num,
         commit_height,
         discarded,
@@ -209,7 +209,7 @@ pub(super) fn insert_proven_transaction_data(
 
     tx.execute(
         INSERT_TRANSACTION_QUERY,
-        params![id, metadata, script_root, block_num, commit_height, discarded,],
+        params![id, details, script_root, block_num, commit_height, discarded,],
     )?;
 
     Ok(())
@@ -229,7 +229,7 @@ fn serialize_transaction_data(
 
     let output_notes = executed_transaction.output_notes();
 
-    let metadata = TransactionMetadata {
+    let details = TransactionDetails {
         account_id: executed_transaction.account_id(),
         init_account_state: executed_transaction.initial_account().commitment(),
         final_account_state: executed_transaction.final_account().commitment(),
@@ -251,7 +251,7 @@ fn serialize_transaction_data(
         id: transaction_id,
         script_root,
         tx_script,
-        metadata: metadata.to_bytes(),
+        details: details.to_bytes(),
         block_num: executed_transaction.block_header().block_num().as_u32(),
         commit_height: None,
         discarded: false,
@@ -263,14 +263,14 @@ fn parse_transaction_columns(
 ) -> Result<SerializedTransactionParts, rusqlite::Error> {
     let id: String = row.get(0)?;
     let tx_script: Option<Vec<u8>> = row.get(1)?;
-    let metadata: Vec<u8> = row.get(2)?;
+    let details: Vec<u8> = row.get(2)?;
     let commit_height: Option<u32> = row.get(3)?;
     let discarded: bool = row.get(4)?;
 
     Ok(SerializedTransactionParts {
         id,
         tx_script,
-        metadata,
+        details,
         commit_height,
         discarded,
     })
@@ -283,7 +283,7 @@ fn parse_transaction(
     let SerializedTransactionParts {
         id,
         tx_script,
-        metadata,
+        details,
         commit_height,
         discarded,
     } = serialized_transaction;
@@ -303,7 +303,7 @@ fn parse_transaction(
 
     Ok(TransactionRecord {
         id: id.into(),
-        metadata: TransactionMetadata::read_from_bytes(&metadata)?,
+        details: TransactionDetails::read_from_bytes(&details)?,
         script,
         status,
     })

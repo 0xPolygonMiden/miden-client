@@ -248,8 +248,8 @@ impl Deserializable for TransactionResult {
 pub struct TransactionRecord {
     /// Unique identifier for the transaction.
     pub id: TransactionId,
-    /// Metadata associated with the transaction.
-    pub metadata: TransactionMetadata,
+    /// Details associated with the transaction.
+    pub details: TransactionDetails,
     /// Script associated with the transaction, if no script is provided, only note scripts are
     /// executed.
     pub script: Option<TransactionScript>,
@@ -261,17 +261,17 @@ impl TransactionRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: TransactionId,
-        metadata: TransactionMetadata,
+        details: TransactionDetails,
         script: Option<TransactionScript>,
         status: TransactionStatus,
     ) -> TransactionRecord {
-        TransactionRecord { id, metadata, script, status }
+        TransactionRecord { id, details, script, status }
     }
 }
 
-/// Describes the metadata associated with a transaction.
+/// Describes the details associated with a transaction.
 #[derive(Debug, Clone)]
-pub struct TransactionMetadata {
+pub struct TransactionDetails {
     /// ID of the account that executed the transaction.
     pub account_id: AccountId,
     /// Initial state of the account before the transaction was executed.
@@ -287,7 +287,7 @@ pub struct TransactionMetadata {
     pub expiration_block_num: BlockNumber,
 }
 
-impl Serializable for TransactionMetadata {
+impl Serializable for TransactionDetails {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.account_id.write_into(target);
         self.init_account_state.write_into(target);
@@ -299,7 +299,7 @@ impl Serializable for TransactionMetadata {
     }
 }
 
-impl Deserializable for TransactionMetadata {
+impl Deserializable for TransactionDetails {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let account_id = AccountId::read_from(source)?;
         let init_account_state = Digest::read_from(source)?;

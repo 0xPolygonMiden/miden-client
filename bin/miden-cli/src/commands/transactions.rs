@@ -44,10 +44,10 @@ where
         table.add_row(vec![
             tx.id.to_string(),
             tx.status.to_string(),
-            tx.metadata.account_id.to_string(),
+            tx.details.account_id.to_string(),
             tx.script.as_ref().map_or("-".to_string(), |x| x.root().to_string()),
-            tx.metadata.input_note_nullifiers.len().to_string(),
-            tx.metadata.output_notes.num_notes().to_string(),
+            tx.details.input_note_nullifiers.len().to_string(),
+            tx.details.output_notes.num_notes().to_string(),
         ]);
     }
 
