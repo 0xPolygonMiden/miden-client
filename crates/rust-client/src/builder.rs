@@ -60,7 +60,8 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
-    /// The number of blocks that are considered old enough to discard pending transactions.
+    /// The number of blocks that are considered old enough to discard pending transactions. If
+    /// `None`, there is no limit and transactions will be kept indefinitely.
     tx_graceful_blocks: Option<u32>,
 }
 
@@ -137,7 +138,8 @@ impl ClientBuilder {
         self
     }
 
-    /// Optionally set a maximum number of blocks to wait for a transaction to be confirmed.
+    /// Optionally set a maximum number of blocks to wait for a transaction to be confirmed. If
+    /// `None`, there is no limit and transactions will be kept indefinitely.
     /// By default, the maximum is set to `TX_GRACEFUL_BLOCKS`.
     #[must_use]
     pub fn with_tx_graceful_blocks(mut self, delta: Option<u32>) -> Self {

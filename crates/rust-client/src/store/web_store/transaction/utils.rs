@@ -11,14 +11,14 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::JsFuture;
 
 use super::js_bindings::{idxdb_insert_proven_transaction_data, idxdb_insert_transaction_script};
-use crate::{store::StoreError, transaction::TransactionMetadata};
+use crate::{store::StoreError, transaction::TransactionDetails};
 
 // TYPES
 // ================================================================================================
 
 pub struct SerializedTransactionData {
     pub transaction_id: String,
-    pub metadata: Vec<u8>,
+    pub details: Vec<u8>,
     pub script_root: Option<Vec<u8>>,
     pub tx_script: Option<Vec<u8>>,
     pub block_num: String,
@@ -41,7 +41,7 @@ pub async fn insert_proven_transaction_data(
 
     let promise = idxdb_insert_proven_transaction_data(
         serialized_data.transaction_id,
-        serialized_data.metadata,
+        serialized_data.details,
         serialized_data.script_root.clone(),
         serialized_data.block_num,
         serialized_data.commit_height,
@@ -75,7 +75,7 @@ pub(super) fn serialize_transaction_data(
         tx_script = Some(script.to_bytes());
     }
 
-    let tx_metadata = TransactionMetadata {
+    let details = TransactionDetails {
         account_id: executed_transaction.account_id(),
         init_account_state: executed_transaction.initial_account().commitment(),
         final_account_state: executed_transaction.final_account().commitment(),
@@ -87,7 +87,7 @@ pub(super) fn serialize_transaction_data(
 
     SerializedTransactionData {
         transaction_id,
-        metadata: tx_metadata.to_bytes(),
+        details: details.to_bytes(),
         script_root,
         tx_script,
         block_num: executed_transaction.block_header().block_num().to_string(),

@@ -129,7 +129,7 @@ impl SqliteStore {
             &TransactionFilter::Ids(transaction_updates.discarded_transactions().to_vec()),
         )?
         .iter()
-        .map(|tx_record| tx_record.metadata.final_account_state)
+        .map(|tx_record| tx_record.details.final_account_state)
         .collect::<Vec<_>>();
 
         let tx = conn.transaction()?;
@@ -166,7 +166,7 @@ impl SqliteStore {
         let account_hashes_to_delete: Vec<Digest> = transaction_updates
             .stale_transactions()
             .iter()
-            .map(|tx| tx.metadata.final_account_state)
+            .map(|tx| tx.details.final_account_state)
             .collect();
 
         undo_account_state(&tx, &account_hashes_to_delete)?;

@@ -147,7 +147,7 @@ impl StateSync {
                 state_sync_update.block_num.checked_sub(tx_graceful_blocks).unwrap_or_default();
 
             uncommitted_transactions.retain(|tx| {
-                tx.metadata.block_num < graceful_block_num
+                tx.details.block_num < graceful_block_num
                     && !updated_transactions.any(|tx_id| tx_id == tx.id)
             });
 

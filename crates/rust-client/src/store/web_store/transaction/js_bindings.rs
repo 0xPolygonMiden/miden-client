@@ -22,7 +22,7 @@ extern "C" {
     #[wasm_bindgen(js_name = insertProvenTransactionData)]
     pub fn idxdb_insert_proven_transaction_data(
         transaction_id: String,
-        metadata: Vec<u8>,
+        details: Vec<u8>,
         script_root: Option<Vec<u8>>,
         block_num: String,
         committed: Option<String>,
