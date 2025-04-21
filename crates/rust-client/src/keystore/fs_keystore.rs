@@ -1,6 +1,7 @@
 use alloc::string::String;
 use std::{
     fs::OpenOptions,
+    hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader, BufWriter, Write},
     path::PathBuf,
     string::ToString,
@@ -22,8 +23,8 @@ use rand::{Rng, SeedableRng};
 use super::KeyStoreError;
 
 /// A filesystem-based keystore that stores keys in separate files and provides transaction
-/// authentication functionality. The public key is used as the filename and the contents of the
-/// file are the serialized secret key.
+/// authentication functionality. The public key is hashed and the result is used as the filename
+/// and the contents of the file are the serialized public and secret key.
 ///
 /// The keystore requires an RNG component for generating Falcon signatures at the moment of
 /// transaction signing.
@@ -52,10 +53,12 @@ impl<R: Rng> FilesystemKeyStore<R> {
     /// Adds a secret key to the keystore.
     pub fn add_key(&self, key: &AuthSecretKey) -> Result<(), KeyStoreError> {
         let pub_key = match key {
-            AuthSecretKey::RpoFalcon512(k) => Digest::from(Word::from(k.public_key())).to_hex(),
+            AuthSecretKey::RpoFalcon512(k) => Word::from(k.public_key()),
         };
 
-        let file_path = self.keys_directory.join(pub_key);
+        let filename = hash_pub_key(pub_key);
+
+        let file_path = self.keys_directory.join(filename);
         let file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -76,9 +79,9 @@ impl<R: Rng> FilesystemKeyStore<R> {
 
     /// Retrieves a secret key from the keystore given its public key.
     pub fn get_key(&self, pub_key: Word) -> Result<Option<AuthSecretKey>, KeyStoreError> {
-        let pub_key_str = Digest::from(pub_key).to_hex();
+        let filename = hash_pub_key(pub_key);
 
-        let file_path = self.keys_directory.join(pub_key_str);
+        let file_path = self.keys_directory.join(filename);
         if !file_path.exists() {
             return Ok(None);
         }
@@ -143,4 +146,12 @@ impl<R: Rng> TransactionAuthenticator for FilesystemKeyStore<R> {
 
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
+}
+
+/// Hashes a public key to a string representation.
+fn hash_pub_key(pub_key: Word) -> String {
+    let pub_key = Digest::from(pub_key).to_hex();
+    let mut hasher = DefaultHasher::new();
+    pub_key.hash(&mut hasher);
+    hasher.finish().to_string()
 }

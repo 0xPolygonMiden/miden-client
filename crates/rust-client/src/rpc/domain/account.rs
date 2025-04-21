@@ -8,7 +8,7 @@ use core::fmt::{self, Debug, Display, Formatter};
 use miden_objects::{
     Digest, Felt,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
-    block::BlockNumber,
+    block::{AccountWitness, BlockNumber},
     crypto::merkle::{MerklePath, SmtProof},
 };
 use miden_tx::utils::{Deserializable, Serializable, ToHex};
@@ -20,7 +20,10 @@ use crate::rpc::{
     generated::{
         account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
         requests::get_account_proofs_request,
-        responses::{AccountStateHeader as ProtoAccountStateHeader, StorageSlotMapProof},
+        responses::{
+            AccountStateHeader as ProtoAccountStateHeader, AccountWitness as ProtoAccountWitness,
+            StorageSlotMapProof,
+        },
     },
 };
 
@@ -96,7 +99,7 @@ impl Debug for ProtoAccountId {
 }
 
 // INTO PROTO ACCOUNT ID
-// ------------------------------------------------------------------------------------------------
+// ================================================================================================
 
 impl From<AccountId> for ProtoAccountId {
     fn from(account_id: AccountId) -> Self {
@@ -105,7 +108,7 @@ impl From<AccountId> for ProtoAccountId {
 }
 
 // FROM PROTO ACCOUNT ID
-// ------------------------------------------------------------------------------------------------
+// ================================================================================================
 
 impl TryFrom<ProtoAccountId> for AccountId {
     type Error = RpcConversionError;
@@ -148,7 +151,7 @@ impl ProtoAccountHeader {
 }
 
 // FROM PROTO ACCOUNT HEADERS
-// ------------------------------------------------------------------------------------------------
+// ================================================================================================
 
 impl ProtoAccountStateHeader {
     /// Converts the RPC response into `StateHeaders`.
@@ -229,7 +232,9 @@ impl ProtoAccountStateHeader {
 pub type AccountProofs = (BlockNumber, Vec<AccountProof>);
 
 /// Account state headers.
+#[derive(Clone, Debug)]
 pub struct StateHeaders {
+    // TODO: should this be renamed? or storage_slots moved to AccountProof
     pub account_header: AccountHeader,
     pub storage_header: AccountStorageHeader,
     pub code: AccountCode,
@@ -237,32 +242,27 @@ pub struct StateHeaders {
 }
 
 /// Represents a proof of existence of an account's state at a specific block number.
+#[derive(Clone, Debug)]
 pub struct AccountProof {
-    /// Account ID.
-    account_id: AccountId,
-    /// Authentication path from the `account_root` of the block header to the account.
-    merkle_proof: MerklePath,
-    /// Account commitment for the current state.
-    account_commitment: Digest,
+    /// Account witness.
+    account_witness: AccountWitness,
     /// State headers of public accounts.
     state_headers: Option<StateHeaders>,
 }
 
 impl AccountProof {
     pub fn new(
-        account_id: AccountId,
-        merkle_proof: MerklePath,
-        account_commitment: Digest,
+        account_witness: AccountWitness,
         state_headers: Option<StateHeaders>,
     ) -> Result<Self, AccountProofError> {
         if let Some(StateHeaders {
             account_header, storage_header: _, code, ..
         }) = &state_headers
         {
-            if account_header.commitment() != account_commitment {
+            if account_header.commitment() != account_witness.state_commitment() {
                 return Err(AccountProofError::InconsistentAccountCommitment);
             }
-            if account_id != account_header.id() {
+            if account_header.id() != account_witness.id() {
                 return Err(AccountProofError::InconsistentAccountId);
             }
             if code.commitment() != account_header.code_commitment() {
@@ -270,16 +270,11 @@ impl AccountProof {
             }
         }
 
-        Ok(Self {
-            account_id,
-            merkle_proof,
-            account_commitment,
-            state_headers,
-        })
+        Ok(Self { account_witness, state_headers })
     }
 
     pub fn account_id(&self) -> AccountId {
-        self.account_id
+        self.account_witness.id()
     }
 
     pub fn account_header(&self) -> Option<&AccountHeader> {
@@ -303,16 +298,45 @@ impl AccountProof {
     }
 
     pub fn account_commitment(&self) -> Digest {
-        self.account_commitment
+        self.account_witness.state_commitment()
+    }
+
+    pub fn account_witness(&self) -> &AccountWitness {
+        &self.account_witness
     }
 
     pub fn merkle_proof(&self) -> &MerklePath {
-        &self.merkle_proof
+        self.account_witness.path()
     }
 
     /// Deconstructs `AccountProof` into its individual parts.
-    pub fn into_parts(self) -> (AccountId, MerklePath, Digest, Option<StateHeaders>) {
-        (self.account_id, self.merkle_proof, self.account_commitment, self.state_headers)
+    pub fn into_parts(self) -> (AccountWitness, Option<StateHeaders>) {
+        (self.account_witness, self.state_headers)
+    }
+}
+
+// ACCOUNT WITNESS
+// ================================================================================================
+
+impl TryFrom<ProtoAccountWitness> for AccountWitness {
+    type Error = RpcError;
+
+    fn try_from(account_witness: ProtoAccountWitness) -> Result<Self, Self::Error> {
+        let state_commitment = account_witness
+            .commitment
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountWitness.StateCommitment")))?
+            .try_into()?;
+        let merkle_path = account_witness
+            .path
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountWitness.MerklePath")))?
+            .try_into()?;
+        let account_id = account_witness
+            .witness_id
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountWitness.WitnessId")))?
+            .try_into()?;
+
+        let witness = AccountWitness::new(account_id, state_commitment, merkle_path).unwrap();
+        Ok(witness)
     }
 }
 
