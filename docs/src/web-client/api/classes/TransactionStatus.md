@@ -76,7 +76,13 @@
 
 ### discarded()
 
-> `static` **discarded**(): `TransactionStatus`
+> `static` **discarded**(`cause`): `TransactionStatus`
+
+#### Parameters
+
+##### cause
+
+`string`
 
 #### Returns
 

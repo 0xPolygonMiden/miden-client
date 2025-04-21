@@ -1,4 +1,4 @@
-use miden_client::transaction::TransactionStatus as NativeTransactionStatus;
+use miden_client::transaction::{DiscardCause, TransactionStatus as NativeTransactionStatus};
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone)]
@@ -15,8 +15,16 @@ impl TransactionStatus {
         TransactionStatus(NativeTransactionStatus::Committed(block_num.into()))
     }
 
-    pub fn discarded() -> TransactionStatus {
-        TransactionStatus(NativeTransactionStatus::Discarded)
+    pub fn discarded(cause: &str) -> TransactionStatus {
+        let native_status = if cause == "Expired" {
+            NativeTransactionStatus::Discarded(DiscardCause::Expired)
+        } else if cause == "InputConsumed" {
+            NativeTransactionStatus::Discarded(DiscardCause::InputConsumed)
+        } else {
+            panic!("Unknown discard cause variant: {cause}",);
+        };
+
+        TransactionStatus(native_status)
     }
 
     #[wasm_bindgen(js_name = "isPending")]
@@ -31,7 +39,7 @@ impl TransactionStatus {
 
     #[wasm_bindgen(js_name = "isDiscarded")]
     pub fn is_discarded(&self) -> bool {
-        matches!(self.0, NativeTransactionStatus::Discarded)
+        matches!(self.0, NativeTransactionStatus::Discarded(_))
     }
 
     #[wasm_bindgen(js_name = "getBlockNum")]

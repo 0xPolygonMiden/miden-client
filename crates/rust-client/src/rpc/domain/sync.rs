@@ -9,7 +9,7 @@ use miden_objects::{
     transaction::TransactionId,
 };
 
-use super::{note::CommittedNote, transaction::TransactionUpdate};
+use super::{note::CommittedNote, transaction::TransactionInclusion};
 use crate::rpc::{RpcError, generated::responses::SyncStateResponse};
 
 // STATE SYNC INFO
@@ -30,7 +30,7 @@ pub struct StateSyncInfo {
     /// List of transaction IDs of transaction that were included in (`request.block_num`,
     /// `response.block_num-1`) along with the account the tx was executed against and the block
     /// number the transaction was included in.
-    pub transactions: Vec<TransactionUpdate>,
+    pub transactions: Vec<TransactionInclusion>,
 }
 
 // STATE SYNC INFO CONVERSION
@@ -116,13 +116,13 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)?;
 
-                Ok(TransactionUpdate {
+                Ok(TransactionInclusion {
                     transaction_id,
                     block_num: transaction_block_num,
                     account_id: transaction_account_id,
                 })
             })
-            .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
+            .collect::<Result<Vec<TransactionInclusion>, RpcError>>()?;
 
         Ok(Self {
             chain_tip: chain_tip.into(),

@@ -38,9 +38,6 @@ extern "C" {
         serialized_node_ids: Vec<String>,
         serialized_nodes: Vec<String>,
         note_tags_to_remove_as_str: Vec<String>,
-        transactions_to_commit: Vec<String>,
-        transactions_to_commit_block_nums: Vec<String>,
-        transactions_to_discard: Vec<String>,
     ) -> js_sys::Promise;
 
     // DELETES

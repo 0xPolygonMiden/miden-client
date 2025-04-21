@@ -7,7 +7,6 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
-    transaction::TransactionId,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
@@ -18,9 +17,10 @@ use super::{
     account::{lock_account, utils::update_account},
     chain_data::utils::serialize_chain_mmr_node,
     note::utils::apply_note_updates_tx,
+    transaction::utils::upsert_transaction_record,
 };
 use crate::{
-    store::{StoreError, TransactionFilter},
+    store::StoreError,
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -159,22 +159,13 @@ impl WebStore {
         let note_tags_to_remove_as_str: Vec<String> =
             note_updates.tags_to_remove().map(|note_tag| note_tag.tag.to_string()).collect();
 
-        // Serialize data for updating committed transactions
-        let transactions_to_commit_block_nums_as_str = transaction_updates
+        // Upsert updated transactions
+        for transaction_record in transaction_updates
             .committed_transactions()
-            .iter()
-            .map(|tx_update| tx_update.block_num.to_string())
-            .collect();
-        let transactions_to_commit_as_str: Vec<String> = transaction_updates
-            .committed_transactions()
-            .iter()
-            .map(|tx_update| tx_update.transaction_id.to_string())
-            .collect();
-        let transactions_to_discard_as_str: Vec<String> = transaction_updates
-            .discarded_transactions()
-            .iter()
-            .map(TransactionId::to_string)
-            .collect();
+            .chain(transaction_updates.discarded_transactions())
+        {
+            upsert_transaction_record(transaction_record).await?;
+        }
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Update public accounts on the db that have been updated onchain
@@ -199,12 +190,8 @@ impl WebStore {
             })?;
         }
 
-        let account_states_to_rollback = self
-            .get_transactions(TransactionFilter::Ids(
-                transaction_updates.discarded_transactions().to_vec(),
-            ))
-            .await?
-            .iter()
+        let account_states_to_rollback = transaction_updates
+            .discarded_transactions()
             .map(|tx_record| tx_record.details.final_account_state)
             .collect::<Vec<_>>();
 
@@ -220,9 +207,6 @@ impl WebStore {
             serialized_node_ids,
             serialized_nodes,
             note_tags_to_remove_as_str,
-            transactions_to_commit_as_str,
-            transactions_to_commit_block_nums_as_str,
-            transactions_to_discard_as_str,
         );
         JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("failed to apply state sync: {js_error:?}"))

@@ -12,7 +12,8 @@ use super::{WebStore, account::utils::update_account, note::utils::apply_note_up
 use crate::{
     store::{StoreError, TransactionFilter},
     transaction::{
-        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+        DiscardCause, TransactionDetails, TransactionRecord, TransactionStatus,
+        TransactionStoreUpdate,
     },
 };
 
@@ -72,10 +73,20 @@ impl WebStore {
                     None
                 };
 
-                let status = match (commit_height, tx_idxdb.discarded) {
-                    (_, true) => TransactionStatus::Discarded,
-                    (Some(block_num), false) => TransactionStatus::Committed(block_num),
-                    (None, false) => TransactionStatus::Pending,
+                let status = match tx_idxdb.discard_cause {
+                    Some(cause) if cause == "Expired" => {
+                        TransactionStatus::Discarded(DiscardCause::Expired)
+                    },
+                    Some(cause) if cause == "InputConsumed" => {
+                        TransactionStatus::Discarded(DiscardCause::InputConsumed)
+                    },
+                    None => commit_height
+                        .map_or(TransactionStatus::Pending, TransactionStatus::Committed),
+                    _ => {
+                        return Err(StoreError::DatabaseError(
+                            "Transaction discard cause is not valid".to_string(),
+                        ));
+                    },
                 };
 
                 Ok(TransactionRecord { id: id.into(), details, script, status })

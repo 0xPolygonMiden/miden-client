@@ -79,7 +79,9 @@ mod state_sync;
 pub use state_sync::{OnNoteReceived, StateSync, on_note_received};
 
 mod state_sync_update;
-pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
+pub use state_sync_update::{
+    AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdateTracker,
+};
 
 /// Client synchronization methods.
 impl Client {
@@ -121,7 +123,6 @@ impl Client {
                     Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
                 }
             }),
-            self.tx_graceful_blocks,
         );
 
         // Get current state of the client

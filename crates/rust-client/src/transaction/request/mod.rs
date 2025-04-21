@@ -46,6 +46,18 @@ pub enum TransactionScriptTemplate {
     SendNotes(Vec<PartialNote>),
 }
 
+/// Specifies the expiration delta for a transaction.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExpirationDelta {
+    /// The transaction will expire after the default number of blocks. The default value is
+    /// chosen when building the transaction script.
+    Default,
+    /// The transaction will never expire.
+    NoExpiration,
+    /// The transaction will expire after the specified number of blocks.
+    Custom(u16),
+}
+
 /// Specifies a transaction request that can be executed by an account.
 ///
 /// A request contains information about input notes to be consumed by the transaction (if any),
@@ -77,7 +89,7 @@ pub struct TransactionRequest {
     foreign_accounts: BTreeSet<ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
-    expiration_delta: Option<u16>,
+    expiration_delta: ExpirationDelta,
 }
 
 impl TransactionRequest {
@@ -178,12 +190,24 @@ impl TransactionRequest {
     pub(crate) fn build_transaction_script(
         &self,
         account_interface: &AccountInterface,
+        default_expiration_delta: Option<u16>,
         in_debug_mode: bool,
     ) -> Result<TransactionScript, TransactionRequestError> {
         match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
-            Some(TransactionScriptTemplate::SendNotes(notes)) => Ok(account_interface
-                .build_send_notes_script(notes, self.expiration_delta, in_debug_mode)?),
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                let expiration_delta = match self.expiration_delta {
+                    ExpirationDelta::Default => default_expiration_delta,
+                    ExpirationDelta::NoExpiration => None,
+                    ExpirationDelta::Custom(delta) => Some(delta),
+                };
+
+                Ok(account_interface.build_send_notes_script(
+                    notes,
+                    expiration_delta,
+                    in_debug_mode,
+                )?)
+            },
             None => {
                 if self.input_notes.is_empty() {
                     Err(TransactionRequestError::NoInputNotes)
@@ -218,7 +242,14 @@ impl Serializable for TransactionRequest {
         self.advice_map.clone().into_iter().collect::<Vec<_>>().write_into(target);
         self.merkle_store.write_into(target);
         self.foreign_accounts.write_into(target);
-        self.expiration_delta.write_into(target);
+        match self.expiration_delta {
+            ExpirationDelta::Default => target.write_u8(0),
+            ExpirationDelta::NoExpiration => target.write_u8(1),
+            ExpirationDelta::Custom(delta) => {
+                target.write_u8(2);
+                target.write_u16(delta);
+            },
+        }
     }
 }
 
@@ -252,7 +283,16 @@ impl Deserializable for TransactionRequest {
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
         let foreign_accounts = BTreeSet::<ForeignAccount>::read_from(source)?;
-        let expiration_delta = Option::<u16>::read_from(source)?;
+        let expiration_delta = match source.read_u8()? {
+            0 => ExpirationDelta::Default,
+            1 => ExpirationDelta::NoExpiration,
+            2 => ExpirationDelta::Custom(source.read_u16()?),
+            _ => {
+                return Err(DeserializationError::InvalidValue(
+                    "Invalid expiration delta type".to_string(),
+                ));
+            },
+        };
 
         Ok(TransactionRequest {
             unauthenticated_input_notes,

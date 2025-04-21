@@ -76,7 +76,7 @@ export async function getTransactions(filter) {
           commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
-          discarded: transactionRecord.discarded,
+          discardCause: transactionRecord.discardCause,
         };
 
         return data;
@@ -130,12 +130,13 @@ export async function insertTransactionScript(scriptRoot, txScript) {
   }
 }
 
-export async function insertProvenTransactionData(
+export async function upsertTransactionRecord(
   transactionId,
   details,
   scriptRoot,
   blockNum,
-  committed
+  committed,
+  discardCause
 ) {
   try {
     let detailsBlob = new Blob([new Uint8Array(details)]);
@@ -151,10 +152,10 @@ export async function insertProvenTransactionData(
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
-      discarded: false,
+      discardCause: discardCause ? discardCause : null,
     };
 
-    await transactions.add(data);
+    await transactions.put(data);
   } catch (err) {
     console.error("Failed to insert proven transaction data: ", err.toString());
     throw err;

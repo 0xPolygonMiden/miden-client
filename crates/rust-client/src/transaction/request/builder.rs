@@ -14,7 +14,7 @@ use miden_objects::{
 };
 
 use super::{
-    ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
+    ExpirationDelta, ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
 use crate::ClientRng;
@@ -55,7 +55,7 @@ pub struct TransactionRequestBuilder {
     foreign_accounts: BTreeMap<AccountId, ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
-    expiration_delta: Option<u16>,
+    expiration_delta: ExpirationDelta,
 }
 
 impl TransactionRequestBuilder {
@@ -73,7 +73,7 @@ impl TransactionRequestBuilder {
             custom_script: None,
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
-            expiration_delta: None,
+            expiration_delta: ExpirationDelta::Default,
             foreign_accounts: BTreeMap::default(),
         }
     }
@@ -203,8 +203,11 @@ impl TransactionRequestBuilder {
     /// but other code executed during the transaction may impose an even smaller transaction
     /// expiration delta.
     #[must_use]
-    pub fn with_expiration_delta(mut self, expiration_delta: u16) -> Self {
-        self.expiration_delta = Some(expiration_delta);
+    pub fn with_expiration_delta(mut self, expiration_delta: Option<u16>) -> Self {
+        self.expiration_delta = match expiration_delta {
+            Some(delta) => ExpirationDelta::Custom(delta),
+            None => ExpirationDelta::NoExpiration,
+        };
         self
     }
 
@@ -348,7 +351,7 @@ impl TransactionRequestBuilder {
                 ));
             },
             (Some(script), true) => {
-                if self.expiration_delta.is_some() {
+                if self.expiration_delta != ExpirationDelta::Default {
                     return Err(TransactionRequestError::ScriptTemplateError(
                         "Cannot set expiration delta when a custom script is set".to_string(),
                     ));

@@ -31,12 +31,12 @@ impl TryFrom<ProtoTransactionId> for TransactionId {
     }
 }
 
-// TRANSACTION UPDATE
+// TRANSACTION INCLUSION
 // ================================================================================================
 
 /// Represents a transaction that was included in the node at a certain block.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TransactionUpdate {
+pub struct TransactionInclusion {
     /// The transaction identifier.
     pub transaction_id: TransactionId,
     /// The number of the block in which the transaction was included.

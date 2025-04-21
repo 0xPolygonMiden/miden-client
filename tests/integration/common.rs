@@ -55,7 +55,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-clie
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore) {
+pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -76,22 +76,7 @@ pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore)
         .with_store(store)
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .in_debug_mode(true)
-        .with_tx_graceful_blocks(None);
-
-    (builder, keystore)
-}
-
-/// Creates a `TestClient`.
-///
-/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
-/// random temporary location, so the store section of the config file is ignored.
-///
-/// # Panics
-///
-/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
-/// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
-    let (builder, keystore) = create_test_client_builder().await;
+        .with_default_expiration_delta(None);
 
     let mut client = builder.build().await.unwrap();
 
@@ -260,7 +245,7 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             TransactionStatus::Pending => {
                 std::thread::sleep(Duration::from_millis(100));
             },
-            TransactionStatus::Discarded => {
+            TransactionStatus::Discarded(_) => {
                 panic!("Transaction discarded");
             },
         }

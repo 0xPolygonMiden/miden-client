@@ -10,11 +10,16 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
+use super::{
+    AccountUpdates, BlockUpdates, StateSyncUpdate, state_sync_update::TransactionUpdateTracker,
+};
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
-    rpc::{NodeRpcClient, domain::note::CommittedNote},
+    rpc::{
+        NodeRpcClient,
+        domain::{note::CommittedNote, transaction::TransactionInclusion},
+    },
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError},
     transaction::TransactionRecord,
 };
@@ -50,7 +55,6 @@ pub struct StateSync {
     rpc_api: Arc<dyn NodeRpcClient + Send>,
     /// Callback to be executed when a new note inclusion is received.
     on_note_received: OnNoteReceived,
-    tx_graceful_blocks: Option<u32>,
 }
 
 impl StateSync {
@@ -60,16 +64,8 @@ impl StateSync {
     ///
     /// * `rpc_api` - The RPC client used to communicate with the node.
     /// * `on_note_received` - A callback to be executed when a new note inclusion is received.
-    pub fn new(
-        rpc_api: Arc<dyn NodeRpcClient + Send>,
-        on_note_received: OnNoteReceived,
-        tx_graceful_blocks: Option<u32>,
-    ) -> Self {
-        Self {
-            rpc_api,
-            on_note_received,
-            tx_graceful_blocks,
-        }
+    pub fn new(rpc_api: Arc<dyn NodeRpcClient + Send>, on_note_received: OnNoteReceived) -> Self {
+        Self { rpc_api, on_note_received }
     }
 
     /// Syncs the state of the client with the chain tip of the node, returning the updates that
@@ -104,7 +100,7 @@ impl StateSync {
         note_tags: Vec<NoteTag>,
         unspent_input_notes: Vec<InputNoteRecord>,
         unspent_output_notes: Vec<OutputNoteRecord>,
-        mut uncommitted_transactions: Vec<TransactionRecord>,
+        uncommitted_transactions: Vec<TransactionRecord>,
     ) -> Result<StateSyncUpdate, ClientError> {
         let block_num = (u32::try_from(current_partial_mmr.num_leaves() - 1)
             .expect("The number of leaves in the MMR should be greater than 0 and less than 2^32"))
@@ -113,6 +109,7 @@ impl StateSync {
         let mut state_sync_update = StateSyncUpdate {
             block_num,
             note_updates: NoteUpdateTracker::new(unspent_input_notes, unspent_output_notes),
+            transaction_updates: TransactionUpdateTracker::new(uncommitted_transactions),
             ..Default::default()
         };
 
@@ -131,32 +128,6 @@ impl StateSync {
         }
 
         self.sync_nullifiers(&mut state_sync_update, block_num).await?;
-
-        // Add stale transactions to the state sync update
-        if let Some(tx_graceful_blocks) = self.tx_graceful_blocks {
-            let mut updated_transactions = state_sync_update
-                .transaction_updates
-                .committed_transactions()
-                .iter()
-                .map(|tx| tx.transaction_id)
-                .chain(
-                    state_sync_update.transaction_updates.discarded_transactions().iter().copied(),
-                );
-
-            let graceful_block_num =
-                state_sync_update.block_num.checked_sub(tx_graceful_blocks).unwrap_or_default();
-
-            uncommitted_transactions.retain(|tx| {
-                tx.details.block_num < graceful_block_num
-                    && !updated_transactions.any(|tx_id| tx_id == tx.id)
-            });
-
-            state_sync_update.transaction_updates.extend(TransactionUpdates::new(
-                vec![],
-                vec![],
-                uncommitted_transactions,
-            ));
-        }
 
         Ok(state_sync_update)
     }
@@ -192,18 +163,18 @@ impl StateSync {
         let new_block_num = response.block_header.block_num();
         state_sync_update.block_num = new_block_num;
 
-        let account_updates =
-            self.account_state_sync(accounts, &response.account_commitment_updates).await?;
+        self.account_state_sync(
+            &mut state_sync_update.account_updates,
+            accounts,
+            &response.account_commitment_updates,
+        )
+        .await?;
 
-        state_sync_update.account_updates.extend(account_updates);
-
-        // Track the transaction updates for transactions that were committed. Some of these might
-        // be tracked by the client and need to be marked as committed.
-        state_sync_update.transaction_updates.extend(TransactionUpdates::new(
-            response.transactions,
-            vec![],
-            vec![],
-        ));
+        Self::transaction_state_sync(
+            &mut state_sync_update.transaction_updates,
+            new_block_num,
+            &response.transactions,
+        );
 
         let found_relevant_note = self
             .note_state_sync(
@@ -246,9 +217,10 @@ impl StateSync {
     ///   as they could be a stale account state or a reason to lock the account.
     async fn account_state_sync(
         &self,
+        account_updates: &mut AccountUpdates,
         accounts: &[AccountHeader],
         account_commitment_updates: &[(AccountId, Digest)],
-    ) -> Result<AccountUpdates, ClientError> {
+    ) -> Result<(), ClientError> {
         let (public_accounts, private_accounts): (Vec<_>, Vec<_>) =
             accounts.iter().partition(|account_header| account_header.id().is_public());
 
@@ -266,7 +238,10 @@ impl StateSync {
             .copied()
             .collect::<Vec<_>>();
 
-        Ok(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts))
+        account_updates
+            .extend(AccountUpdates::new(updated_public_accounts, mismatched_private_accounts));
+
+        Ok(())
     }
 
     /// Queries the node for the latest state of the public accounts that don't match the current
@@ -386,27 +361,33 @@ impl StateSync {
         // changes between the sync_state and the check_nullifier calls)
         new_nullifiers.retain(|update| update.block_num <= state_sync_update.block_num.as_u32());
 
-        // Process nullifiers and track the updates of local tracked transactions that were
-        // discarded because the notes that they were processing were nullified by an
-        // another transaction.
-        let mut discarded_transactions = vec![];
-
         for nullifier_update in new_nullifiers {
-            let discarded_transaction =
-                state_sync_update.note_updates.apply_nullifiers_state_transitions(
-                    &nullifier_update,
-                    state_sync_update.transaction_updates.committed_transactions(),
-                )?;
+            state_sync_update.note_updates.apply_nullifiers_state_transitions(
+                &nullifier_update,
+                state_sync_update.transaction_updates.committed_transactions(),
+            )?;
 
-            if let Some(transaction_id) = discarded_transaction {
-                discarded_transactions.push(transaction_id);
-            }
+            // Process nullifiers and track the updates of local tracked transactions that were
+            // discarded because the notes that they were processing were nullified by an
+            // another transaction.
+            state_sync_update
+                .transaction_updates
+                .apply_input_note_nullified(nullifier_update.nullifier);
         }
 
-        let transaction_updates = TransactionUpdates::new(vec![], discarded_transactions, vec![]);
-        state_sync_update.transaction_updates.extend(transaction_updates);
-
         Ok(())
+    }
+
+    fn transaction_state_sync(
+        transaction_updates: &mut TransactionUpdateTracker,
+        new_sync_height: BlockNumber,
+        transaction_inclusions: &[TransactionInclusion],
+    ) {
+        for transaction_inclusion in transaction_inclusions {
+            transaction_updates.apply_transaction_inclusion(transaction_inclusion);
+        }
+
+        transaction_updates.apply_sync_height_update(new_sync_height);
     }
 }
 

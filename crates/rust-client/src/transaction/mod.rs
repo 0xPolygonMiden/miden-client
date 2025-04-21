@@ -99,7 +99,7 @@ use super::Client;
 use crate::{
     ClientError,
     note::{NoteScreener, NoteUpdateTracker},
-    rpc::domain::{account::AccountProof, transaction::TransactionUpdate},
+    rpc::domain::account::AccountProof,
     store::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter, input_note_states::ExpectedNoteState,
@@ -267,6 +267,26 @@ impl TransactionRecord {
     ) -> TransactionRecord {
         TransactionRecord { id, details, script, status }
     }
+
+    pub fn commit_transaction(&mut self, commit_height: BlockNumber) -> bool {
+        match self.status {
+            TransactionStatus::Pending => {
+                self.status = TransactionStatus::Committed(commit_height);
+                true
+            },
+            TransactionStatus::Discarded(_) | TransactionStatus::Committed(_) => false,
+        }
+    }
+
+    pub fn discard_transaction(&mut self, cause: DiscardCause) -> bool {
+        match self.status {
+            TransactionStatus::Pending => {
+                self.status = TransactionStatus::Discarded(cause);
+                true
+            },
+            TransactionStatus::Discarded(_) | TransactionStatus::Committed(_) => false,
+        }
+    }
 }
 
 /// Describes the details associated with a transaction.
@@ -321,6 +341,32 @@ impl Deserializable for TransactionDetails {
     }
 }
 
+/// Represents the cause of the discarded transaction.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiscardCause {
+    Expired,
+    InputConsumed,
+}
+
+impl DiscardCause {
+    pub fn from_string(cause: &str) -> Self {
+        match cause {
+            "Expired" => DiscardCause::Expired,
+            "InputConsumed" => DiscardCause::InputConsumed,
+            _ => panic!("Unknown discard cause"),
+        }
+    }
+}
+
+impl fmt::Display for DiscardCause {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DiscardCause::Expired => write!(f, "Expired"),
+            DiscardCause::InputConsumed => write!(f, "InputConsumed"),
+        }
+    }
+}
+
 /// Represents the status of a transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
@@ -329,7 +375,7 @@ pub enum TransactionStatus {
     /// Transaction has been committed and included at the specified block number.
     Committed(BlockNumber),
     /// Transaction has been discarded and isn't included in the node.
-    Discarded,
+    Discarded(DiscardCause),
 }
 
 impl fmt::Display for TransactionStatus {
@@ -339,7 +385,7 @@ impl fmt::Display for TransactionStatus {
             TransactionStatus::Committed(block_number) => {
                 write!(f, "Committed (Block: {block_number})")
             },
-            TransactionStatus::Discarded => write!(f, "Discarded"),
+            TransactionStatus::Discarded(_) => write!(f, "Discarded"),
         }
     }
 }
@@ -394,64 +440,6 @@ impl TransactionStoreUpdate {
     /// Returns the new tags that were created as part of the transaction.
     pub fn new_tags(&self) -> &[NoteTagRecord] {
         &self.new_tags
-    }
-}
-
-/// Contains transaction changes to apply to the store.
-#[derive(Default)]
-pub struct TransactionUpdates {
-    /// Transaction updates for any transaction that was committed between the sync request's block
-    /// number and the response's block number.
-    committed_transactions: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    discarded_transactions: Vec<TransactionId>,
-    /// Transactions that were pending before the sync and were not committed.
-    ///
-    /// These transactions have been pending for more than [`TX_GRACEFUL_BLOCKS`] blocks and can be
-    /// assumed to have been rejected by the network. They will be marked as discarded in the
-    /// store.
-    stale_transactions: Vec<TransactionRecord>,
-}
-
-impl TransactionUpdates {
-    /// Creates a new [`TransactionUpdate`]
-    pub fn new(
-        committed_transactions: Vec<TransactionUpdate>,
-        discarded_transactions: Vec<TransactionId>,
-        stale_transactions: Vec<TransactionRecord>,
-    ) -> Self {
-        Self {
-            committed_transactions,
-            discarded_transactions,
-            stale_transactions,
-        }
-    }
-
-    /// Extends the transaction update information with `other`.
-    pub fn extend(&mut self, other: Self) {
-        self.committed_transactions.extend(other.committed_transactions);
-        self.discarded_transactions.extend(other.discarded_transactions);
-        self.stale_transactions.extend(other.stale_transactions);
-    }
-
-    /// Returns a reference to committed transactions.
-    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
-        &self.committed_transactions
-    }
-
-    /// Returns a reference to discarded transactions.
-    pub fn discarded_transactions(&self) -> &[TransactionId] {
-        &self.discarded_transactions
-    }
-
-    /// Inserts a discarded transaction into the transaction updates.
-    pub fn insert_discarded_transaction(&mut self, transaction_id: TransactionId) {
-        self.discarded_transactions.push(transaction_id);
-    }
-
-    /// Returns a reference to stale transactions.
-    pub fn stale_transactions(&self) -> &[TransactionRecord] {
-        &self.stale_transactions
     }
 }
 
@@ -531,6 +519,7 @@ impl Client {
 
         let tx_script = transaction_request.build_transaction_script(
             &self.get_account_interface(account_id).await?,
+            self.default_expiration_delta,
             self.in_debug_mode,
         )?;
 

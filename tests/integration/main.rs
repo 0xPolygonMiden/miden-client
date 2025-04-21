@@ -12,11 +12,10 @@ use miden_client::{
     },
     sync::NoteTagSource,
     transaction::{
-        PaymentTransactionData, TransactionExecutorError, TransactionProver,
+        DiscardCause, PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
-use miden_client_tests::common::create_test_client_builder;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -37,9 +36,8 @@ mod swap_transactions_tests;
 /// too low, some tests might fail due to expected recall failures not happening.
 const RECALL_HEIGHT_DELTA: u32 = 10;
 
-/// Constant that represents the number of blocks until the transaction is considered
-/// stale.
-const TX_GRACEFUL_BLOCKS: u32 = 10;
+/// Constant that represents the number of blocks until the transaction is considered expired.
+const EXPIRATION_DELTA: u16 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -1396,7 +1394,10 @@ async fn test_discarded_transaction() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
+    assert!(matches!(
+        tx_record.status,
+        TransactionStatus::Discarded(DiscardCause::InputConsumed)
+    ));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
@@ -1554,7 +1555,7 @@ async fn test_expired_transaction_fails() {
         client.rng(),
     )
     .unwrap()
-    .with_expiration_delta(expiration_delta)
+    .with_expiration_delta(Some(expiration_delta))
     .build()
     .unwrap();
 
@@ -1635,13 +1636,8 @@ async fn test_unused_rpc_api() {
 }
 
 #[tokio::test]
-async fn test_stale_transactions_discarded() {
-    let (builder, authenticator) = create_test_client_builder().await;
-
-    let mut client =
-        builder.with_tx_graceful_blocks(Some(TX_GRACEFUL_BLOCKS)).build().await.unwrap();
-
-    client.sync_state().await.unwrap();
+async fn test_account_rollback() {
+    let (mut client, authenticator) = create_test_client().await;
 
     let (regular_account, faucet_account_header) =
         setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
@@ -1663,6 +1659,7 @@ async fn test_stale_transactions_discarded() {
         client.rng(),
     )
     .unwrap()
+    .with_expiration_delta(Some(EXPIRATION_DELTA))
     .build()
     .unwrap();
 
@@ -1698,7 +1695,7 @@ async fn test_stale_transactions_discarded() {
     assert!(matches!(tx_record.status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
-    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
+    wait_for_blocks(&mut client, EXPIRATION_DELTA as u32 + 1).await;
 
     // Verify the transaction is now discarded
     let tx_record = client
@@ -1709,7 +1706,7 @@ async fn test_stale_transactions_discarded() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded(DiscardCause::Expired)));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
