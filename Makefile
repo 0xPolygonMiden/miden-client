@@ -22,7 +22,7 @@ NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
-PROVER_BRANCH="santiagopittella-merge-main-in-next"
+PROVER_BRANCH="next"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
 
