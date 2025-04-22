@@ -5,7 +5,7 @@ use miden_client::{
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
     transaction::{
-        ForeignAccount, ForeignAccountInputs, TransactionKernel, TransactionRequestBuilder,
+        ForeignAccount, ForeignAccountInformation, TransactionKernel, TransactionRequestBuilder,
     },
 };
 use miden_lib::{account::auth::RpoFalcon512, utils::word_to_masm_push_string};
@@ -311,7 +311,8 @@ async fn test_standard_fpi(storage_mode: AccountStorageMode) {
         let foreign_account: Account =
             client.get_account(foreign_account_id).await.unwrap().unwrap().into();
         ForeignAccount::private(
-            ForeignAccountInputs::from_account(foreign_account, &storage_requirements).unwrap(),
+            ForeignAccountInformation::from_account(foreign_account, &storage_requirements)
+                .unwrap(),
         )
     };
 

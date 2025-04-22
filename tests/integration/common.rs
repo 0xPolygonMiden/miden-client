@@ -22,8 +22,8 @@ use miden_client::{
     sync::SyncSummary,
     testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     transaction::{
-        DataStoreError, NoteArgs, TransactionExecutorError, TransactionRequest,
-        TransactionRequestBuilder, TransactionStatus,
+        NoteArgs, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
+        TransactionStatus,
     },
 };
 use miden_objects::{
@@ -440,11 +440,10 @@ pub async fn assert_note_cannot_be_consumed_twice(
     let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id])
         .build()
         .unwrap();
+
     match client.new_transaction(consuming_account_id, tx_request).await {
-        Err(ClientError::TransactionExecutorError(
-            TransactionExecutorError::FetchTransactionInputsFailed(
-                DataStoreError::NoteAlreadyConsumed(_),
-            ),
+        Err(ClientError::TransactionRequestError(
+            TransactionRequestError::InputNoteAlreadyConsumed(_),
         )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         err => panic!("Unexpected error {:?} for note ID: {}", err, note_to_consume_id.to_hex()),

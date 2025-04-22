@@ -7,7 +7,11 @@
 //! **Note:** This implementation is only available when targeting WebAssembly with the `web_store`
 //! feature enabled.
 
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 
 use miden_objects::{
     Digest, Word,
@@ -143,7 +147,7 @@ impl Store for WebStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[BlockNumber],
+        block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(block_numbers).await
     }
