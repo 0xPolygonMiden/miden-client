@@ -3,6 +3,7 @@
 ## 0.8.2 (TBD)
 
 * Converted Web Client `NoteType` class to `enum` (#831)
+* Exported `import_account_by_id` function to Web Client (#858)
 
 ## 0.8.1 (2025-03-28)
 
