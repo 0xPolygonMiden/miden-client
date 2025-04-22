@@ -14,6 +14,7 @@
 * [BREAKING] Updated keystore to accept arbitrarily large public keys (#833).
 * Added Examples to Mdbook for Web Client (#850).
 * Added account code to `miden account --show` command (#835).
+* Make `TonicRpcClient` `Send+Sync` when buiding for `std` (#868).
 
 ## 0.8.2 (TBD)
 

@@ -1,4 +1,3 @@
-#![allow(clippy::await_holding_lock)]
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -6,7 +5,6 @@ use alloc::{
     vec::Vec,
 };
 
-use async_trait::async_trait;
 use miden_objects::{
     Digest,
     account::{Account, AccountCode, AccountDelta, AccountId},
@@ -72,16 +70,18 @@ impl TonicRpcClient {
     /// Takes care of establishing the RPC connection if not connected yet. It ensures that the
     /// `rpc_api` field is initialized and returns a write guard to it.
     async fn ensure_connected(&self) -> Result<ApiClient, RpcError> {
-        let mut client = self.client.write();
-        if client.is_none() {
-            client.replace(ApiClient::new_client(self.endpoint.clone(), self.timeout_ms).await?);
+        if self.client.read().is_none() {
+            let new_client = ApiClient::new_client(self.endpoint.clone(), self.timeout_ms).await?;
+            let mut client = self.client.write();
+            client.replace(new_client);
         }
 
-        Ok(client.as_ref().expect("rpc_api should be initialized").clone())
+        Ok(self.client.read().as_ref().expect("rpc_api should be initialized").clone())
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &self,
