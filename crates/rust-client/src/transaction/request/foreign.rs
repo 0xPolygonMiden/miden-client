@@ -24,7 +24,7 @@ pub enum ForeignAccount {
     /// account ID. The second element of the tuple indicates which storage slot indices
     /// and map keys are desired to be retrieved.
     Public(AccountId, AccountStorageRequirements),
-    /// Private account data requires [`ForeignAccountInputs`] to be input. Proof of the account's
+    /// Private account data requires [`ForeignAccountInformation`] to be input. Proof of the account's
     /// existence will be retrieved from the network at execution time.
     Private(ForeignAccountInformation),
 }
