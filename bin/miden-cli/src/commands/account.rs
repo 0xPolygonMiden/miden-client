@@ -1,4 +1,5 @@
 use clap::Parser;
+use comfy_table::{Cell, ContentArrangement, presets};
 use miden_client::{
     Client, ZERO,
     account::{Account, AccountId, AccountType, StorageSlot},
@@ -41,6 +42,7 @@ pub struct AccountCmd {
 
 impl AccountCmd {
     pub async fn execute(&self, client: Client) -> Result<(), CliError> {
+        let (cli_config, _) = load_config_file()?;
         match self {
             AccountCmd {
                 list: false,
@@ -49,7 +51,7 @@ impl AccountCmd {
                 ..
             } => {
                 let account_id = parse_account_id(&client, id).await?;
-                show_account(client, account_id, self.with_code).await?;
+                show_account(client, account_id, &cli_config, self.with_code).await?;
             },
             AccountCmd {
                 list: false,
@@ -65,12 +67,7 @@ impl AccountCmd {
                         let default_account = if id == "none" {
                             None
                         } else {
-                            let account_id: AccountId = AccountId::from_hex(id).map_err(|err| {
-                                CliError::AccountId(
-                                    err,
-                                    "Input number was not a valid Account ID".to_string(),
-                                )
-                            })?;
+                            let account_id: AccountId = parse_account_id(&client, id).await?;
 
                             // Check whether we're tracking that account
                             let (account, _) = client.try_get_account_header(account_id).await?;
@@ -126,9 +123,13 @@ async fn list_accounts(client: Client) -> Result<(), CliError> {
     Ok(())
 }
 
+// SHOW ACCOUNT
+// ================================================================================================
+
 pub async fn show_account(
     client: Client,
     account_id: AccountId,
+    cli_config: &CliConfig,
     with_code: bool,
 ) -> Result<(), CliError> {
     let account: Account = client
@@ -137,27 +138,7 @@ pub async fn show_account(
         .ok_or(CliError::Input(format!("Account with ID {account_id} not found")))?
         .into();
 
-    let mut table = create_dynamic_table(&[
-        "Account ID",
-        "Account Commitment",
-        "Type",
-        "Storage mode",
-        "Code Commitment",
-        "Vault Root",
-        "Storage Root",
-        "Nonce",
-    ]);
-    table.add_row(vec![
-        account.id().to_string(),
-        account.commitment().to_string(),
-        account_type_display_name(&account_id)?,
-        account_id.storage_mode().to_string(),
-        account.code().commitment().to_string(),
-        account.vault().asset_tree().root().to_string(),
-        account.storage().commitment().to_string(),
-        account.nonce().as_int().to_string(),
-    ]);
-    println!("{table}\n");
+    print_summary_table(&account, cli_config)?;
 
     // Vault Table
     {
@@ -217,7 +198,6 @@ pub async fn show_account(
         }
         println!("{table}\n");
     }
-    println!("{table}\n");
 
     // Account code
     if with_code {
@@ -234,6 +214,46 @@ pub async fn show_account(
 // HELPERS
 // ================================================================================================
 
+/// Prints a summary table with account information.
+fn print_summary_table(account: &Account, cli_config: &CliConfig) -> Result<(), CliError> {
+    let mut table = create_dynamic_table(&["Account Information"]);
+    table
+        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+
+    table.add_row(vec![Cell::new("Account ID (hex)"), Cell::new(account.id().to_string())]);
+    table.add_row(vec![
+        Cell::new("Account ID (bech32)"),
+        Cell::new(account.id().to_bech32(cli_config.network.to_network_id()?)),
+    ]);
+    table.add_row(vec![
+        Cell::new("Account Commitment"),
+        Cell::new(account.commitment().to_string()),
+    ]);
+    table.add_row(vec![Cell::new("Type"), Cell::new(account_type_display_name(&account.id())?)]);
+    table.add_row(vec![
+        Cell::new("Storage mode"),
+        Cell::new(account.id().storage_mode().to_string()),
+    ]);
+    table.add_row(vec![
+        Cell::new("Code Commitment"),
+        Cell::new(account.code().commitment().to_string()),
+    ]);
+    table.add_row(vec![
+        Cell::new("Vault Root"),
+        Cell::new(account.vault().asset_tree().root().to_string()),
+    ]);
+    table.add_row(vec![
+        Cell::new("Storage Root"),
+        Cell::new(account.storage().commitment().to_string()),
+    ]);
+    table.add_row(vec![Cell::new("Nonce"), Cell::new(account.nonce().as_int().to_string())]);
+
+    println!("{table}\n");
+    Ok(())
+}
+
+/// Returns a display name for the account type.
 fn account_type_display_name(account_id: &AccountId) -> Result<String, CliError> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
