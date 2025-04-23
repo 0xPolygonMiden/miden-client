@@ -71,27 +71,15 @@ use alloc::{
 };
 use core::fmt::{self};
 
-pub use miden_lib::{
-    account::interface::{AccountComponentInterface, AccountInterface},
-    transaction::TransactionKernel,
-};
 use miden_objects::{
-    AssetError, Digest, Felt, Word, ZERO,
+    AssetError, Digest, Felt, Word,
     account::{Account, AccountCode, AccountDelta, AccountId},
     asset::{Asset, NonFungibleAsset},
-    block::{AccountWitness, BlockNumber},
+    block::BlockNumber,
     note::{Note, NoteDetails, NoteId, NoteTag},
-    transaction::{InputNotes, TransactionArgs},
-    vm::AdviceInputs,
+    transaction::{ForeignAccountInputs, TransactionArgs},
 };
-pub use miden_tx::{
-    LocalTransactionProver, ProvingOptions, TransactionProver, TransactionProverError,
-    auth::TransactionAuthenticator,
-};
-use miden_tx::{
-    TransactionExecutor,
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-};
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::info;
 
 use super::Client;
@@ -107,14 +95,28 @@ use crate::{
 };
 
 mod request;
-pub use miden_objects::transaction::{
-    ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
-    TransactionScript,
+
+// RE-EXPORTS
+// ================================================================================================
+
+pub use miden_lib::{
+    account::interface::{AccountComponentInterface, AccountInterface},
+    transaction::TransactionKernel,
 };
-pub use miden_tx::{DataStoreError, TransactionExecutorError};
+pub use miden_objects::{
+    transaction::{
+        ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        TransactionId, TransactionScript,
+    },
+    vm::{AdviceInputs, AdviceMap},
+};
+pub use miden_tx::{
+    DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutorError,
+    TransactionProver, TransactionProverError, auth::TransactionAuthenticator,
+};
 pub use request::{
-    ForeignAccount, ForeignAccountInputs, NoteArgs, PaymentTransactionData, SwapTransactionData,
-    TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
+    ForeignAccount, ForeignAccountInformation, NoteArgs, PaymentTransactionData,
+    SwapTransactionData, TransactionRequest, TransactionRequestBuilder, TransactionRequestError,
     TransactionScriptTemplate,
 };
 
@@ -463,8 +465,7 @@ impl Client {
         self.validate_request(account_id, &transaction_request).await?;
 
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
-        // state). TODO: we should consider refactoring this in a way we can handle this in
-        // `get_transaction_inputs`
+        // state)
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
@@ -476,7 +477,17 @@ impl Client {
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
                 return Err(ClientError::TransactionRequestError(
-                    TransactionRequestError::InputNoteNotAuthenticated,
+                    TransactionRequestError::InputNoteNotAuthenticated(
+                        authenticated_note_record.id(),
+                    ),
+                ));
+            }
+
+            if authenticated_note_record.is_consumed() {
+                return Err(ClientError::TransactionRequestError(
+                    TransactionRequestError::InputNoteAlreadyConsumed(
+                        authenticated_note_record.id(),
+                    ),
                 ));
             }
         }
@@ -491,7 +502,17 @@ impl Client {
 
         self.store.upsert_input_notes(&unauthenticated_input_notes).await?;
 
-        let note_ids = transaction_request.get_input_note_ids();
+        let notes = {
+            let note_ids = transaction_request.get_input_note_ids();
+
+            let mut input_notes: Vec<InputNote> = Vec::new();
+
+            for note in self.store.get_input_notes(NoteFilter::List(note_ids)).await? {
+                input_notes.push(note.try_into().map_err(ClientError::NoteRecordConversionError)?);
+            }
+
+            InputNotes::new(input_notes).map_err(ClientError::TransactionInputError)?
+        };
 
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
@@ -505,11 +526,12 @@ impl Client {
         )?;
 
         let foreign_accounts = transaction_request.foreign_accounts().clone();
-        let mut tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Inject state and code of foreign accounts
-        let fpi_block_num =
-            self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
+        let (fpi_block_num, foreign_account_inputs) =
+            self.retrieve_foreign_account_inputs(foreign_accounts).await?;
+
+        let tx_args = transaction_request.into_transaction_args(tx_script, foreign_account_inputs);
 
         let block_num = if let Some(block_num) = fpi_block_num {
             block_num
@@ -517,10 +539,19 @@ impl Client {
             self.store.get_sync_height().await?
         };
 
+        // TODO: Refactor this to get account code only?
+        let account_record = self
+            .store
+            .get_account(account_id)
+            .await?
+            .ok_or(ClientError::AccountDataNotFound(account_id))?;
+        let account: Account = account_record.into();
+        self.mast_store.load_transaction_code(account.code(), &notes, &tx_args);
+
         // Execute the transaction and get the witness
         let executed_transaction = self
             .tx_executor
-            .execute_transaction(account_id, block_num, &note_ids, tx_args)
+            .execute_transaction(account_id, block_num, notes, tx_args)
             .await?;
 
         // Check that the expected output notes matches the transaction outcome.
@@ -867,27 +898,25 @@ impl Client {
         Ok(AccountInterface::from(&account))
     }
 
-    /// Injects foreign account data inputs into `tx_args` (account proof, code commitment and
-    /// storage data). Additionally loads the account code into the transaction executor.
+    /// Returns foreign account inputs for the required foreign accounts specified by the
+    /// transaction request.
     ///
     /// For any [`ForeignAccount::Public`] in `foreing_accounts`, these pieces of data are retrieved
-    /// from the network. For any [`ForeignAccount::Private`] account, inner data is used.
+    /// from the network. For any [`ForeignAccount::Private`] account, inner data is used and only
+    /// a proof of the account's existence on the network is fetched.
     ///
     /// Account data is retrieved for the node's current chain tip, so we need to check whether we
     /// currently have the corresponding block header data. Otherwise, we additionally need to
     /// retrieve it, this implies a state sync call which may update the client in other ways.
-    ///
-    /// # Errors
-    /// - Returns a [`ClientError::RecencyConditionError`] if the foreign account proofs are too far
-    ///   in the future.
-    async fn inject_foreign_account_inputs(
+    async fn retrieve_foreign_account_inputs(
         &mut self,
         foreign_accounts: BTreeSet<ForeignAccount>,
-        tx_args: &mut TransactionArgs,
-    ) -> Result<Option<BlockNumber>, ClientError> {
+    ) -> Result<(Option<BlockNumber>, Vec<ForeignAccountInputs>), ClientError> {
         if foreign_accounts.is_empty() {
-            return Ok(None);
+            return Ok((None, Vec::new()));
         }
+
+        let mut return_foreign_account_inputs = Vec::with_capacity(foreign_accounts.len());
 
         let account_ids = foreign_accounts.iter().map(ForeignAccount::account_id);
         let known_account_codes =
@@ -903,13 +932,13 @@ impl Client {
             account_proofs.into_iter().map(|proof| (proof.account_id(), proof)).collect();
 
         for foreign_account in &foreign_accounts {
-            let (foreign_account_inputs, merkle_path) = match foreign_account {
+            let foreign_account_inputs = match foreign_account {
                 ForeignAccount::Public(account_id, ..) => {
                     let account_proof = account_proofs
                         .remove(account_id)
-                        .expect("Proof was requested and received");
+                        .expect("proof was requested and received");
 
-                    let (foreign_account_inputs, account_witness) = account_proof.try_into()?;
+                    let foreign_account_inputs: ForeignAccountInputs = account_proof.try_into()?;
 
                     // Update  our foreign account code cache
                     self.store
@@ -919,28 +948,24 @@ impl Client {
                         )
                         .await?;
 
-                    (foreign_account_inputs, account_witness)
+                    foreign_account_inputs
                 },
-                ForeignAccount::Private(foreign_account_inputs) => {
-                    let account_id = foreign_account_inputs.account_header().id();
-                    let proof = account_proofs
+                ForeignAccount::Private(foreign_account_info) => {
+                    let account_id = foreign_account_info.account_header().id();
+                    let (witness, _) = account_proofs
                         .remove(&account_id)
-                        .expect("Proof was requested and received");
+                        .expect("proof was requested and received")
+                        .into_parts();
 
-                    (foreign_account_inputs.clone(), proof.account_witness().clone())
+                    foreign_account_info.clone().into_foreign_account_inputs(witness)
                 },
             };
 
-            extend_advice_inputs_for_foreign_account(
-                tx_args,
-                &mut self.tx_executor,
-                foreign_account_inputs,
-                &merkle_path,
-            )?;
+            return_foreign_account_inputs.push(foreign_account_inputs);
         }
 
         // Optionally retrieve block header if we don't have it
-        if self.store.get_block_headers(&[block_num]).await?.is_empty() {
+        if self.store.get_block_header_by_num(block_num).await?.is_none() {
             info!(
                 "Getting current block header data to execute transaction with foreign account requirements"
             );
@@ -953,7 +978,7 @@ impl Client {
             }
         }
 
-        Ok(Some(block_num))
+        Ok((Some(block_num), return_foreign_account_inputs))
     }
 
     /// Executes the provided transaction script against the specified account, and returns the
@@ -967,19 +992,36 @@ impl Client {
         advice_inputs: AdviceInputs,
         foreign_accounts: BTreeSet<ForeignAccount>,
     ) -> Result<[Felt; 16], ClientError> {
-        let block_ref = self.get_sync_height().await?;
+        let (fpi_block_number, foreign_account_inputs) =
+            self.retrieve_foreign_account_inputs(foreign_accounts).await?;
+        let block_ref = if let Some(block_number) = fpi_block_number {
+            block_number
+        } else {
+            self.get_sync_height().await?
+        };
 
-        let mut tx_args =
-            TransactionArgs::with_tx_script(tx_script).with_advice_inputs(advice_inputs);
-        self.inject_foreign_account_inputs(foreign_accounts, &mut tx_args).await?;
+        let account_record = self
+            .store
+            .get_account(account_id)
+            .await?
+            .ok_or(ClientError::AccountDataNotFound(account_id))?;
+        let account: Account = account_record.into();
+
+        // Ensure code is loaded on MAST store
+        self.mast_store.insert(tx_script.mast());
+        self.mast_store.insert(account.code().mast());
+        for fpi_account in &foreign_account_inputs {
+            self.mast_store.insert(fpi_account.account_code().mast());
+        }
 
         Ok(self
             .tx_executor
             .execute_tx_view_script(
                 account_id,
                 block_ref,
-                tx_args.tx_script().expect("Transaction script should be present").clone(),
-                tx_args.advice_inputs().clone(),
+                tx_script,
+                advice_inputs,
+                foreign_account_inputs,
             )
             .await?)
     }
@@ -1010,59 +1052,6 @@ impl Client {
     ) -> Result<(), ClientError> {
         self.apply_transaction(tx_result).await
     }
-}
-
-/// Extends the advice inputs with account data and Merkle proofs, and loads the necessary
-/// [code](AccountCode) in `tx_executor`.
-fn extend_advice_inputs_for_foreign_account(
-    tx_args: &mut TransactionArgs,
-    tx_executor: &mut TransactionExecutor,
-    foreign_account_inputs: ForeignAccountInputs,
-    account_witness: &AccountWitness,
-) -> Result<(), ClientError> {
-    let (account_header, storage_header, account_code, proofs) =
-        foreign_account_inputs.into_parts();
-
-    let account_id = account_header.id();
-    let foreign_id_root =
-        Digest::from([account_id.suffix(), account_id.prefix().as_felt(), ZERO, ZERO]);
-
-    // Extend the advice inputs with the new data
-    tx_args.extend_advice_map([
-        // ACCOUNT_ID -> [ID_AND_NONCE, VAULT_ROOT, STORAGE_ROOT, CODE_ROOT]
-        (foreign_id_root, account_header.as_elements()),
-        // STORAGE_ROOT -> [STORAGE_SLOT_DATA]
-        (account_header.storage_commitment(), storage_header.as_elements()),
-        // CODE_ROOT -> [ACCOUNT_CODE_DATA]
-        (account_header.code_commitment(), account_code.as_elements()),
-    ]);
-
-    // Load merkle nodes for storage maps
-    for proof in proofs {
-        // Extend the merkle store and map with the storage maps
-        tx_args.extend_merkle_store(
-            proof.path().inner_nodes(proof.leaf().index().value(), proof.leaf().hash())?,
-        );
-        // Populate advice map with Sparse Merkle Tree leaf nodes
-        tx_args
-            .extend_advice_map(core::iter::once((proof.leaf().hash(), proof.leaf().to_elements())));
-    }
-
-    let account_leaf = account_witness.leaf();
-    let account_leaf_hash = account_leaf.hash();
-
-    // Extend the advice inputs with Merkle store data
-    tx_args.extend_merkle_store(
-        account_witness
-            .path()
-            .inner_nodes(account_id.prefix().as_u64(), account_leaf_hash)?,
-    );
-    // populate advice map with the account's leaf
-    tx_args.extend_advice_map([(account_leaf_hash, account_leaf.to_elements())]);
-
-    tx_executor.load_account_code(&account_code);
-
-    Ok(())
 }
 
 // HELPERS

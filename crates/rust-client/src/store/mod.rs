@@ -156,7 +156,7 @@ pub trait Store: Send + Sync {
     /// contains notes relevant to the client.
     async fn get_block_headers(
         &self,
-        block_numbers: &[BlockNumber],
+        block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
     /// Retrieves a [`BlockHeader`] corresponding to the provided block number and a boolean value
@@ -168,7 +168,7 @@ pub trait Store: Send + Sync {
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<(BlockHeader, bool)>, StoreError> {
-        self.get_block_headers(&[block_number])
+        self.get_block_headers(&[block_number].into_iter().collect())
             .await
             .map(|mut block_headers_list| block_headers_list.pop())
     }

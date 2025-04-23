@@ -210,9 +210,9 @@ impl Store for SqliteStore {
 
     async fn get_block_headers(
         &self,
-        block_numbers: &[BlockNumber],
+        block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
-        let block_numbers = block_numbers.to_vec();
+        let block_numbers = block_numbers.clone();
         self.interact_with_connection(move |conn| {
             SqliteStore::get_block_headers(conn, &block_numbers)
         })

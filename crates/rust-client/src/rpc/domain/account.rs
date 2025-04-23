@@ -251,6 +251,7 @@ pub struct AccountProof {
 }
 
 impl AccountProof {
+    /// Creates a new [`AccountProof`].
     pub fn new(
         account_witness: AccountWitness,
         state_headers: Option<StateHeaders>,
@@ -273,30 +274,32 @@ impl AccountProof {
         Ok(Self { account_witness, state_headers })
     }
 
+    /// Returns the account ID related to the account proof.
     pub fn account_id(&self) -> AccountId {
         self.account_witness.id()
     }
 
+    /// Returns the account header, if present.
     pub fn account_header(&self) -> Option<&AccountHeader> {
         self.state_headers.as_ref().map(|headers| &headers.account_header)
     }
 
+    /// Returns the storage header, if present.
     pub fn storage_header(&self) -> Option<&AccountStorageHeader> {
         self.state_headers.as_ref().map(|headers| &headers.storage_header)
     }
 
+    /// Returns the account code, if present.
     pub fn account_code(&self) -> Option<&AccountCode> {
         self.state_headers.as_ref().map(|headers| &headers.code)
     }
 
-    pub fn state_headers(&self) -> Option<&StateHeaders> {
-        self.state_headers.as_ref()
-    }
-
+    /// Returns the code commitment, if account code is present in the state headers.
     pub fn code_commitment(&self) -> Option<Digest> {
         self.account_code().map(AccountCode::commitment)
     }
 
+    /// Returns the current state commitment of the account.
     pub fn account_commitment(&self) -> Digest {
         self.account_witness.state_commitment()
     }
@@ -305,6 +308,7 @@ impl AccountProof {
         &self.account_witness
     }
 
+    /// Returns the proof of the account's inclusion.
     pub fn merkle_proof(&self) -> &MerklePath {
         self.account_witness.path()
     }

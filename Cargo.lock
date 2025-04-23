@@ -1181,9 +1181,9 @@ checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
 name = "libm"
-version = "0.2.11"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8355be11b20d696c8f18f6cc018c4e372165b1fa8126cef092399c9951984ffa"
+checksum = "c9627da5196e5d8ed0b0495e61e518847578da83483c37288316d9b2e03a7f72"
 
 [[package]]
 name = "libredox"
@@ -1473,7 +1473,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#c9bcf372696a6a4a9cb8789e6feb86a2d169b55b"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1539,7 +1539,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#c9bcf372696a6a4a9cb8789e6feb86a2d169b55b"
 dependencies = [
  "bech32",
  "getrandom 0.3.2",
@@ -1586,7 +1586,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#c9bcf372696a6a4a9cb8789e6feb86a2d169b55b"
 dependencies = [
  "async-trait",
  "getrandom 0.3.2",
@@ -1616,7 +1616,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#0b0a2d8d955772583767ba656dd85a36694fa1f1"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#c9bcf372696a6a4a9cb8789e6feb86a2d169b55b"
 dependencies = [
  "async-trait",
  "miden-lib",

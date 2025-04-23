@@ -1,5 +1,5 @@
 use alloc::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
@@ -57,7 +57,7 @@ impl WebStore {
 
     pub(crate) async fn get_block_headers(
         &self,
-        block_numbers: &[BlockNumber],
+        block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let formatted_block_numbers_list: Vec<String> = block_numbers
             .iter()
