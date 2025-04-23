@@ -3,11 +3,13 @@ use std::fs;
 use miden_client::{Client, store::NoteFilter};
 
 use super::config::CliConfig;
-use crate::errors::CliError;
+use crate::{errors::CliError, load_config_file};
 
-pub async fn print_client_info(client: &Client, config: &CliConfig) -> Result<(), CliError> {
+pub async fn print_client_info(client: &Client) -> Result<(), CliError> {
+    let (config, _) = load_config_file()?;
+
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
-    print_config_stats(config)?;
+    print_config_stats(&config)?;
     print_client_stats(client).await
 }
 
