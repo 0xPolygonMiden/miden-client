@@ -91,7 +91,9 @@ impl Client {
         // Find all relevant Input Notes using the note checker
         for input_note in committed_notes.updated_input_notes() {
             if !note_screener
-                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
+                .check_relevance(
+                    &input_note.try_into().map_err(ClientError::NoteRecordConversionError)?,
+                )
                 .await?
                 .is_empty()
             {

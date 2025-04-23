@@ -18,9 +18,9 @@ use crate::store::StoreError;
 /// Wrapper structure that implements [`DataStore`] over any [`Store`].
 pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: alloc::sync::Arc<dyn Store>,
+    store: alloc::sync::Arc<dyn Store>,
     /// Store used to provide MAST nodes to the transaction executor.
-    pub transaction_mast_store: Arc<TransactionMastStore>,
+    transaction_mast_store: Arc<TransactionMastStore>,
 }
 
 impl ClientDataStore {
@@ -41,14 +41,10 @@ impl DataStore for ClientDataStore {
     async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        block_refs: BTreeSet<BlockNumber>,
+        mut block_refs: BTreeSet<BlockNumber>,
     ) -> Result<(Account, Option<Word>, BlockHeader, ChainMmr), DataStoreError> {
-        let mut block_refs = block_refs;
         // Pop last block, used as reference (it does not need to be authenticated manually)
-        let ref_block = block_refs.pop_last().ok_or(DataStoreError::Other {
-            error_msg: "Block set is empty".into(),
-            source: None,
-        })?;
+        let ref_block = block_refs.pop_last().ok_or(DataStoreError::other("Block set is empty"))?;
 
         // Construct Account
         let account_record = self

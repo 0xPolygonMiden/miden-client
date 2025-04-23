@@ -299,7 +299,7 @@ impl AccountProof {
         self.account_code().map(AccountCode::commitment)
     }
 
-    /// Returns the current account commitment.
+    /// Returns the current state commitment of the account.
     pub fn account_commitment(&self) -> Digest {
         self.account_witness.state_commitment()
     }

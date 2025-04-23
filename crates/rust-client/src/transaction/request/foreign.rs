@@ -24,8 +24,9 @@ pub enum ForeignAccount {
     /// account ID. The second element of the tuple indicates which storage slot indices
     /// and map keys are desired to be retrieved.
     Public(AccountId, AccountStorageRequirements),
-    /// Private account data requires [`ForeignAccountInputs`] to be input. Proof of the account's
-    /// existence will be retrieved from the network at execution time.
+    /// Private account data requires [`ForeignAccountInformation`] to be passed. An account witness
+    /// will be retrieved from the network at execution time so that it can be used as inputs to
+    /// the transaction kernel.
     Private(ForeignAccountInformation),
 }
 
@@ -130,11 +131,12 @@ impl Deserializable for ForeignAccount {
 // FOREIGN ACCOUNT INFORMATION
 // ================================================================================================
 
-/// Contains information about a foreign account, with everything required to execute its code.
+/// Contains information about a foreign account, with everything required to execute its code from
+/// the context of the native account.
 ///
-/// This structure contains all data internal to the account needed to execute a transaction that
-/// uses a foreign account, except the account witness, which is retrieved within
-/// [`crate::Client::new_transaction()`].
+/// At the moment of transaction execution ([`crate::Client::new_transaction()`]), an account
+/// witness is fetched for the account and this struct can be converted into
+/// [`ForeignAccountInputs`], which is then used as inputs to the transaction kernel.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ForeignAccountInformation {
     /// Account header of the foreign account.
@@ -148,7 +150,7 @@ pub struct ForeignAccountInformation {
 }
 
 impl ForeignAccountInformation {
-    /// Creates a new [`ForeignAccountInputs`]
+    /// Creates a new [`ForeignAccountInformation`]
     pub fn new(
         account_header: AccountHeader,
         storage_header: AccountStorageHeader,

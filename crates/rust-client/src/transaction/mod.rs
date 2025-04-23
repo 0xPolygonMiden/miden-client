@@ -96,17 +96,20 @@ use crate::{
 
 mod request;
 
+// RE-EXPORTS
+// ================================================================================================
+
 pub use miden_lib::{
     account::interface::{AccountComponentInterface, AccountInterface},
     transaction::TransactionKernel,
 };
-// RE-EXPORTS
-// ================================================================================================
-pub use miden_objects::transaction::{
-    ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
-    TransactionId, TransactionScript,
+pub use miden_objects::{
+    transaction::{
+        ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        TransactionId, TransactionScript,
+    },
+    vm::{AdviceInputs, AdviceMap},
 };
-pub use miden_objects::vm::{AdviceInputs, AdviceMap};
 pub use miden_tx::{
     DataStoreError, LocalTransactionProver, ProvingOptions, TransactionExecutorError,
     TransactionProver, TransactionProverError, auth::TransactionAuthenticator,
@@ -505,10 +508,10 @@ impl Client {
             let mut input_notes: Vec<InputNote> = Vec::new();
 
             for note in self.store.get_input_notes(NoteFilter::List(note_ids)).await? {
-                input_notes.push(note.try_into().unwrap());
+                input_notes.push(note.try_into().map_err(ClientError::NoteRecordConversionError)?);
             }
 
-            InputNotes::new(input_notes).unwrap()
+            InputNotes::new(input_notes).map_err(ClientError::TransactionInputError)?
         };
 
         let output_notes: Vec<Note> =
@@ -949,17 +952,12 @@ impl Client {
                 },
                 ForeignAccount::Private(foreign_account_info) => {
                     let account_id = foreign_account_info.account_header().id();
-                    let proof = account_proofs
+                    let (witness, _) = account_proofs
                         .remove(&account_id)
-                        .expect("proof was requested and received");
+                        .expect("proof was requested and received")
+                        .into_parts();
 
-                    ForeignAccountInputs::new(
-                        foreign_account_info.account_header().clone(),
-                        foreign_account_info.storage_header().clone(),
-                        foreign_account_info.account_code().clone(),
-                        proof.account_witness().clone(),
-                        foreign_account_info.storage_map_proofs().to_vec(),
-                    )
+                    foreign_account_info.clone().into_foreign_account_inputs(witness)
                 },
             };
 
@@ -967,12 +965,7 @@ impl Client {
         }
 
         // Optionally retrieve block header if we don't have it
-        if self
-            .store
-            .get_block_headers(&[block_num].into_iter().collect())
-            .await?
-            .is_empty()
-        {
+        if self.store.get_block_header_by_num(block_num).await?.is_none() {
             info!(
                 "Getting current block header data to execute transaction with foreign account requirements"
             );
