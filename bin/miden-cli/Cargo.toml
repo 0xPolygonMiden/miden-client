@@ -30,7 +30,6 @@ required-features = ["concurrent"]
 
 [dev-dependencies]
 assert_cmd = { version = "2.0" }
-miden-client-tests = { path = "../../tests" }
 predicates = { version = "3.0" }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 

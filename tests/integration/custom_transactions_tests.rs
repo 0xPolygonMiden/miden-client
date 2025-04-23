@@ -1,6 +1,7 @@
 use miden_client::{
     ZERO,
     note::NoteExecutionHint,
+    testing::common::*,
     transaction::{TransactionRequest, TransactionRequestBuilder},
     utils::{Deserializable, Serializable},
 };
@@ -20,8 +21,6 @@ use miden_objects::{
     transaction::OutputNote,
     vm::AdviceMap,
 };
-
-use super::common::*;
 
 // CUSTOM TRANSACTION REQUEST
 // ================================================================================================

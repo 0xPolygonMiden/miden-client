@@ -4,6 +4,7 @@ use miden_client::{
     auth::AuthSecretKey,
     block::BlockHeader,
     rpc::domain::account::{AccountStorageRequirements, StorageMapKey},
+    testing::common::*,
     transaction::{
         ForeignAccount, ForeignAccountInformation, TransactionKernel, TransactionRequestBuilder,
     },
@@ -16,8 +17,6 @@ use miden_objects::{
     transaction::TransactionScript,
     vm::AdviceInputs,
 };
-
-use super::common::*;
 
 // FPI TESTS
 // ================================================================================================

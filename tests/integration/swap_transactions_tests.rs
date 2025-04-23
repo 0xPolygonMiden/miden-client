@@ -1,6 +1,7 @@
 use miden_client::{
     account::Account,
     note::{Note, build_swap_tag},
+    testing::common::*,
     transaction::{SwapTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
@@ -8,8 +9,6 @@ use miden_objects::{
     asset::{Asset, FungibleAsset},
     note::{NoteDetails, NoteFile, NoteType},
 };
-
-use super::common::*;
 
 // SWAP FULLY ONCHAIN
 // ================================================================================================

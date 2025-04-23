@@ -2,6 +2,7 @@ use miden_client::{
     account::build_wallet_id,
     auth::AuthSecretKey,
     store::{InputNoteState, NoteFilter},
+    testing::common::*,
     transaction::{PaymentTransactionData, TransactionRequestBuilder},
 };
 use miden_objects::{
@@ -11,8 +12,6 @@ use miden_objects::{
     transaction::InputNote,
 };
 use rand::RngCore;
-
-use super::common::*;
 
 #[tokio::test]
 async fn test_onchain_notes_flow() {

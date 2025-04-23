@@ -20,12 +20,14 @@ use miden_client::{
     },
     rpc::{Endpoint, TonicRpcClient},
     store::sqlite_store::SqliteStore,
-    testing::account_id::ACCOUNT_ID_PRIVATE_SENDER,
+    testing::{
+        account_id::ACCOUNT_ID_PRIVATE_SENDER,
+        common::{
+            ACCOUNT_ID_REGULAR, TEST_CLIENT_RPC_CONFIG_FILE, execute_tx_and_sync, insert_new_wallet,
+        },
+    },
     transaction::{OutputNote, TransactionRequestBuilder},
     utils::Serializable,
-};
-use miden_client_tests::common::{
-    ACCOUNT_ID_REGULAR, TEST_CLIENT_RPC_CONFIG_FILE, execute_tx_and_sync, insert_new_wallet,
 };
 use predicates::str::contains;
 use rand::Rng;

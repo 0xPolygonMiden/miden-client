@@ -1,13 +1,29 @@
 use std::{
+    boxed::Box,
     env::temp_dir,
     fs::OpenOptions,
     io::Write,
     path::PathBuf,
+    println,
+    string::ToString,
     sync::Arc,
     time::{Duration, Instant},
+    vec::Vec,
 };
 
-use miden_client::{
+use miden_objects::{
+    Felt, FieldElement,
+    account::{Account, AccountId, AccountStorageMode},
+    asset::{Asset, FungibleAsset, TokenSymbol},
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
+    note::{NoteId, NoteType},
+    transaction::{InputNote, OutputNote, TransactionId},
+};
+use rand::{Rng, RngCore, rngs::StdRng};
+use toml::Table;
+use uuid::Uuid;
+
+use crate::{
     Client, ClientError, Word,
     account::{
         AccountBuilder, AccountType,
@@ -26,24 +42,20 @@ use miden_client::{
         TransactionStatus,
     },
 };
-use miden_objects::{
-    Felt, FieldElement,
-    account::{Account, AccountId, AccountStorageMode},
-    asset::{Asset, FungibleAsset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
-    note::{NoteId, NoteType},
-    transaction::{InputNote, OutputNote, TransactionId},
-};
-use rand::{Rng, RngCore, rngs::StdRng};
-use toml::Table;
-use uuid::Uuid;
-
-pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE;
 
 pub type TestClient = Client;
 pub type TestClientKeyStore = FilesystemKeyStore<StdRng>;
 
-pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
+// CONSTANTS
+// ================================================================================================
+pub const ACCOUNT_ID_REGULAR: u128 = ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE;
+
+pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("./config/miden-client-rpc.toml");
+
+/// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
+/// too low, some tests might fail due to expected recall failures not happening.
+pub const RECALL_HEIGHT_DELTA: u32 = 50;
+
 /// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -51,8 +63,8 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-clie
 ///
 /// # Panics
 ///
-/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
-/// deserialized into a [ClientConfig].
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or if the config file
+/// is not valid.
 pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
@@ -81,6 +93,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     (client, keystore)
 }
 
+/// Retrieves the client configuration from the `TEST_CLIENT_RPC_CONFIG_FILE`.
 pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
     let rpc_config_toml = TEST_CLIENT_RPC_CONFIG_FILE.parse::<Table>().unwrap();
     let rpc_endpoint_toml = rpc_config_toml["endpoint"].as_table().unwrap();
@@ -88,14 +101,14 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
     let protocol = rpc_endpoint_toml["protocol"].as_str().unwrap().to_string();
     let host = rpc_endpoint_toml["host"].as_str().unwrap().to_string();
     let port = if rpc_endpoint_toml.contains_key("port") {
-        rpc_endpoint_toml["port"].as_integer().map(|port| port as u16)
+        rpc_endpoint_toml["port"].as_integer().map(|port| u16::try_from(port).unwrap())
     } else {
         None
     };
 
     let endpoint = Endpoint::new(protocol, host, port);
 
-    let timeout_ms = rpc_config_toml["timeout"].as_integer().unwrap() as u64;
+    let timeout_ms = u64::try_from(rpc_config_toml["timeout"].as_integer().unwrap()).unwrap();
 
     let auth_path = temp_dir().join(format!("keystore-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&auth_path).unwrap();
@@ -103,12 +116,14 @@ pub fn get_client_config() -> (Endpoint, u64, PathBuf, PathBuf) {
     (endpoint, timeout_ms, create_test_store_path(), auth_path)
 }
 
+/// Creates a temporary path for the store.
 pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
 }
 
+/// Inserts a new wallet account into the client and into the keystore.
 pub async fn insert_new_wallet(
     client: &mut Client,
     storage_mode: AccountStorageMode,
@@ -120,6 +135,7 @@ pub async fn insert_new_wallet(
     insert_new_wallet_with_seed(client, storage_mode, keystore, init_seed).await
 }
 
+/// Inserts a new wallet account built with the provided seed into the client and into the keystore.
 pub async fn insert_new_wallet_with_seed(
     client: &mut Client,
     storage_mode: AccountStorageMode,
@@ -147,6 +163,7 @@ pub async fn insert_new_wallet_with_seed(
     Ok((account, seed, key_pair))
 }
 
+/// Inserts a new fungible faucet account into the client and into the keystore.
 pub async fn insert_new_fungible_faucet(
     client: &mut Client,
     storage_mode: AccountStorageMode,
@@ -162,7 +179,7 @@ pub async fn insert_new_fungible_faucet(
     client.rng().fill_bytes(&mut init_seed);
 
     let symbol = TokenSymbol::new("TEST").unwrap();
-    let max_supply = Felt::try_from(9999999_u64.to_le_bytes().as_slice())
+    let max_supply = Felt::try_from(9_999_999_u64.to_le_bytes().as_slice())
         .expect("u64 can be safely converted to a field element");
 
     let anchor_block = client.get_latest_epoch_block().await.unwrap();
@@ -180,6 +197,7 @@ pub async fn insert_new_fungible_faucet(
     Ok((account, seed, key_pair))
 }
 
+/// Executes a transaction and asserts that it fails with the expected error.
 pub async fn execute_failing_tx(
     client: &mut TestClient,
     account_id: AccountId,
@@ -194,6 +212,7 @@ pub async fn execute_failing_tx(
     );
 }
 
+/// Executes a transaction and returns the transaction ID.
 pub async fn execute_tx(
     client: &mut TestClient,
     account_id: AccountId,
@@ -210,6 +229,7 @@ pub async fn execute_tx(
     transaction_id
 }
 
+/// Executes a transaction and waits for it to be committed.
 pub async fn execute_tx_and_sync(
     client: &mut TestClient,
     account_id: AccountId,
@@ -219,11 +239,12 @@ pub async fn execute_tx_and_sync(
     wait_for_tx(client, transaction_id).await;
 }
 
+/// Syncs the client and waits for the transaction to be committed.
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     let now = Instant::now();
+    println!("Syncing State...");
     loop {
-        println!("Syncing State...");
         client.sync_state().await.unwrap();
 
         // Check if executed transaction got committed by the node
@@ -262,11 +283,11 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
     }
 }
 
-// Syncs until `amount_of_blocks` have been created onchain compared to client's sync height
+/// Syncs until `amount_of_blocks` have been created onchain compared to client's sync height
 pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> SyncSummary {
     let current_block = client.get_sync_height().await.unwrap();
     let final_block = current_block + amount_of_blocks;
-    println!("Syncing until block {}...", final_block);
+    println!("Syncing until block {final_block}...",);
     loop {
         let summary = client.sync_state().await.unwrap();
         println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
@@ -311,7 +332,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 pub const MINT_AMOUNT: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 59;
 
-/// Sets up a basic client and returns (basic_account, basic_account, faucet_account).
+/// Sets up a basic client and returns two basic accounts and a faucet account (in that order).
 pub async fn setup_two_wallets_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
@@ -342,7 +363,7 @@ pub async fn setup_two_wallets_and_faucet(
     (first_basic_account, second_basic_account, faucet_account)
 }
 
-/// Sets up a basic client and returns (basic_account, faucet_account).
+/// Sets up a basic client and returns a basic account and a faucet account.
 pub async fn setup_wallet_and_faucet(
     client: &mut TestClient,
     accounts_storage_mode: AccountStorageMode,
@@ -363,7 +384,7 @@ pub async fn setup_wallet_and_faucet(
     (basic_account, faucet_account)
 }
 
-/// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
+/// Mints a note from `faucet_account_id` for `basic_account_id`, waits for inclusion and returns it
 /// with 1000 units of the corresponding fungible asset.
 pub async fn mint_note(
     client: &mut TestClient,
@@ -401,7 +422,7 @@ pub async fn consume_notes(
 ) {
     println!("Consuming Note...");
     let tx_request =
-        TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
+        TransactionRequestBuilder::consume_notes(input_notes.iter().map(InputNote::id).collect())
             .build()
             .unwrap();
     execute_tx_and_sync(client, account_id, tx_request).await;
@@ -450,10 +471,10 @@ pub async fn assert_note_cannot_be_consumed_twice(
     }
 }
 
-/// Creates a transaction request that mint assets for each target_id account.
+/// Creates a transaction request that mint assets for each `target_id` account.
 pub fn mint_multiple_fungible_asset(
     asset: FungibleAsset,
-    target_id: Vec<AccountId>,
+    target_id: &[AccountId],
     note_type: NoteType,
     rng: &mut impl FeltRng,
 ) -> TransactionRequest {

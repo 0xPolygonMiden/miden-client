@@ -67,9 +67,9 @@ pub use errors::RpcError;
 mod endpoint;
 pub use endpoint::Endpoint;
 
-#[cfg(not(test))]
+#[cfg(not(feature = "testing"))]
 mod generated;
-#[cfg(test)]
+#[cfg(feature = "testing")]
 pub mod generated;
 
 #[cfg(all(feature = "tonic", feature = "web-tonic"))]

@@ -31,6 +31,12 @@ impl TryFrom<ProtoTransactionId> for TransactionId {
     }
 }
 
+impl From<TransactionId> for ProtoTransactionId {
+    fn from(value: TransactionId) -> Self {
+        Self { id: Some(value.inner().into()) }
+    }
+}
+
 // TRANSACTION UPDATE
 // ================================================================================================
 

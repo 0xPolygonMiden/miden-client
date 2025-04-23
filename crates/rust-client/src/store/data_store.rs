@@ -5,7 +5,7 @@ use miden_objects::{
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    transaction::ChainMmr,
+    transaction::PartialBlockChain,
 };
 use miden_tx::{DataStore, DataStoreError, MastForestStore, TransactionMastStore};
 
@@ -42,7 +42,7 @@ impl DataStore for ClientDataStore {
         &self,
         account_id: AccountId,
         mut block_refs: BTreeSet<BlockNumber>,
-    ) -> Result<(Account, Option<Word>, BlockHeader, ChainMmr), DataStoreError> {
+    ) -> Result<(Account, Option<Word>, BlockHeader, PartialBlockChain), DataStoreError> {
         // Pop last block, used as reference (it does not need to be authenticated manually)
         let ref_block = block_refs.pop_last().ok_or(DataStoreError::other("Block set is empty"))?;
 
@@ -83,7 +83,7 @@ impl DataStore for ClientDataStore {
         let partial_mmr =
             build_partial_mmr_with_paths(&self.store, ref_block.as_u32(), &block_headers).await?;
 
-        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
+        let chain_mmr = PartialBlockChain::new(partial_mmr, block_headers).map_err(|err| {
             DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
         })?;
 

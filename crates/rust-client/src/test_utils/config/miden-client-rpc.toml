@@ -1,0 +1,8 @@
+## USAGE:
+## ================================================================================================
+# - endpoint: tuple indicating the protocol (http, https), the host, and (optionally) the port where the node is listening.
+# - timeout: timeout in ms for the rpc requests against the node.
+
+# endpoint = { protocol = "https", host = "rpc.devnet.miden.io" }
+endpoint = { protocol = "http", host = "localhost", port = 57291 }
+timeout = 10000

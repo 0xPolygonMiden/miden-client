@@ -323,7 +323,7 @@ pub mod tests {
         },
     };
 
-    use crate::mock::create_test_client;
+    use crate::tests::create_test_client;
 
     fn create_account_data(account_id: u128) -> AccountFile {
         let account =
