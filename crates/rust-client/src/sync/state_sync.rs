@@ -448,7 +448,9 @@ pub async fn on_note_received(
     } else if let Some(public_note) = public_note {
         // The note is not being tracked by the client and is public so we can screen it
         let new_note_relevance = note_screener
-            .check_relevance(&public_note.try_into().expect("Public notes should contain metadata"))
+            .check_relevance(
+                &public_note.try_into().map_err(ClientError::NoteRecordConversionError)?,
+            )
             .await?;
 
         Ok(!new_note_relevance.is_empty())

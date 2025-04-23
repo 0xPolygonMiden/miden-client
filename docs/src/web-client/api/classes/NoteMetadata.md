@@ -20,7 +20,7 @@
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### note\_tag
 
@@ -52,11 +52,11 @@
 
 ### noteType()
 
-> **noteType**(): [`NoteType`](NoteType.md)
+> **noteType**(): [`NoteType`](../enumerations/NoteType.md)
 
 #### Returns
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ***
 

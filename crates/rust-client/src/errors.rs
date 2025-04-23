@@ -5,8 +5,8 @@ use alloc::{
 
 use miden_lib::account::interface::AccountInterfaceError;
 use miden_objects::{
-    AccountError, AssetError, ChainMmrError, Digest, NoteError, TransactionScriptError,
-    account::AccountId, crypto::merkle::MerkleError, note::NoteId,
+    AccountError, AssetError, ChainMmrError, Digest, NoteError, TransactionInputError,
+    TransactionScriptError, account::AccountId, crypto::merkle::MerkleError, note::NoteId,
 };
 // RE-EXPORTS
 // ================================================================================================
@@ -64,8 +64,8 @@ pub enum ClientError {
     NoteError(#[from] NoteError),
     #[error("note import error: {0}")]
     NoteImportError(String),
-    #[error("note record error")]
-    NoteRecordError(#[from] NoteRecordError),
+    #[error("error while converting input note")]
+    NoteRecordConversionError(#[from] NoteRecordError),
     #[error("no consumable note for account {0}")]
     NoConsumableNoteForAccount(AccountId),
     #[error("rpc api error")]
@@ -76,8 +76,10 @@ pub enum ClientError {
     NoteScreenerError(#[from] NoteScreenerError),
     #[error("store error")]
     StoreError(#[from] StoreError),
-    #[error("transaction executor error")]
+    #[error("transaction executor error: {0}")]
     TransactionExecutorError(#[from] TransactionExecutorError),
+    #[error("transaction input error")]
+    TransactionInputError(#[source] TransactionInputError),
     #[error("transaction prover error")]
     TransactionProvingError(#[from] TransactionProverError),
     #[error("transaction request error")]

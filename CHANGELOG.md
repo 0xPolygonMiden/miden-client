@@ -4,14 +4,22 @@
 
 ### Features
 
+* Added support for `bech32` account IDs in the CLI (#840).
 * Added `NoteUpdate` type to the note update tracker to distinguish between different types of updates (#821).
 
 ### Changes
 
 * Updated Web Client README and Documentation (#808).
 * [BREAKING] Removed `script_roots` mod in favor of `WellKnownNote` (#834).
-* Updated the client so that only relevant block headers are stored (#828).
-* [BREAKING] Refactored the `StateSync` so that unverified notes are updated inside the component (#828).
+* Made non-default options lowercase when prompting for transaction confirmation (#843)
+* [BREAKING] Updated keystore to accept arbitrarily large public keys (#833).
+* Added Examples to Mdbook for Web Client (#850).
+* Added account code to `miden account --show` command (#835).
+* [BREAKING] Updated the client so that only relevant block headers are stored (#828).
+
+## 0.8.2 (TBD)
+
+* Converted Web Client `NoteType` class to `enum` (#831)
 
 ## 0.8.1 (2025-03-28)
 

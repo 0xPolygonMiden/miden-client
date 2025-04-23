@@ -54,7 +54,7 @@
 //! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
 //! processed and applied to the local store.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use core::cmp::max;
 
 pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
@@ -156,7 +156,7 @@ impl Client {
                     u32::try_from(block_num).expect("block number should be less than u32::MAX"),
                 ))
             })
-            .collect::<Vec<_>>();
+            .collect::<BTreeSet<_>>();
 
         let block_headers = self
             .store

@@ -2,7 +2,6 @@ use clap::ValueEnum;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table, presets};
 use miden_client::{
     Client, ClientError, IdPrefixFetchError,
-    account::AccountId,
     asset::Asset,
     crypto::Digest,
     note::{
@@ -13,8 +12,10 @@ use miden_client::{
 use miden_objects::PrettyPrint;
 
 use crate::{
-    Parser, create_dynamic_table, errors::CliError, get_output_note_with_id_prefix,
-    utils::load_faucet_details_map,
+    Parser, create_dynamic_table,
+    errors::CliError,
+    get_output_note_with_id_prefix,
+    utils::{load_faucet_details_map, parse_account_id},
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -295,10 +296,7 @@ async fn list_consumable_notes(
     account_id: Option<&String>,
 ) -> Result<(), CliError> {
     let account_id = match account_id {
-        Some(id) => Some(
-            AccountId::from_hex(id.as_str())
-                .map_err(|err| CliError::AccountId(err, "Invalid account ID".to_string()))?,
-        ),
+        Some(id) => Some(parse_account_id(&client, id).await?),
         None => None,
     };
     let notes = client.get_consumable_notes(account_id).await?;

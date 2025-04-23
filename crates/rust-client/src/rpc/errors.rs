@@ -1,4 +1,8 @@
-use alloc::string::{String, ToString};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
+use core::error::Error;
 
 use miden_objects::{NoteError, account::AccountId, note::NoteId, utils::DeserializationError};
 use thiserror::Error;
@@ -11,7 +15,7 @@ pub enum RpcError {
     #[error("rpc api response contained an update for a private account: {0}")]
     AccountUpdateForPrivateAccountReceived(AccountId),
     #[error("failed to connect to the api server: {0}")]
-    ConnectionError(String),
+    ConnectionError(#[source] Box<dyn Error + Send + Sync + 'static>),
     #[error("failed to deserialize rpc data: {0}")]
     DeserializationError(String),
     #[error("rpc api response missing an expected field: {0}")]

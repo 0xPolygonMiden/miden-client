@@ -1,19 +1,15 @@
-use alloc::{
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
-    vec::Vec,
-};
+use alloc::{boxed::Box, collections::BTreeSet, sync::Arc, vec::Vec};
 
 use miden_objects::{
+    Digest, MastForest, Word,
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    note::NoteId,
-    transaction::{ChainMmr, InputNote, InputNotes},
+    transaction::ChainMmr,
 };
-use miden_tx::{DataStore, DataStoreError, TransactionInputs};
+use miden_tx::{DataStore, DataStoreError, MastForestStore, TransactionMastStore};
 
-use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteRecordError, Store};
+use super::{ChainMmrNodeFilter, Store};
 use crate::store::StoreError;
 
 // DATA STORE
@@ -22,40 +18,33 @@ use crate::store::StoreError;
 /// Wrapper structure that implements [`DataStore`] over any [`Store`].
 pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: alloc::sync::Arc<dyn Store>,
+    store: alloc::sync::Arc<dyn Store>,
+    /// Store used to provide MAST nodes to the transaction executor.
+    transaction_mast_store: Arc<TransactionMastStore>,
 }
 
 impl ClientDataStore {
     pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
-        Self { store }
+        Self {
+            store,
+            transaction_mast_store: Arc::new(TransactionMastStore::new()),
+        }
+    }
+
+    pub fn mast_store(&self) -> Arc<TransactionMastStore> {
+        self.transaction_mast_store.clone()
     }
 }
+
 #[async_trait::async_trait(?Send)]
 impl DataStore for ClientDataStore {
     async fn get_transaction_inputs(
         &self,
         account_id: AccountId,
-        block_num: BlockNumber,
-        notes: &[NoteId],
-    ) -> Result<TransactionInputs, DataStoreError> {
-        let input_note_records: BTreeMap<NoteId, InputNoteRecord> = self
-            .store
-            .get_input_notes(NoteFilter::List(notes.to_vec()))
-            .await?
-            .into_iter()
-            .map(|note_record| (note_record.id(), note_record))
-            .collect();
-
-        // First validate that all notes were found and can be consumed
-        for note_id in notes {
-            if let Some(note_record) = input_note_records.get(note_id) {
-                if note_record.is_consumed() {
-                    return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
-                }
-            } else {
-                return Err(DataStoreError::NoteNotFound(*note_id));
-            }
-        }
+        mut block_refs: BTreeSet<BlockNumber>,
+    ) -> Result<(Account, Option<Word>, BlockHeader, ChainMmr), DataStoreError> {
+        // Pop last block, used as reference (it does not need to be authenticated manually)
+        let ref_block = block_refs.pop_last().ok_or(DataStoreError::other("Block set is empty"))?;
 
         // Construct Account
         let account_record = self
@@ -63,69 +52,56 @@ impl DataStore for ClientDataStore {
             .get_account(account_id)
             .await?
             .ok_or(DataStoreError::AccountNotFound(account_id))?;
+
         let seed = account_record.seed().copied();
         let account: Account = account_record.into();
+
+        // If the account is new, add its anchor block to partial MMR
+        if seed.is_some() {
+            assert!(account.is_new());
+            let anchor_block = BlockNumber::from_epoch(account_id.anchor_epoch());
+            if anchor_block != ref_block {
+                block_refs.insert(anchor_block);
+            }
+        }
 
         // Get header data
         let (block_header, _had_notes) = self
             .store
-            .get_block_header_by_num(block_num)
+            .get_block_header_by_num(ref_block)
             .await?
-            .ok_or(DataStoreError::BlockNotFound(block_num))?;
-
-        let mut list_of_notes = vec![];
-        let mut block_nums: Vec<BlockNumber> = vec![];
-
-        // If the account is new, add its anchor block to partial MMR
-        if seed.is_some() {
-            let anchor_block = BlockNumber::from_epoch(account_id.anchor_epoch());
-            if anchor_block != block_num {
-                block_nums.push(anchor_block);
-            }
-        }
-
-        for (_note_id, note_record) in input_note_records {
-            let input_note: InputNote =
-                note_record.try_into().map_err(|err: NoteRecordError| {
-                    DataStoreError::other_with_source(
-                        "error converting note record into InputNote",
-                        err,
-                    )
-                })?;
-
-            list_of_notes.push(input_note.clone());
-
-            // Include block if note is authenticated
-            if let Some(inclusion_proof) = input_note.proof() {
-                let note_block_num = inclusion_proof.location().block_num();
-
-                if note_block_num != block_num {
-                    block_nums.push(note_block_num);
-                }
-            }
-        }
+            .ok_or(DataStoreError::BlockNotFound(ref_block))?;
 
         let block_headers: Vec<BlockHeader> = self
             .store
-            .get_block_headers(&block_nums)
+            .get_block_headers(&block_refs)
             .await?
             .into_iter()
             .map(|(header, _has_notes)| header)
             .collect();
 
         let partial_mmr =
-            build_partial_mmr_with_paths(&self.store, block_num.as_u32(), &block_headers).await?;
+            build_partial_mmr_with_paths(&self.store, ref_block.as_u32(), &block_headers).await?;
+
         let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
             DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
         })?;
 
-        let input_notes =
-            InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
-
-        TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
-            .map_err(DataStoreError::InvalidTransactionInput)
+        Ok((account, seed, block_header, chain_mmr))
     }
 }
+
+// MAST FOREST STORE
+// ================================================================================================
+
+impl MastForestStore for ClientDataStore {
+    fn get(&self, procedure_hash: &Digest) -> Option<Arc<MastForest>> {
+        self.transaction_mast_store.get(procedure_hash)
+    }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
 
 /// Builds a [`PartialMmr`] with a specified forest number and a list of blocks that should be
 /// authenticated.

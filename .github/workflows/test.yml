@@ -5,6 +5,11 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+# Only latest commit (per PR) should run 
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test Rust
