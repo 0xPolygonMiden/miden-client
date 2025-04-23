@@ -60,7 +60,8 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
-    /// The default expiration delta for transactions.
+    /// The default expiration delta for transactions. If `None`, there is no limit and
+    /// transactions will not expire.
     default_expiration_delta: Option<u16>,
 }
 

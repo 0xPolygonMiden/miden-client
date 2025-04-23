@@ -56,42 +56,53 @@ impl InputNoteRecord {
     // PUBLIC ACCESSORS
     // ================================================================================================
 
+    /// Returns the input note ID.
     pub fn id(&self) -> NoteId {
         self.details.id()
     }
 
+    /// Returns the note's recipient.
     pub fn recipient(&self) -> Digest {
         self.details.recipient().digest()
     }
 
+    /// Returns the note's assets.
     pub fn assets(&self) -> &NoteAssets {
         self.details.assets()
     }
 
+    /// Returns the timestamp in which the note record was created, if available.
     pub fn created_at(&self) -> Option<u64> {
         self.created_at
     }
 
+    /// Returns the current note state.
     pub fn state(&self) -> &InputNoteState {
         &self.state
     }
 
+    /// Returns the note metadata, which will be available depending on the note's current state.
     pub fn metadata(&self) -> Option<&NoteMetadata> {
         self.state.metadata()
     }
 
+    /// Returns the note nullifier.
     pub fn nullifier(&self) -> Nullifier {
         self.details.nullifier()
     }
 
+    /// Returns the inclusion proof for the note.
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.state.inclusion_proof()
     }
 
+    /// Returns the note's details.
     pub fn details(&self) -> &NoteDetails {
         &self.details
     }
 
+    /// If the note was consumed locally, it returns the corresponding transaction ID.
+    /// Otherwise, returns `None`.
     pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
         self.state.consumer_transaction_id()
     }

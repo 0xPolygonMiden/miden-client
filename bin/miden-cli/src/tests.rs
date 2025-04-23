@@ -112,7 +112,7 @@ async fn test_mint_with_untracked_account() {
 // ================================================================================================
 
 // Only one faucet is being created on the genesis block
-const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account_0.mac"];
+const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account.mac"];
 
 // This tests that it's possible to import the genesis accounts and interact with them. To do so it:
 //

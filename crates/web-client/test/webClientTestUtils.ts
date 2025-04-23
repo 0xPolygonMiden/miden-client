@@ -34,7 +34,7 @@ export const mintTransaction = async (
       const mintTransactionRequest = client.newMintTransactionRequest(
         targetAccountId,
         faucetAccountId,
-        window.NoteType.private(),
+        window.NoteType.Private,
         BigInt(1000)
       );
       const mintTransactionResult = await client.newTransaction(
@@ -100,7 +100,7 @@ export const sendTransaction = async (
       let mintTransactionRequest = client.newMintTransactionRequest(
         senderAccountId,
         window.AccountId.fromHex(_faucetAccountId),
-        window.NoteType.private(),
+        window.NoteType.Private,
         BigInt(1000)
       );
 
@@ -151,7 +151,7 @@ export const sendTransaction = async (
         senderAccountId,
         targetAccountId,
         faucetAccountId,
-        window.NoteType.public(),
+        window.NoteType.Public,
         BigInt(100),
         _recallHeight
       );
@@ -429,7 +429,7 @@ export const mintAndConsumeTransaction = async (
       let mintTransactionRequest = await client.newMintTransactionRequest(
         targetAccountId,
         window.AccountId.fromHex(_faucetAccountId),
-        window.NoteType.private(),
+        window.NoteType.Private,
         BigInt(1000)
       );
 
