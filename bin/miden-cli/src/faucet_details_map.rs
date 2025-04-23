@@ -3,11 +3,11 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{account::AccountId, asset::FungibleAsset};
+use miden_client::{Client, account::AccountId, asset::FungibleAsset};
 use miden_lib::account::faucets::BasicFungibleFaucet;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::CliError;
+use crate::{errors::CliError, utils::parse_account_id};
 
 /// Stores the detail information of a faucet to be stored in the token symbol map file.
 #[derive(Debug, Serialize, Deserialize)]
@@ -88,20 +88,20 @@ impl FaucetDetailsMap {
     /// - A faucet ID was provided but the amount isn't in base units.
     /// - The amount has more than the allowed number of decimals.
     /// - The token symbol isn't present in the token symbol map file.
-    pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, CliError> {
+    pub async fn parse_fungible_asset(
+        &self,
+        client: &Client,
+        arg: &str,
+    ) -> Result<FungibleAsset, CliError> {
         let (amount, asset) = arg.split_once("::").ok_or(CliError::Parse(
             "separator `::` not found".into(),
             "Failed to parse amount and asset".to_string(),
         ))?;
-        let (faucet_id, amount) = if asset.starts_with("0x") {
+        let (faucet_id, amount) = if let Ok(id) = parse_account_id(client, asset).await {
             let amount = amount
                 .parse::<u64>()
                 .map_err(|err| CliError::Parse(err.into(), "Failed to parse u64".to_string()))?;
-            (
-                AccountId::from_hex(asset)
-                    .map_err(|err| CliError::AccountId(err, "Invalid faucet ID".to_string()))?,
-                amount,
-            )
+            (id, amount)
         } else {
             let FaucetDetails { id, decimals: faucet_decimals } =
                 self.0.get(asset).ok_or(CliError::Config(
@@ -112,10 +112,7 @@ impl FaucetDetailsMap {
             // Convert from decimal to integer.
             let amount = parse_number_as_base_units(amount, *faucet_decimals)?;
 
-            let faucet_id = AccountId::from_hex(id)
-                .map_err(|err| CliError::AccountId(err, "Invalid faucet ID".to_string()))?;
-
-            (faucet_id, amount)
+            (parse_account_id(client, id).await?, amount)
         };
 
         FungibleAsset::new(faucet_id, amount).map_err(CliError::Asset)

@@ -263,7 +263,7 @@ TX Summary:
 
 ...
 
-Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)
+Continue with proving and submission? Changes will be irreversible once the proof is finalized on the network (y/N)
 ```
 
 This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden send --force ...`):

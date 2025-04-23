@@ -132,7 +132,7 @@ impl Cli {
             Command::NewAccount(new_account) => new_account.execute(client, keystore).await,
             Command::Import(import) => import.execute(client, keystore).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client, &cli_config).await,
+            Command::Info => info::print_client_info(&client).await,
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,

@@ -190,7 +190,8 @@ use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{
-    DataStore, LocalTransactionProver, TransactionExecutor, auth::TransactionAuthenticator,
+    LocalTransactionProver, TransactionExecutor, TransactionMastStore,
+    auth::TransactionAuthenticator,
 };
 use rand::RngCore;
 use rpc::NodeRpcClient;
@@ -221,6 +222,8 @@ pub struct Client {
     tx_prover: Arc<LocalTransactionProver>,
     /// An instance of a [`TransactionExecutor`] that will be used to execute transactions.
     tx_executor: TransactionExecutor,
+    /// A MAST store, used to provide code inputs to the VM.
+    mast_store: Arc<TransactionMastStore>,
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
 }
@@ -257,9 +260,11 @@ impl Client {
         authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
     ) -> Self {
-        let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
+        let client_data_store = Arc::new(ClientDataStore::new(store.clone()));
+        let mast_store = client_data_store.mast_store();
+
         let authenticator = Some(authenticator);
-        let mut tx_executor = TransactionExecutor::new(data_store, authenticator);
+        let mut tx_executor = TransactionExecutor::new(client_data_store, authenticator);
         let tx_prover = Arc::new(LocalTransactionProver::default());
 
         if in_debug_mode {
@@ -274,6 +279,7 @@ impl Client {
             tx_prover,
             tx_executor,
             in_debug_mode,
+            mast_store,
         }
     }
 
