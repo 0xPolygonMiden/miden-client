@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
-use std::num::NonZeroUsize;
+use std::{collections::BTreeSet, num::NonZeroUsize};
 
 use miden_objects::{
     Digest,
@@ -54,7 +54,7 @@ impl SqliteStore {
 
     pub(crate) fn get_block_headers(
         conn: &mut Connection,
-        block_numbers: &[BlockNumber],
+        block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_number_list = block_numbers
             .iter()
@@ -322,7 +322,7 @@ mod test {
         let mock_block_headers = insert_dummy_block_headers(&mut store).await;
 
         let block_headers: Vec<BlockHeader> =
-            Store::get_block_headers(&store, &[1.into(), 3.into()])
+            Store::get_block_headers(&store, &[1.into(), 3.into()].into_iter().collect())
                 .await
                 .unwrap()
                 .into_iter()

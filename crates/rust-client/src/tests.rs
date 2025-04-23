@@ -357,7 +357,11 @@ async fn test_sync_state_mmr() {
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         rpc_api.blocks.last().unwrap().commitment(),
-        client.test_store().get_block_headers(&[latest_block]).await.unwrap()[0]
+        client
+            .test_store()
+            .get_block_headers(&[latest_block].into_iter().collect())
+            .await
+            .unwrap()[0]
             .0
             .commitment()
     );

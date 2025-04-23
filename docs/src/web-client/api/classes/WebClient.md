@@ -120,22 +120,6 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
-### fetchAndCacheAccountAuthByAccountId()
-
-> **fetchAndCacheAccountAuthByAccountId**(`account_id`): `Promise`\<`string`\>
-
-#### Parameters
-
-##### account\_id
-
-[`AccountId`](AccountId.md)
-
-#### Returns
-
-`Promise`\<`string`\>
-
-***
-
 ### forceImportStore()
 
 > **forceImportStore**(`store_dump`): `Promise`\<`any`\>
@@ -410,7 +394,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### amount
 
@@ -442,7 +426,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### amount
 
@@ -486,7 +470,7 @@ Meant to be used in conjunction with the force_import_store method
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 #### Returns
 

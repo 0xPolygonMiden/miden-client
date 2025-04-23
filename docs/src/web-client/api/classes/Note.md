@@ -102,7 +102,7 @@
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### serial\_num
 
@@ -138,7 +138,7 @@
 
 ##### note\_type
 
-[`NoteType`](NoteType.md)
+[`NoteType`](../enumerations/NoteType.md)
 
 ##### serial\_num
 

@@ -78,7 +78,7 @@ impl WebClient {
         &mut self,
         target_account_id: &AccountId,
         faucet_id: &AccountId,
-        note_type: &NoteType,
+        note_type: NoteType,
         amount: u64,
     ) -> Result<TransactionRequest, JsValue> {
         let fungible_asset = FungibleAsset::new(faucet_id.into(), amount)
@@ -110,7 +110,7 @@ impl WebClient {
         sender_account_id: &AccountId,
         target_account_id: &AccountId,
         faucet_id: &AccountId,
-        note_type: &NoteType,
+        note_type: NoteType,
         amount: u64,
         recall_height: Option<u32>,
     ) -> Result<TransactionRequest, JsValue> {
@@ -196,7 +196,7 @@ impl WebClient {
         offered_asset_amount: String,
         requested_asset_faucet_id: String,
         requested_asset_amount: String,
-        note_type: &NoteType,
+        note_type: NoteType,
     ) -> Result<NewSwapTransactionResult, JsValue> {
         let sender_account_id =
             NativeAccountId::from_hex(&sender_account_id).map_err(|err| err.to_string())?;
