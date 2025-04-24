@@ -9,11 +9,12 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{
-    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
-};
+use rusqlite::{OptionalExtension, params, params_from_iter, types::Value};
 
-use super::SqliteStore;
+use super::{
+    SqliteStore,
+    db_managment::{connection::Connection, transaction::Transaction},
+};
 use crate::store::{ChainMmrNodeFilter, StoreError};
 
 struct SerializedBlockHeaderData {

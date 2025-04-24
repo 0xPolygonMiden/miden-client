@@ -11,7 +11,11 @@ use alloc::{
 };
 use std::{path::PathBuf, string::ToString};
 
-use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
+use db_managment::{
+    connection::Connection,
+    migrations::apply_migrations,
+    pool_manager::{Pool, SqlitePoolManager},
+};
 use miden_objects::{
     Digest, Word,
     account::{Account, AccountCode, AccountHeader, AccountId},
@@ -20,7 +24,7 @@ use miden_objects::{
     note::{NoteTag, Nullifier},
     transaction::TransactionId,
 };
-use rusqlite::{Connection, types::Value, vtab::array};
+use rusqlite::types::Value;
 use tonic::async_trait;
 
 use super::{
@@ -36,10 +40,20 @@ use crate::{
 
 mod account;
 mod chain_data;
+mod db_managment;
 mod errors;
 mod note;
 mod sync;
 mod transaction;
+
+// CONSTANTS
+// =================================================================================================
+
+/// Number of sql statements that each connection will cache.
+const SQL_STATEMENT_CACHE_CAPACITY: usize = 32;
+
+// /// How often to run the database maintenance routine.
+// const DATABASE_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
 // SQLITE STORE
 // ================================================================================================
@@ -58,38 +72,14 @@ impl SqliteStore {
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
-        let database_exists = database_filepath.exists();
+        let sqlite_pool_manager = SqlitePoolManager::new(database_filepath.clone());
+        let pool = Pool::builder(sqlite_pool_manager).build().unwrap();
 
-        let connection_cfg = Config::new(database_filepath);
-        let pool = connection_cfg
-            .builder(Runtime::Tokio1)
-            .map_err(|err| StoreError::DatabaseError(err.to_string()))?
-            .post_create(Hook::async_fn(move |conn, _| {
-                Box::pin(async move {
-                    // Feature used to support `IN` and `NOT IN` queries. We need to load this
-                    // module for every connection we create to the DB to
-                    // support the queries we want to run
-                    conn.interact(|conn| array::load_module(conn))
-                        .await
-                        .map_err(|_| HookError::message("Loading rarray module failed"))?
-                        .map_err(|err| HookError::message(err.to_string()))?;
+        let conn = pool.get().await.unwrap();
 
-                    Ok(())
-                })
-            }))
-            .build()
-            .map_err(|err| StoreError::DatabaseError(err.to_string()))?;
+        let _ = conn.interact(apply_migrations).await.unwrap();
 
-        if !database_exists {
-            pool.get()
-                .await
-                .map_err(|err| StoreError::DatabaseError(err.to_string()))?
-                .interact(|conn| conn.execute_batch(include_str!("store.sql")))
-                .await
-                .map_err(|err| StoreError::DatabaseError(err.to_string()))??;
-        }
-
-        Ok(Self { pool })
+        Ok(SqliteStore { pool })
     }
 
     /// Interacts with the database by executing the provided function on a connection from the
