@@ -65,12 +65,6 @@ pub fn apply_migrations(conn: &mut Connection) -> Result<(), SqliteStoreError> {
 
     // Run full database optimization. This will run indexes analysis for the query planner.
     // This will also increase the `schema_version` value.
-    //
-    // We should run full database optimization in following cases:
-    // 1. Once schema was changed, especially new indexes were created.
-    // 2. After restarting of the node, on first connection established.
-    //
-    // More info: https://www.sqlite.org/pragma.html#pragma_optimize
     conn.pragma_update(None, "optimize", "0x10002")?;
 
     let new_schema_version = schema_version(conn)?;
