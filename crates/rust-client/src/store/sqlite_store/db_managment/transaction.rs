@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-/// SQLite transaction wrapper for optional query plan rendering.
+/// `SQLite` transaction wrapper for optional query plan rendering.
 pub struct Transaction<'conn> {
     inner: rusqlite::Transaction<'conn>,
 }
@@ -36,9 +36,6 @@ impl Transaction<'_> {
         // We do this first so we get invalid sql errors here
         // instead of as a panic in the query plan check for tests.
         let stmt = self.inner.prepare_cached(sql)?;
-
-        // #[cfg(test)]
-        // self.check_query_plan(sql);
 
         Ok(stmt)
     }

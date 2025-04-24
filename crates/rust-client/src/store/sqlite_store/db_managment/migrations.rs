@@ -1,13 +1,14 @@
-use std::{string::String, sync::LazyLock, vec::Vec};
+use std::{
+    string::{String, ToString},
+    sync::LazyLock,
+    vec::Vec,
+};
 
 use miden_objects::crypto::hash::blake::{Blake3_160, Blake3Digest};
 use rusqlite_migration::{M, Migrations, SchemaVersion};
 
-use super::connection::Connection;
-use crate::store::{
-    StoreError,
-    sqlite_store::db_managment::{schema_version, settings::Settings},
-};
+use super::{connection::Connection, errors::SqliteStoreError};
+use crate::store::sqlite_store::db_managment::{schema_version, settings::Settings};
 
 type Hash = Blake3Digest<20>;
 
@@ -22,40 +23,44 @@ fn up(s: &'static str) -> M<'static> {
 const DB_MIGRATION_HASH_FIELD: &str = "db-migration-hash";
 const DB_SCHEMA_VERSION_FIELD: &str = "db-schema-version";
 
-pub fn apply_migrations(conn: &mut Connection) -> Result<(), StoreError> {
-    let version_before = MIGRATIONS.current_version(conn).unwrap();
+pub fn apply_migrations(conn: &mut Connection) -> Result<(), SqliteStoreError> {
+    let version_before = MIGRATIONS.current_version(conn)?;
 
     if let SchemaVersion::Inside(ver) = version_before {
-        if !Settings::exists(conn).unwrap() {
-            panic!("No settings table in the database");
+        if !Settings::exists(conn)? {
+            return Err(SqliteStoreError::MissingSettingsTable);
         }
 
-        let last_schema_version: usize =
-            Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD).unwrap().unwrap();
-        let current_schema_version = schema_version(conn).unwrap();
+        let last_schema_version: usize = Settings::get_value(conn, DB_SCHEMA_VERSION_FIELD)?
+            .ok_or_else(|| {
+                SqliteStoreError::DatabaseError("Schema version not found".to_string())
+            })?;
+
+        let current_schema_version = schema_version(conn)?;
 
         if last_schema_version != current_schema_version {
-            panic!("Schema version mismatch");
+            return Err(SqliteStoreError::SchemaVersionMismatch);
         }
 
         let expected_hash = &*MIGRATION_HASHES[ver.get() - 1];
-        let actual_hash = hex::decode(
-            Settings::get_value::<String>(conn, DB_MIGRATION_HASH_FIELD).unwrap().unwrap(),
-        )
-        .unwrap();
+        let actual_hash =
+            hex::decode(Settings::get_value::<String>(conn, DB_MIGRATION_HASH_FIELD)?.ok_or_else(
+                || SqliteStoreError::DatabaseError("Migration hash not found".to_string()),
+            )?)
+            .map_err(|e| SqliteStoreError::HexDecodeError(e.to_string()))?;
 
         if actual_hash != expected_hash {
-            panic!("Migration hashes mismatch");
+            return Err(SqliteStoreError::MigrationHashMismatch);
         }
     }
 
-    MIGRATIONS.to_latest(conn).unwrap();
+    MIGRATIONS.to_latest(conn)?;
 
-    let version_after = MIGRATIONS.current_version(conn).unwrap();
+    let version_after = MIGRATIONS.current_version(conn)?;
 
     if version_before != version_after {
         let new_hash = hex::encode(&*MIGRATION_HASHES[MIGRATION_HASHES.len() - 1]);
-        Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &new_hash).unwrap();
+        Settings::set_value(conn, DB_MIGRATION_HASH_FIELD, &new_hash)?;
     }
 
     // Run full database optimization. This will run indexes analysis for the query planner.
@@ -68,8 +73,8 @@ pub fn apply_migrations(conn: &mut Connection) -> Result<(), StoreError> {
     // More info: https://www.sqlite.org/pragma.html#pragma_optimize
     conn.pragma_update(None, "optimize", "0x10002")?;
 
-    let new_schema_version = schema_version(conn).unwrap();
-    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version).unwrap();
+    let new_schema_version = schema_version(conn)?;
+    Settings::set_value(conn, DB_SCHEMA_VERSION_FIELD, &new_schema_version)?;
 
     Ok(())
 }
