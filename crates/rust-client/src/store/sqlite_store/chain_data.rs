@@ -262,7 +262,7 @@ fn parse_chain_mmr_nodes(
     Ok((id, node))
 }
 
-fn set_block_header_has_client_notes(
+pub(crate) fn set_block_header_has_client_notes(
     tx: &Transaction<'_>,
     block_num: u64,
     has_client_notes: bool,
