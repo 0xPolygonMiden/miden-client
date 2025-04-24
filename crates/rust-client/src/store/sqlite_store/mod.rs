@@ -73,11 +73,16 @@ impl SqliteStore {
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
         let sqlite_pool_manager = SqlitePoolManager::new(database_filepath.clone());
-        let pool = Pool::builder(sqlite_pool_manager).build().unwrap();
+        let pool = Pool::builder(sqlite_pool_manager)
+            .build()
+            .map_err(|e| StoreError::DatabaseError(e.to_string()))?;
 
-        let conn = pool.get().await.unwrap();
+        let conn = pool.get().await.map_err(|e| StoreError::DatabaseError(e.to_string()))?;
 
-        let _ = conn.interact(apply_migrations).await.unwrap();
+        let _ = conn
+            .interact(apply_migrations)
+            .await
+            .map_err(|e| StoreError::DatabaseError(e.to_string()))?;
 
         Ok(SqliteStore { pool })
     }
