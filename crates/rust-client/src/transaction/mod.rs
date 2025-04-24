@@ -259,7 +259,7 @@ pub struct TransactionRecord {
 }
 
 impl TransactionRecord {
-    #[allow(clippy::too_many_arguments)]
+    /// Creates a new instance of [`TransactionRecord`].
     pub fn new(
         id: TransactionId,
         details: TransactionDetails,
@@ -285,6 +285,7 @@ pub struct TransactionDetails {
     pub output_notes: OutputNotes,
     /// Block number for the block against which the transaction was executed.
     pub block_num: BlockNumber,
+    /// Block number at which the transaction is set to expire.
     pub expiration_block_num: BlockNumber,
 }
 
