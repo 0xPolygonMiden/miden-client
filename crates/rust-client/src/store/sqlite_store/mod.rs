@@ -337,7 +337,7 @@ impl Store for SqliteStore {
 
 /// Gets a `u64` value from the database.
 ///
-/// Sqlite uses `i64` as its internal representation format, and so when retrieving
+/// `Sqlite` uses `i64` as its internal representation format, and so when retrieving
 /// we need to make sure we cast as `u64` to get the original value
 pub fn column_value_as_u64<I: rusqlite::RowIndex>(
     row: &rusqlite::Row<'_>,
@@ -353,8 +353,8 @@ pub fn column_value_as_u64<I: rusqlite::RowIndex>(
 
 /// Converts a `u64` into a [Value].
 ///
-/// Sqlite uses `i64` as its internal representation format. Note that the `as` operator performs a
-/// lossless conversion from `u64` to `i64`.
+/// `Sqlite` uses `i64` as its internal representation format. Note that the `as` operator performs
+/// a lossless conversion from `u64` to `i64`.
 pub fn u64_to_value(v: u64) -> Value {
     #[allow(
         clippy::cast_possible_wrap,

@@ -3,6 +3,7 @@ use rusqlite::{OptionalExtension, params};
 use transaction::Transaction;
 
 pub mod connection;
+pub mod errors;
 pub mod migrations;
 pub mod pool_manager;
 pub mod settings;

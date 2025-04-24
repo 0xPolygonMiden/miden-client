@@ -5,15 +5,15 @@ use deadpool::{
     managed::{Manager, Metrics, RecycleResult},
 };
 
-use super::connection::Connection;
-use crate::store::{StoreError, sqlite_store::SQL_STATEMENT_CACHE_CAPACITY};
+use super::{connection::Connection, errors::SqliteStoreError};
+use crate::store::sqlite_store::SQL_STATEMENT_CACHE_CAPACITY;
 
 deadpool::managed_reexports!(
     "miden-client-sqlite-store",
     SqlitePoolManager,
     deadpool::managed::Object<SqlitePoolManager>,
     rusqlite::Error,
-    StoreError
+    SqliteStoreError
 );
 
 const RUNTIME: Runtime = Runtime::Tokio1;
@@ -22,7 +22,7 @@ pub struct SqlitePoolManager {
     database_path: PathBuf,
 }
 
-/// SQLite connection pool manager for optional query plan rendering.
+/// `SQLite` connection pool manager for optional query plan rendering.
 impl SqlitePoolManager {
     pub fn new(database_path: PathBuf) -> Self {
         Self { database_path }
