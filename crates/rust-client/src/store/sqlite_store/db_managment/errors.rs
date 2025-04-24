@@ -4,6 +4,10 @@ use rusqlite::Error as RusqliteError;
 use rusqlite_migration::Error as MigrationError;
 use thiserror::Error;
 
+// ERRORS
+// ================================================================================================
+
+/// Errors generated from the `SQLite` store.
 #[derive(Debug, Error)]
 pub enum SqliteStoreError {
     #[error("Database error: {0}")]

@@ -7,8 +7,8 @@ use std::{
 use miden_objects::crypto::hash::blake::{Blake3_160, Blake3Digest};
 use rusqlite_migration::{M, Migrations, SchemaVersion};
 
-use super::{connection::Connection, errors::SqliteStoreError};
-use crate::store::sqlite_store::db_managment::{schema_version, settings::Settings};
+use super::{connection::Connection, errors::SqliteStoreError, utils::schema_version};
+use crate::store::sqlite_store::db_managment::settings::Settings;
 
 type Hash = Blake3Digest<20>;
 

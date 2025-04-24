@@ -7,6 +7,9 @@ use rusqlite::vtab::array;
 
 use super::transaction::Transaction;
 
+// CONNECTION
+// ================================================================================================
+
 /// `SQLite` connection wrapper for optional query plan rendering.
 pub struct Connection {
     inner: rusqlite::Connection,
