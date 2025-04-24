@@ -43,11 +43,11 @@ where
     for tx in executed_transactions {
         table.add_row(vec![
             tx.id.to_string(),
-            tx.transaction_status.to_string(),
-            tx.account_id.to_string(),
-            tx.transaction_script.as_ref().map_or("-".to_string(), |x| x.root().to_string()),
-            tx.input_note_nullifiers.len().to_string(),
-            tx.output_notes.num_notes().to_string(),
+            tx.status.to_string(),
+            tx.details.account_id.to_string(),
+            tx.script.as_ref().map_or("-".to_string(), |x| x.root().to_string()),
+            tx.details.input_note_nullifiers.len().to_string(),
+            tx.details.output_notes.num_notes().to_string(),
         ]);
     }
 
