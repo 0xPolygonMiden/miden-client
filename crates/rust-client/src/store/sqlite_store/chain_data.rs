@@ -23,9 +23,9 @@ struct SerializedBlockHeaderData {
     has_client_notes: bool,
 }
 struct SerializedBlockHeaderParts {
-    block_num: u64,
+    _block_num: u64,
     header: Vec<u8>,
-    chain_mmr: Vec<u8>,
+    _chain_mmr: Vec<u8>,
     has_client_notes: bool,
 }
 
@@ -81,7 +81,11 @@ impl SqliteStore {
 
         conn.prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
-            .map(|result| Ok(result?).and_then(parse_block_header))
+            .map(|result| {
+                Ok(result?).and_then(|serialized_block_header_parts: SerializedBlockHeaderParts| {
+                    parse_block_header(&serialized_block_header_parts)
+                })
+            })
             .collect()
     }
 
@@ -91,7 +95,13 @@ impl SqliteStore {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         conn.prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
-            .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
+            .map(|result| {
+                Ok(result?)
+                    .and_then(|serialized_block_header_parts: SerializedBlockHeaderParts| {
+                        parse_block_header(&serialized_block_header_parts)
+                    })
+                    .map(|(block, _)| block)
+            })
             .collect()
     }
 
@@ -112,7 +122,13 @@ impl SqliteStore {
 
         conn.prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
-            .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
+            .map(|result| {
+                Ok(result?).and_then(
+                    |serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts| {
+                        parse_chain_mmr_nodes(&serialized_chain_mmr_node_parts)
+                    },
+                )
+            })
             .collect()
     }
 
@@ -234,15 +250,15 @@ fn parse_block_headers_columns(
     let has_client_notes: bool = row.get(3)?;
 
     Ok(SerializedBlockHeaderParts {
-        block_num: u64::from(block_num),
+        _block_num: u64::from(block_num),
         header,
-        chain_mmr,
+        _chain_mmr: chain_mmr,
         has_client_notes,
     })
 }
 
 fn parse_block_header(
-    serialized_block_header_parts: SerializedBlockHeaderParts,
+    serialized_block_header_parts: &SerializedBlockHeaderParts,
 ) -> Result<(BlockHeader, bool), StoreError> {
     Ok((
         BlockHeader::read_from_bytes(&serialized_block_header_parts.header)?,
@@ -265,7 +281,7 @@ fn parse_chain_mmr_nodes_columns(
 }
 
 fn parse_chain_mmr_nodes(
-    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
+    serialized_chain_mmr_node_parts: &SerializedChainMmrNodeParts,
 ) -> Result<(InOrderIndex, Digest), StoreError> {
     let id = InOrderIndex::new(
         NonZeroUsize::new(
