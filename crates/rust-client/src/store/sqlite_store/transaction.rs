@@ -16,11 +16,15 @@ use miden_objects::{
         ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
     },
 };
-use rusqlite::{Connection, Transaction, params, types::Value};
+use rusqlite::{params, types::Value};
 use tracing::info;
 
 use super::{
-    SqliteStore, account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx,
+    SqliteStore,
+    account::update_account,
+    db_managment::{connection::Connection, transaction::Transaction},
+    note::apply_note_updates_tx,
+    sync::add_note_tag_tx,
 };
 use crate::{
     insert_sql,
