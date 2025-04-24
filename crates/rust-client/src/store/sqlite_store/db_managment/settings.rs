@@ -1,6 +1,9 @@
 use rusqlite::{OptionalExtension, Result, ToSql, params, types::FromSql};
 
-use super::{connection::Connection, table_exists};
+use super::{connection::Connection, utils::table_exists};
+
+// UTILS
+// ================================================================================================
 
 /// Auxiliary macro which substitutes `$src` token by `$dst` expression.
 macro_rules! subst {
@@ -40,6 +43,10 @@ macro_rules! insert_sql {
     };
 }
 
+// SETTINGS
+// ================================================================================================
+
+/// `SQLite` settings
 pub struct Settings;
 
 impl Settings {

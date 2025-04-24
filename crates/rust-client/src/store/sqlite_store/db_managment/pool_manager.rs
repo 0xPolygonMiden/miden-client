@@ -18,6 +18,10 @@ deadpool::managed_reexports!(
 
 const RUNTIME: Runtime = Runtime::Tokio1;
 
+// POOL MANAGER
+// ================================================================================================
+
+/// `SQLite` connection pool manager for optional query plan rendering.
 pub struct SqlitePoolManager {
     database_path: PathBuf,
 }
