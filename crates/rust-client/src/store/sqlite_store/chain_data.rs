@@ -16,11 +16,27 @@ use rusqlite::{
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
 
-type SerializedBlockHeaderData = (u32, Vec<u8>, Vec<u8>, bool);
-type SerializedBlockHeaderParts = (u64, Vec<u8>, Vec<u8>, bool);
+struct SerializedBlockHeaderData {
+    block_num: u32,
+    header: Vec<u8>,
+    chain_mmr_peaks: Vec<u8>,
+    has_client_notes: bool,
+}
+struct SerializedBlockHeaderParts {
+    _block_num: u64,
+    header: Vec<u8>,
+    _chain_mmr: Vec<u8>,
+    has_client_notes: bool,
+}
 
-type SerializedChainMmrNodeData = (i64, String);
-type SerializedChainMmrNodeParts = (u64, String);
+struct SerializedChainMmrNodeData {
+    id: i64,
+    node: String,
+}
+struct SerializedChainMmrNodeParts {
+    id: u64,
+    node: String,
+}
 
 // CHAIN MMR NODE FILTER
 // --------------------------------------------------------------------------------------------
@@ -65,7 +81,11 @@ impl SqliteStore {
 
         conn.prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
-            .map(|result| Ok(result?).and_then(parse_block_header))
+            .map(|result| {
+                Ok(result?).and_then(|serialized_block_header_parts: SerializedBlockHeaderParts| {
+                    parse_block_header(&serialized_block_header_parts)
+                })
+            })
             .collect()
     }
 
@@ -75,7 +95,13 @@ impl SqliteStore {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         conn.prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
-            .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
+            .map(|result| {
+                Ok(result?)
+                    .and_then(|serialized_block_header_parts: SerializedBlockHeaderParts| {
+                        parse_block_header(&serialized_block_header_parts)
+                    })
+                    .map(|(block, _)| block)
+            })
             .collect()
     }
 
@@ -96,7 +122,13 @@ impl SqliteStore {
 
         conn.prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
-            .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
+            .map(|result| {
+                Ok(result?).and_then(
+                    |serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts| {
+                        parse_chain_mmr_nodes(&serialized_chain_mmr_node_parts)
+                    },
+                )
+            })
             .collect()
     }
 
@@ -154,13 +186,17 @@ impl SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, chain_mmr, has_client_notes) =
-            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
+        let SerializedBlockHeaderData {
+            block_num,
+            header,
+            chain_mmr_peaks,
+            has_client_notes,
+        } = serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
         const QUERY: &str = "\
         INSERT OR IGNORE INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
-        tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
+        tx.execute(QUERY, params![block_num, header, chain_mmr_peaks, has_client_notes])?;
 
         set_block_header_has_client_notes(tx, u64::from(block_num), has_client_notes)?;
         Ok(())
@@ -176,7 +212,7 @@ fn insert_chain_mmr_node(
     id: InOrderIndex,
     node: Digest,
 ) -> Result<(), StoreError> {
-    let (id, node) = serialize_chain_mmr_node(id, node);
+    let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(id, node);
     const QUERY: &str = "INSERT OR IGNORE INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
     tx.execute(QUERY, params![id, node])?;
     Ok(())
@@ -197,7 +233,12 @@ fn serialize_block_header(
     let header = block_header.to_bytes();
     let chain_mmr_peaks = chain_mmr_peaks.to_bytes();
 
-    (block_num.as_u32(), header, chain_mmr_peaks, has_client_notes)
+    SerializedBlockHeaderData {
+        block_num: block_num.as_u32(),
+        header,
+        chain_mmr_peaks,
+        has_client_notes,
+    }
 }
 
 fn parse_block_headers_columns(
@@ -208,21 +249,27 @@ fn parse_block_headers_columns(
     let chain_mmr: Vec<u8> = row.get(2)?;
     let has_client_notes: bool = row.get(3)?;
 
-    Ok((u64::from(block_num), header, chain_mmr, has_client_notes))
+    Ok(SerializedBlockHeaderParts {
+        _block_num: u64::from(block_num),
+        header,
+        _chain_mmr: chain_mmr,
+        has_client_notes,
+    })
 }
 
 fn parse_block_header(
-    serialized_block_header_parts: SerializedBlockHeaderParts,
+    serialized_block_header_parts: &SerializedBlockHeaderParts,
 ) -> Result<(BlockHeader, bool), StoreError> {
-    let (_, header, _, has_client_notes) = serialized_block_header_parts;
-
-    Ok((BlockHeader::read_from_bytes(&header)?, has_client_notes))
+    Ok((
+        BlockHeader::read_from_bytes(&serialized_block_header_parts.header)?,
+        serialized_block_header_parts.has_client_notes,
+    ))
 }
 
 fn serialize_chain_mmr_node(id: InOrderIndex, node: Digest) -> SerializedChainMmrNodeData {
     let id = i64::try_from(id.inner()).expect("id is a valid i64");
     let node = node.to_hex();
-    (id, node)
+    SerializedChainMmrNodeData { id, node }
 }
 
 fn parse_chain_mmr_nodes_columns(
@@ -230,18 +277,20 @@ fn parse_chain_mmr_nodes_columns(
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
     let id: u64 = row.get(0)?;
     let node = row.get(1)?;
-    Ok((id, node))
+    Ok(SerializedChainMmrNodeParts { id, node })
 }
 
 fn parse_chain_mmr_nodes(
-    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
+    serialized_chain_mmr_node_parts: &SerializedChainMmrNodeParts,
 ) -> Result<(InOrderIndex, Digest), StoreError> {
-    let (id, node) = serialized_chain_mmr_node_parts;
-
     let id = InOrderIndex::new(
-        NonZeroUsize::new(usize::try_from(id).expect("id is u64, should not fail")).unwrap(),
+        NonZeroUsize::new(
+            usize::try_from(serialized_chain_mmr_node_parts.id)
+                .expect("id is u64, should not fail"),
+        )
+        .unwrap(),
     );
-    let node: Digest = Digest::try_from(&node)?;
+    let node: Digest = Digest::try_from(&serialized_chain_mmr_node_parts.node)?;
     Ok((id, node))
 }
 
