@@ -60,25 +60,14 @@ export async function getTransactions(filter) {
           }
         }
 
-        let inputNotesArrayBuffer =
-          await transactionRecord.inputNotes.arrayBuffer();
-        let inputNotesArray = new Uint8Array(inputNotesArrayBuffer);
-        let inputNotesBase64 = uint8ArrayToBase64(inputNotesArray);
-        transactionRecord.inputNotes = inputNotesBase64;
-
-        let outputNotesArrayBuffer =
-          await transactionRecord.outputNotes.arrayBuffer();
-        let outputNotesArray = new Uint8Array(outputNotesArrayBuffer);
-        let outputNotesBase64 = uint8ArrayToBase64(outputNotesArray);
-        transactionRecord.outputNotes = outputNotesBase64;
+        let detailsArrayBuffer = await transactionRecord.details.arrayBuffer();
+        let detailsArray = new Uint8Array(detailsArrayBuffer);
+        let detailsBase64 = uint8ArrayToBase64(detailsArray);
+        transactionRecord.details = detailsBase64;
 
         let data = {
           id: transactionRecord.id,
-          accountId: transactionRecord.accountId,
-          initAccountState: transactionRecord.initAccountState,
-          finalAccountState: transactionRecord.finalAccountState,
-          inputNotes: transactionRecord.inputNotes,
-          outputNotes: transactionRecord.outputNotes,
+          details: transactionRecord.details,
           scriptRoot: transactionRecord.scriptRoot
             ? transactionRecord.scriptRoot
             : null,
@@ -143,18 +132,13 @@ export async function insertTransactionScript(scriptRoot, txScript) {
 
 export async function insertProvenTransactionData(
   transactionId,
-  accountId,
-  initAccountState,
-  finalAccountState,
-  inputNotes,
-  outputNotes,
+  details,
   scriptRoot,
   blockNum,
   committed
 ) {
   try {
-    let inputNotesBlob = new Blob([new Uint8Array(inputNotes)]);
-    let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
+    let detailsBlob = new Blob([new Uint8Array(details)]);
     let scriptRootBase64 = null;
     if (scriptRoot !== null) {
       let scriptRootArray = new Uint8Array(scriptRoot);
@@ -163,11 +147,7 @@ export async function insertProvenTransactionData(
 
     const data = {
       id: transactionId,
-      accountId: accountId,
-      initAccountState: initAccountState,
-      finalAccountState: finalAccountState,
-      inputNotes: inputNotesBlob,
-      outputNotes: outputNotesBlob,
+      details: detailsBlob,
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,

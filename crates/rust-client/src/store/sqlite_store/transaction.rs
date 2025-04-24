@@ -1,7 +1,6 @@
 #![allow(clippy::items_after_statements)]
 
 use alloc::{
-    borrow::ToOwned,
     string::{String, ToString},
     vec::Vec,
 };
@@ -9,12 +8,9 @@ use std::rc::Rc;
 
 use miden_objects::{
     Digest,
-    account::AccountId,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
-    transaction::{
-        ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
-    },
+    transaction::{ExecutedTransaction, ToInputNoteCommitments, TransactionId, TransactionScript},
 };
 use rusqlite::{Connection, Transaction, params, types::Value};
 use tracing::info;
@@ -25,12 +21,13 @@ use super::{
 use crate::{
     rpc::domain::transaction::TransactionUpdate,
     store::{StoreError, TransactionFilter},
-    transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
+    transaction::{
+        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+    },
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_root, block_num, commit_height, discarded) \
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, details, script_root, block_num, commit_height, discarded) \
+    VALUES (?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_root, script) \
     VALUES (?, ?)";
@@ -41,9 +38,7 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO 
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-            tx.input_notes, tx.output_notes, tx.script_root, script.script, tx.block_num, tx.commit_height, \
-            tx.discarded
+        const QUERY: &str = "SELECT tx.id, script.script, tx.details, tx.commit_height, tx.discarded \
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_root = script.script_root";
         match self {
             TransactionFilter::All => QUERY.to_string(),
@@ -65,19 +60,35 @@ impl TransactionFilter {
 // TRANSACTIONS
 // ================================================================================================
 
-type SerializedTransactionData = (
-    String,
-    String,
-    String,
-    String,
-    Vec<u8>,
-    Vec<u8>,
-    Option<Vec<u8>>,
-    Option<Vec<u8>>,
-    u32,
-    Option<u32>,
-    bool,
-);
+struct SerializedTransactionData {
+    /// Transaction ID
+    id: String,
+    /// Script root
+    script_root: Option<Vec<u8>>,
+    /// Transaction script
+    tx_script: Option<Vec<u8>>,
+    /// Transaction details
+    details: Vec<u8>,
+    /// Block number
+    block_num: u32,
+    /// Commit height
+    commit_height: Option<u32>,
+    /// Discarded flag
+    discarded: bool,
+}
+
+struct SerializedTransactionParts {
+    /// Transaction ID
+    id: String,
+    /// Transaction script
+    tx_script: Option<Vec<u8>>,
+    /// Transaction details
+    details: Vec<u8>,
+    /// Block number of the block at which the transaction was included in the chain.
+    commit_height: Option<u32>,
+    /// Indicates whether the transaction has been discarded.
+    discarded: bool,
+}
 
 impl SqliteStore {
     /// Retrieves tracked transactions, filtered by [`TransactionFilter`].
@@ -182,19 +193,15 @@ pub(super) fn insert_proven_transaction_data(
     tx: &Transaction<'_>,
     executed_transaction: &ExecutedTransaction,
 ) -> Result<(), StoreError> {
-    let (
-        transaction_id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
+    let SerializedTransactionData {
+        id,
         script_root,
         tx_script,
+        details,
         block_num,
-        committed,
+        commit_height,
         discarded,
-    ) = serialize_transaction_data(executed_transaction);
+    } = serialize_transaction_data(executed_transaction);
 
     if let Some(root) = script_root.clone() {
         tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![root, tx_script])?;
@@ -202,30 +209,16 @@ pub(super) fn insert_proven_transaction_data(
 
     tx.execute(
         INSERT_TRANSACTION_QUERY,
-        params![
-            transaction_id,
-            account_id,
-            init_account_state,
-            final_account_state,
-            input_notes,
-            output_notes,
-            script_root,
-            block_num,
-            committed,
-            discarded,
-        ],
+        params![id, details, script_root, block_num, commit_height, discarded,],
     )?;
 
     Ok(())
 }
 
-pub(super) fn serialize_transaction_data(
+fn serialize_transaction_data(
     executed_transaction: &ExecutedTransaction,
 ) -> SerializedTransactionData {
     let transaction_id: String = executed_transaction.id().inner().into();
-    let account_id = executed_transaction.account_id().to_hex();
-    let init_account_state = &executed_transaction.initial_account().commitment().to_string();
-    let final_account_state = &executed_transaction.final_account().commitment().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
     let nullifiers: Vec<Digest> = executed_transaction
@@ -234,9 +227,17 @@ pub(super) fn serialize_transaction_data(
         .map(|x| x.nullifier().inner())
         .collect();
 
-    let input_notes = nullifiers.to_bytes();
-
     let output_notes = executed_transaction.output_notes();
+
+    let details = TransactionDetails {
+        account_id: executed_transaction.account_id(),
+        init_account_state: executed_transaction.initial_account().commitment(),
+        final_account_state: executed_transaction.final_account().commitment(),
+        input_note_nullifiers: nullifiers,
+        output_notes: output_notes.clone(),
+        block_num: executed_transaction.block_header().block_num(),
+        expiration_block_num: executed_transaction.expiration_block_num(),
+    };
 
     info!("Transaction ID: {}", executed_transaction.id().inner());
     info!("Transaction account ID: {}", executed_transaction.account_id());
@@ -246,83 +247,54 @@ pub(super) fn serialize_transaction_data(
     let tx_script = transaction_args.tx_script().map(TransactionScript::to_bytes);
     let script_root = transaction_args.tx_script().map(|script| script.root().to_bytes());
 
-    (
-        transaction_id,
-        account_id,
-        init_account_state.to_owned(),
-        final_account_state.to_owned(),
-        input_notes,
-        output_notes.to_bytes(),
+    SerializedTransactionData {
+        id: transaction_id,
         script_root,
         tx_script,
-        executed_transaction.block_header().block_num().as_u32(),
-        None,
-        false,
-    )
+        details: details.to_bytes(),
+        block_num: executed_transaction.block_header().block_num().as_u32(),
+        commit_height: None,
+        discarded: false,
+    }
 }
 
 fn parse_transaction_columns(
     row: &rusqlite::Row<'_>,
-) -> Result<SerializedTransactionData, rusqlite::Error> {
+) -> Result<SerializedTransactionParts, rusqlite::Error> {
     let id: String = row.get(0)?;
-    let account_id: String = row.get(1)?;
-    let init_account_state: String = row.get(2)?;
-    let final_account_state: String = row.get(3)?;
-    let input_notes: Vec<u8> = row.get(4)?;
-    let output_notes: Vec<u8> = row.get(5)?;
-    let script_root: Option<Vec<u8>> = row.get(6)?;
-    let tx_script: Option<Vec<u8>> = row.get(7)?;
-    let block_num: u32 = row.get(8)?;
-    let commit_height: Option<u32> = row.get(9)?;
-    let discarded: bool = row.get(10)?;
+    let tx_script: Option<Vec<u8>> = row.get(1)?;
+    let details: Vec<u8> = row.get(2)?;
+    let commit_height: Option<u32> = row.get(3)?;
+    let discarded: bool = row.get(4)?;
 
-    Ok((
+    Ok(SerializedTransactionParts {
         id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
-        script_root,
         tx_script,
-        block_num,
+        details,
         commit_height,
         discarded,
-    ))
+    })
 }
 
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
-    serialized_transaction: SerializedTransactionData,
+    serialized_transaction: SerializedTransactionParts,
 ) -> Result<TransactionRecord, StoreError> {
-    let (
+    let SerializedTransactionParts {
         id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
-        _script_root,
         tx_script,
-        block_num,
+        details,
         commit_height,
         discarded,
-    ) = serialized_transaction;
-    let account_id = AccountId::from_hex(&account_id)?;
+    } = serialized_transaction;
+
     let id: Digest = id.try_into()?;
-    let init_account_state: Digest = init_account_state.try_into()?;
-    let final_account_state: Digest = final_account_state.try_into()?;
 
-    let input_note_nullifiers: Vec<Digest> = Vec::<Digest>::read_from_bytes(&input_notes)
-        .map_err(StoreError::DataDeserializationError)?;
-
-    let output_notes = OutputNotes::read_from_bytes(&output_notes)?;
-
-    let transaction_script: Option<TransactionScript> = tx_script
+    let script: Option<TransactionScript> = tx_script
         .map(|script| TransactionScript::read_from_bytes(&script))
         .transpose()?;
 
-    let transaction_status = if discarded {
+    let status = if discarded {
         TransactionStatus::Discarded
     } else {
         let commit_height = commit_height.map(BlockNumber::from);
@@ -331,13 +303,8 @@ fn parse_transaction(
 
     Ok(TransactionRecord {
         id: id.into(),
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_note_nullifiers,
-        output_notes,
-        transaction_script,
-        block_num: block_num.into(),
-        transaction_status,
+        details: TransactionDetails::read_from_bytes(&details)?,
+        script,
+        status,
     })
 }
