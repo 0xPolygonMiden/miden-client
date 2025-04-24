@@ -35,8 +35,6 @@ pub struct CliConfig {
     pub remote_prover_endpoint: Option<CliEndpoint>,
     /// Path to the directory from where account component template files will be loaded.
     pub component_template_directory: PathBuf,
-    /// Network for use in bech32 account ID enconding.
-    pub network: Network,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -71,7 +69,6 @@ impl Default for CliConfig {
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
             component_template_directory: Path::new(DEFAULT_COMPONENT_TEMPLATE_DIR).to_path_buf(),
-            network: Network::Localhost,
         }
     }
 }

@@ -1,6 +1,8 @@
 use alloc::string::{String, ToString};
 use core::fmt;
 
+use miden_objects::{NetworkIdError, account::NetworkId};
+
 // ENDPOINT
 // ================================================================================================
 
@@ -57,6 +59,17 @@ impl Endpoint {
 
     pub fn port(&self) -> Option<u16> {
         self.port
+    }
+
+    pub fn to_network_id(&self) -> Result<NetworkId, NetworkIdError> {
+        let host = self.host();
+        if host == "rpc.testnet.miden.io" {
+            Ok(NetworkId::Testnet)
+        } else if host == "rpc.devnet.miden.io" {
+            Ok(NetworkId::Devnet)
+        } else {
+            Ok(NetworkId::new(host)?)
+        }
     }
 }
 
