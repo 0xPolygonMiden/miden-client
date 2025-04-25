@@ -211,6 +211,10 @@ pub trait Store: Send + Sync {
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
 
+    /// Removes block headers that do not contain any client notes and aren't the genesis or last
+    /// block.
+    async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError>;
+
     // ACCOUNT
     // --------------------------------------------------------------------------------------------
 

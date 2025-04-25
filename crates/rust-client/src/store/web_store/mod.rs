@@ -167,6 +167,10 @@ impl Store for WebStore {
         self.get_chain_mmr_peaks_by_block_num(block_num).await
     }
 
+    async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError> {
+        self.prune_irrelevant_blocks().await
+    }
+
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 

@@ -206,6 +206,10 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError> {
+        self.interact_with_connection(SqliteStore::prune_irrelevant_blocks).await
+    }
+
     async fn get_block_headers(
         &self,
         block_numbers: &BTreeSet<BlockNumber>,

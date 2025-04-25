@@ -16,6 +16,7 @@
 * Added Examples to Mdbook for Web Client (#850).
 * Added account code to `miden account --show` command (#835).
 * [BREAKING] Added `tx_graceful_blocks` to `Client` constructor and refactored `TransactionRecord` (#848).
+* [BREAKING] Updated the client so that only relevant block headers are stored (#828).
 
 ## 0.8.2 (TBD)
 

@@ -12,7 +12,6 @@ use crate::{
         note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
     },
     store::{InputNoteRecord, OutputNoteRecord},
-    sync::NoteTagRecord,
 };
 
 // NOTE UPDATE
@@ -218,21 +217,6 @@ impl NoteUpdateTracker {
     /// Returns whether no new note-related information has been retrieved.
     pub fn is_empty(&self) -> bool {
         self.input_notes.is_empty() && self.output_notes.is_empty()
-    }
-
-    /// Returns the tags of all notes that need to be removed from the store after the state sync.
-    ///
-    /// These are the tags of notes that have been committed and no longer need to be tracked.
-    pub fn tags_to_remove(&self) -> impl Iterator<Item = NoteTagRecord> + '_ {
-        self.input_notes
-            .values()
-            .filter(|note| note.inner().is_committed())
-            .map(|note| {
-                NoteTagRecord::with_note_source(
-                    note.inner().metadata().expect("Committed notes should have metadata").tag(),
-                    note.inner().id(),
-                )
-            })
     }
 
     pub fn unspent_nullifiers(&self) -> impl Iterator<Item = Nullifier> + '_ {
