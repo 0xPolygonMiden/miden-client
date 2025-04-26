@@ -62,13 +62,14 @@ impl Endpoint {
     }
 
     pub fn to_network_id(&self) -> Result<NetworkId, NetworkIdError> {
-        let host = self.host();
-        if host == "rpc.testnet.miden.io" {
+        if self == &Endpoint::testnet() {
             Ok(NetworkId::Testnet)
-        } else if host == "rpc.devnet.miden.io" {
+        } else if self == &Endpoint::devnet() {
             Ok(NetworkId::Devnet)
+        } else if self == &Endpoint::localhost() {
+            Ok(NetworkId::new("mlcl")?)
         } else {
-            Ok(NetworkId::new(host)?)
+            Ok(NetworkId::new("mcst")?)
         }
     }
 }

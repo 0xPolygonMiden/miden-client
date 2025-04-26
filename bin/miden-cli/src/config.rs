@@ -10,7 +10,6 @@ use figment::{
     value::{Dict, Map},
 };
 use miden_client::rpc::Endpoint;
-use miden_objects::{NetworkIdError, account::NetworkId};
 use serde::{Deserialize, Serialize};
 
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
@@ -188,18 +187,5 @@ impl Network {
             Network::Localhost => Endpoint::default().to_string(),
             Network::Testnet => Endpoint::testnet().to_string(),
         }
-    }
-
-    /// Converts the Network variant to its corresponding [`NetworkId`]
-    #[allow(dead_code)]
-    pub fn to_network_id(&self) -> Result<NetworkId, NetworkIdError> {
-        let network_id = match self {
-            Network::Custom(_) => NetworkId::new("mcst")?,
-            Network::Devnet => NetworkId::Devnet,
-            Network::Localhost => NetworkId::new("mlcl")?,
-            Network::Testnet => NetworkId::Testnet,
-        };
-
-        Ok(network_id)
     }
 }
