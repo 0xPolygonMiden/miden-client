@@ -190,7 +190,7 @@ export interface NewAccountTestResult {
   isUpdatable: boolean;
   isPublic: boolean;
   isNew: boolean;
-  tokenSymbol(): string | null;
+  tokenSymbol: string;
 }
 
 export const createNewWallet = async ({
@@ -253,7 +253,7 @@ export const createNewWallet = async ({
         isUpdatable: newWallet.isUpdatable(),
         isPublic: newWallet.isPublic(),
         isNew: newWallet.isNew(),
-        tokenSymbol: () => newWallet.tokenSymbol() ?? null,
+        tokenSymbol: '',
       };
     },
     storageMode,
@@ -296,7 +296,7 @@ export const createNewFaucet = async (
         isUpdatable: newFaucet.isUpdatable(),
         isPublic: newFaucet.isPublic(),
         isNew: newFaucet.isNew(),
-        tokenSymbol: () => newFaucet.tokenSymbol() ?? null,
+        tokenSymbol: newFaucet.tokenSymbol(),
       };
     },
     storageMode,
