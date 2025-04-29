@@ -4,6 +4,7 @@
 
 * Converted Web Client `NoteType` class to `enum` (#831)
 * Exported `import_account_by_id` function to Web Client (#858)
+* Exposed `token_symbol` getter on Web Client account model (#873)
 
 ## 0.8.1 (2025-03-28)
 

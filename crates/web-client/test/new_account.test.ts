@@ -154,6 +154,7 @@ describe("new_faucet tests", () => {
         expect(result.isUpdatable).to.equal(false);
         expect(result.isPublic).to.equal(expected.isPublic);
         expect(result.isNew).to.equal(true);
+        expect(result.tokenSymbol).to.equal(tokenSymbol);
       });
     }
   );
