@@ -253,7 +253,7 @@ export const createNewWallet = async ({
         isUpdatable: newWallet.isUpdatable(),
         isPublic: newWallet.isPublic(),
         isNew: newWallet.isNew(),
-        tokenSymbol: '',
+        tokenSymbol: "",
       };
     },
     storageMode,
