@@ -40,3 +40,7 @@ node_modules/
 miden-client.toml
 ./templates/
 keystore/
+
+# Ignore files that spawn using `cargo run`
+miden-node.pid
+data/
