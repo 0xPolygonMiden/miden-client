@@ -31,11 +31,11 @@ Creates a configuration file for the client in the current directory.
 miden init
 
 # You can set up the CLI for any of the default networks
-miden init --network testnet # This is the default value if no network is provided
+miden init --network testnet
 miden init --network devnet
 miden init --network localhost
 
-# You can use the --network flag to override the default RPC config
+# You must specify the networki using the `--network` flag
 miden init --network 18.203.155.106
 # You can specify the port
 miden init --network 18.203.155.106:8080
