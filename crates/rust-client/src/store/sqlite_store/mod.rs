@@ -12,8 +12,8 @@ use alloc::{
 use std::{path::PathBuf, string::ToString};
 
 use db_managment::{
+    apply_migrations,
     connection::Connection,
-    migrations::apply_migrations,
     pool_manager::{Pool, SqlitePoolManager},
 };
 use miden_objects::{
