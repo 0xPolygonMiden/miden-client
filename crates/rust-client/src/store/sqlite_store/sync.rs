@@ -9,7 +9,7 @@ use rusqlite::params;
 use super::{
     SqliteStore,
     account::undo_account_state,
-    db_managment::{connection::Connection, transaction::Transaction},
+    db_management::{connection::Connection, transaction::Transaction},
 };
 use crate::{
     insert_sql,

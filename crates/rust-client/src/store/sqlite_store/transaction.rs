@@ -22,7 +22,7 @@ use tracing::info;
 use super::{
     SqliteStore,
     account::update_account,
-    db_managment::{connection::Connection, transaction::Transaction},
+    db_management::{connection::Connection, transaction::Transaction},
     note::apply_note_updates_tx,
     sync::add_note_tag_tx,
 };
