@@ -224,7 +224,7 @@ fn print_summary_table(account: &Account, cli_config: &CliConfig) -> Result<(), 
     table.add_row(vec![Cell::new("Account ID (hex)"), Cell::new(account.id().to_string())]);
     table.add_row(vec![
         Cell::new("Account ID (bech32)"),
-        Cell::new(account.id().to_bech32(cli_config.network.to_network_id()?)),
+        Cell::new(account.id().to_bech32(cli_config.rpc.endpoint.0.to_network_id()?)),
     ]);
     table.add_row(vec![
         Cell::new("Account Commitment"),
