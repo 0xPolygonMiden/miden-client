@@ -11,7 +11,7 @@ use alloc::{
 };
 use std::{path::PathBuf, string::ToString};
 
-use db_managment::{
+use db_management::{
     apply_migrations,
     connection::Connection,
     pool_manager::{Pool, SqlitePoolManager},
@@ -40,7 +40,7 @@ use crate::{
 
 mod account;
 mod chain_data;
-mod db_managment;
+mod db_management;
 mod errors;
 mod note;
 mod sync;

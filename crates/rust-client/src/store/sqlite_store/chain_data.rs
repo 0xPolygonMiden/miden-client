@@ -13,7 +13,7 @@ use rusqlite::{OptionalExtension, params, params_from_iter, types::Value};
 
 use super::{
     SqliteStore,
-    db_managment::{connection::Connection, transaction::Transaction},
+    db_management::{connection::Connection, transaction::Transaction},
 };
 use crate::store::{ChainMmrNodeFilter, StoreError};
 

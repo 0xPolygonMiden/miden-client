@@ -16,7 +16,7 @@ use rusqlite::{params, types::Value};
 
 use super::{
     SqliteStore, column_value_as_u64,
-    db_managment::{connection::Connection, transaction::Transaction},
+    db_management::{connection::Connection, transaction::Transaction},
     u64_to_value,
 };
 use crate::store::{AccountRecord, AccountStatus, StoreError};
