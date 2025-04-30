@@ -12,13 +12,9 @@ use miden_objects::{
     asset::{Asset, AssetVault},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, types::Value};
+use rusqlite::{Connection, Transaction, params, types::Value};
 
-use super::{
-    SqliteStore, column_value_as_u64,
-    db_management::{connection::Connection, transaction::Transaction},
-    u64_to_value,
-};
+use super::{SqliteStore, column_value_as_u64, u64_to_value};
 use crate::{
     insert_sql,
     store::{AccountRecord, AccountStatus, StoreError},

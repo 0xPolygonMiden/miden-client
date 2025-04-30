@@ -9,12 +9,11 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{OptionalExtension, params, params_from_iter, types::Value};
-
-use super::{
-    SqliteStore,
-    db_management::{connection::Connection, transaction::Transaction},
+use rusqlite::{
+    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
 };
+
+use super::SqliteStore;
 use crate::{
     insert_sql,
     store::{ChainMmrNodeFilter, StoreError},

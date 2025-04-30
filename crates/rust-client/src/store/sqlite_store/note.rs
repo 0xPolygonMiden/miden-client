@@ -14,12 +14,9 @@ use miden_objects::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
 };
-use rusqlite::{params, params_from_iter, types::Value};
+use rusqlite::{Connection, Transaction, params, params_from_iter, types::Value};
 
-use super::{
-    SqliteStore,
-    db_management::{connection::Connection, transaction::Transaction},
-};
+use super::SqliteStore;
 use crate::{
     insert_sql,
     store::{

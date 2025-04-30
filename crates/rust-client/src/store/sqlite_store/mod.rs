@@ -12,9 +12,8 @@ use alloc::{
 use std::{path::PathBuf, string::ToString};
 
 use db_management::{
-    apply_migrations,
-    connection::Connection,
     pool_manager::{Pool, SqlitePoolManager},
+    utils::apply_migrations,
 };
 use miden_objects::{
     Digest, Word,
@@ -24,7 +23,7 @@ use miden_objects::{
     note::{NoteTag, Nullifier},
     transaction::TransactionId,
 };
-use rusqlite::types::Value;
+use rusqlite::{Connection, types::Value};
 use tonic::async_trait;
 
 use super::{
@@ -45,12 +44,6 @@ mod errors;
 mod note;
 mod sync;
 mod transaction;
-
-// CONSTANTS
-// =================================================================================================
-
-/// Number of sql statements that each connection will cache.
-const SQL_STATEMENT_CACHE_CAPACITY: usize = 32;
 
 // SQLITE STORE
 // ================================================================================================

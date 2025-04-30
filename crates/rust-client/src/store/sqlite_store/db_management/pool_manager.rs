@@ -4,9 +4,9 @@ use deadpool::{
     Runtime,
     managed::{Manager, Metrics, RecycleResult},
 };
+use rusqlite::Connection;
 
-use super::{connection::Connection, errors::SqliteStoreError};
-use crate::store::sqlite_store::SQL_STATEMENT_CACHE_CAPACITY;
+use super::errors::SqliteStoreError;
 
 deadpool::managed_reexports!(
     "miden-client-sqlite-store",
@@ -21,12 +21,12 @@ const RUNTIME: Runtime = Runtime::Tokio1;
 // POOL MANAGER
 // ================================================================================================
 
-/// `SQLite` connection pool manager for optional query plan rendering.
+/// `SQLite` connection pool manager
 pub struct SqlitePoolManager {
     database_path: PathBuf,
 }
 
-/// `SQLite` connection pool manager for optional query plan rendering.
+/// `SQLite` connection pool manager
 impl SqlitePoolManager {
     pub fn new(database_path: PathBuf) -> Self {
         Self { database_path }
@@ -34,15 +34,6 @@ impl SqlitePoolManager {
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
         let conn = Connection::open(&self.database_path)?;
-
-        // Increase the statement cache size.
-        conn.set_prepared_statement_cache_capacity(SQL_STATEMENT_CACHE_CAPACITY);
-
-        // Enable the WAL mode. This allows concurrent reads while the
-        // transaction is being written, this is required for proper
-        // synchronization of the servers in-memory and on-disk representations
-        // (see [State::apply_block])
-        conn.pragma_update(None, "journal_mode", "WAL")?;
 
         // Enable foreign key checks.
         conn.pragma_update(None, "foreign_keys", "ON")?;
