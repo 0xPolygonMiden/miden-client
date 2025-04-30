@@ -12,7 +12,7 @@ use miden_objects::{
     asset::{Asset, AssetVault},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, types::Value};
+use rusqlite::{Connection, Transaction, params, types::Value};
 
 use super::{SqliteStore, column_value_as_u64, u64_to_value};
 use crate::{

@@ -45,12 +45,6 @@ mod note;
 mod sync;
 mod transaction;
 
-// CONSTANTS
-// =================================================================================================
-
-/// Number of sql statements that each connection will cache.
-const SQL_STATEMENT_CACHE_CAPACITY: usize = 32;
-
 // SQLITE STORE
 // ================================================================================================
 

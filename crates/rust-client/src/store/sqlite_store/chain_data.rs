@@ -9,7 +9,9 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{OptionalExtension, params, params_from_iter, types::Value};
+use rusqlite::{
+    Connection, OptionalExtension, Transaction, params, params_from_iter, types::Value,
+};
 
 use super::SqliteStore;
 use crate::{
