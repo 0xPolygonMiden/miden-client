@@ -108,6 +108,41 @@ async fn test_mint_with_untracked_account() {
     sync_until_committed_note(&temp_dir);
 }
 
+/// This test tries to run a mint TX using the CLI for an account that isn't tracked.
+#[tokio::test]
+async fn test_token_symbol_mapping() {
+    let temp_dir = init_cli().1;
+
+    // Create faucet account
+    let fungible_faucet_account_id = new_faucet_cli(&temp_dir, AccountStorageMode::Private);
+
+    // Create a token symbol mapping file
+    let token_symbol_map_path = temp_dir.join("token_symbol_map.toml");
+    let token_symbol_map_content =
+        format!(r#"BTC = {{ id = "{fungible_faucet_account_id}", decimals = 10 }}"#,);
+    fs::write(&token_symbol_map_path, token_symbol_map_content).unwrap();
+
+    sync_cli(&temp_dir);
+
+    let mut mint_cmd = Command::cargo_bin("miden").unwrap();
+    mint_cmd.args([
+        "mint",
+        "--target",
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap().to_hex().as_str(),
+        "--asset",
+        "0.00001::BTC",
+        "-n",
+        "private",
+        "--force",
+    ]);
+
+    let output = mint_cmd.current_dir(&temp_dir).output().unwrap();
+    assert!(output.status.success());
+
+    // Sleep for a while to ensure the note is committed on the node
+    sync_until_committed_note(&temp_dir);
+}
+
 // IMPORT TESTS
 // ================================================================================================
 
