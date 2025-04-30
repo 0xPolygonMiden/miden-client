@@ -15,6 +15,7 @@
 * [BREAKING] Updated keystore to accept arbitrarily large public keys (#833).
 * Added Examples to Mdbook for Web Client (#850).
 * Added account code to `miden account --show` command (#835).
+* Changed exec's input file format to TOML instead of JSON (#870).
 * [BREAKING] Added `tx_graceful_blocks` to `Client` constructor and refactored `TransactionRecord` (#848).
 * [BREAKING] Updated the client so that only relevant block headers are stored (#828).
 * [BREAKING] Added `DiscardCause` and merged stale and expired transactions (#853).

@@ -28,7 +28,8 @@ use models::{BlockHeaderIdxdbObject, ChainMmrNodeIdxdbObject, MmrPeaksIdxdbObjec
 
 pub mod utils;
 use utils::{
-    process_chain_mmr_nodes_from_js_value, serialize_block_header, serialize_chain_mmr_node,
+    SerializedBlockHeaderData, SerializedChainMmrNodeData, process_chain_mmr_nodes_from_js_value,
+    serialize_block_header, serialize_chain_mmr_node,
 };
 
 impl WebStore {
@@ -39,15 +40,15 @@ impl WebStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let serialized_data =
-            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
+        let SerializedBlockHeaderData {
+            block_num,
+            header,
+            chain_mmr_peaks,
+            has_client_notes,
+        } = serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
 
-        let promise = idxdb_insert_block_header(
-            serialized_data.block_num,
-            serialized_data.header,
-            serialized_data.chain_mmr_peaks,
-            serialized_data.has_client_notes,
-        );
+        let promise =
+            idxdb_insert_block_header(block_num, header, chain_mmr_peaks, has_client_notes);
         JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
         })?;
@@ -168,9 +169,9 @@ impl WebStore {
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
         for (id, node) in nodes {
-            let serialized_data = serialize_chain_mmr_node(*id, *node)?;
-            serialized_node_ids.push(serialized_data.id);
-            serialized_nodes.push(serialized_data.node);
+            let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(*id, *node)?;
+            serialized_node_ids.push(id);
+            serialized_nodes.push(node);
         }
 
         let promise = idxdb_insert_chain_mmr_nodes(serialized_node_ids, serialized_nodes);
@@ -191,15 +192,15 @@ impl WebStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let serialized_data =
-            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
+        let SerializedBlockHeaderData {
+            block_num,
+            header,
+            chain_mmr_peaks,
+            has_client_notes,
+        } = serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
 
-        let promise = idxdb_insert_block_header(
-            serialized_data.block_num,
-            serialized_data.header,
-            serialized_data.chain_mmr_peaks,
-            serialized_data.has_client_notes,
-        );
+        let promise =
+            idxdb_insert_block_header(block_num, header, chain_mmr_peaks, has_client_notes);
         JsFuture::from(promise).await.map_err(|js_error| {
             StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
         })?;

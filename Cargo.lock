@@ -1345,7 +1345,6 @@ dependencies = [
  "predicates",
  "rand 0.9.0",
  "serde",
- "serde_json",
  "thiserror 2.0.12",
  "tokio",
  "toml",

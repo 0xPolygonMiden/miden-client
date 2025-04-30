@@ -15,7 +15,7 @@ use wasm_bindgen_futures::JsFuture;
 use super::{
     WebStore,
     account::{lock_account, utils::update_account},
-    chain_data::utils::serialize_chain_mmr_node,
+    chain_data::utils::{SerializedChainMmrNodeData, serialize_chain_mmr_node},
     note::utils::apply_note_updates_tx,
     transaction::utils::upsert_transaction_record,
 };
@@ -146,9 +146,9 @@ impl WebStore {
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
         for (id, node) in block_updates.new_authentication_nodes() {
-            let serialized_data = serialize_chain_mmr_node(*id, *node)?;
-            serialized_node_ids.push(serialized_data.id);
-            serialized_nodes.push(serialized_data.node);
+            let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(*id, *node)?;
+            serialized_node_ids.push(id);
+            serialized_nodes.push(node);
         }
 
         // TODO: LOP INTO idxdb_apply_state_sync call
