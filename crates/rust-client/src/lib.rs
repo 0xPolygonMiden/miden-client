@@ -232,7 +232,7 @@ pub struct Client {
     /// Flag to enable the debug mode for scripts compilation and execution.
     in_debug_mode: bool,
     /// The default expiration delta for transactions. This is the number of blocks after which a
-    /// transaction will be discarded if it hasn't been executed yet. If `None`, it means that by
+    /// transaction will be discarded if it hasn't been included in the chain yet. If `None`, it means that by
     /// default transactions will never expire.
     default_expiration_delta: Option<u16>,
 }
