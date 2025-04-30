@@ -4,7 +4,7 @@ use deadpool::{
     Runtime,
     managed::{Manager, Metrics, RecycleResult},
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, vtab::array};
 
 use super::errors::SqliteStoreError;
 
@@ -34,6 +34,11 @@ impl SqlitePoolManager {
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
         let conn = Connection::open(&self.database_path)?;
+
+        // Feature used to support `IN` and `NOT IN` queries. We need to load
+        // this module for every connection we create to the DB to support the
+        // queries we want to run
+        array::load_module(&conn)?;
 
         // Enable foreign key checks.
         conn.pragma_update(None, "foreign_keys", "ON")?;
