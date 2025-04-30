@@ -189,8 +189,20 @@ impl TransactionUpdateTracker {
         }
     }
 
-    pub fn apply_sync_height_update(&mut self, new_sync_height: BlockNumber) {
+    pub fn apply_sync_height_update(
+        &mut self,
+        new_sync_height: BlockNumber,
+        tx_graceful_blocks: Option<u32>,
+    ) {
         for transaction in self.mutable_pending_transactions() {
+            if let Some(tx_graceful_blocks) = tx_graceful_blocks {
+                if transaction.details.block_num
+                    < new_sync_height.checked_sub(tx_graceful_blocks).unwrap_or_default()
+                {
+                    transaction.discard_transaction(DiscardCause::Stale);
+                }
+            }
+
             if transaction.details.expiration_block_num <= new_sync_height {
                 transaction.discard_transaction(DiscardCause::Expired);
             }

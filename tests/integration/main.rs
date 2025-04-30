@@ -1698,7 +1698,12 @@ async fn test_unused_rpc_api() {
 
 #[tokio::test]
 async fn test_account_rollback() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (builder, authenticator) = create_test_client_builder().await;
+
+    let mut client =
+        builder.with_tx_graceful_blocks(Some(TX_GRACEFUL_BLOCKS)).build().await.unwrap();
+
+    client.sync_state().await.unwrap();
 
     let (regular_account, faucet_account_header) =
         setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
@@ -1755,7 +1760,7 @@ async fn test_account_rollback() {
     assert!(matches!(tx_record.status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
-    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS as u32 + 1).await;
+    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
 
     // Verify the transaction is now discarded
     let tx_record = client
@@ -1766,7 +1771,7 @@ async fn test_account_rollback() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    assert!(matches!(tx_record.status, TransactionStatus::Discarded(DiscardCause::Expired)));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded(DiscardCause::Stale)));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();

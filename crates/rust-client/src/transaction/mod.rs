@@ -352,14 +352,16 @@ impl Deserializable for TransactionDetails {
 pub enum DiscardCause {
     Expired,
     InputConsumed,
+    Stale,
 }
 
 impl DiscardCause {
-    pub fn from_string(cause: &str) -> Self {
+    pub fn from_string(cause: &str) -> Result<Self, DeserializationError> {
         match cause {
-            "Expired" => DiscardCause::Expired,
-            "InputConsumed" => DiscardCause::InputConsumed,
-            _ => panic!("Unknown discard cause"),
+            "Expired" => Ok(DiscardCause::Expired),
+            "InputConsumed" => Ok(DiscardCause::InputConsumed),
+            "Stale" => Ok(DiscardCause::Stale),
+            _ => Err(DeserializationError::InvalidValue(format!("Invalid discard cause: {cause}"))),
         }
     }
 }
@@ -369,6 +371,7 @@ impl fmt::Display for DiscardCause {
         match self {
             DiscardCause::Expired => write!(f, "Expired"),
             DiscardCause::InputConsumed => write!(f, "InputConsumed"),
+            DiscardCause::Stale => write!(f, "Stale"),
         }
     }
 }

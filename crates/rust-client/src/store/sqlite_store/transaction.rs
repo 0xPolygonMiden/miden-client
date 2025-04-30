@@ -256,20 +256,12 @@ fn parse_transaction(
         .map(|script| TransactionScript::read_from_bytes(&script))
         .transpose()?;
 
-    let status = match discard_cause {
-        Some(cause) if cause == "Expired" => TransactionStatus::Discarded(DiscardCause::Expired),
-        Some(cause) if cause == "InputConsumed" => {
-            TransactionStatus::Discarded(DiscardCause::InputConsumed)
-        },
-        None => {
-            let commit_height = commit_height.map(BlockNumber::from);
-            commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
-        },
-        _ => {
-            return Err(StoreError::DatabaseError(
-                "Transaction discard cause is not valid".to_string(),
-            ));
-        },
+    let status = if let Some(cause) = discard_cause {
+        let cause = DiscardCause::from_string(&cause)?;
+        TransactionStatus::Discarded(cause)
+    } else {
+        let commit_height = commit_height.map(BlockNumber::from);
+        commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
     };
 
     Ok(TransactionRecord {

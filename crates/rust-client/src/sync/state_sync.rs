@@ -178,7 +178,7 @@ impl StateSync {
         )
         .await?;
 
-        Self::transaction_state_sync(
+        self.transaction_state_sync(
             &mut state_sync_update.transaction_updates,
             new_block_num,
             &response.transactions,
@@ -392,6 +392,7 @@ impl StateSync {
     }
 
     fn transaction_state_sync(
+        &self,
         transaction_updates: &mut TransactionUpdateTracker,
         new_sync_height: BlockNumber,
         transaction_inclusions: &[TransactionInclusion],
@@ -400,7 +401,7 @@ impl StateSync {
             transaction_updates.apply_transaction_inclusion(transaction_inclusion);
         }
 
-        transaction_updates.apply_sync_height_update(new_sync_height);
+        transaction_updates.apply_sync_height_update(new_sync_height, self.tx_graceful_blocks);
     }
 }
 
