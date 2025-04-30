@@ -309,6 +309,7 @@ pub struct TransactionDetails {
     pub output_notes: OutputNotes,
     /// Block number for the block against which the transaction was executed.
     pub block_num: BlockNumber,
+    /// Block number at which the transaction is set to expire.
     pub expiration_block_num: BlockNumber,
 }
 
@@ -543,7 +544,6 @@ impl Client {
 
         let tx_script = transaction_request.build_transaction_script(
             &self.get_account_interface(account_id).await?,
-            self.default_expiration_delta,
             self.in_debug_mode,
         )?;
 

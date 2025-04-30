@@ -36,8 +36,9 @@ mod swap_transactions_tests;
 /// too low, some tests might fail due to expected recall failures not happening.
 const RECALL_HEIGHT_DELTA: u32 = 10;
 
-/// Constant that represents the number of blocks until the transaction is considered expired.
-const EXPIRATION_DELTA: u16 = 10;
+/// Constant that represents the number of blocks until the transaction is considered
+/// stale.
+const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -1307,6 +1308,66 @@ async fn test_import_consumed_note_with_id() {
 }
 
 #[tokio::test]
+async fn test_import_note_with_proof() {
+    let (mut client_1, authenticator) = create_test_client().await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client_1, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let (mut client_2, _) = create_test_client().await;
+
+    wait_for_node(&mut client_2).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let current_block_num = client_1.get_sync_height().await.unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(current_block_num),
+        NoteType::Private,
+        client_1.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
+
+    let note = client_1
+        .get_input_notes(NoteFilter::Committed)
+        .await
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+
+    // Import the consumed note
+    client_2
+        .import_note(NoteFile::NoteWithProof(
+            note.clone().try_into().unwrap(),
+            note.inclusion_proof().unwrap().clone(),
+        ))
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
+    assert!(matches!(imported_note.state(), InputNoteState::Unverified { .. }));
+
+    client_2.sync_state().await.unwrap();
+    let imported_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
+    assert!(matches!(imported_note.state(), InputNoteState::Committed { .. }));
+}
+
+#[tokio::test]
 async fn test_discarded_transaction() {
     let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_regular_account, faucet_account_header) =
@@ -1659,7 +1720,6 @@ async fn test_account_rollback() {
         client.rng(),
     )
     .unwrap()
-    .with_expiration_delta(Some(EXPIRATION_DELTA))
     .build()
     .unwrap();
 
@@ -1695,7 +1755,7 @@ async fn test_account_rollback() {
     assert!(matches!(tx_record.status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
-    wait_for_blocks(&mut client, EXPIRATION_DELTA as u32 + 1).await;
+    wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS as u32 + 1).await;
 
     // Verify the transaction is now discarded
     let tx_record = client

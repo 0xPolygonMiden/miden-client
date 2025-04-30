@@ -55,7 +55,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-clie
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
+pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -76,12 +76,14 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
         .with_store(store)
         .with_filesystem_keystore(auth_path.to_str().unwrap())
         .in_debug_mode(true)
-        .with_default_expiration_delta(None);
+        .with_tx_graceful_blocks(None);
 
-    let mut client = builder.build().await.unwrap();
+    (builder, keystore)
+}
 
-    client.sync_state().await.unwrap();
-
+pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
+    let (builder, keystore) = create_test_client_builder().await;
+    let client = builder.build().await.unwrap();
     (client, keystore)
 }
 

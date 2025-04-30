@@ -156,8 +156,22 @@ impl WebStore {
         apply_note_updates_tx(&note_updates).await?;
 
         // Tags to remove
-        let note_tags_to_remove_as_str: Vec<String> =
-            note_updates.tags_to_remove().map(|note_tag| note_tag.tag.to_string()).collect();
+        let note_tags_to_remove_as_str: Vec<String> = note_updates
+            .updated_input_notes()
+            .filter_map(|note_update| {
+                let note = note_update.inner();
+                if note.is_committed() {
+                    Some(
+                        note.metadata()
+                            .expect("Committed notes should have metadata")
+                            .tag()
+                            .to_string(),
+                    )
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Upsert updated transactions
         for transaction_record in transaction_updates

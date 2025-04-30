@@ -16,7 +16,7 @@ use miden_objects::{
 };
 use rusqlite::{Connection, Transaction, named_params, params, params_from_iter, types::Value};
 
-use super::SqliteStore;
+use super::{SqliteStore, chain_data::set_block_header_has_client_notes};
 use crate::{
     note::NoteUpdateTracker,
     store::{
@@ -285,6 +285,15 @@ impl SqliteStore {
 
         for note in notes {
             upsert_input_note_tx(&tx, note)?;
+
+            // Whenever we insert a note, we also update block relevance
+            if let Some(inclusion_proof) = note.inclusion_proof() {
+                set_block_header_has_client_notes(
+                    &tx,
+                    inclusion_proof.location().block_num().as_u64(),
+                    true,
+                )?;
+            }
         }
 
         Ok(tx.commit()?)

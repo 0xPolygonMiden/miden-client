@@ -20,8 +20,8 @@ use crate::{Client, ClientError, keystore::FilesystemKeyStore, rpc::NodeRpcClien
 // CONSTANTS
 // ================================================================================================
 
-/// Number of blocks that must elapse before discarding pending transactions as expired.
-const DEFAULT_EXPIRATION_DELTA: u16 = 20;
+/// The number of blocks that are considered old enough to discard pending transactions.
+const TX_GRACEFUL_BLOCKS: u32 = 20;
 
 // AUTHENTICATOR CONFIGURATION
 // ================================================================================================
@@ -60,9 +60,9 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
-    /// The default expiration delta for transactions. If `None`, there is no limit and
-    /// transactions will not expire.
-    default_expiration_delta: Option<u16>,
+    /// The number of blocks that are considered old enough to discard pending transactions. If
+    /// `None`, there is no limit and transactions will be kept indefinitely.
+    tx_graceful_blocks: Option<u32>,
 }
 
 impl Default for ClientBuilder {
@@ -75,7 +75,7 @@ impl Default for ClientBuilder {
             store_path: "store.sqlite3".to_string(),
             keystore: None,
             in_debug_mode: false,
-            default_expiration_delta: Some(DEFAULT_EXPIRATION_DELTA),
+            tx_graceful_blocks: Some(TX_GRACEFUL_BLOCKS),
         }
     }
 }
@@ -139,12 +139,11 @@ impl ClientBuilder {
     }
 
     /// Optionally set a maximum number of blocks to wait for a transaction to be confirmed. If
-    /// `None`, it means the transaction will never expire.
-    ///
+    /// `None`, there is no limit and transactions will be kept indefinitely.
     /// By default, the maximum is set to `TX_GRACEFUL_BLOCKS`.
     #[must_use]
-    pub fn with_default_expiration_delta(mut self, delta: Option<u16>) -> Self {
-        self.default_expiration_delta = delta;
+    pub fn with_tx_graceful_blocks(mut self, delta: Option<u32>) -> Self {
+        self.tx_graceful_blocks = delta;
         self
     }
 
@@ -226,7 +225,7 @@ impl ClientBuilder {
             arc_store,
             authenticator,
             self.in_debug_mode,
-            self.default_expiration_delta,
+            self.tx_graceful_blocks,
         ))
     }
 }

@@ -173,6 +173,8 @@ impl Client {
                 note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
             if block_height < current_block_num {
+                // If the note is committed in the past we need to manually fetch the block
+                // header and MMR proof to verify the inclusion proof.
                 let mut current_partial_mmr = self.build_current_partial_mmr().await?;
 
                 let block_header = self
@@ -180,15 +182,15 @@ impl Client {
                     .await?;
 
                 note_changed |= note_record.block_header_received(&block_header)?;
-            }
-
-            if note_changed {
-                self.store.remove_note_tag((&note_record).try_into()?).await?;
-
-                Ok(Some(note_record))
             } else {
-                Ok(None)
+                // If the note is in the future we import it as unverified. We add the note tag so
+                // that the note is verified naturally in the next sync.
+                self.store
+                    .add_note_tag(NoteTagRecord::with_note_source(metadata.tag(), note_record.id()))
+                    .await?;
             }
+
+            if note_changed { Ok(Some(note_record)) } else { Ok(None) }
         }
     }
 

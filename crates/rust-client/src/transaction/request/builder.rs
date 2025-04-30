@@ -14,7 +14,7 @@ use miden_objects::{
 };
 
 use super::{
-    ExpirationDelta, ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
+    ForeignAccount, NoteArgs, TransactionRequest, TransactionRequestError,
     TransactionScriptTemplate,
 };
 use crate::ClientRng;
@@ -54,8 +54,8 @@ pub struct TransactionRequestBuilder {
     /// added to the executor and prover.
     foreign_accounts: BTreeMap<AccountId, ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
-    /// transaction will expire.
-    expiration_delta: ExpirationDelta,
+    /// transaction will expire. If `None`, the transaction will not expire.
+    expiration_delta: Option<u16>,
 }
 
 impl TransactionRequestBuilder {
@@ -73,7 +73,7 @@ impl TransactionRequestBuilder {
             custom_script: None,
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
-            expiration_delta: ExpirationDelta::Default,
+            expiration_delta: None,
             foreign_accounts: BTreeMap::default(),
         }
     }
@@ -204,10 +204,7 @@ impl TransactionRequestBuilder {
     /// expiration delta.
     #[must_use]
     pub fn with_expiration_delta(mut self, expiration_delta: Option<u16>) -> Self {
-        self.expiration_delta = match expiration_delta {
-            Some(delta) => ExpirationDelta::Custom(delta),
-            None => ExpirationDelta::NoExpiration,
-        };
+        self.expiration_delta = expiration_delta;
         self
     }
 
@@ -351,7 +348,7 @@ impl TransactionRequestBuilder {
                 ));
             },
             (Some(script), true) => {
-                if self.expiration_delta != ExpirationDelta::Default {
+                if self.expiration_delta.is_some() {
                     return Err(TransactionRequestError::ScriptTemplateError(
                         "Cannot set expiration delta when a custom script is set".to_string(),
                     ));

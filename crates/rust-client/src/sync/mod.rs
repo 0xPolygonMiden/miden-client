@@ -54,7 +54,7 @@
 //! `committed_note_updates` and `consumed_note_updates`) to understand how the sync data is
 //! processed and applied to the local store.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use core::cmp::max;
 
 pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
@@ -62,7 +62,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
-    transaction::TransactionId,
+    transaction::{ChainMmr, TransactionId},
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
@@ -123,6 +123,7 @@ impl Client {
                     Box::pin(on_note_received(store_clone.clone(), committed_note, public_note))
                 }
             }),
+            self.tx_graceful_blocks,
         );
 
         // Get current state of the client
@@ -143,10 +144,28 @@ impl Client {
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncommitted).await?;
 
+        // Build current chain MMR
+        let current_partial_mmr = self.build_current_partial_mmr().await?;
+
+        let all_block_numbers = (0..current_partial_mmr.forest())
+            .filter_map(|block_num| {
+                current_partial_mmr.is_tracked(block_num).then_some(BlockNumber::from(
+                    u32::try_from(block_num).expect("block number should be less than u32::MAX"),
+                ))
+            })
+            .collect::<BTreeSet<_>>();
+
+        let block_headers = self
+            .store
+            .get_block_headers(&all_block_numbers)
+            .await?
+            .into_iter()
+            .map(|(header, _has_notes)| header);
+
         // Get the sync update from the network
         let state_sync_update = state_sync
             .sync_state(
-                self.build_current_partial_mmr().await?,
+                ChainMmr::new(current_partial_mmr, block_headers)?,
                 accounts,
                 note_tags,
                 unspent_input_notes,
@@ -163,7 +182,8 @@ impl Client {
             .await
             .map_err(ClientError::StoreError)?;
 
-        self.update_mmr_data().await?;
+        // Remove irrelevant block headers
+        self.store.prune_irrelevant_blocks().await?;
 
         Ok(sync_summary)
     }
