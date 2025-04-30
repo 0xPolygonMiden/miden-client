@@ -27,17 +27,28 @@ use super::{
     sync::add_note_tag_tx,
 };
 use crate::{
+    insert_sql,
     rpc::domain::transaction::TransactionUpdate,
     store::{StoreError, TransactionFilter},
+    subst,
     transaction::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_root, block_num, commit_height, discarded) \
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = insert_sql!(transactions {
+    id,
+    account_id,
+    init_account_state,
+    final_account_state,
+    input_notes,
+    output_notes,
+    script_root,
+    block_num,
+    commit_height,
+    discarded
+});
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_root, script) \
-    VALUES (?, ?)";
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
+    insert_sql!(transaction_scripts { script_root, script } | IGNORE);
 
 // TRANSACTIONS FILTERS
 // ================================================================================================

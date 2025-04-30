@@ -14,18 +14,19 @@ use miden_objects::{
         NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
 };
-use rusqlite::{named_params, params, params_from_iter, types::Value};
+use rusqlite::{params, params_from_iter, types::Value};
 
 use super::{
     SqliteStore,
     db_management::{connection::Connection, transaction::Transaction},
 };
 use crate::{
-    note::NoteUpdates,
+    insert_sql,
     store::{
-        InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
-        note_record::OutputNoteState,
+        NoteFilter, NoteUpdates, StoreError,
+        note_record::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState},
     },
+    subst,
 };
 
 // TYPES
@@ -340,11 +341,11 @@ pub(super) fn upsert_input_note_tx(
     } = serialize_input_note(note);
 
     const SCRIPT_QUERY: &str =
-        "INSERT OR REPLACE INTO notes_scripts (script_root, serialized_note_script) VALUES (?, ?)";
+        insert_sql!(notes_scripts { script_root, serialized_note_script } | REPLACE);
     tx.execute(SCRIPT_QUERY, params![script_root, script,])?;
 
-    const NOTE_QUERY: &str = "
-        INSERT OR REPLACE INTO input_notes (
+    const NOTE_QUERY: &str = insert_sql!(
+        input_notes {
             note_id,
             assets,
             serial_number,
@@ -353,32 +354,23 @@ pub(super) fn upsert_input_note_tx(
             nullifier,
             state_discriminant,
             state,
-            created_at
-        ) VALUES (
-            :note_id,
-            :assets,
-            :serial_number,
-            :inputs,
-            :script_root,
-            :nullifier,
-            :state_discriminant,
-            :state,
-            :created_at);
-    ";
+            created_at,
+        } | REPLACE
+    );
 
     tx.execute(
         NOTE_QUERY,
-        named_params! {
-            ":note_id": id,
-            ":assets": assets,
-            ":serial_number": serial_number,
-            ":inputs": inputs,
-            ":script_root": script_root,
-            ":nullifier": nullifier,
-            ":state_discriminant": state_discriminant,
-            ":state": state,
-            ":created_at": created_at,
-        },
+        params![
+            id,
+            assets,
+            serial_number,
+            inputs,
+            script_root,
+            nullifier,
+            state_discriminant,
+            state,
+            created_at,
+        ],
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))
     .map(|_| ())
@@ -389,8 +381,8 @@ pub fn upsert_output_note_tx(
     tx: &Transaction<'_>,
     note: &OutputNoteRecord,
 ) -> Result<(), StoreError> {
-    const NOTE_QUERY: &str = "
-        INSERT OR REPLACE INTO output_notes(
+    const NOTE_QUERY: &str = insert_sql!(
+        output_notes {
             note_id,
             assets,
             recipient_digest,
@@ -399,16 +391,8 @@ pub fn upsert_output_note_tx(
             expected_height,
             state_discriminant,
             state
-        ) VALUES (
-            :note_id,
-            :assets,
-            :recipient,
-            :metadata,
-            :nullifier,
-            :expected_height,
-            :state_discriminant,
-            :state
-        );";
+        } | REPLACE
+    );
 
     let SerializedOutputNoteData {
         id,
@@ -423,16 +407,16 @@ pub fn upsert_output_note_tx(
 
     tx.execute(
         NOTE_QUERY,
-        named_params! {
-            ":note_id": id,
-            ":assets": assets,
-            ":recipient": recipient_digest,
-            ":metadata": metadata,
-            ":nullifier": nullifier,
-            ":expected_height": expected_height,
-            ":state_discriminant": state_discriminant,
-            ":state": state,
-        },
+        params![
+            id,
+            assets,
+            recipient_digest,
+            metadata,
+            nullifier,
+            expected_height,
+            state_discriminant,
+            state,
+        ],
     )?;
 
     Ok(())

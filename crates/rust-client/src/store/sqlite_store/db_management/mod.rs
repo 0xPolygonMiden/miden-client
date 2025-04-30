@@ -21,6 +21,7 @@ pub(crate) mod utils;
 // ================================================================================================
 
 /// Auxiliary macro which substitutes `$src` token by `$dst` expression.
+#[macro_export]
 macro_rules! subst {
     ($src:tt, $dst:expr_2021) => {
         $dst
@@ -41,6 +42,7 @@ macro_rules! subst {
 /// ```sql
 /// INSERT OR REPLACE INTO `users` (`id`, `first_name`, `last_name`, `age`) VALUES (?, ?, ?, ?)
 /// ```
+#[macro_export]
 macro_rules! insert_sql {
     ($table:ident { $first_field:ident $(, $($field:ident),+)? $(,)? } $(| $on_conflict:expr)?) => {
         concat!(
