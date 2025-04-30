@@ -42,7 +42,6 @@
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use core::fmt;
 
-use async_trait::async_trait;
 use domain::{
     account::{AccountDetails, AccountProofs},
     note::{NetworkNote, NoteSyncInfo},
@@ -93,8 +92,9 @@ use crate::{
 /// The implementers are responsible for connecting to the Miden node, handling endpoint
 /// requests/responses, and translating responses into domain objects relevant for each of the
 /// endpoints.
-#[async_trait(?Send)]
-pub trait NodeRpcClient {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+pub trait NodeRpcClient: Send + Sync {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` RPC endpoint.
     async fn submit_proven_transaction(
