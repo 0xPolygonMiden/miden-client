@@ -12,7 +12,7 @@ use miden_objects::{
     account::{Account, AccountCode, AccountDelta, AccountId},
     block::{AccountWitness, BlockHeader, BlockNumber, ProvenBlock},
     crypto::merkle::{MerklePath, MmrProof, SmtProof},
-    note::{Note, NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    note::{Note, NoteDetails, NoteId, NoteInclusionProof, NoteTag, Nullifier},
     transaction::ProvenTransaction,
     utils::Deserializable,
 };
@@ -181,23 +181,22 @@ impl NodeRpcClient for TonicRpcClient {
                     merkle_path,
                 )?
             };
+            let metadata = note
+                .metadata
+                .ok_or(RpcError::ExpectedDataMissing("Notes.Metadata".into()))?
+                .try_into()?;
 
             let note = if let Some(details) = note.details {
-                let note = Note::read_from_bytes(&details)?;
+                let (assets, recipient) = NoteDetails::read_from_bytes(&details)?.into_parts();
 
-                NetworkNote::Public(note, inclusion_details)
+                NetworkNote::Public(Note::new(assets, metadata, recipient), inclusion_details)
             } else {
-                let note_metadata = note
-                    .metadata
-                    .ok_or(RpcError::ExpectedDataMissing("Metadata".into()))?
-                    .try_into()?;
-
                 let note_id: Digest = note
                     .note_id
                     .ok_or(RpcError::ExpectedDataMissing("Notes.NoteId".into()))?
                     .try_into()?;
 
-                NetworkNote::Private(NoteId::from(note_id), note_metadata, inclusion_details)
+                NetworkNote::Private(NoteId::from(note_id), metadata, inclusion_details)
             };
             response_notes.push(note);
         }

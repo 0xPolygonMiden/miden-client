@@ -1,6 +1,8 @@
 use alloc::string::{String, ToString};
 use core::fmt;
 
+use miden_objects::{NetworkIdError, account::NetworkId};
+
 // ENDPOINT
 // ================================================================================================
 
@@ -57,6 +59,18 @@ impl Endpoint {
 
     pub fn port(&self) -> Option<u16> {
         self.port
+    }
+
+    pub fn to_network_id(&self) -> Result<NetworkId, NetworkIdError> {
+        if self == &Endpoint::testnet() {
+            Ok(NetworkId::Testnet)
+        } else if self == &Endpoint::devnet() {
+            Ok(NetworkId::Devnet)
+        } else if self == &Endpoint::localhost() {
+            Ok(NetworkId::new("mlcl")?)
+        } else {
+            Ok(NetworkId::new("mcst")?)
+        }
     }
 }
 

@@ -64,8 +64,6 @@ impl InitCmd {
         let mut cli_config = CliConfig::default();
 
         if let Some(network) = &self.network {
-            cli_config.network = network.clone();
-
             let endpoint =
                 CliEndpoint::try_from(network.to_rpc_endpoint().as_str()).map_err(|err| {
                     CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
