@@ -52,6 +52,7 @@ tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 getrandom = { version = "0.3", optional = true, features = ["wasm_js"] }
+vm-processor = { package = "miden-processor", version = "0.13", default-features = false }
 
 [package.metadata.cargo-machete]
 ignored = ["getrandom"]

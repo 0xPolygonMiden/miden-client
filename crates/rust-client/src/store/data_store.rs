@@ -5,9 +5,10 @@ use miden_objects::{
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    transaction::ChainMmr,
+    transaction::PartialBlockchain,
 };
-use miden_tx::{DataStore, DataStoreError, MastForestStore, TransactionMastStore};
+use miden_tx::{DataStore, DataStoreError, TransactionMastStore};
+use vm_processor::MastForestStore;
 
 use super::{ChainMmrNodeFilter, Store};
 use crate::store::StoreError;
@@ -42,7 +43,7 @@ impl DataStore for ClientDataStore {
         &self,
         account_id: AccountId,
         mut block_refs: BTreeSet<BlockNumber>,
-    ) -> Result<(Account, Option<Word>, BlockHeader, ChainMmr), DataStoreError> {
+    ) -> Result<(Account, Option<Word>, BlockHeader, PartialBlockchain), DataStoreError> {
         // Pop last block, used as reference (it does not need to be authenticated manually)
         let ref_block = block_refs.pop_last().ok_or(DataStoreError::other("Block set is empty"))?;
 
@@ -83,20 +84,15 @@ impl DataStore for ClientDataStore {
         let partial_mmr =
             build_partial_mmr_with_paths(&self.store, ref_block.as_u32(), &block_headers).await?;
 
-        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
-            DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
-        })?;
+        let partial_blockchain =
+            PartialBlockchain::new(partial_mmr, block_headers).map_err(|err| {
+                DataStoreError::other_with_source(
+                    "error creating PartialBlockchain from internal data",
+                    err,
+                )
+            })?;
 
-        Ok((account, seed, block_header, chain_mmr))
-    }
-}
-
-// MAST FOREST STORE
-// ================================================================================================
-
-impl MastForestStore for ClientDataStore {
-    fn get(&self, procedure_hash: &Digest) -> Option<Arc<MastForest>> {
-        self.transaction_mast_store.get(procedure_hash)
+        Ok((account, seed, block_header, partial_blockchain))
     }
 }
 
@@ -190,4 +186,13 @@ fn mmr_merkle_path_len(leaf_index: usize, forest: usize) -> usize {
     let after = forest ^ before;
 
     after.ilog2() as usize
+}
+
+// MAST FOREST STORE
+// ================================================================================================
+
+impl MastForestStore for ClientDataStore {
+    fn get(&self, procedure_hash: &Digest) -> Option<Arc<MastForest>> {
+        self.transaction_mast_store.get(procedure_hash)
+    }
 }
