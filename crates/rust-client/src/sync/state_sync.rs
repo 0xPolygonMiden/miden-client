@@ -347,7 +347,7 @@ impl StateSync {
     /// the `check_nullifiers_by_prefix` endpoint to check if there are new nullifiers for these
     /// notes. It then processes the nullifiers to apply the state transitions on the note updates.
     ///
-    /// The `state_sync_update` field will be updated to track the new discarded transactions.
+    /// The `state_sync_update` parameter will be updated to track the new discarded transactions.
     async fn sync_nullifiers(
         &self,
         state_sync_update: &mut StateSyncUpdate,
@@ -391,6 +391,12 @@ impl StateSync {
         Ok(())
     }
 
+    /// Applies the changes received from the sync response to the transactions tracked by the
+    /// client and updates the `transaction_updates` accordingly.
+    ///
+    /// The transaction updates might include:
+    /// * New transactions that were committed in the block.
+    /// * Transactions that were discarded because they were stale or expired.
     fn transaction_state_sync(
         &self,
         transaction_updates: &mut TransactionUpdateTracker,

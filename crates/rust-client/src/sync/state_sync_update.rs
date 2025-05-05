@@ -170,18 +170,22 @@ impl TransactionUpdateTracker {
             .filter(|tx| matches!(tx.status, TransactionStatus::Discarded(_)))
     }
 
+    /// Returns a mutable reference to pending transactions in the tracker.
     fn mutable_pending_transactions(&mut self) -> impl Iterator<Item = &mut TransactionRecord> {
         self.transactions
             .values_mut()
             .filter(|tx| matches!(tx.status, TransactionStatus::Pending))
     }
 
+    /// Returns transaction IDs of all transactions that have been updated.
     pub fn updated_transaction_ids(&self) -> impl Iterator<Item = TransactionId> {
         self.committed_transactions()
             .chain(self.discarded_transactions())
             .map(|tx| tx.id)
     }
 
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a
+    /// transaction is included in a block.
     pub fn apply_transaction_inclusion(&mut self, transaction_inclusion: &TransactionInclusion) {
         if let Some(transaction) = self.transactions.get_mut(&transaction_inclusion.transaction_id)
         {
@@ -189,6 +193,8 @@ impl TransactionUpdateTracker {
         }
     }
 
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a the sync
+    /// height of the client is updated. This may result in stale or expired transactions.
     pub fn apply_sync_height_update(
         &mut self,
         new_sync_height: BlockNumber,
@@ -209,6 +215,9 @@ impl TransactionUpdateTracker {
         }
     }
 
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a note is
+    /// nullified. this may result in transactions being discarded because they were processing the
+    /// nullified note.
     pub fn apply_input_note_nullified(&mut self, input_note_nullifier: Nullifier) {
         for transaction in self.mutable_pending_transactions() {
             if transaction

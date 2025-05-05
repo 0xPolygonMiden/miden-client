@@ -1616,7 +1616,7 @@ async fn test_expired_transaction_fails() {
         client.rng(),
     )
     .unwrap()
-    .with_expiration_delta(Some(expiration_delta))
+    .with_expiration_delta(expiration_delta)
     .build()
     .unwrap();
 

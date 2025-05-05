@@ -81,10 +81,22 @@ pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore)
     (builder, keystore)
 }
 
+/// Creates a `TestClient`.
+///
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
+/// random temporary location, so the store section of the config file is ignored.
+///
+/// # Panics
+///
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
+/// deserialized into a [ClientConfig].
 pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (builder, keystore) = create_test_client_builder().await;
+
     let mut client = builder.build().await.unwrap();
+
     client.sync_state().await.unwrap();
+
     (client, keystore)
 }
 

@@ -566,7 +566,7 @@ async fn test_transaction_request_expiration() {
         client.rng(),
     )
     .unwrap()
-    .with_expiration_delta(Some(5))
+    .with_expiration_delta(5)
     .build()
     .unwrap();
 

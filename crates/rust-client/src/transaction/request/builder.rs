@@ -197,14 +197,14 @@ impl TransactionRequestBuilder {
     }
 
     /// The number of blocks in relation to the transaction's reference block after which the
-    /// transaction will expire.
+    /// transaction will expire. By default, the transaction will not expire.
     ///
     /// Setting transaction expiration delta defines an upper bound for transaction expiration,
     /// but other code executed during the transaction may impose an even smaller transaction
     /// expiration delta.
     #[must_use]
-    pub fn with_expiration_delta(mut self, expiration_delta: Option<u16>) -> Self {
-        self.expiration_delta = expiration_delta;
+    pub fn with_expiration_delta(mut self, expiration_delta: u16) -> Self {
+        self.expiration_delta = Some(expiration_delta);
         self
     }
 

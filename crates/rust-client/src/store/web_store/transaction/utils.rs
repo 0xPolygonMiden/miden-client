@@ -65,6 +65,7 @@ pub async fn insert_proven_transaction_data(
     Ok(())
 }
 
+/// Serializes the transaction record into a format suitable for storage in the database.
 pub(super) fn serialize_transaction_record(
     transaction_record: &TransactionRecord,
 ) -> SerializedTransactionData {
@@ -90,6 +91,7 @@ pub(super) fn serialize_transaction_record(
     }
 }
 
+/// Updates the transaction record in the database, inserting it if it doesn't exist.
 pub(crate) async fn upsert_transaction_record(
     transaction: &TransactionRecord,
 ) -> Result<(), StoreError> {

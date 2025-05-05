@@ -16,15 +16,9 @@ impl TransactionStatus {
     }
 
     pub fn discarded(cause: &str) -> TransactionStatus {
-        let native_status = if cause == "Expired" {
-            NativeTransactionStatus::Discarded(DiscardCause::Expired)
-        } else if cause == "InputConsumed" {
-            NativeTransactionStatus::Discarded(DiscardCause::InputConsumed)
-        } else {
-            panic!("Unknown discard cause variant: {cause}",);
-        };
+        let native_cause = DiscardCause::from_string(cause).expect("Invalid discard cause");
 
-        TransactionStatus(native_status)
+        TransactionStatus(NativeTransactionStatus::Discarded(native_cause))
     }
 
     #[wasm_bindgen(js_name = "isPending")]

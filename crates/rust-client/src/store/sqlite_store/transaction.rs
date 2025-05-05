@@ -171,6 +171,7 @@ impl SqliteStore {
     }
 }
 
+/// Updates the transaction record in the database, inserting it if it doesn't exist.
 pub(crate) fn upsert_transaction_record(
     tx: &Transaction<'_>,
     transaction: &TransactionRecord,
@@ -197,6 +198,7 @@ pub(crate) fn upsert_transaction_record(
     Ok(())
 }
 
+/// Serializes the transaction record into a format suitable for storage in the database.
 fn serialize_transaction_data(transaction_record: &TransactionRecord) -> SerializedTransactionData {
     let transaction_id: String = transaction_record.id.inner().into();
 
