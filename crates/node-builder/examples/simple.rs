@@ -6,7 +6,7 @@ use node_builder::{DEFAULT_BATCH_INTERVAL, DEFAULT_BLOCK_INTERVAL, NodeBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create a temporary directory for the node's dataa
+    // Create a temporary directory for the node's data
     let data_dir = tempfile::tempdir()?.into_path();
 
     // Create a node builder with default settings

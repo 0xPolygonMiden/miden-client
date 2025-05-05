@@ -19,8 +19,8 @@ workspace = true
 
 [dependencies]
 anyhow                    = "1.0"
-miden-objects            = { workspace = true }
-miden-lib = { workspace = true }
+miden-objects             = { workspace = true }
+miden-lib                 = { workspace = true }
 miden-node-block-producer = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-block-producer", branch = "next" }
 miden-node-rpc            = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-rpc", branch = "next" }
 miden-node-store          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-store", branch = "next" }
