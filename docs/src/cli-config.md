@@ -9,13 +9,14 @@ miden
 
 ## Client Configuration
 
-We configure the client using a [TOML](https://en.wikipedia.org/wiki/TOML) file ([`miden-client.toml`](https://github.com/0xPolygonMiden/miden-client/blob/main/miden-client.toml)). 
+We configure the client using a [TOML](https://en.wikipedia.org/wiki/TOML) file ([`miden-client.toml`](https://github.com/0xPolygonMiden/miden-client/blob/main/miden-client.toml)). The file is created automatically when you run the client for the first time. The file can be edited to change the default configuration of the client.
 
 ```sh
 store_filepath = "store.sqlite3"
 secret_keys_directory = "keystore"
 default_account_id = "0x012345678"
 token_symbol_map_filepath = "token_symbol_map.toml"
+remote_prover_endpoint = "http://localhost:8080"
 component_template_directory = "./templates"
 
 [rpc]
@@ -41,6 +42,8 @@ By default, the node is set up to use the testnet.
 
 ### Store and keystore
 The `store_filepath` field is used to configure the path to the SQLite database file used by the client. The `secret_keys_directory` field is used to configure the path to the directory where the keystore files are stored. The default values are `store.sqlite3` and `keystore`, respectively.
+
+The store filepath can be set when running the `miden init` command with the `--store-path` flag.
 
 ### Default account ID
 
@@ -78,6 +81,9 @@ But if the faucet is included in the token symbol map (using the sample above as
 ```0.00000001::BTC```
 
 Notice how the amount specified when using the token symbol takes into account the decimals of the token (`1` base unit of the token is `0.00000001` for BTC as it uses 8 decimals).
+
+### Remote prover endpoint
+The `remote_prover_endpoint` field is used to configure the usage of a remote prover. You can set a remote prover when calling the `miden prover` command with the `--remote-prover-endpoint` flag. The prover will be used for all transactions that are executed with the `miden` command. By default, no remote prover is used and all transactions are executed locally.
 
 ### Component template directory
 The `component_template_directory` field is used to configure the path to the directory where the account component templates are stored. The default value is `./templates`.
