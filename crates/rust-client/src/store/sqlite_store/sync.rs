@@ -11,7 +11,7 @@ use crate::{
     store::{
         StoreError, TransactionFilter,
         sqlite_store::{
-            account::{check_account_mismatch, update_account},
+            account::{lock_account_on_unexpected_commitment, update_account},
             note::apply_note_updates_tx,
         },
     },
@@ -188,7 +188,7 @@ impl SqliteStore {
         }
 
         for (account_id, digest) in account_updates.mismatched_private_accounts() {
-            check_account_mismatch(&tx, account_id, digest)?;
+            lock_account_on_unexpected_commitment(&tx, account_id, digest)?;
         }
 
         // Commit the updates

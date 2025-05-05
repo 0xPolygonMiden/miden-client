@@ -326,9 +326,9 @@ impl WebStore {
         Ok(())
     }
 
-    /// Checks if the mismatched digest belongs to a previous account state (stale data), if not, it
-    /// locks the account.
-    pub(crate) async fn check_account_mismatch(
+    /// Locks the account if the mismatched digest doesn't belong to a previous account state (stale
+    /// data).
+    pub(crate) async fn lock_account_on_unexpected_commitment(
         &self,
         account_id: &AccountId,
         mismatched_digest: &Digest,

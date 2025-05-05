@@ -280,9 +280,9 @@ pub(super) fn insert_account_asset_vault(
     Ok(())
 }
 
-/// Checks if the mismatched digest belongs to a previous account state (stale data), if not, it
-/// locks the account.
-pub(super) fn check_account_mismatch(
+/// Locks the account if the mismatched digest doesn't belong to a previous account state (stale
+/// data).
+pub(super) fn lock_account_on_unexpected_commitment(
     tx: &Transaction<'_>,
     account_id: &AccountId,
     mismatched_digest: &Digest,

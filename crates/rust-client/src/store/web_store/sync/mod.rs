@@ -199,9 +199,11 @@ impl WebStore {
         }
 
         for (account_id, digest) in account_updates.mismatched_private_accounts() {
-            self.check_account_mismatch(account_id, digest).await.map_err(|err| {
-                StoreError::DatabaseError(format!("failed to check account mismatch: {err:?}"))
-            })?;
+            self.lock_account_on_unexpected_commitment(account_id, digest).await.map_err(
+                |err| {
+                    StoreError::DatabaseError(format!("failed to check account mismatch: {err:?}"))
+                },
+            )?;
         }
 
         let account_states_to_rollback = self
