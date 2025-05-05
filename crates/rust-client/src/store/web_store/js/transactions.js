@@ -60,6 +60,14 @@ export async function getTransactions(filter) {
           }
         }
 
+        if (transactionRecord.discardCause) {
+          let discardCauseArrayBuffer =
+            await transactionRecord.discardCause.arrayBuffer();
+          let discardCauseArray = new Uint8Array(discardCauseArrayBuffer);
+          let discardCauseBase64 = uint8ArrayToBase64(discardCauseArray);
+          transactionRecord.discardCause = discardCauseBase64;
+        }
+
         let detailsArrayBuffer = await transactionRecord.details.arrayBuffer();
         let detailsArray = new Uint8Array(detailsArrayBuffer);
         let detailsBase64 = uint8ArrayToBase64(detailsArray);
@@ -145,6 +153,11 @@ export async function upsertTransactionRecord(
       let scriptRootArray = new Uint8Array(scriptRoot);
       scriptRootBase64 = uint8ArrayToBase64(scriptRootArray);
     }
+    let discardCauseBase64 = null;
+    if (discardCause !== null) {
+      let discardCauseArray = new Uint8Array(discardCause);
+      discardCauseBase64 = uint8ArrayToBase64(discardCauseArray);
+    }
 
     const data = {
       id: transactionId,
@@ -152,7 +165,7 @@ export async function upsertTransactionRecord(
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
-      discardCause: discardCause ? discardCause : null,
+      discardCause: discardCauseBase64,
     };
 
     await transactions.put(data);

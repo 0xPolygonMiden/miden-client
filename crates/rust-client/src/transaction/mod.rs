@@ -376,6 +376,27 @@ impl fmt::Display for DiscardCause {
     }
 }
 
+impl Serializable for DiscardCause {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        match self {
+            DiscardCause::Expired => target.write_u8(0),
+            DiscardCause::InputConsumed => target.write_u8(1),
+            DiscardCause::Stale => target.write_u8(2),
+        }
+    }
+}
+
+impl Deserializable for DiscardCause {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        match source.read_u8()? {
+            0 => Ok(DiscardCause::Expired),
+            1 => Ok(DiscardCause::InputConsumed),
+            2 => Ok(DiscardCause::Stale),
+            _ => Err(DeserializationError::InvalidValue("Invalid discard cause".to_string())),
+        }
+    }
+}
+
 /// Represents the status of a transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {

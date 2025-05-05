@@ -73,7 +73,7 @@ struct SerializedTransactionData {
     /// Commit height
     commit_height: Option<u32>,
     /// Cause for discarding the transaction, if applicable
-    discard_cause: Option<String>,
+    discard_cause: Option<Vec<u8>>,
 }
 
 struct SerializedTransactionParts {
@@ -86,7 +86,7 @@ struct SerializedTransactionParts {
     /// Block number of the block at which the transaction was included in the chain.
     commit_height: Option<u32>,
     /// Cause for discarding the transaction, if applicable
-    discard_cause: Option<String>,
+    discard_cause: Option<Vec<u8>>,
 }
 
 impl SqliteStore {
@@ -206,7 +206,7 @@ fn serialize_transaction_data(transaction_record: &TransactionRecord) -> Seriali
     let (commit_height, discard_cause) = match &transaction_record.status {
         TransactionStatus::Pending => (None, None),
         TransactionStatus::Committed(block_num) => (Some(block_num.as_u32()), None),
-        TransactionStatus::Discarded(cause) => (None, Some(cause.to_string())),
+        TransactionStatus::Discarded(cause) => (None, Some(cause.to_bytes())),
     };
 
     SerializedTransactionData {
@@ -227,7 +227,7 @@ fn parse_transaction_columns(
     let tx_script: Option<Vec<u8>> = row.get(1)?;
     let details: Vec<u8> = row.get(2)?;
     let commit_height: Option<u32> = row.get(3)?;
-    let discard_cause: Option<String> = row.get(4)?;
+    let discard_cause: Option<Vec<u8>> = row.get(4)?;
 
     Ok(SerializedTransactionParts {
         id,
@@ -257,7 +257,7 @@ fn parse_transaction(
         .transpose()?;
 
     let status = if let Some(cause) = discard_cause {
-        let cause = DiscardCause::from_string(&cause)?;
+        let cause = DiscardCause::read_from_bytes(&cause)?;
         TransactionStatus::Discarded(cause)
     } else {
         let commit_height = commit_height.map(BlockNumber::from);

@@ -83,7 +83,8 @@ pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore)
 
 pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
     let (builder, keystore) = create_test_client_builder().await;
-    let client = builder.build().await.unwrap();
+    let mut client = builder.build().await.unwrap();
+    client.sync_state().await.unwrap();
     (client, keystore)
 }
 

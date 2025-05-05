@@ -73,20 +73,11 @@ impl WebStore {
                     None
                 };
 
-                let status = match tx_idxdb.discard_cause {
-                    Some(cause) if cause == "Expired" => {
-                        TransactionStatus::Discarded(DiscardCause::Expired)
-                    },
-                    Some(cause) if cause == "InputConsumed" => {
-                        TransactionStatus::Discarded(DiscardCause::InputConsumed)
-                    },
-                    None => commit_height
-                        .map_or(TransactionStatus::Pending, TransactionStatus::Committed),
-                    _ => {
-                        return Err(StoreError::DatabaseError(
-                            "Transaction discard cause is not valid".to_string(),
-                        ));
-                    },
+                let status = if let Some(cause) = tx_idxdb.discard_cause {
+                    let cause = DiscardCause::read_from_bytes(&cause)?;
+                    TransactionStatus::Discarded(cause)
+                } else {
+                    commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
                 };
 
                 Ok(TransactionRecord { id: id.into(), details, script, status })

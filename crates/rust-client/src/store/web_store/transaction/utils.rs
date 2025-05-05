@@ -26,7 +26,7 @@ pub struct SerializedTransactionData {
     pub tx_script: Option<Vec<u8>>,
     pub block_num: String,
     pub commit_height: Option<String>,
-    pub discard_cause: Option<String>,
+    pub discard_cause: Option<Vec<u8>>,
 }
 
 // ================================================================================================
@@ -76,7 +76,7 @@ pub(super) fn serialize_transaction_record(
     let (commit_height, discard_cause) = match &transaction_record.status {
         TransactionStatus::Pending => (None, None),
         TransactionStatus::Committed(block_num) => (Some(block_num.as_u32().to_string()), None),
-        TransactionStatus::Discarded(cause) => (None, Some(cause.to_string())),
+        TransactionStatus::Discarded(cause) => (None, Some(cause.to_bytes())),
     };
 
     SerializedTransactionData {
