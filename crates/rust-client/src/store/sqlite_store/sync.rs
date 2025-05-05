@@ -4,13 +4,9 @@ use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{Digest, block::BlockNumber, note::NoteTag, transaction::TransactionId};
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::params;
+use rusqlite::{Connection, Transaction, params};
 
-use super::{
-    SqliteStore,
-    account::undo_account_state,
-    db_managment::{connection::Connection, transaction::Transaction},
-};
+use super::{SqliteStore, account::undo_account_state};
 use crate::{
     insert_sql,
     note::NoteUpdates,
