@@ -61,14 +61,12 @@ impl InitCmd {
             ));
         }
 
-        let mut cli_config = CliConfig::default();
+        let mut cli_config = CliConfig {
+            network: self.network.clone(),
+            ..Default::default()
+        };
 
-        cli_config.network = self.network.clone();
-
-        let endpoint =
-            CliEndpoint::try_from(self.network.to_rpc_endpoint().as_str()).map_err(|err| {
-                CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
-            })?;
+        let endpoint = CliEndpoint::try_from(self.network.clone())?;
 
         cli_config.rpc.endpoint = endpoint;
 
