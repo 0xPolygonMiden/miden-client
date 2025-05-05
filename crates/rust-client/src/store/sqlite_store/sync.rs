@@ -11,7 +11,7 @@ use crate::{
     store::{
         StoreError, TransactionFilter,
         sqlite_store::{
-            account::{lock_account, update_account},
+            account::{check_account_mismatch, update_account},
             note::apply_note_updates_tx,
         },
     },
@@ -109,21 +109,6 @@ impl SqliteStore {
             account_updates,
         } = state_sync_update;
 
-        let mut locked_accounts = vec![];
-
-        for (account_id, digest) in account_updates.mismatched_private_accounts() {
-            // Mismatched digests may be due to stale network data. If the mismatched digest is
-            // tracked in the db and corresponds to the mismatched account, it means we
-            // got a past update and shouldn't lock the account.
-            if let Some(account) = Self::get_account_header_by_commitment(conn, *digest)? {
-                if account.id() == *account_id {
-                    continue;
-                }
-            }
-
-            locked_accounts.push(*account_id);
-        }
-
         let account_states_to_rollback = Self::get_transactions(
             conn,
             &TransactionFilter::Ids(transaction_updates.discarded_transactions().to_vec()),
@@ -202,8 +187,8 @@ impl SqliteStore {
             update_account(&tx, account)?;
         }
 
-        for account_id in locked_accounts {
-            lock_account(&tx, account_id)?;
+        for (account_id, digest) in account_updates.mismatched_private_accounts() {
+            check_account_mismatch(&tx, account_id, digest)?;
         }
 
         // Commit the updates
