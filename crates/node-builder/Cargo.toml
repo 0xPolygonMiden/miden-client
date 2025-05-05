@@ -21,10 +21,10 @@ workspace = true
 anyhow                    = "1.0"
 miden-objects            = { workspace = true }
 miden-lib = { workspace = true }
-miden-node-block-producer = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-block-producer", branch = "santiagopittella-update-rusqlite" }
-miden-node-rpc            = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-rpc", branch = "santiagopittella-update-rusqlite" }
-miden-node-store          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-store", branch = "santiagopittella-update-rusqlite" }
-miden-node-utils          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-utils", branch = "santiagopittella-update-rusqlite" }
+miden-node-block-producer = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-block-producer", branch = "next" }
+miden-node-rpc            = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-rpc", branch = "next" }
+miden-node-store          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-store", branch = "next" }
+miden-node-utils          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-utils", branch = "next" }
 rand_chacha               = { version = "0.9" }
 rand                      = { workspace = true }
 tokio                     = { version = "1.0", features = ["full"] }

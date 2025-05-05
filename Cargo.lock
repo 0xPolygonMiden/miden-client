@@ -1456,7 +1456,16 @@ version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7251356ef8cb7aec833ddf598c6cb24d17b689d20b993f9d11a3d764e34e6458"
 dependencies = [
- "logos-derive",
+ "logos-derive 0.14.4",
+]
+
+[[package]]
+name = "logos"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab6f536c1af4c7cc81edf73da1f8029896e7e1e16a219ef09b184e76a296f3db"
+dependencies = [
+ "logos-derive 0.15.0",
 ]
 
 [[package]]
@@ -1475,12 +1484,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "logos-codegen"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "189bbfd0b61330abea797e5e9276408f2edbe4f822d7ad08685d67419aafb34e"
+dependencies = [
+ "beef",
+ "fnv",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "regex-syntax 0.8.5",
+ "rustc_version 0.4.1",
+ "syn",
+]
+
+[[package]]
 name = "logos-derive"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24fb722b06a9dc12adb0963ed585f19fc61dc5413e6a9be9422ef92c091e731d"
 dependencies = [
- "logos-codegen",
+ "logos-codegen 0.14.4",
+]
+
+[[package]]
+name = "logos-derive"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebfe8e1a19049ddbfccbd14ac834b215e11b85b90bab0c2dba7c7b92fb5d5cba"
+dependencies = [
+ "logos-codegen 0.15.0",
 ]
 
 [[package]]
@@ -1595,14 +1629,14 @@ dependencies = [
  "hex",
  "miden-client",
  "miden-lib",
- "miden-node-proto-build 0.9.0 (git+https://github.com/0xPolygonMiden/miden-node?branch=next)",
+ "miden-node-proto-build",
  "miden-objects",
  "miden-proving-service-client",
  "miden-tx",
  "miette",
  "prost",
  "prost-build",
- "protox",
+ "protox 0.7.2",
  "rand 0.9.1",
  "rusqlite",
  "rusqlite_migration",
@@ -1756,10 +1790,9 @@ dependencies = [
 [[package]]
 name = "miden-node-block-producer"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#5c475e9e4288def3af50b7eb48c5b81a9b49a629"
 dependencies = [
  "anyhow",
- "async-trait",
  "futures",
  "itertools 0.14.0",
  "miden-block-prover",
@@ -1769,7 +1802,6 @@ dependencies = [
  "miden-objects",
  "miden-processor",
  "miden-proving-service-client",
- "miden-tx",
  "miden-tx-batch-prover",
  "rand 0.9.1",
  "thiserror 2.0.12",
@@ -1784,16 +1816,16 @@ dependencies = [
 [[package]]
 name = "miden-node-proto"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#5c475e9e4288def3af50b7eb48c5b81a9b49a629"
 dependencies = [
  "anyhow",
  "hex",
- "miden-node-proto-build 0.9.0 (git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite)",
+ "miden-node-proto-build",
  "miden-node-utils",
  "miden-objects",
  "prost",
  "prost-build",
- "protox",
+ "protox 0.8.0",
  "thiserror 2.0.12",
  "tonic 0.12.3",
  "tonic-build 0.12.3",
@@ -1806,25 +1838,14 @@ source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#26e5f4c5c
 dependencies = [
  "anyhow",
  "prost",
- "protox",
- "tonic-build 0.12.3",
-]
-
-[[package]]
-name = "miden-node-proto-build"
-version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
-dependencies = [
- "anyhow",
- "prost",
- "protox",
+ "protox 0.7.2",
  "tonic-build 0.12.3",
 ]
 
 [[package]]
 name = "miden-node-rpc"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#5c475e9e4288def3af50b7eb48c5b81a9b49a629"
 dependencies = [
  "anyhow",
  "miden-node-proto",
@@ -1835,13 +1856,14 @@ dependencies = [
  "tokio-stream",
  "tonic 0.12.3",
  "tonic-web",
+ "tower-http 0.6.2",
  "tracing",
 ]
 
 [[package]]
 name = "miden-node-store"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#5c475e9e4288def3af50b7eb48c5b81a9b49a629"
 dependencies = [
  "anyhow",
  "deadpool",
@@ -1864,7 +1886,7 @@ dependencies = [
 [[package]]
 name = "miden-node-utils"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=santiagopittella-update-rusqlite#daa80d9ef3c6470a87659a00f6a1c61a32870aef"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#5c475e9e4288def3af50b7eb48c5b81a9b49a629"
 dependencies = [
  "anyhow",
  "figment",
@@ -1876,6 +1898,7 @@ dependencies = [
  "opentelemetry_sdk",
  "rand 0.9.1",
  "serde",
+ "tokio",
  "tonic 0.12.3",
  "tracing",
  "tracing-opentelemetry",
@@ -1942,7 +1965,7 @@ dependencies = [
  "miette",
  "prost",
  "prost-build",
- "protox",
+ "protox 0.7.2",
  "thiserror 2.0.12",
  "tokio",
  "tonic 0.12.3",
@@ -2558,9 +2581,21 @@ version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b5edd582b62f5cde844716e66d92565d7faf7ab1445c8cebce6e00fba83ddb2"
 dependencies = [
- "logos",
+ "logos 0.14.4",
  "miette",
  "once_cell",
+ "prost",
+ "prost-types",
+]
+
+[[package]]
+name = "prost-reflect"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebb644dd3ad12d7cf62a18234d385ea5511ac6abb208704c18098e7e3a5e1b69"
+dependencies = [
+ "logos 0.15.0",
+ "miette",
  "prost",
  "prost-types",
 ]
@@ -2583,10 +2618,25 @@ dependencies = [
  "bytes",
  "miette",
  "prost",
- "prost-reflect",
+ "prost-reflect 0.14.7",
  "prost-types",
- "protox-parse",
+ "protox-parse 0.7.0",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "protox"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "424c2bd294b69c49b949f3619362bc3c5d28298cd1163b6d1a62df37c16461aa"
+dependencies = [
+ "bytes",
+ "miette",
+ "prost",
+ "prost-reflect 0.15.2",
+ "prost-types",
+ "protox-parse 0.8.0",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2595,10 +2645,22 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3a462d115462c080ae000c29a47f0b3985737e5d3a995fcdbcaa5c782068dde"
 dependencies = [
- "logos",
+ "logos 0.14.4",
  "miette",
  "prost-types",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "protox-parse"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57927f9dbeeffcce7192404deee6157a640cbb3fe8ac11eabbe571565949ab75"
+dependencies = [
+ "logos 0.15.0",
+ "miette",
+ "prost-types",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
