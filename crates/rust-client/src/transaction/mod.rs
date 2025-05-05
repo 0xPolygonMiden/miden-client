@@ -352,6 +352,7 @@ impl Deserializable for TransactionDetails {
 pub enum DiscardCause {
     Expired,
     InputConsumed,
+    InvalidInitialAccountState,
     Stale,
 }
 
@@ -360,6 +361,7 @@ impl DiscardCause {
         match cause {
             "Expired" => Ok(DiscardCause::Expired),
             "InputConsumed" => Ok(DiscardCause::InputConsumed),
+            "InvalidInitialAccountState" => Ok(DiscardCause::InvalidInitialAccountState),
             "Stale" => Ok(DiscardCause::Stale),
             _ => Err(DeserializationError::InvalidValue(format!("Invalid discard cause: {cause}"))),
         }
@@ -371,6 +373,7 @@ impl fmt::Display for DiscardCause {
         match self {
             DiscardCause::Expired => write!(f, "Expired"),
             DiscardCause::InputConsumed => write!(f, "InputConsumed"),
+            DiscardCause::InvalidInitialAccountState => write!(f, "InvalidInitialAccountState"),
             DiscardCause::Stale => write!(f, "Stale"),
         }
     }
@@ -381,7 +384,8 @@ impl Serializable for DiscardCause {
         match self {
             DiscardCause::Expired => target.write_u8(0),
             DiscardCause::InputConsumed => target.write_u8(1),
-            DiscardCause::Stale => target.write_u8(2),
+            DiscardCause::InvalidInitialAccountState => target.write_u8(2),
+            DiscardCause::Stale => target.write_u8(3),
         }
     }
 }
@@ -391,7 +395,8 @@ impl Deserializable for DiscardCause {
         match source.read_u8()? {
             0 => Ok(DiscardCause::Expired),
             1 => Ok(DiscardCause::InputConsumed),
-            2 => Ok(DiscardCause::Stale),
+            2 => Ok(DiscardCause::InvalidInitialAccountState),
+            3 => Ok(DiscardCause::Stale),
             _ => Err(DeserializationError::InvalidValue("Invalid discard cause".to_string())),
         }
     }

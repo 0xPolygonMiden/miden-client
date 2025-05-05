@@ -1786,3 +1786,100 @@ async fn test_account_rollback() {
         "Account commitment should be rolled back to the value before the transaction"
     );
 }
+
+//TODO: This test should be moved to the unit tests as it is mostly client logic
+#[tokio::test]
+async fn test_subsequent_discarded_transactions() {
+    let (mut client, keystore) = create_test_client().await;
+
+    let (regular_account, faucet_account_header) =
+        setup_wallet_and_faucet(&mut client, AccountStorageMode::Public, &keystore).await;
+
+    wait_for_node(&mut client).await;
+
+    let account_id = regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    let note = mint_note(&mut client, account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, account_id, &[note]).await;
+
+    // Create a transaction that will expire in 2 blocks
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .with_expiration_delta(2)
+    .build()
+    .unwrap();
+
+    // Execute the transaction but don't submit it to the node
+    let tx_result = client.new_transaction(account_id, tx_request).await.unwrap();
+    let first_tx_id = tx_result.executed_transaction().id();
+    client.testing_prove_transaction(&tx_result).await.unwrap();
+
+    let account_before_tx = client.get_account(account_id).await.unwrap().unwrap();
+
+    client.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Create a second transaction that will not expire
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    // Execute the transaction but don't submit it to the node
+    let tx_result = client.new_transaction(account_id, tx_request).await.unwrap();
+    let second_tx_id = tx_result.executed_transaction().id();
+    client.testing_prove_transaction(&tx_result).await.unwrap();
+    client.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Sync the state, which should discard the first transaction
+    wait_for_blocks(&mut client, 3).await;
+    client.sync_state().await.unwrap();
+
+    let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
+
+    // Verify the first transaction is now discarded
+    let first_tx_record = client
+        .get_transactions(TransactionFilter::Ids(vec![first_tx_id]))
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert!(matches!(
+        first_tx_record.status,
+        TransactionStatus::Discarded(DiscardCause::Expired)
+    ));
+
+    // Verify the second transaction is also discarded
+    let second_tx_record = client
+        .get_transactions(TransactionFilter::Ids(vec![second_tx_id]))
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    println!("Second tx record: {:?}", second_tx_record.status);
+
+    assert!(matches!(
+        second_tx_record.status,
+        TransactionStatus::Discarded(DiscardCause::InvalidInitialAccountState)
+    ));
+
+    // Check that the account state has been rolled back to the value before both transactions
+    assert_eq!(
+        account_after_sync.account().commitment(),
+        account_before_tx.account().commitment(),
+    );
+}
