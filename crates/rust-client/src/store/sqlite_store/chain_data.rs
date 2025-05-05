@@ -14,7 +14,11 @@ use rusqlite::{
 };
 
 use super::SqliteStore;
-use crate::store::{ChainMmrNodeFilter, StoreError};
+use crate::{
+    insert_sql,
+    store::{ChainMmrNodeFilter, StoreError},
+    subst,
+};
 
 struct SerializedBlockHeaderData {
     block_num: u32,
@@ -192,10 +196,14 @@ impl SqliteStore {
             chain_mmr_peaks,
             has_client_notes,
         } = serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes);
-        const QUERY: &str = "\
-        INSERT OR IGNORE INTO block_headers
-            (block_num, header, chain_mmr_peaks, has_client_notes)
-        VALUES (?, ?, ?, ?)";
+        const QUERY: &str = insert_sql!(
+            block_headers {
+                block_num,
+                header,
+                chain_mmr_peaks,
+                has_client_notes,
+            } | IGNORE
+        );
         tx.execute(QUERY, params![block_num, header, chain_mmr_peaks, has_client_notes])?;
 
         set_block_header_has_client_notes(tx, u64::from(block_num), has_client_notes)?;
@@ -213,7 +221,7 @@ fn insert_chain_mmr_node(
     node: Digest,
 ) -> Result<(), StoreError> {
     let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(id, node);
-    const QUERY: &str = "INSERT OR IGNORE INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
+    const QUERY: &str = insert_sql!(chain_mmr_nodes { id, node } | IGNORE);
     tx.execute(QUERY, params![id, node])?;
     Ok(())
 }
