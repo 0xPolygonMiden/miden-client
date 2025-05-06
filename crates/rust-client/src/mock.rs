@@ -111,11 +111,7 @@ impl MockRpcApi {
     }
 
     /// Seals a block with the given notes and nullifiers.
-    fn seal_block(
-        &mut self,
-        notes: Vec<OutputNote>,
-        nullifiers: Vec<miden_objects::note::Nullifier>,
-    ) {
+    fn seal_block(&mut self, notes: Vec<OutputNote>, nullifiers: Vec<Nullifier>) {
         for note in notes {
             self.mock_chain.add_pending_note(note);
         }
