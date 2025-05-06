@@ -68,7 +68,7 @@ uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}
 
 [build-dependencies]
-miden-node-proto-build = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next", default-features = false }
+miden-node-proto-build = { git = "https://github.com/0xMiden/miden-node", branch = "next", default-features = false }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miette = { workspace = true }

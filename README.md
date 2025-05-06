@@ -1,8 +1,8 @@
 # Miden client
 
-[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
-[![test](https://github.com/0xPolygonMiden/miden-client/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-client/actions/workflows/test.yml)
-[![build](https://github.com/0xPolygonMiden/miden-client/actions/workflows/build.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-client/actions/workflows/build.yml)
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xMiden/miden-client/blob/main/LICENSE)
+[![test](https://github.com/0xMiden/miden-client/actions/workflows/test.yml/badge.svg)](https://github.com/0xMiden/miden-client/actions/workflows/test.yml)
+[![build](https://github.com/0xMiden/miden-client/actions/workflows/build.yml/badge.svg)](https://github.com/0xMiden/miden-client/actions/workflows/build.yml)
 [![RUST_VERSION](https://img.shields.io/badge/rustc-1.86+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
@@ -23,10 +23,10 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 For more info check:
 
-- [Getting started](https://0xpolygonmiden.github.io/miden-docs/miden-client/get-started/prerequisites.html)
-- [CLI Reference](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-reference.html)
-- [Configuration](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-config.html)
-- [Online Documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/index.html)
+- [Getting started](https://0xMiden.github.io/miden-docs/miden-client/get-started/prerequisites.html)
+- [CLI Reference](https://0xMiden.github.io/miden-docs/miden-client/cli-reference.html)
+- [Configuration](https://0xMiden.github.io/miden-docs/miden-client/cli-config.html)
+- [Online Documentation](https://0xMiden.github.io/miden-docs/miden-client/index.html)
 
 ## Workspace structure
 

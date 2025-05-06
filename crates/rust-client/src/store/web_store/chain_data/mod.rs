@@ -183,7 +183,7 @@ impl WebStore {
     }
 
     /// This function isn't used in this crate, rather it is used in the 'miden-client' crate.
-    /// The reference is [found here](https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105)
+    /// The reference is [found here](https://github.com/0xMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105)
     /// It is duplicated here due to its reliance on the store.
     #[allow(dead_code)]
     pub(crate) async fn insert_block_header_tx(

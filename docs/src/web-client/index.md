@@ -30,4 +30,4 @@ npm install @demox-labs/miden-sdk
 yarn add @demox-labs/miden-sdk
 ```
 
-See the [README](https://github.com/0xPolygonMiden/miden-client/blob/main/crates/web-client/README.md) for full installation instructions and some usage instructions, including code examples for wallet creation, transaction execution, and syncing state.
+See the [README](https://github.com/0xMiden/miden-client/blob/main/crates/web-client/README.md) for full installation instructions and some usage instructions, including code examples for wallet creation, transaction execution, and syncing state.

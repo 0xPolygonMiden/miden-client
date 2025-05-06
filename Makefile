@@ -17,11 +17,11 @@ FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 NODE_DIR="miden-node"
-NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
+NODE_REPO="https://github.com/0xMiden/miden-node.git"
 NODE_BRANCH="next"
 
 PROVER_DIR="miden-base"
-PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
+PROVER_REPO="https://github.com/0xMiden/miden-base.git"
 PROVER_BRANCH="next"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051

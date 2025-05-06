@@ -165,7 +165,7 @@ For advanced use cases, you can create custom transactions by defining your own 
 - Custom authentication schemes
 - Integration with smart contracts
 
-> **Note**: For a complete example of a custom transaction implementation, including input notes, output notes, and custom scripts, see the integration tests in [`new_transactions.test.ts`](https://github.com/0xPolygonMiden/miden-client/blob/main/crates/web-client/test/new_transactions.test.ts).
+> **Note**: For a complete example of a custom transaction implementation, including input notes, output notes, and custom scripts, see the integration tests in [`new_transactions.test.ts`](https://github.com/0xMiden/miden-client/blob/main/crates/web-client/test/new_transactions.test.ts).
 
 Here's a simplified example of creating a custom transaction:
 

@@ -4,7 +4,7 @@
 //! accounts and their state, and facilitates executing, proving, and submitting transactions.
 //!
 //! For a protocol-level overview and guides for getting started, please visit the official
-//! [Polygon Miden docs](https://0xpolygonmiden.github.io/miden-docs/).
+//! [Miden docs](https://0xMiden.github.io/miden-docs/).
 //!
 //! ## Overview
 //!

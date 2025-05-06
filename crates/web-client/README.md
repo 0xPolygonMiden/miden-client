@@ -56,7 +56,7 @@ Or with Yarn:
 yarn add @demox-labs/miden-sdk@next
 ```
 
-> **Note:** The `next` version of the SDK must be used in conjunction with a locally running Miden node built from the `next` branch of the `miden-node` repository. This is necessary because the public testnet runs the stable `main` branch, which may not be compatible with the latest development features in `next`. Instructions to run a local node can be found [here](https://github.com/0xPolygonMiden/miden-node/tree/next) on the `next` branch of the `miden-node` repository. Additionally, if you plan to leverage delegated proving in your application, you may need to run a local prover (see [Proving Service instructions](https://github.com/0xPolygonMiden/miden-base/tree/next/bin/proving-service)).
+> **Note:** The `next` version of the SDK must be used in conjunction with a locally running Miden node built from the `next` branch of the `miden-node` repository. This is necessary because the public testnet runs the stable `main` branch, which may not be compatible with the latest development features in `next`. Instructions to run a local node can be found [here](https://github.com/0xMiden/miden-node/tree/next) on the `next` branch of the `miden-node` repository. Additionally, if you plan to leverage delegated proving in your application, you may need to run a local prover (see [Proving Service instructions](https://github.com/0xMiden/miden-base/tree/next/bin/proving-service)).
 
 ## Building and Testing the Web Client
 

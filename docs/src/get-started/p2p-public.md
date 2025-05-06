@@ -1,4 +1,4 @@
-In this section, we show you how to execute transactions and send funds to another account using the Miden client and [public notes](https://0xpolygonmiden.github.io/miden-docs/miden-base/architecture/notes.html#note-storage-mode).
+In this section, we show you how to execute transactions and send funds to another account using the Miden client and [public notes](https://0xMiden.github.io/miden-docs/miden-base/architecture/notes.html#note-storage-mode).
 
 > **Important: Prerequisite steps**
 > - You should have already followed the [prerequisite steps](prerequisites.md) and [get started](create-account-use-faucet.md) documents.
@@ -7,7 +7,7 @@ In this section, we show you how to execute transactions and send funds to anoth
 ## Create a second client
 
 > **Tip**
-> Remember to use the [Miden client documentation](https://0xpolygonmiden.github.io/miden-docs/miden-client/cli-reference.html) for clarifications.
+> Remember to use the [Miden client documentation](https://0xMiden.github.io/miden-docs/miden-client/cli-reference.html) for clarifications.
 
 This is an alternative to the [private P2P transactions](p2p-private.md) process.
 
@@ -28,7 +28,7 @@ To do this, we use two terminals with their own state (using their own `miden-cl
     miden init --network testnet # Creates a miden-client.toml file configured with the testnet node's IP
     ```
 
-3. On the new client, create a new [basic account](https://0xpolygonmiden.github.io/miden-docs/miden-base/architecture/accounts.html):
+3. On the new client, create a new [basic account](https://0xMiden.github.io/miden-docs/miden-base/architecture/accounts.html):
 
     ```shell
     miden new-wallet --mutable -s public
