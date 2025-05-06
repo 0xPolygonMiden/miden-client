@@ -8,7 +8,7 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    Felt, Word,
+    Word,
     account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
@@ -16,17 +16,18 @@ use miden_objects::{
         merkle::{Mmr, MmrProof, SmtProof},
         rand::RpoRandomCoin,
     },
-    note::{Note, NoteId, NoteLocation, NoteTag, Nullifier},
+    note::{NoteId, NoteLocation, NoteTag, Nullifier},
     testing::{
         account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
         note::NoteBuilder,
     },
-    transaction::{InputNote, ProvenTransaction},
+    transaction::{InputNote, OutputNote, ProvenTransaction},
 };
-use miden_tx::testing::MockChain;
+use miden_testing::MockChain;
 use rand::{Rng, rngs::StdRng};
 use tonic::Response;
 use uuid::Uuid;
+use vm_processor::Felt;
 
 use crate::{
     Client,
@@ -93,20 +94,32 @@ impl MockRpcApi {
         .unwrap();
 
         api.seal_block(vec![], vec![]); // Block 0
-        api.seal_block(vec![note_first], vec![]); // Block 1 - First note
+        api.seal_block(vec![miden_objects::transaction::OutputNote::Full(note_first)], vec![]); // Block 1 - First note
         api.seal_block(vec![], vec![]); // Block 2
         api.seal_block(vec![], vec![]); // Block 3
-        api.seal_block(vec![note_second.clone()], vec![]); // Block 4 - Second note
+        api.seal_block(
+            vec![miden_objects::transaction::OutputNote::Full(note_second.clone())],
+            vec![],
+        ); // Block 4 - Second note
         api.seal_block(vec![], vec![note_second.nullifier()]); // Block 5 - Second note nullifier
 
         // Collect the notes from the mock_chain
-        api.notes = api.mock_chain.available_notes().iter().map(|n| (n.id(), n.clone())).collect();
+        api.notes = api
+            .mock_chain
+            .available_notes()
+            .iter()
+            .map(|n| (n.id(), n.clone().try_into().unwrap()))
+            .collect();
 
         api
     }
 
     /// Seals a block with the given notes and nullifiers.
-    fn seal_block(&mut self, notes: Vec<Note>, nullifiers: Vec<miden_objects::note::Nullifier>) {
+    fn seal_block(
+        &mut self,
+        notes: Vec<OutputNote>,
+        nullifiers: Vec<miden_objects::note::Nullifier>,
+    ) {
         for note in notes {
             self.mock_chain.add_pending_note(note);
         }

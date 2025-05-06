@@ -27,7 +27,7 @@ const Table = {
   NotesScripts: "notesScripts",
   StateSync: "stateSync",
   BlockHeaders: "blockHeaders",
-  ChainMmrNodes: "chainMmrNodes",
+  PartialBlockchainNodes: "partialBlockchainNodes",
   Tags: "tags",
 };
 
@@ -56,7 +56,7 @@ db.version(1).stores({
   [Table.NotesScripts]: indexes("scriptRoot"),
   [Table.StateSync]: indexes("id"),
   [Table.BlockHeaders]: indexes("blockNum", "hasClientNotes"),
-  [Table.ChainMmrNodes]: indexes("id"),
+  [Table.PartialBlockchainNodes]: indexes("id"),
   [Table.Tags]: indexes("id++", "tag", "source_note_id", "source_account_id"),
   [Table.ForeignAccountCode]: indexes("accountId"),
 });
@@ -82,7 +82,7 @@ const outputNotes = db.table(Table.OutputNotes);
 const notesScripts = db.table(Table.NotesScripts);
 const stateSync = db.table(Table.StateSync);
 const blockHeaders = db.table(Table.BlockHeaders);
-const chainMmrNodes = db.table(Table.ChainMmrNodes);
+const partialBlockchainNodes = db.table(Table.PartialBlockchainNodes);
 const tags = db.table(Table.Tags);
 const foreignAccountCode = db.table(Table.ForeignAccountCode);
 
@@ -100,7 +100,7 @@ export {
   notesScripts,
   stateSync,
   blockHeaders,
-  chainMmrNodes,
+  partialBlockchainNodes,
   tags,
   foreignAccountCode,
 };
