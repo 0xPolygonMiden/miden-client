@@ -8,6 +8,7 @@ use rusqlite::{Connection, Transaction, params};
 
 use super::{SqliteStore, account::undo_account_state};
 use crate::{
+    insert_sql,
     store::{
         StoreError,
         sqlite_store::{
@@ -16,6 +17,7 @@ use crate::{
             transaction::upsert_transaction_record,
         },
     },
+    subst,
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -199,7 +201,7 @@ impl SqliteStore {
 }
 
 pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: &NoteTagRecord) -> Result<(), StoreError> {
-    const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
+    const QUERY: &str = insert_sql!(tags { tag, source });
     tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 
     Ok(())
