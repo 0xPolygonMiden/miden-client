@@ -1,14 +1,20 @@
-# Miden Node Builder
+# Miden Node Builder (Testing Only)
 
-A builder crate for configuring and starting a Miden node with all its components. This crate provides a convenient way to initialize and manage a complete Miden node instance.
+A minimal node implementation used exclusively for running integration tests of the Miden client. This crate is NOT intended for production use.
+
+## Purpose
+
+This crate provides a simplified node implementation that is used to run integration tests for:
+- The Miden client library
+- The Miden web client
+- Other client-related integration tests
 
 ## Features
 
-- Configurable node components initialization
-- Support for both local and remote provers
+- Minimal node implementation with essential components
 - Configurable block and batch intervals
-- Telemetry support
-- Graceful component management
+- Support for both local and remote provers
+- Simple setup for testing scenarios
 
 ## Usage
 
@@ -16,30 +22,19 @@ A builder crate for configuring and starting a Miden node with all its component
 use miden_node_builder::NodeBuilder;
 use std::path::PathBuf;
 use std::time::Duration;
-use url::Url;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Create a new node builder
+    // Create a new node builder for testing
     let builder = NodeBuilder::new(PathBuf::from("./data"))
-        // Optional: Configure batch prover URL
-        .with_batch_prover_url(Url::parse("http://localhost:8080")?)
-        // Optional: Configure block prover URL
-        .with_block_prover_url(Url::parse("http://localhost:8081")?)
-        // Optional: Configure block interval
         .with_block_interval(Duration::from_millis(1000))
-        // Optional: Configure batch interval
-        .with_batch_interval(Duration::from_millis(1000))
-        // Optional: Enable telemetry
-        .with_telemetry(true);
+        .with_batch_interval(Duration::from_millis(1000));
 
     // Start the node
     let node_handle = builder.start().await?;
-
-    // Get the RPC URL
     println!("RPC server listening at: {}", node_handle.rpc_url());
 
-    // ... do something with the node ...
+    // ... run tests ...
 
     // Stop the node when done
     node_handle.stop().await?;
@@ -61,15 +56,16 @@ The builder initializes and manages the following components:
 ## Configuration Options
 
 - `data_directory`: Path to store node data
-- `batch_prover_url`: URL for the batch prover service (optional)
-- `block_prover_url`: URL for the block prover service (optional)
 - `block_interval`: Duration between block production attempts
 - `batch_interval`: Duration between batch production attempts
-- `enable_telemetry`: Whether to enable telemetry collection
 
-## Error Handling
+## Note
 
-The crate uses `anyhow::Result` for error handling, providing detailed error messages when something goes wrong. All component failures are treated as fatal and will cause the node to stop.
+This implementation is intentionally simplified and may not include all features of a production node. It is designed to be:
+- Easy to maintain
+- Quick to start up
+- Sufficient for running integration tests
+- NOT suitable for production use
 
 ## License
 This project is [MIT licensed](../../LICENSE).
