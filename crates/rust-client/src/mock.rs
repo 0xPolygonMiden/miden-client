@@ -8,7 +8,7 @@ use std::env::temp_dir;
 use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    Word,
+    Felt, Word,
     account::{AccountCode, AccountDelta, AccountId},
     asset::{FungibleAsset, NonFungibleAsset},
     block::{BlockHeader, BlockNumber, ProvenBlock},
@@ -27,7 +27,6 @@ use miden_testing::MockChain;
 use rand::{Rng, rngs::StdRng};
 use tonic::Response;
 use uuid::Uuid;
-use vm_processor::Felt;
 
 use crate::{
     Client,
@@ -94,13 +93,10 @@ impl MockRpcApi {
         .unwrap();
 
         api.seal_block(vec![], vec![]); // Block 0
-        api.seal_block(vec![miden_objects::transaction::OutputNote::Full(note_first)], vec![]); // Block 1 - First note
+        api.seal_block(vec![OutputNote::Full(note_first)], vec![]); // Block 1 - First note
         api.seal_block(vec![], vec![]); // Block 2
         api.seal_block(vec![], vec![]); // Block 3
-        api.seal_block(
-            vec![miden_objects::transaction::OutputNote::Full(note_second.clone())],
-            vec![],
-        ); // Block 4 - Second note
+        api.seal_block(vec![OutputNote::Full(note_second.clone())], vec![]); // Block 4 - Second note
         api.seal_block(vec![], vec![note_second.nullifier()]); // Block 5 - Second note nullifier
 
         // Collect the notes from the mock_chain
