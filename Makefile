@@ -81,8 +81,14 @@ test-docs: ## Run documentation tests
 
 .PHONY: start-node
 start-node: ## Start the testing node server
-	RUST_LOG=none cargo run --release --package node-builder > /dev/null &
-	sleep 4
+	RUST_LOG=none cargo run --release --package node-builder & echo $$! > .node.pid; \
+	sleep 4; \
+	if ! ps -p $$(cat .node.pid) > /dev/null; then \
+		echo "Failed to start node server"; \
+		rm -f .node.pid; \
+		exit 1; \
+	fi; \
+	rm -f .node.pid
 
 .PHONY: stop-node
 stop-node: ## Stop the testing node server
