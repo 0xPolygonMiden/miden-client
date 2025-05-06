@@ -79,13 +79,13 @@ test-docs: ## Run documentation tests
 
 # --- Integration testing -------------------------------------------------------------------------
 
-.PHONY: testing-node-start
-testing-node-start: ## Start the test server
+.PHONY: start-node
+start-node: ## Start the testing node server
 	RUST_LOG=none cargo run --release --package node-builder > /dev/null &
 	sleep 4
 
-.PHONY: testing-node-stop
-testing-node-stop: ## Stop the test server
+.PHONY: stop-node
+stop-node: ## Stop the testing node server
 	-pkill -f "node-builder"
 	sleep 1
 

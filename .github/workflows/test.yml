@@ -48,12 +48,12 @@ jobs:
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Start test node
-        run: make testing-node-start
+        run: make start-node
       - name: Run integration tests
         run: make integration-test-full
       - name: Stop test node
         if: always()
-        run: make testing-node-stop
+        run: make stop-node
 
   integration-tests-web-client:
     name: Run integration tests for web client on ubuntu-latest
@@ -73,12 +73,12 @@ jobs:
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Start test node
-        run: make testing-node-start
+        run: make start-node
       - name: Run web client tests
         run: make integration-test-web-client
       - name: Stop test node
         if: always()
-        run: make testing-node-stop
+        run: make stop-node
 
   integration-tests-remote-prover-web-client:
     name: Run integration tests for remote prover on ubuntu-latest
@@ -100,14 +100,14 @@ jobs:
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Start test node
-        run: make testing-node-start
+        run: make start-node
       - name: Start prover
         run: make start-prover > /dev/null &
       - name: Run remote prover tests
         run: make integration-test-remote-prover-web-client
       - name: Stop test node
         if: always()
-        run: make testing-node-stop
+        run: make stop-node
       - name: Kill miden-prover
         if: always()
         run: make kill-prover
