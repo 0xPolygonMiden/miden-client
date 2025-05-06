@@ -182,7 +182,7 @@ pub trait Store: Send + Sync {
         filter: PartialBlockchainFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
-    /// Inserts MMR authentication nodes.
+    /// Inserts blockchain MMR authentication nodes.
     ///
     /// In the case where the [`InOrderIndex`] already exists on the table, the insertion is
     /// ignored.
