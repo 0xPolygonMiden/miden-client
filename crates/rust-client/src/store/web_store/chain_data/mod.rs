@@ -180,30 +180,4 @@ impl WebStore {
 
         Ok(())
     }
-
-    /// This function isn't used in this crate, rather it is used in the 'miden-client' crate.
-    /// The reference is [found here](https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L105)
-    /// It is duplicated here due to its reliance on the store.
-    #[allow(dead_code)]
-    pub(crate) async fn insert_block_header_tx(
-        block_header: &BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
-        has_client_notes: bool,
-    ) -> Result<(), StoreError> {
-        let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let serialized_data =
-            serialize_block_header(block_header, &chain_mmr_peaks, has_client_notes)?;
-
-        let promise = idxdb_insert_block_header(
-            serialized_data.block_num,
-            serialized_data.header,
-            serialized_data.chain_mmr_peaks,
-            serialized_data.has_client_notes,
-        );
-        JsFuture::from(promise).await.map_err(|js_error| {
-            StoreError::DatabaseError(format!("failed to insert block header: {js_error:?}",))
-        })?;
-
-        Ok(())
-    }
 }
