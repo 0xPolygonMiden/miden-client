@@ -16,7 +16,7 @@ use wasm_bindgen_futures::JsFuture;
 use super::{
     WebStore,
     account::utils::update_account,
-    chain_data::utils::{SerializedChainMmrNodeData, serialize_chain_mmr_node},
+    chain_data::utils::{SerializedPartialBlockchainNodeData, serialize_partial_blockchain_node},
     note::utils::apply_note_updates_tx,
 };
 use crate::{
@@ -142,11 +142,12 @@ impl WebStore {
             block_has_relevant_notes.push(u8::from(*has_client_notes));
         }
 
-        // Serialize data for updating chain MMR nodes
+        // Serialize data for updating partial blockchain nodes
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
         for (id, node) in block_updates.new_authentication_nodes() {
-            let SerializedChainMmrNodeData { id, node } = serialize_chain_mmr_node(*id, *node)?;
+            let SerializedPartialBlockchainNodeData { id, node } =
+                serialize_partial_blockchain_node(*id, *node)?;
             serialized_node_ids.push(id);
             serialized_nodes.push(node);
         }

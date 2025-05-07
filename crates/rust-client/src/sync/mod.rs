@@ -62,7 +62,7 @@ use miden_objects::{
     account::AccountId,
     block::BlockNumber,
     note::{NoteId, NoteTag},
-    transaction::{ChainMmr, TransactionId},
+    transaction::{PartialBlockchain, TransactionId},
 };
 use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 
@@ -142,7 +142,7 @@ impl Client {
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncommitted).await?;
 
-        // Build current chain MMR
+        // Build current partial MMR
         let current_partial_mmr = self.build_current_partial_mmr().await?;
 
         let all_block_numbers = (0..current_partial_mmr.forest())
@@ -163,7 +163,7 @@ impl Client {
         // Get the sync update from the network
         let state_sync_update = state_sync
             .sync_state(
-                ChainMmr::new(current_partial_mmr, block_headers)?,
+                PartialBlockchain::new(current_partial_mmr, block_headers)?,
                 accounts,
                 note_tags,
                 unspent_input_notes,

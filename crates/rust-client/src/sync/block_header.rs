@@ -11,7 +11,7 @@ use tracing::warn;
 use crate::{
     Client, ClientError,
     rpc::NodeRpcClient,
-    store::{ChainMmrNodeFilter, StoreError},
+    store::{PartialBlockchainFilter, StoreError},
 };
 
 /// Maximum number of blocks the client can be behind the network for transactions and account
@@ -59,8 +59,10 @@ impl Client {
     pub(crate) async fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
 
-        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
-        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
+        let tracked_nodes =
+            self.store.get_partial_blockchain_nodes(PartialBlockchainFilter::All).await?;
+        let current_peaks =
+            self.store.get_partial_blockchain_peaks_by_block_num(current_block_num).await?;
 
         let track_latest = if current_block_num.as_u32() != 0 {
             match self
@@ -117,7 +119,7 @@ impl Client {
         self.store
             .insert_block_header(&block_header, current_partial_mmr.peaks(), true)
             .await?;
-        self.store.insert_chain_mmr_nodes(&path_nodes).await?;
+        self.store.insert_partial_blockchain_nodes(&path_nodes).await?;
 
         Ok(block_header)
     }

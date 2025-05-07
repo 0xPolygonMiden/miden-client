@@ -10,20 +10,20 @@ pub struct BlockHeaderIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub header: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub chain_mmr: Vec<u8>,
+    pub partial_blockchain_peaks: Vec<u8>,
     pub has_client_notes: bool,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ChainMmrNodeIdxdbObject {
+pub struct PartialBlockchainNodeIdxdbObject {
     pub id: String,
     pub node: String,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MmrPeaksIdxdbObject {
+pub struct PartialBlockchainPeaksIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub peaks: Option<Vec<u8>>,
 }
