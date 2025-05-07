@@ -132,7 +132,7 @@ impl SqliteStore {
         }
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
+        Self::insert_partial_blockchain_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;

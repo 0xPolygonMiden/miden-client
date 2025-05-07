@@ -176,25 +176,26 @@ pub trait Store: Send + Sync {
     /// Retrieves a list of [`BlockHeader`] that include relevant notes to the client.
     async fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError>;
 
-    /// Retrieves all MMR authentication nodes based on [ChainMmrNodeFilter].
-    async fn get_chain_mmr_nodes(
+    /// Retrieves all MMR authentication nodes based on [PartialBlockchainFilter].
+    async fn get_partial_blockchain_nodes(
         &self,
-        filter: ChainMmrNodeFilter,
+        filter: PartialBlockchainFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
-    /// Inserts MMR authentication nodes.
+    /// Inserts blockchain MMR authentication nodes.
     ///
     /// In the case where the [`InOrderIndex`] already exists on the table, the insertion is
     /// ignored.
-    async fn insert_chain_mmr_nodes(
+    async fn insert_partial_blockchain_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError>;
 
     /// Returns peaks information from the blockchain by a specific block number.
     ///
-    /// If there is no chain MMR info stored for the provided block returns an empty [`MmrPeaks`].
-    async fn get_chain_mmr_peaks_by_block_num(
+    /// If there is no partial blockchain info stored for the provided block returns an empty
+    /// [`MmrPeaks`].
+    async fn get_partial_blockchain_peaks_by_block_num(
         &self,
         block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError>;
@@ -208,7 +209,7 @@ pub trait Store: Send + Sync {
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
+        blockchain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
 
@@ -320,11 +321,11 @@ pub trait Store: Send + Sync {
     ) -> Result<(), StoreError>;
 }
 
-// CHAIN MMR NODE FILTER
+// PARTIAL BLOCKCHAIN NODE FILTER
 // ================================================================================================
 /// Filters for searching specific MMR nodes.
 // TODO: Should there be filters for specific blocks instead of nodes?
-pub enum ChainMmrNodeFilter {
+pub enum PartialBlockchainFilter {
     /// Return all nodes.
     All,
     /// Filter by the specified in-order indices.

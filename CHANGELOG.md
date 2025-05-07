@@ -15,6 +15,7 @@
 * Added Examples to Mdbook for Web Client (#850).
 * Added account code to `miden account --show` command (#835).
 * Changed exec's input file format to TOML instead of JSON (#870).
+* [BREAKING] Client's methods renamed after `PartialMmr` change to `PartialBlockchain` (#894).
 
 ## 0.8.2 (TBD)
 
