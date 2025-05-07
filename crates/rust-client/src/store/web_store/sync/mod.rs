@@ -15,7 +15,7 @@ use wasm_bindgen_futures::JsFuture;
 
 use super::{
     WebStore,
-    account::{lock_account, utils::update_account},
+    account::utils::update_account,
     chain_data::utils::{SerializedPartialBlockchainNodeData, serialize_partial_blockchain_node},
     note::utils::apply_note_updates_tx,
 };
@@ -200,18 +200,11 @@ impl WebStore {
         }
 
         for (account_id, digest) in account_updates.mismatched_private_accounts() {
-            // Mismatched digests may be due to stale network data. If the mismatched digest is
-            // tracked in the db and corresponds to the mismatched account, it means we
-            // got a past update and shouldn't lock the account.
-            if let Some(account) = self.get_account_header_by_commitment(*digest).await? {
-                if account.id() == *account_id {
-                    continue;
-                }
-            }
-
-            lock_account(account_id).await.map_err(|err| {
-                StoreError::DatabaseError(format!("failed to lock account: {err:?}"))
-            })?;
+            self.lock_account_on_unexpected_commitment(account_id, digest).await.map_err(
+                |err| {
+                    StoreError::DatabaseError(format!("failed to check account mismatch: {err:?}"))
+                },
+            )?;
         }
 
         let account_states_to_rollback = self
