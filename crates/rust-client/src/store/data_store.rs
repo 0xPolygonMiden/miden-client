@@ -7,8 +7,7 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     transaction::PartialBlockchain,
 };
-use miden_tx::{DataStore, DataStoreError, TransactionMastStore};
-use vm_processor::MastForestStore;
+use miden_tx::{DataStore, DataStoreError, MastForestStore, TransactionMastStore};
 
 use super::{ChainMmrNodeFilter, Store};
 use crate::store::StoreError;
@@ -93,6 +92,15 @@ impl DataStore for ClientDataStore {
             })?;
 
         Ok((account, seed, block_header, partial_blockchain))
+    }
+}
+
+// MAST FOREST STORE
+// ================================================================================================
+
+impl MastForestStore for ClientDataStore {
+    fn get(&self, procedure_hash: &Digest) -> Option<Arc<MastForest>> {
+        self.transaction_mast_store.get(procedure_hash)
     }
 }
 
@@ -186,13 +194,4 @@ fn mmr_merkle_path_len(leaf_index: usize, forest: usize) -> usize {
     let after = forest ^ before;
 
     after.ilog2() as usize
-}
-
-// MAST FOREST STORE
-// ================================================================================================
-
-impl MastForestStore for ClientDataStore {
-    fn get(&self, procedure_hash: &Digest) -> Option<Arc<MastForest>> {
-        self.transaction_mast_store.get(procedure_hash)
-    }
 }
