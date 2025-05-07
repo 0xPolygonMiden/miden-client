@@ -30,7 +30,7 @@ extern "C" {
     pub fn idxdb_apply_state_sync(
         block_num: String,
         block_header: Vec<u8>,
-        chain_mmr_peaks: Vec<u8>,
+        partial_blockchain_peaks: Vec<u8>,
         has_client_notes: bool,
         serialized_node_ids: Vec<String>,
         serialized_nodes: Vec<String>,

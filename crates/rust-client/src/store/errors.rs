@@ -36,8 +36,8 @@ pub enum StoreError {
     AccountKeyNotFound(String),
     #[error("account storage data with root {0} not found")]
     AccountStorageNotFound(Digest),
-    #[error("chain mmr node at index {0} not found")]
-    ChainMmrNodeNotFound(u64),
+    #[error("partial blockchain node at index {0} not found")]
+    PartialBlockchainNodeNotFound(u64),
     #[error("error deserializing data from the store")]
     DataDeserializationError(#[from] DeserializationError),
     #[error("database-related non-query error: {0}")]

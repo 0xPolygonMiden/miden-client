@@ -10,7 +10,6 @@ use figment::{
     value::{Dict, Map},
 };
 use miden_client::rpc::Endpoint;
-use miden_objects::{NetworkIdError, account::NetworkId};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::CliError;
@@ -37,8 +36,6 @@ pub struct CliConfig {
     pub remote_prover_endpoint: Option<CliEndpoint>,
     /// Path to the directory from where account component template files will be loaded.
     pub component_template_directory: PathBuf,
-    /// Network for use in bech32 account ID enconding.
-    pub network: Network,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -73,7 +70,6 @@ impl Default for CliConfig {
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
             remote_prover_endpoint: None,
             component_template_directory: Path::new(DEFAULT_COMPONENT_TEMPLATE_DIR).to_path_buf(),
-            network: Network::Localhost,
         }
     }
 }
@@ -203,18 +199,5 @@ impl Network {
             Network::Localhost => Endpoint::default().to_string(),
             Network::Testnet => Endpoint::testnet().to_string(),
         }
-    }
-
-    /// Converts the Network variant to its corresponding [`NetworkId`]
-    #[allow(dead_code)]
-    pub fn to_network_id(&self) -> Result<NetworkId, NetworkIdError> {
-        let network_id = match self {
-            Network::Custom(_) => NetworkId::new("mcst")?,
-            Network::Devnet => NetworkId::Devnet,
-            Network::Localhost => NetworkId::new("mlcl")?,
-            Network::Testnet => NetworkId::Testnet,
-        };
-
-        Ok(network_id)
     }
 }

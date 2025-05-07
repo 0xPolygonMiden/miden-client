@@ -1,20 +1,22 @@
-import { blockHeaders, chainMmrNodes } from "./schema.js";
+import { blockHeaders, partialBlockchainNodes } from "./schema.js";
 
 // INSERT FUNCTIONS
 export async function insertBlockHeader(
   blockNum,
   header,
-  chainMmrPeaks,
+  partialBlockchainPeaks,
   hasClientNotes
 ) {
   try {
     const headerBlob = new Blob([new Uint8Array(header)]);
-    const chainMmrPeaksBlob = new Blob([new Uint8Array(chainMmrPeaks)]);
+    const partialBlockchainPeaksBlob = new Blob([
+      new Uint8Array(partialBlockchainPeaks),
+    ]);
 
     const data = {
       blockNum: blockNum,
       header: headerBlob,
-      chainMmrPeaks: chainMmrPeaksBlob,
+      partialBlockchainPeaks: partialBlockchainPeaksBlob,
       hasClientNotes: hasClientNotes.toString(),
     };
 
@@ -41,7 +43,7 @@ export async function insertBlockHeader(
   }
 }
 
-export async function insertChainMmrNodes(ids, nodes) {
+export async function insertPartialBlockchainNodes(ids, nodes) {
   try {
     // Check if the arrays are not of the same length
     if (ids.length !== nodes.length) {
@@ -59,9 +61,12 @@ export async function insertChainMmrNodes(ids, nodes) {
     }));
 
     // Use bulkPut to add/overwrite the entries
-    await chainMmrNodes.bulkPut(data);
+    await partialBlockchainNodes.bulkPut(data);
   } catch (err) {
-    console.error("Failed to insert chain mmr nodes: ", err.toString());
+    console.error(
+      "Failed to insert partial blockchain nodes: ",
+      err.toString()
+    );
     throw err;
   }
 }
@@ -80,15 +85,19 @@ export async function getBlockHeaders(blockNumbers) {
           const headerArray = new Uint8Array(headerArrayBuffer);
           const headerBase64 = uint8ArrayToBase64(headerArray);
 
-          const chainMmrPeaksArrayBuffer =
-            await result.chainMmrPeaks.arrayBuffer();
-          const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
-          const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+          const partialBlockchainPeaksArrayBuffer =
+            await result.partialBlockchainPeaks.arrayBuffer();
+          const partialBlockchainPeaksArray = new Uint8Array(
+            partialBlockchainPeaksArrayBuffer
+          );
+          const partialBlockchainPeaksBase64 = uint8ArrayToBase64(
+            partialBlockchainPeaksArray
+          );
 
           return {
             blockNum: result.blockNum,
             header: headerBase64,
-            chainMmr: chainMmrPeaksBase64,
+            partialBlockchainPeaks: partialBlockchainPeaksBase64,
             hasClientNotes: result.hasClientNotes === "true",
           };
         }
@@ -117,15 +126,19 @@ export async function getTrackedBlockHeaders() {
         const headerArray = new Uint8Array(headerArrayBuffer);
         const headerBase64 = uint8ArrayToBase64(headerArray);
 
-        const chainMmrPeaksArrayBuffer =
-          await record.chainMmrPeaks.arrayBuffer();
-        const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
-        const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+        const partialBlockchainPeaksArrayBuffer =
+          await record.partialBlockchainPeaks.arrayBuffer();
+        const partialBlockchainPeaksArray = new Uint8Array(
+          partialBlockchainPeaksArrayBuffer
+        );
+        const partialBlockchainPeaksBase64 = uint8ArrayToBase64(
+          partialBlockchainPeaksArray
+        );
 
         return {
           blockNum: record.blockNum,
           header: headerBase64,
-          chainMmr: chainMmrPeaksBase64,
+          partialBlockchainPeaks: partialBlockchainPeaksBase64,
           hasClientNotes: record.hasClientNotes === "true",
         };
       })
@@ -138,41 +151,45 @@ export async function getTrackedBlockHeaders() {
   }
 }
 
-export async function getChainMmrPeaksByBlockNum(blockNum) {
+export async function getPartialBlockchainPeaksByBlockNum(blockNum) {
   try {
     const blockHeader = await blockHeaders.get(blockNum);
 
-    const chainMmrPeaksArrayBuffer =
-      await blockHeader.chainMmrPeaks.arrayBuffer();
-    const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
-    const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+    const partialBlockchainPeaksArrayBuffer =
+      await blockHeader.partialBlockchainPeaks.arrayBuffer();
+    const partialBlockchainPeaksArray = new Uint8Array(
+      partialBlockchainPeaksArrayBuffer
+    );
+    const partialBlockchainPeaksBase64 = uint8ArrayToBase64(
+      partialBlockchainPeaksArray
+    );
 
     return {
-      peaks: chainMmrPeaksBase64,
+      peaks: partialBlockchainPeaksBase64,
     };
   } catch (err) {
-    console.error("Failed to get chain mmr peaks: ", err.toString());
+    console.error("Failed to get partial blockchain peaks: ", err.toString());
     throw err;
   }
 }
 
-export async function getChainMmrNodesAll() {
+export async function getPartialBlockchainNodesAll() {
   try {
-    const chainMmrNodesAll = await chainMmrNodes.toArray();
-    return chainMmrNodesAll;
+    const partialBlockchainNodesAll = await partialBlockchainNodes.toArray();
+    return partialBlockchainNodesAll;
   } catch (err) {
-    console.error("Failed to get chain mmr nodes: ", err.toString());
+    console.error("Failed to get partial blockchain nodes: ", err.toString());
     throw err;
   }
 }
 
-export async function getChainMmrNodes(ids) {
+export async function getPartialBlockchainNodes(ids) {
   try {
-    const results = await chainMmrNodes.bulkGet(ids);
+    const results = await partialBlockchainNodes.bulkGet(ids);
 
     return results;
   } catch (err) {
-    console.error("Failed to get chain mmr nodes: ", err.toString());
+    console.error("Failed to get partial blockchain nodes: ", err.toString());
     throw err;
   }
 }

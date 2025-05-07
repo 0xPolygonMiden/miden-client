@@ -5,11 +5,11 @@ use miden_objects::{
     account::{Account, AccountId},
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    transaction::ChainMmr,
+    transaction::PartialBlockchain,
 };
 use miden_tx::{DataStore, DataStoreError, MastForestStore, TransactionMastStore};
 
-use super::{ChainMmrNodeFilter, Store};
+use super::{PartialBlockchainFilter, Store};
 use crate::store::StoreError;
 
 // DATA STORE
@@ -42,7 +42,7 @@ impl DataStore for ClientDataStore {
         &self,
         account_id: AccountId,
         mut block_refs: BTreeSet<BlockNumber>,
-    ) -> Result<(Account, Option<Word>, BlockHeader, ChainMmr), DataStoreError> {
+    ) -> Result<(Account, Option<Word>, BlockHeader, PartialBlockchain), DataStoreError> {
         // Pop last block, used as reference (it does not need to be authenticated manually)
         let ref_block = block_refs.pop_last().ok_or(DataStoreError::other("Block set is empty"))?;
 
@@ -83,11 +83,15 @@ impl DataStore for ClientDataStore {
         let partial_mmr =
             build_partial_mmr_with_paths(&self.store, ref_block.as_u32(), &block_headers).await?;
 
-        let chain_mmr = ChainMmr::new(partial_mmr, block_headers).map_err(|err| {
-            DataStoreError::other_with_source("error creating ChainMmr from internal data", err)
-        })?;
+        let partial_blockchain =
+            PartialBlockchain::new(partial_mmr, block_headers).map_err(|err| {
+                DataStoreError::other_with_source(
+                    "error creating PartialBlockchain from internal data",
+                    err,
+                )
+            })?;
 
-        Ok((account, seed, block_header, chain_mmr))
+        Ok((account, seed, block_header, partial_blockchain))
     }
 }
 
@@ -114,8 +118,9 @@ async fn build_partial_mmr_with_paths(
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
     let mut partial_mmr: PartialMmr = {
-        let current_peaks =
-            store.get_chain_mmr_peaks_by_block_num(BlockNumber::from(forest)).await?;
+        let current_peaks = store
+            .get_partial_blockchain_peaks_by_block_num(BlockNumber::from(forest))
+            .await?;
 
         PartialMmr::from_peaks(current_peaks)
     };
@@ -135,7 +140,7 @@ async fn build_partial_mmr_with_paths(
     Ok(partial_mmr)
 }
 
-/// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then
+/// Retrieves all Partial Blockchain nodes required for authenticating the set of blocks, and then
 /// constructs the path for each of them.
 ///
 /// This function assumes `block_nums` doesn't contain values above or equal to `forest`.
@@ -162,8 +167,8 @@ async fn get_authentication_path_for_blocks(
     // Get all MMR nodes based on collected indices
     let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
 
-    let filter = ChainMmrNodeFilter::List(node_indices);
-    let mmr_nodes = store.get_chain_mmr_nodes(filter).await?;
+    let filter = PartialBlockchainFilter::List(node_indices);
+    let mmr_nodes = store.get_partial_blockchain_nodes(filter).await?;
 
     // Construct authentication paths
     let mut authentication_paths = vec![];
