@@ -26,8 +26,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, js_sys, wasm_bindgen};
 
 use super::{
-    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
-    OutputNoteRecord, Store, StoreError, TransactionFilter,
+    AccountRecord, AccountStatus, InputNoteRecord, NoteFilter, OutputNoteRecord,
+    PartialBlockchainFilter, Store, StoreError, TransactionFilter,
 };
 use crate::{
     note::NoteUpdates,
@@ -139,10 +139,11 @@ impl Store for WebStore {
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
+        partial_blockchain_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes).await
+        self.insert_block_header(block_header, partial_blockchain_peaks, has_client_notes)
+            .await
     }
 
     async fn get_block_headers(
@@ -156,25 +157,25 @@ impl Store for WebStore {
         self.get_tracked_block_headers().await
     }
 
-    async fn get_chain_mmr_nodes(
+    async fn get_partial_blockchain_nodes(
         &self,
-        filter: ChainMmrNodeFilter,
+        filter: PartialBlockchainFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.get_chain_mmr_nodes(filter).await
+        self.get_partial_blockchain_nodes(filter).await
     }
 
-    async fn insert_chain_mmr_nodes(
+    async fn insert_partial_blockchain_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
-        self.insert_chain_mmr_nodes(nodes).await
+        self.insert_partial_blockchain_nodes(nodes).await
     }
 
-    async fn get_chain_mmr_peaks_by_block_num(
+    async fn get_partial_blockchain_peaks_by_block_num(
         &self,
         block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
-        self.get_chain_mmr_peaks_by_block_num(block_num).await
+        self.get_partial_blockchain_peaks_by_block_num(block_num).await
     }
 
     // ACCOUNTS

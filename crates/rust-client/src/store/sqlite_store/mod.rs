@@ -27,8 +27,8 @@ use rusqlite::{Connection, types::Value};
 use tonic::async_trait;
 
 use super::{
-    AccountRecord, AccountStatus, ChainMmrNodeFilter, InputNoteRecord, NoteFilter,
-    OutputNoteRecord, Store, TransactionFilter,
+    AccountRecord, AccountStatus, InputNoteRecord, NoteFilter, OutputNoteRecord,
+    PartialBlockchainFilter, Store, TransactionFilter,
 };
 use crate::{
     note::NoteUpdates,
@@ -178,7 +178,7 @@ impl Store for SqliteStore {
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
-        chain_mmr_peaks: MmrPeaks,
+        partial_blockchain_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let block_header = block_header.clone();
@@ -186,7 +186,7 @@ impl Store for SqliteStore {
             SqliteStore::insert_block_header(
                 conn,
                 &block_header,
-                &chain_mmr_peaks,
+                &partial_blockchain_peaks,
                 has_client_notes,
             )
         })
@@ -208,29 +208,33 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_tracked_block_headers).await
     }
 
-    async fn get_chain_mmr_nodes(
+    async fn get_partial_blockchain_nodes(
         &self,
-        filter: ChainMmrNodeFilter,
+        filter: PartialBlockchainFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.interact_with_connection(move |conn| SqliteStore::get_chain_mmr_nodes(conn, &filter))
-            .await
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_partial_blockchain_nodes(conn, &filter)
+        })
+        .await
     }
 
-    async fn insert_chain_mmr_nodes(
+    async fn insert_partial_blockchain_nodes(
         &self,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
         let nodes = nodes.to_vec();
-        self.interact_with_connection(move |conn| SqliteStore::insert_chain_mmr_nodes(conn, &nodes))
-            .await
+        self.interact_with_connection(move |conn| {
+            SqliteStore::insert_partial_blockchain_nodes(conn, &nodes)
+        })
+        .await
     }
 
-    async fn get_chain_mmr_peaks_by_block_num(
+    async fn get_partial_blockchain_peaks_by_block_num(
         &self,
         block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.interact_with_connection(move |conn| {
-            SqliteStore::get_chain_mmr_peaks_by_block_num(conn, block_num)
+            SqliteStore::get_partial_blockchain_peaks_by_block_num(conn, block_num)
         })
         .await
     }

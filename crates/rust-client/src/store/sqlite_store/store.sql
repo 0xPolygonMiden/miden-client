@@ -144,13 +144,13 @@ WHERE (
 CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
-    chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
+    partial_blockchain_peaks BLOB NOT NULL,        -- serialized peaks of the partial blockchain MMR at this block
     has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)
 );
 
--- Create chain mmr nodes
-CREATE TABLE chain_mmr_nodes (
+-- Create partial blockchain nodes
+CREATE TABLE partial_blockchain_nodes (
     id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
     node BLOB NOT NULL,             -- internal node value (commitment)
     PRIMARY KEY (id)
