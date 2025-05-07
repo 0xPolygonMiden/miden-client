@@ -237,9 +237,9 @@ dependencies = [
 
 [[package]]
 name = "backtrace"
-version = "0.3.74"
+version = "0.3.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d82cb332cdfaed17ae235a638438ac4d4839913cc2af585c3c6746e8f8bee1a"
+checksum = "6806a6321ec58106fea15becdad98371e28d92ccbc7c8f1b3b6dd724fe8f1002"
 dependencies = [
  "addr2line",
  "cfg-if",
@@ -357,9 +357,9 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cc"
-version = "1.2.20"
+version = "1.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04da6a0d40b948dfc4fa8f5bbf402b0fc1a64a28dbf7d12ffd683550f2c1b63a"
+checksum = "8691782945451c1c383942c4874dbe63814f61cb57ef773cda2972682b7bb3c0"
 dependencies = [
  "jobserver",
  "libc",
@@ -555,17 +555,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
 dependencies = [
  "tokio",
-]
-
-[[package]]
-name = "deadpool-sqlite"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d84a12c51972a50e54895427e43743da9737af66395a609283be01ec72efd9fb"
-dependencies = [
- "deadpool",
- "deadpool-sync",
- "rusqlite",
 ]
 
 [[package]]
@@ -860,9 +849,9 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
 name = "h2"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75249d144030531f8dee69fe9cea04d3edf809a017ae445e2abdff6629e86633"
+checksum = "a9421a676d1b147b16b82c9225157dc629087ef8ec4d5e2960f9437a90dac0a5"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -885,9 +874,9 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hashbrown"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
 dependencies = [
  "foldhash",
 ]
@@ -898,7 +887,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
 dependencies = [
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -1066,7 +1055,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -1181,9 +1170,9 @@ checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
 name = "libm"
-version = "0.2.13"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9627da5196e5d8ed0b0495e61e518847578da83483c37288316d9b2e03a7f72"
+checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libredox"
@@ -1197,9 +1186,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad8935b44e7c13394a179a438e0cebba0fe08fe01b54f152e29a93b5cf993fd4"
+checksum = "947e6816f7825b2b45027c2c32e7085da9934defa535de4a6a46b10a4d5257fa"
 dependencies = [
  "cc",
  "pkg-config",
@@ -1380,7 +1369,6 @@ dependencies = [
  "predicates",
  "rand 0.9.1",
  "serde",
- "serde_json",
  "thiserror 2.0.12",
  "tokio",
  "toml",
@@ -1396,7 +1384,8 @@ dependencies = [
  "async-trait",
  "base64",
  "chrono",
- "deadpool-sqlite",
+ "deadpool",
+ "deadpool-sync",
  "getrandom 0.3.2",
  "hex",
  "miden-client",
@@ -1404,7 +1393,7 @@ dependencies = [
  "miden-node-proto-build",
  "miden-objects",
  "miden-proving-service-client",
- "miden-test",
+ "miden-testing",
  "miden-tx",
  "miette",
  "prost",
@@ -1412,13 +1401,14 @@ dependencies = [
  "protox 0.7.2",
  "rand 0.9.1",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde-wasm-bindgen",
  "thiserror 2.0.12",
  "tokio",
  "toml",
- "tonic 0.13.0",
- "tonic-build 0.13.0",
+ "tonic 0.13.1",
+ "tonic-build 0.13.1",
  "tonic-web-wasm-client 0.7.0",
  "tracing",
  "uuid",
@@ -1506,7 +1496,7 @@ dependencies = [
 [[package]]
 name = "miden-lib"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-mock-private-notes#da257f05c47ab91cde156cd1c9afb972bb181f2a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d1d4b34fdda523c6c7d5bbf2e5275dc9a46505e1"
 dependencies = [
  "miden-assembly",
  "miden-objects",
@@ -1561,7 +1551,7 @@ dependencies = [
 [[package]]
 name = "miden-node-proto-build"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#3b7f4656abf1b6d95e73ab35f28e2f8c25904eaf"
+source = "git+https://github.com/0xPolygonMiden/miden-node?branch=next#269cfb7d08238e32a9084026aaa6bbbf0fa5504b"
 dependencies = [
  "anyhow",
  "prost",
@@ -1572,7 +1562,7 @@ dependencies = [
 [[package]]
 name = "miden-objects"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-mock-private-notes#da257f05c47ab91cde156cd1c9afb972bb181f2a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d1d4b34fdda523c6c7d5bbf2e5275dc9a46505e1"
 dependencies = [
  "bech32",
  "getrandom 0.3.2",
@@ -1619,7 +1609,7 @@ dependencies = [
 [[package]]
 name = "miden-proving-service-client"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-mock-private-notes#da257f05c47ab91cde156cd1c9afb972bb181f2a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d1d4b34fdda523c6c7d5bbf2e5275dc9a46505e1"
 dependencies = [
  "async-trait",
  "getrandom 0.3.2",
@@ -1647,9 +1637,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "miden-test"
+name = "miden-testing"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-mock-private-notes#da257f05c47ab91cde156cd1c9afb972bb181f2a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d1d4b34fdda523c6c7d5bbf2e5275dc9a46505e1"
 dependencies = [
  "async-trait",
  "miden-crypto",
@@ -1665,7 +1655,7 @@ dependencies = [
 [[package]]
 name = "miden-tx"
 version = "0.9.0"
-source = "git+https://github.com/0xPolygonMiden/miden-base?branch=tomyrd-mock-private-notes#da257f05c47ab91cde156cd1c9afb972bb181f2a"
+source = "git+https://github.com/0xPolygonMiden/miden-base?branch=next#d1d4b34fdda523c6c7d5bbf2e5275dc9a46505e1"
 dependencies = [
  "async-trait",
  "miden-lib",
@@ -2335,9 +2325,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.11"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
+checksum = "928fca9cf2aa042393a8325b9ead81d2f0df4cb12e1e24cef072922ccd99c5af"
 dependencies = [
  "bitflags",
 ]
@@ -2413,9 +2403,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.33.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c6d5e5acb6f6129fe3f7ba0a7fc77bca1942cb568535e18e7bc40262baf3110"
+checksum = "a22715a5d6deef63c637207afbe68d0c72c3f8d0022d7cf9714c442d6157606b"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -2423,6 +2413,16 @@ dependencies = [
  "hashlink",
  "libsqlite3-sys",
  "smallvec",
+]
+
+[[package]]
+name = "rusqlite_migration"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6bec955369ac93728d3864d56b5d663ec7495f83648c560750a56c50fefcbf8"
+dependencies = [
+ "log",
+ "rusqlite",
 ]
 
 [[package]]
@@ -2464,9 +2464,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.5"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d97817398dd4bb2e6da002002db259209759911da105da92bec29ccb12cf58bf"
+checksum = "c71e83d6afe7ff64890ec6b71d6a69bb8a610ab78ce364b3352876bb4c801266"
 dependencies = [
  "bitflags",
  "errno",
@@ -2477,9 +2477,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.26"
+version = "0.23.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df51b5869f3a441595eac5e8ff14d486ff285f7b8c0df8770e49c3b56351f0f0"
+checksum = "730944ca083c1c233a75c09f199e973ca499344a2b7ba9e755c457e86fb4a321"
 dependencies = [
  "log",
  "once_cell",
@@ -2504,15 +2504,18 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "917ce264624a4b4db1c364dcc35bfca9ded014d0a958cd47ad3e960e988ea51c"
+checksum = "229a4a4c221013e7e1f1a043678c5cc39fe5171437c88fb47151a21e6f5b5c79"
+dependencies = [
+ "zeroize",
+]
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.1"
+version = "0.103.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef8b8769aaccf73098557a87cd1816b4f9c7c16811c9c77142aa695c16f2c03"
+checksum = "7149975849f1abb3832b246010ef62ccc80d3a76169517ada7188252b9cfb437"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -2814,7 +2817,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.2",
  "once_cell",
- "rustix 1.0.5",
+ "rustix 1.0.7",
  "windows-sys 0.59.0",
 ]
 
@@ -2854,7 +2857,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45c6481c4829e4cc63825e62c49186a34538b7b2750b73b266581ffb612fb5ed"
 dependencies = [
- "rustix 1.0.5",
+ "rustix 1.0.7",
  "windows-sys 0.59.0",
 ]
 
@@ -2936,9 +2939,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.44.2"
+version = "1.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
+checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
 dependencies = [
  "backtrace",
  "bytes",
@@ -3068,9 +3071,9 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85839f0b32fd242bb3209262371d07feda6d780d16ee9d2bc88581b89da1549b"
+checksum = "7e581ba15a835f4d9ea06c55ab1bd4dce26fc53752c69a04aac00703bfb49ba9"
 dependencies = [
  "async-trait",
  "base64",
@@ -3112,9 +3115,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-build"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d85f0383fadd15609306383a90e85eaed44169f931a5d2be1b42c76ceff1825e"
+checksum = "eac6f67be712d12f0b41328db3137e0d0757645d8904b4cb7d51cd9c2279e847"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -3166,7 +3169,7 @@ dependencies = [
  "js-sys",
  "pin-project",
  "thiserror 2.0.12",
- "tonic 0.13.0",
+ "tonic 0.13.1",
  "tower-service",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -3853,9 +3856,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winnow"
-version = "0.7.7"
+version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb8234a863ea0e8cd7284fcdd4f145233eb00fee02bbdd9861aec44e6477bc5"
+checksum = "c06928c8748d81b05c9be96aad92e1b6ff01833332f281e8cfca3be4b35fc9ec"
 dependencies = [
  "memchr",
 ]

@@ -1,0 +1,33 @@
+# Simple test masm file. This file is associated with `input.toml`
+# This file is identical to `success.masm` except for the item being accessed in the input file.
+# This script should succeed.
+
+
+begin
+    # push the key for the advice map onto the stack ("0x0000001000000000000000000000000000000000000000000000000000000000")
+    push.268435456.0.0.0
+
+    ## load the values associated with the key from the advice map onto the advice stack
+    adv.push_mapval
+
+    # Drop the numbers used to access the advice map key
+    dropw
+    dropw
+    dropw
+    dropw
+
+    # Pushes 2 words from the advice stack to the operand stack (13 and 9).
+    adv_push.2
+
+    # Add the top 2 numbers of the stack and push the result to the stack.
+    add
+
+    # Push 22 to the stack.
+    # eq consumes the top 2 numbers from the stack, pushes 1 if they are equal,
+    # 0 if they are different.
+    push.22 eq
+
+    # Pops an element from the stack and checks if is equal to 1.
+    assert
+
+end

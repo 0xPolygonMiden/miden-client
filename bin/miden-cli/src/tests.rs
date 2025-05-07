@@ -722,3 +722,46 @@ fn assert_command_fails_but_does_not_panic(command: &mut Command) {
     assert_ne!(exit_code, 0); // Command failed
     assert_ne!(exit_code, 101); // Command didn't panic
 }
+
+// COMMANDS TESTS
+// ================================================================================================
+
+#[test]
+fn test_exec_parse() {
+    let failure_script =
+        fs::canonicalize("tests/files/test_cli_advice_inputs_expect_failure.masm").unwrap();
+    let success_script =
+        fs::canonicalize("tests/files/test_cli_advice_inputs_expect_success.masm").unwrap();
+    let toml_path = fs::canonicalize("tests/files/test_cli_advice_inputs_input.toml").unwrap();
+
+    let temp_dir = init_cli().1;
+
+    // Create wallet account
+    let basic_account_id = new_wallet_cli(&temp_dir, AccountStorageMode::Private);
+
+    let mut success_cmd = Command::cargo_bin("miden").unwrap();
+    success_cmd.args([
+        "exec",
+        "-s",
+        success_script.to_str().unwrap(),
+        "-a",
+        &basic_account_id[0..8],
+        "-i",
+        toml_path.to_str().unwrap(),
+    ]);
+
+    success_cmd.current_dir(&temp_dir).assert().success();
+
+    let mut failure_cmd = Command::cargo_bin("miden").unwrap();
+    failure_cmd.args([
+        "exec",
+        "-s",
+        failure_script.to_str().unwrap(),
+        "-a",
+        &basic_account_id[0..8],
+        "-i",
+        toml_path.to_str().unwrap(),
+    ]);
+
+    failure_cmd.current_dir(&temp_dir).assert().failure();
+}

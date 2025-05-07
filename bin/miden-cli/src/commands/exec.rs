@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 use clap::Parser;
 use miden_client::{Client, Felt, Word};
 use miden_objects::{Digest, vm::AdviceInputs};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::{errors::CliError, utils::get_input_acc_id_by_prefix_or_default};
 
@@ -21,13 +21,22 @@ pub struct ExecCmd {
     #[clap(long, short)]
     script_path: String,
 
-    /// Path to the inputs file
+    #[rustfmt::skip]
+    #[allow(clippy::doc_link_with_quotes)]
+    /// Path to the inputs file. This file will be used as inputs to the VM's advice map.
     ///
-    /// The file should contain a JSON array of objects, where each object has two fields:
+    /// The file should contain a TOML array of inline tables, where each table has two fields:
     /// - `key`: a 256-bit hexadecimal string representing a word to be used as a key for the input
-    ///   entry
+    ///   entry. The hexadecimal value must be prefixed with 0x.
     /// - `values`: an array of 64-bit unsigned integers representing field elements to be used as
-    ///   values for the input entry
+    ///   values for the input entry. Each integer must be written as a separate string, within
+    ///   double quotes.
+    ///
+    /// The input file should contain a TOML table called `inputs`, as in the following example:
+    ///    inputs = [
+    ///        { key = "0x0000001000000000000000000000000000000000000000000000000000000000", values = ["13", "9"]},
+    ///        { key = "0x0000000000000000000000000000000000000000000000000000000000000000" , values = ["1", "2"]},
+    ///    ]
     #[clap(long, short)]
     inputs_path: Option<String>,
 
@@ -114,14 +123,54 @@ impl ExecCmd {
     }
 }
 
+// INPUT FILE PROCESSING
+// ===============================================================================================
+
+/// Struct that holds a single key-values pair from the provided file inputs file. These will be
+/// aggregated in the [`CliTxInputs`] struct
 #[derive(Serialize, Deserialize)]
 struct CliTxInput {
     key: String,
+    #[serde(deserialize_with = "string_to_u64")]
     values: Vec<u64>,
 }
 
+/// Struct that holds every key-values pair present in the provided inputs file. This struct can be
+/// iterated on to access the different keys.
+#[derive(Serialize, Deserialize)]
+struct CliTxInputs {
+    inputs: Vec<CliTxInput>,
+}
+
+impl IntoIterator for CliTxInputs {
+    type Item = CliTxInput;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inputs.into_iter()
+    }
+}
+
+/// Since the toml crate has problems parsing u64 values (see
+/// [issue](https://github.com/toml-rs/toml/issues/705), we store the values as Strings. Then, when
+/// deserializing, we turn those Strings to u64 in order to then turn them to Felts.
+fn string_to_u64<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Vec::<String>::deserialize(deserializer)?
+        .into_iter()
+        .map(|a| a.parse::<u64>())
+        .collect::<Result<Vec<u64>, _>>()
+        .map_err(|_| {
+            de::Error::custom(
+                "invalid type: expected u64 in between parentheses. For example: values = [\"13\", \"9\"]",
+            )
+        })
+}
+
 fn deserialize_tx_inputs(serialized: &str) -> Result<Vec<(Word, Vec<Felt>)>, CliError> {
-    let cli_inputs: Vec<CliTxInput> = serde_json::from_str(serialized).map_err(|err| {
+    let cli_inputs: CliTxInputs = toml::from_str(serialized).map_err(|err| {
         CliError::Exec(
             "error deserializing transaction inputs".into(),
             format!("failed to parse input data: {err}"),

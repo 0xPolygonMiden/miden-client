@@ -18,7 +18,7 @@ use miden_objects::{
     },
     transaction::{InputNoteCommitment, OutputNote, ProvenTransaction},
 };
-use miden_test::{MockChain, MockChainNote};
+use miden_testing::{MockChain, MockChainNote};
 use miden_tx::utils::sync::RwLock;
 
 use crate::{

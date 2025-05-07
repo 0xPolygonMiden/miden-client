@@ -22,9 +22,9 @@ workspace = true
 concurrent = ["miden-tx/concurrent", "std"]
 default = ["std", "tonic/channel"]
 idxdb = ["dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde", "dep:getrandom"]
-sqlite = ["dep:rusqlite", "dep:deadpool-sqlite", "std"]
+sqlite = ["dep:rusqlite", "dep:deadpool", "dep:deadpool-sync", "dep:rusqlite_migration", "std"]
 std = ["miden-objects/std","miden-proving-service-client/std"]
-testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing", "dep:miden-test", "dep:uuid", "dep:toml"]
+testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing", "dep:miden-testing", "dep:uuid", "dep:toml"]
 tonic = ["std", "tonic/transport", "tonic/tls-ring", "tonic/tls-native-roots"]
 web-tonic = ["dep:tonic-web-wasm-client", "dep:getrandom"]
 
@@ -32,16 +32,18 @@ web-tonic = ["dep:tonic-web-wasm-client", "dep:getrandom"]
 async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
-deadpool-sqlite = { version = "0.10", features = ["rt_tokio_1"], optional = true }
+deadpool = { version = "0.12", features = ["managed", "rt_tokio_1"], default-features = false, optional = true }
+deadpool-sync = { version = "0.1", optional = true }
 hex = { version = "0.4" }
 miden-proving-service-client = { workspace = true , features = ["tx-prover"]}
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-test = { workspace = true, features = ["async"], optional = true}
+miden-testing = { workspace = true, optional = true }
 miden-tx = { workspace = true, features = ["async"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
 rand = { workspace = true }
-rusqlite = { version = "0.33", features = ["vtab", "array", "bundled"], optional = true }
+rusqlite = { version = "0.35", features = ["vtab", "array", "bundled"], optional = true }
+rusqlite_migration = { version = "2.1", optional = true }
 serde = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { workspace = true }
