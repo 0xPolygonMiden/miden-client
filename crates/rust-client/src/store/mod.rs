@@ -209,7 +209,7 @@ pub trait Store: Send + Sync {
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
-        blockchain_mmr_peaks: MmrPeaks,
+        partial_blockchain_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
 
