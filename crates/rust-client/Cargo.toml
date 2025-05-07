@@ -63,6 +63,7 @@ web-sys = { version = "0.3", features = ["console", "Window", "Storage"] }
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+miden-testing = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["async"] }
 tokio = { workspace = true }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 web-sys = { version = "0.3", features = ["console"]}

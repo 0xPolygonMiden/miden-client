@@ -5,7 +5,7 @@ import {
   outputNotes,
   transactions,
   blockHeaders,
-  chainMmrNodes,
+  partialBlockchainNodes,
   tags,
 } from "./schema.js";
 
@@ -82,7 +82,7 @@ export async function applyStateSync(
   blockNum,
   newBlockHeadersAsFlattenedVec,
   newBlockNums,
-  chainMmrPeaksAsFlattenedVec,
+  partialBlockchainPeaksAsFlattenedVec,
   hasClientNotes,
   nodeIndexes,
   nodes,
@@ -91,7 +91,9 @@ export async function applyStateSync(
   const newBlockHeaders = reconstructFlattenedVec(
     newBlockHeadersAsFlattenedVec
   );
-  const chainMmrPeaks = reconstructFlattenedVec(chainMmrPeaksAsFlattenedVec);
+  const partialBlockchainPeaks = reconstructFlattenedVec(
+    partialBlockchainPeaksAsFlattenedVec
+  );
 
   return db.transaction(
     "rw",
@@ -100,7 +102,7 @@ export async function applyStateSync(
     outputNotes,
     transactions,
     blockHeaders,
-    chainMmrNodes,
+    partialBlockchainNodes,
     tags,
     async (tx) => {
       await updateSyncHeight(tx, blockNum);
@@ -109,11 +111,11 @@ export async function applyStateSync(
           tx,
           newBlockNums[i],
           newBlockHeaders[i],
-          chainMmrPeaks[i],
+          partialBlockchainPeaks[i],
           hasClientNotes[i]
         );
       }
-      await updateChainMmrNodes(tx, nodeIndexes, nodes);
+      await updatePartialBlockchainNodes(tx, nodeIndexes, nodes);
       await updateCommittedNoteTags(tx, inputNoteIds);
     }
   );
@@ -132,17 +134,19 @@ async function updateBlockHeader(
   tx,
   blockNum,
   blockHeader,
-  chainMmrPeaks,
+  partialBlockchainPeaks,
   hasClientNotes
 ) {
   try {
     const headerBlob = new Blob([new Uint8Array(blockHeader)]);
-    const chainMmrPeaksBlob = new Blob([new Uint8Array(chainMmrPeaks)]);
+    const partialBlockchainPeaksBlob = new Blob([
+      new Uint8Array(partialBlockchainPeaks),
+    ]);
 
     const data = {
       blockNum: blockNum,
       header: headerBlob,
-      chainMmrPeaks: chainMmrPeaksBlob,
+      partialBlockchainPeaks: partialBlockchainPeaksBlob,
       hasClientNotes: hasClientNotes.toString(),
     };
 
@@ -153,7 +157,7 @@ async function updateBlockHeader(
   }
 }
 
-async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
+async function updatePartialBlockchainNodes(tx, nodeIndexes, nodes) {
   try {
     // Check if the arrays are not of the same length
     if (nodeIndexes.length !== nodes.length) {
@@ -173,9 +177,12 @@ async function updateChainMmrNodes(tx, nodeIndexes, nodes) {
     }));
 
     // Use bulkPut to add/overwrite the entries
-    await tx.chainMmrNodes.bulkPut(data);
+    await tx.partialBlockchainNodes.bulkPut(data);
   } catch (err) {
-    console.error("Failed to update chain mmr nodes: ", err.toString());
+    console.error(
+      "Failed to update partial blockchain nodes: ",
+      err.toString()
+    );
     throw err;
   }
 }
