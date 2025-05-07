@@ -63,11 +63,8 @@ impl InitCmd {
 
         let mut cli_config = CliConfig::default();
 
-        if let Some(network) = &self.network {
-            let endpoint = CliEndpoint::try_from(self.network.clone())?;
-
-            cli_config.rpc.endpoint = endpoint;
-        }
+        let endpoint = CliEndpoint::try_from(self.network.clone())?;
+        cli_config.rpc.endpoint = endpoint;
 
         if let Some(path) = &self.store_path {
             cli_config.store_filepath = PathBuf::from(path);
