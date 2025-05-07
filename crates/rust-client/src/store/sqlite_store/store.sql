@@ -1,3 +1,13 @@
+-- Table for storing different settings in run-time, which need to persist over runs.
+-- Note: we can store values of different types in the same `value` field.
+CREATE TABLE settings (
+    name  TEXT NOT NULL,
+    value ANY,
+
+    PRIMARY KEY (name),
+    CONSTRAINT settings_name_is_not_empty CHECK (length(name) > 0)
+) STRICT, WITHOUT ROWID;
+
 -- Create account_code table
 CREATE TABLE account_code (
     root TEXT NOT NULL,         -- root of the Merkle tree for all exported procedures in account module.
@@ -130,13 +140,13 @@ WHERE (
 CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
-    chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
+    partial_blockchain_peaks BLOB NOT NULL,        -- serialized peaks of the partial blockchain MMR at this block
     has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)
 );
 
--- Create chain mmr nodes
-CREATE TABLE chain_mmr_nodes (
+-- Create partial blockchain nodes
+CREATE TABLE partial_blockchain_nodes (
     id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
     node BLOB NOT NULL,             -- internal node value (commitment)
     PRIMARY KEY (id)

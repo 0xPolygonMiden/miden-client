@@ -33,7 +33,7 @@ extern "C" {
         block_num: String,
         flattened_new_block_headers: FlattenedU8Vec,
         new_block_nums: Vec<String>,
-        flattened_chain_mmr_peaks: FlattenedU8Vec,
+        flattened_partial_blockchain_peaks: FlattenedU8Vec,
         has_client_notes: Vec<u8>,
         serialized_node_ids: Vec<String>,
         serialized_nodes: Vec<String>,

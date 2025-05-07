@@ -18,18 +18,28 @@ use super::{
     SqliteStore, account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx,
 };
 use crate::{
+    insert_sql,
     store::{StoreError, TransactionFilter},
+    subst,
     transaction::{
         DiscardCause, TransactionDetails, TransactionRecord, TransactionStatus,
         TransactionStoreUpdate,
     },
 };
 
-pub(crate) const UPSERT_TRANSACTION_QUERY: &str = "INSERT OR REPLACE INTO transactions (id, details, script_root, block_num, commit_height, discard_cause) \
-    VALUES (?, ?, ?, ?, ?, ?)";
+pub(crate) const UPSERT_TRANSACTION_QUERY: &str = insert_sql!(
+    transactions {
+        id,
+        details,
+        script_root,
+        block_num,
+        commit_height,
+        discard_cause
+    } | REPLACE
+);
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR IGNORE INTO transaction_scripts (script_root, script) \
-    VALUES (?, ?)";
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
+    insert_sql!(transaction_scripts { script_root, script } | IGNORE);
 
 // TRANSACTIONS FILTERS
 // ================================================================================================

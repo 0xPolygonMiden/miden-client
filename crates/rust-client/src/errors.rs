@@ -5,7 +5,7 @@ use alloc::{
 
 use miden_lib::account::interface::AccountInterfaceError;
 use miden_objects::{
-    AccountError, AssetError, ChainMmrError, Digest, NoteError, TransactionInputError,
+    AccountError, AssetError, Digest, NoteError, PartialBlockchainError, TransactionInputError,
     TransactionScriptError, account::AccountId, crypto::merkle::MerkleError, note::NoteId,
 };
 // RE-EXPORTS
@@ -46,8 +46,8 @@ pub enum ClientError {
     AssetError(#[from] AssetError),
     #[error("account data wasn't found for account id {0}")]
     AccountDataNotFound(AccountId),
-    #[error("error creating chain MMR")]
-    ChainMmrError(#[from] ChainMmrError),
+    #[error("error creating the partial blockchain")]
+    PartialBlockchainError(#[from] PartialBlockchainError),
     #[error("data deserialization error")]
     DataDeserializationError(#[from] DeserializationError),
     #[error("note with id {0} not found on chain")]

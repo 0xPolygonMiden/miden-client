@@ -8,6 +8,7 @@ use rusqlite::{Connection, Transaction, params};
 
 use super::{SqliteStore, account::undo_account_state};
 use crate::{
+    insert_sql,
     store::{
         StoreError,
         sqlite_store::{
@@ -16,6 +17,7 @@ use crate::{
             transaction::upsert_transaction_record,
         },
     },
+    subst,
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -141,8 +143,8 @@ impl SqliteStore {
             )?;
         }
 
-        // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes_tx(&tx, block_updates.new_authentication_nodes())?;
+        // Insert new authentication nodes (inner nodes of the PartialBlockchain)
+        Self::insert_partial_blockchain_nodes_tx(&tx, block_updates.new_authentication_nodes())?;
 
         // Update notes
         apply_note_updates_tx(&tx, &note_updates)?;
@@ -199,7 +201,7 @@ impl SqliteStore {
 }
 
 pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: &NoteTagRecord) -> Result<(), StoreError> {
-    const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
+    const QUERY: &str = insert_sql!(tags { tag, source });
     tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 
     Ok(())
