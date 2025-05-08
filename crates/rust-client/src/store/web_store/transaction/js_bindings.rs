@@ -19,12 +19,13 @@ extern "C" {
         tx_script: Option<Vec<u8>>,
     ) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = insertProvenTransactionData)]
-    pub fn idxdb_insert_proven_transaction_data(
+    #[wasm_bindgen(js_name = upsertTransactionRecord)]
+    pub fn idxdb_upsert_transaction_record(
         transaction_id: String,
         details: Vec<u8>,
         script_root: Option<Vec<u8>>,
         block_num: String,
         committed: Option<String>,
+        discard_cause: Option<Vec<u8>>,
     ) -> js_sys::Promise;
 }

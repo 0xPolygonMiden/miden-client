@@ -12,7 +12,8 @@ use super::{WebStore, account::utils::update_account, note::utils::apply_note_up
 use crate::{
     store::{StoreError, TransactionFilter},
     transaction::{
-        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+        DiscardCause, TransactionDetails, TransactionRecord, TransactionStatus,
+        TransactionStoreUpdate,
     },
 };
 
@@ -72,10 +73,11 @@ impl WebStore {
                     None
                 };
 
-                let status = match (commit_height, tx_idxdb.discarded) {
-                    (_, true) => TransactionStatus::Discarded,
-                    (Some(block_num), false) => TransactionStatus::Committed(block_num),
-                    (None, false) => TransactionStatus::Pending,
+                let status = if let Some(cause) = tx_idxdb.discard_cause {
+                    let cause = DiscardCause::read_from_bytes(&cause)?;
+                    TransactionStatus::Discarded(cause)
+                } else {
+                    commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
                 };
 
                 Ok(TransactionRecord { id: id.into(), details, script, status })

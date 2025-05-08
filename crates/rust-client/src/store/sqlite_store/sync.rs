@@ -10,10 +10,11 @@ use super::{SqliteStore, account::undo_account_state};
 use crate::{
     insert_sql,
     store::{
-        StoreError, TransactionFilter,
+        StoreError,
         sqlite_store::{
             account::{lock_account_on_unexpected_commitment, update_account},
             note::apply_note_updates_tx,
+            transaction::upsert_transaction_record,
         },
     },
     subst,
@@ -111,14 +112,6 @@ impl SqliteStore {
             account_updates,
         } = state_sync_update;
 
-        let account_states_to_rollback = Self::get_transactions(
-            conn,
-            &TransactionFilter::Ids(transaction_updates.discarded_transactions().to_vec()),
-        )?
-        .iter()
-        .map(|tx_record| tx_record.details.final_account_state)
-        .collect::<Vec<_>>();
-
         let tx = conn.transaction()?;
 
         // Update state sync block number
@@ -161,28 +154,20 @@ impl SqliteStore {
             remove_note_tag_tx(&tx, tag)?;
         }
 
-        // Mark transactions as committed
-        Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
+        for transaction_record in transaction_updates
+            .committed_transactions()
+            .chain(transaction_updates.discarded_transactions())
+        {
+            upsert_transaction_record(&tx, transaction_record)?;
+        }
 
-        // Delete accounts for old pending transactions
+        // Remove the accounts that are originated from the discarded transactions
         let account_hashes_to_delete: Vec<Digest> = transaction_updates
-            .stale_transactions()
-            .iter()
+            .discarded_transactions()
             .map(|tx| tx.details.final_account_state)
             .collect();
 
         undo_account_state(&tx, &account_hashes_to_delete)?;
-
-        // Combine discarded transactions from sync and old pending transactions
-        let mut discarded_transactions = transaction_updates.discarded_transactions().to_vec();
-        discarded_transactions
-            .extend(transaction_updates.stale_transactions().iter().map(|tx| tx.id));
-
-        // Mark all transactions as discarded in a single call
-        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
-
-        // Remove the accounts that are originated from the discarded transactions
-        undo_account_state(&tx, &account_states_to_rollback)?;
 
         // Update public accounts on the db that have been updated onchain
         for account in account_updates.updated_public_accounts() {

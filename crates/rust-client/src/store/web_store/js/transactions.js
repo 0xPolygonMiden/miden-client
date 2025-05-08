@@ -60,6 +60,14 @@ export async function getTransactions(filter) {
           }
         }
 
+        if (transactionRecord.discardCause) {
+          let discardCauseArrayBuffer =
+            await transactionRecord.discardCause.arrayBuffer();
+          let discardCauseArray = new Uint8Array(discardCauseArrayBuffer);
+          let discardCauseBase64 = uint8ArrayToBase64(discardCauseArray);
+          transactionRecord.discardCause = discardCauseBase64;
+        }
+
         let detailsArrayBuffer = await transactionRecord.details.arrayBuffer();
         let detailsArray = new Uint8Array(detailsArrayBuffer);
         let detailsBase64 = uint8ArrayToBase64(detailsArray);
@@ -76,7 +84,9 @@ export async function getTransactions(filter) {
           commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
-          discarded: transactionRecord.discarded,
+          discardCause: transactionRecord.discardCause
+            ? transactionRecord.discardCause
+            : null,
         };
 
         return data;
@@ -130,19 +140,26 @@ export async function insertTransactionScript(scriptRoot, txScript) {
   }
 }
 
-export async function insertProvenTransactionData(
+export async function upsertTransactionRecord(
   transactionId,
   details,
   scriptRoot,
   blockNum,
-  committed
+  committed,
+  discardCause
 ) {
   try {
     let detailsBlob = new Blob([new Uint8Array(details)]);
+
     let scriptRootBase64 = null;
     if (scriptRoot !== null) {
       let scriptRootArray = new Uint8Array(scriptRoot);
       scriptRootBase64 = uint8ArrayToBase64(scriptRootArray);
+    }
+
+    let discardCauseBlob = null;
+    if (discardCause !== null) {
+      discardCauseBlob = new Blob([new Uint8Array(discardCause)]);
     }
 
     const data = {
@@ -151,10 +168,10 @@ export async function insertProvenTransactionData(
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
-      discarded: false,
+      discardCause: discardCauseBlob,
     };
 
-    await transactions.add(data);
+    await transactions.put(data);
   } catch (err) {
     console.error("Failed to insert proven transaction data: ", err.toString());
     throw err;

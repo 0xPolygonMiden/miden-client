@@ -260,8 +260,8 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             TransactionStatus::Pending => {
                 std::thread::sleep(Duration::from_millis(100));
             },
-            TransactionStatus::Discarded => {
-                panic!("Transaction discarded");
+            TransactionStatus::Discarded(cause) => {
+                panic!("Transaction was discarded with cause: {:?}", cause);
             },
         }
 

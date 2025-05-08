@@ -3,15 +3,13 @@ use alloc::collections::BTreeMap;
 use miden_objects::{
     block::BlockHeader,
     note::{NoteId, NoteInclusionProof, Nullifier},
-    transaction::TransactionId,
 };
 
 use crate::{
     ClientError,
-    rpc::domain::{
-        note::CommittedNote, nullifier::NullifierUpdate, transaction::TransactionUpdate,
-    },
+    rpc::domain::{note::CommittedNote, nullifier::NullifierUpdate},
     store::{InputNoteRecord, OutputNoteRecord},
+    transaction::{TransactionRecord, TransactionStatus},
 };
 
 // NOTE UPDATE
@@ -271,32 +269,24 @@ impl NoteUpdateTracker {
     /// 1. The note was being processed by a local transaction that just got committed.
     /// 2. The note was consumed by an external transaction. If a local transaction was processing
     ///    the note and it didn't get committed, the transaction should be discarded.
-    pub(crate) fn apply_nullifiers_state_transitions(
+    pub(crate) fn apply_nullifiers_state_transitions<'a>(
         &mut self,
         nullifier_update: &NullifierUpdate,
-        transaction_updates: &[TransactionUpdate],
-    ) -> Result<Option<TransactionId>, ClientError> {
-        let mut discarded_transaction = None;
-
+        mut committed_transactions: impl Iterator<Item = &'a TransactionRecord>,
+    ) -> Result<(), ClientError> {
         if let Some(input_note_record) =
             self.get_input_note_by_nullifier(nullifier_update.nullifier)
         {
-            if let Some(consumer_transaction) = transaction_updates
-                .iter()
-                .find(|t| input_note_record.consumer_transaction_id() == Some(&t.transaction_id))
+            if let Some(consumer_transaction) = committed_transactions
+                .find(|t| input_note_record.consumer_transaction_id() == Some(&t.id))
             {
                 // The note was being processed by a local transaction that just got committed
-                input_note_record.transaction_committed(
-                    consumer_transaction.transaction_id,
-                    consumer_transaction.block_num,
-                )?;
+                if let TransactionStatus::Committed(commit_height) = consumer_transaction.status {
+                    input_note_record
+                        .transaction_committed(consumer_transaction.id, commit_height.as_u32())?;
+                }
             } else {
                 // The note was consumed by an external transaction
-                if let Some(id) = input_note_record.consumer_transaction_id() {
-                    // The note was being processed by a local transaction that didn't end up being
-                    // committed so it should be discarded
-                    discarded_transaction.replace(*id);
-                }
                 input_note_record
                     .consumed_externally(nullifier_update.nullifier, nullifier_update.block_num)?;
             }
@@ -309,7 +299,7 @@ impl NoteUpdateTracker {
                 .nullifier_received(nullifier_update.nullifier, nullifier_update.block_num)?;
         }
 
-        Ok(discarded_transaction)
+        Ok(())
     }
 
     // PRIVATE HELPERS

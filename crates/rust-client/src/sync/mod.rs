@@ -79,7 +79,9 @@ mod state_sync;
 pub use state_sync::{OnNoteReceived, StateSync, on_note_received};
 
 mod state_sync_update;
-pub use state_sync_update::{AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdates};
+pub use state_sync_update::{
+    AccountUpdates, BlockUpdates, StateSyncUpdate, TransactionUpdateTracker,
+};
 
 /// Client synchronization methods.
 impl Client {

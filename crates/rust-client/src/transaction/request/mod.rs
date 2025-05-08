@@ -76,7 +76,7 @@ pub struct TransactionRequest {
     /// added to the executor and prover.
     foreign_accounts: BTreeSet<ForeignAccount>,
     /// The number of blocks in relation to the transaction's reference block after which the
-    /// transaction will expire.
+    /// transaction will expire. If `None`, the transaction will not expire.
     expiration_delta: Option<u16>,
 }
 

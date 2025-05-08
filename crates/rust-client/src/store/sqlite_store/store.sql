@@ -65,7 +65,7 @@ CREATE TABLE transactions (
     script_root TEXT,                                -- Transaction script root
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
-    discarded BOOLEAN NOT NULL,                      -- Boolean indicating if the transaction is discarded
+    discard_cause BLOB NULL,                         -- Serialized cause of the discarded transaction
     FOREIGN KEY (script_root) REFERENCES transaction_scripts(script_root),
     PRIMARY KEY (id)
 );

@@ -1,11 +1,14 @@
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 
 use miden_objects::{
     Digest,
     account::AccountId,
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    note::NoteId,
+    note::{NoteId, Nullifier},
     transaction::TransactionId,
 };
 
@@ -13,8 +16,8 @@ use super::SyncSummary;
 use crate::{
     account::Account,
     note::{NoteUpdateTracker, NoteUpdateType},
-    rpc::domain::transaction::TransactionUpdate,
-    transaction::TransactionRecord,
+    rpc::domain::transaction::TransactionInclusion,
+    transaction::{DiscardCause, TransactionRecord, TransactionStatus},
 };
 
 // STATE SYNC UPDATE
@@ -30,7 +33,7 @@ pub struct StateSyncUpdate {
     /// New and updated notes to be upserted in the store.
     pub note_updates: NoteUpdateTracker,
     /// Committed and discarded transactions after the sync.
-    pub transaction_updates: TransactionUpdates,
+    pub transaction_updates: TransactionUpdateTracker,
     /// Public account updates and mismatched private accounts after the sync.
     pub account_updates: AccountUpdates,
 }
@@ -94,12 +97,7 @@ impl From<&StateSyncUpdate> for SyncSummary {
                 .iter()
                 .map(|(id, _)| *id)
                 .collect(),
-            value
-                .transaction_updates
-                .committed_transactions()
-                .iter()
-                .map(|t| t.transaction_id)
-                .collect(),
+            value.transaction_updates.committed_transactions().map(|t| t.id).collect(),
         )
     }
 }
@@ -145,54 +143,93 @@ impl BlockUpdates {
 
 /// Contains transaction changes to apply to the store.
 #[derive(Default)]
-pub struct TransactionUpdates {
-    /// Transaction updates for any transaction that was committed between the sync request's block
-    /// number and the response's block number.
-    committed_transactions: Vec<TransactionUpdate>,
-    /// Transaction IDs for any transactions that were discarded in the sync.
-    discarded_transactions: Vec<TransactionId>,
-    /// Transactions that were pending before the sync and were not committed.
-    ///
-    /// These transactions have been pending for more than [`TX_GRACEFUL_BLOCKS`] blocks and can be
-    /// assumed to have been rejected by the network. They will be marked as discarded in the
-    /// store.
-    stale_transactions: Vec<TransactionRecord>,
+pub struct TransactionUpdateTracker {
+    transactions: BTreeMap<TransactionId, TransactionRecord>,
 }
 
-impl TransactionUpdates {
-    /// Creates a new [`TransactionUpdate`]
-    pub fn new(
-        committed_transactions: Vec<TransactionUpdate>,
-        discarded_transactions: Vec<TransactionId>,
-        stale_transactions: Vec<TransactionRecord>,
-    ) -> Self {
-        Self {
-            committed_transactions,
-            discarded_transactions,
-            stale_transactions,
-        }
-    }
+impl TransactionUpdateTracker {
+    /// Creates a new [`TransactionUpdateTracker`]
+    pub fn new(transactions: Vec<TransactionRecord>) -> Self {
+        let transactions =
+            transactions.into_iter().map(|tx| (tx.id, tx)).collect::<BTreeMap<_, _>>();
 
-    /// Extends the transaction update information with `other`.
-    pub fn extend(&mut self, other: Self) {
-        self.committed_transactions.extend(other.committed_transactions);
-        self.discarded_transactions.extend(other.discarded_transactions);
-        self.stale_transactions.extend(other.stale_transactions);
+        Self { transactions }
     }
 
     /// Returns a reference to committed transactions.
-    pub fn committed_transactions(&self) -> &[TransactionUpdate] {
-        &self.committed_transactions
+    pub fn committed_transactions(&self) -> impl Iterator<Item = &TransactionRecord> {
+        self.transactions
+            .values()
+            .filter(|tx| matches!(tx.status, TransactionStatus::Committed(_)))
     }
 
     /// Returns a reference to discarded transactions.
-    pub fn discarded_transactions(&self) -> &[TransactionId] {
-        &self.discarded_transactions
+    pub fn discarded_transactions(&self) -> impl Iterator<Item = &TransactionRecord> {
+        self.transactions
+            .values()
+            .filter(|tx| matches!(tx.status, TransactionStatus::Discarded(_)))
     }
 
-    /// Returns a reference to stale transactions.
-    pub fn stale_transactions(&self) -> &[TransactionRecord] {
-        &self.stale_transactions
+    /// Returns a mutable reference to pending transactions in the tracker.
+    fn mutable_pending_transactions(&mut self) -> impl Iterator<Item = &mut TransactionRecord> {
+        self.transactions
+            .values_mut()
+            .filter(|tx| matches!(tx.status, TransactionStatus::Pending))
+    }
+
+    /// Returns transaction IDs of all transactions that have been updated.
+    pub fn updated_transaction_ids(&self) -> impl Iterator<Item = TransactionId> {
+        self.committed_transactions()
+            .chain(self.discarded_transactions())
+            .map(|tx| tx.id)
+    }
+
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a
+    /// transaction is included in a block.
+    pub fn apply_transaction_inclusion(&mut self, transaction_inclusion: &TransactionInclusion) {
+        if let Some(transaction) = self.transactions.get_mut(&transaction_inclusion.transaction_id)
+        {
+            transaction.commit_transaction(transaction_inclusion.block_num.into());
+        }
+    }
+
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a the sync
+    /// height of the client is updated. This may result in stale or expired transactions.
+    pub fn apply_sync_height_update(
+        &mut self,
+        new_sync_height: BlockNumber,
+        tx_graceful_blocks: Option<u32>,
+    ) {
+        for transaction in self.mutable_pending_transactions() {
+            if let Some(tx_graceful_blocks) = tx_graceful_blocks {
+                if transaction.details.block_num
+                    < new_sync_height.checked_sub(tx_graceful_blocks).unwrap_or_default()
+                {
+                    transaction.discard_transaction(DiscardCause::Stale);
+                }
+            }
+
+            if transaction.details.expiration_block_num <= new_sync_height {
+                transaction.discard_transaction(DiscardCause::Expired);
+            }
+        }
+    }
+
+    /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a note is
+    /// nullified. this may result in transactions being discarded because they were processing the
+    /// nullified note.
+    pub fn apply_input_note_nullified(&mut self, input_note_nullifier: Nullifier) {
+        for transaction in self.mutable_pending_transactions() {
+            if transaction
+                .details
+                .input_note_nullifiers
+                .contains(&input_note_nullifier.inner())
+            {
+                // The note was being processed by a local transaction that didn't end up being
+                // committed so it should be discarded
+                transaction.discard_transaction(DiscardCause::InputConsumed);
+            }
+        }
     }
 }
 

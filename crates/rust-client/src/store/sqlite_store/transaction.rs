@@ -10,32 +10,33 @@ use miden_objects::{
     Digest,
     block::BlockNumber,
     crypto::utils::{Deserializable, Serializable},
-    transaction::{ExecutedTransaction, ToInputNoteCommitments, TransactionId, TransactionScript},
+    transaction::{ToInputNoteCommitments, TransactionScript},
 };
 use rusqlite::{Connection, Transaction, params, types::Value};
-use tracing::info;
 
 use super::{
     SqliteStore, account::update_account, note::apply_note_updates_tx, sync::add_note_tag_tx,
 };
 use crate::{
     insert_sql,
-    rpc::domain::transaction::TransactionUpdate,
     store::{StoreError, TransactionFilter},
     subst,
     transaction::{
-        TransactionDetails, TransactionRecord, TransactionStatus, TransactionStoreUpdate,
+        DiscardCause, TransactionDetails, TransactionRecord, TransactionStatus,
+        TransactionStoreUpdate,
     },
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = insert_sql!(transactions {
-    id,
-    details,
-    script_root,
-    block_num,
-    commit_height,
-    discarded
-});
+pub(crate) const UPSERT_TRANSACTION_QUERY: &str = insert_sql!(
+    transactions {
+        id,
+        details,
+        script_root,
+        block_num,
+        commit_height,
+        discard_cause
+    } | REPLACE
+);
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
     insert_sql!(transaction_scripts { script_root, script } | IGNORE);
@@ -46,7 +47,7 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter.
     pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT tx.id, script.script, tx.details, tx.commit_height, tx.discarded \
+        const QUERY: &str = "SELECT tx.id, script.script, tx.details, tx.commit_height, tx.discard_cause \
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_root = script.script_root";
         match self {
             TransactionFilter::All => QUERY.to_string(),
@@ -57,7 +58,7 @@ impl TransactionFilter {
             },
             TransactionFilter::ExpiredBefore(block_num) => {
                 format!(
-                    "{QUERY} WHERE tx.block_num < {} AND tx.discarded = false AND tx.commit_height IS NULL",
+                    "{QUERY} WHERE tx.block_num < {} AND tx.discard_cause IS NULL AND tx.commit_height IS NULL",
                     block_num.as_u32()
                 )
             },
@@ -81,8 +82,8 @@ struct SerializedTransactionData {
     block_num: u32,
     /// Commit height
     commit_height: Option<u32>,
-    /// Discarded flag
-    discarded: bool,
+    /// Cause for discarding the transaction, if applicable
+    discard_cause: Option<Vec<u8>>,
 }
 
 struct SerializedTransactionParts {
@@ -94,8 +95,8 @@ struct SerializedTransactionParts {
     details: Vec<u8>,
     /// Block number of the block at which the transaction was included in the chain.
     commit_height: Option<u32>,
-    /// Indicates whether the transaction has been discarded.
-    discarded: bool,
+    /// Cause for discarding the transaction, if applicable
+    discard_cause: Option<Vec<u8>>,
 }
 
 impl SqliteStore {
@@ -133,8 +134,36 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         let tx = conn.transaction()?;
 
-        // Transaction Data
-        insert_proven_transaction_data(&tx, tx_update.executed_transaction())?;
+        // Build transaction record
+        let executed_transaction = tx_update.executed_transaction();
+
+        let nullifiers: Vec<Digest> = executed_transaction
+            .input_notes()
+            .iter()
+            .map(|x| x.nullifier().inner())
+            .collect();
+
+        let output_notes = executed_transaction.output_notes();
+
+        let details = TransactionDetails {
+            account_id: executed_transaction.account_id(),
+            init_account_state: executed_transaction.initial_account().commitment(),
+            final_account_state: executed_transaction.final_account().commitment(),
+            input_note_nullifiers: nullifiers,
+            output_notes: output_notes.clone(),
+            block_num: executed_transaction.block_header().block_num(),
+            expiration_block_num: executed_transaction.expiration_block_num(),
+        };
+
+        let transaction_record = TransactionRecord::new(
+            executed_transaction.id(),
+            details,
+            executed_transaction.tx_args().tx_script().cloned(),
+            TransactionStatus::Pending,
+        );
+
+        // Insert transaction data
+        upsert_transaction_record(&tx, &transaction_record)?;
 
         // Account Data
         update_account(&tx, tx_update.updated_account())?;
@@ -150,56 +179,12 @@ impl SqliteStore {
 
         Ok(())
     }
-
-    /// Set the provided transactions as committed.
-    ///
-    /// # Errors
-    ///
-    /// This function can return an error if any of the updates to the transactions within the
-    /// database transaction fail.
-    pub(crate) fn mark_transactions_as_committed(
-        tx: &Transaction<'_>,
-        transactions_to_commit: &[TransactionUpdate],
-    ) -> Result<usize, StoreError> {
-        let mut rows = 0;
-        for transaction_update in transactions_to_commit {
-            const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
-            rows += tx.execute(
-                QUERY,
-                params![
-                    Some(transaction_update.block_num),
-                    transaction_update.transaction_id.to_string()
-                ],
-            )?;
-        }
-        info!("Marked {} transactions as committed", rows);
-
-        Ok(rows)
-    }
-
-    /// Set the provided transactions as committed.
-    ///
-    /// # Errors
-    ///
-    /// This function can return an error if any of the updates to the transactions within the
-    /// database transaction fail.
-    pub(crate) fn mark_transactions_as_discarded(
-        tx: &Transaction<'_>,
-        transactions_to_discard: &[TransactionId],
-    ) -> Result<usize, StoreError> {
-        let mut rows = 0;
-        for transaction_id in transactions_to_discard {
-            const QUERY: &str = "UPDATE transactions set discarded=true where id=?";
-            rows += tx.execute(QUERY, params![transaction_id.to_string()])?;
-        }
-
-        Ok(rows)
-    }
 }
 
-pub(super) fn insert_proven_transaction_data(
+/// Updates the transaction record in the database, inserting it if it doesn't exist.
+pub(crate) fn upsert_transaction_record(
     tx: &Transaction<'_>,
-    executed_transaction: &ExecutedTransaction,
+    transaction: &TransactionRecord,
 ) -> Result<(), StoreError> {
     let SerializedTransactionData {
         id,
@@ -208,61 +193,42 @@ pub(super) fn insert_proven_transaction_data(
         details,
         block_num,
         commit_height,
-        discarded,
-    } = serialize_transaction_data(executed_transaction);
+        discard_cause,
+    } = serialize_transaction_data(transaction);
 
     if let Some(root) = script_root.clone() {
         tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![root, tx_script])?;
     }
 
     tx.execute(
-        INSERT_TRANSACTION_QUERY,
-        params![id, details, script_root, block_num, commit_height, discarded,],
+        UPSERT_TRANSACTION_QUERY,
+        params![id, details, script_root, block_num, commit_height, discard_cause],
     )?;
 
     Ok(())
 }
 
-fn serialize_transaction_data(
-    executed_transaction: &ExecutedTransaction,
-) -> SerializedTransactionData {
-    let transaction_id: String = executed_transaction.id().inner().into();
+/// Serializes the transaction record into a format suitable for storage in the database.
+fn serialize_transaction_data(transaction_record: &TransactionRecord) -> SerializedTransactionData {
+    let transaction_id: String = transaction_record.id.inner().into();
 
-    // TODO: Double check if saving nullifiers as input notes is enough
-    let nullifiers: Vec<Digest> = executed_transaction
-        .input_notes()
-        .iter()
-        .map(|x| x.nullifier().inner())
-        .collect();
+    let script_root = transaction_record.script.as_ref().map(|script| script.root().to_bytes());
+    let tx_script = transaction_record.script.as_ref().map(TransactionScript::to_bytes);
 
-    let output_notes = executed_transaction.output_notes();
-
-    let details = TransactionDetails {
-        account_id: executed_transaction.account_id(),
-        init_account_state: executed_transaction.initial_account().commitment(),
-        final_account_state: executed_transaction.final_account().commitment(),
-        input_note_nullifiers: nullifiers,
-        output_notes: output_notes.clone(),
-        block_num: executed_transaction.block_header().block_num(),
-        expiration_block_num: executed_transaction.expiration_block_num(),
+    let (commit_height, discard_cause) = match &transaction_record.status {
+        TransactionStatus::Pending => (None, None),
+        TransactionStatus::Committed(block_num) => (Some(block_num.as_u32()), None),
+        TransactionStatus::Discarded(cause) => (None, Some(cause.to_bytes())),
     };
-
-    info!("Transaction ID: {}", executed_transaction.id().inner());
-    info!("Transaction account ID: {}", executed_transaction.account_id());
-
-    // TODO: Scripts should be in their own tables and only identifiers should be stored here
-    let transaction_args = executed_transaction.tx_args();
-    let tx_script = transaction_args.tx_script().map(TransactionScript::to_bytes);
-    let script_root = transaction_args.tx_script().map(|script| script.root().to_bytes());
 
     SerializedTransactionData {
         id: transaction_id,
         script_root,
         tx_script,
-        details: details.to_bytes(),
-        block_num: executed_transaction.block_header().block_num().as_u32(),
-        commit_height: None,
-        discarded: false,
+        details: transaction_record.details.to_bytes(),
+        block_num: transaction_record.details.block_num.as_u32(),
+        commit_height,
+        discard_cause,
     }
 }
 
@@ -273,14 +239,14 @@ fn parse_transaction_columns(
     let tx_script: Option<Vec<u8>> = row.get(1)?;
     let details: Vec<u8> = row.get(2)?;
     let commit_height: Option<u32> = row.get(3)?;
-    let discarded: bool = row.get(4)?;
+    let discard_cause: Option<Vec<u8>> = row.get(4)?;
 
     Ok(SerializedTransactionParts {
         id,
         tx_script,
         details,
         commit_height,
-        discarded,
+        discard_cause,
     })
 }
 
@@ -293,7 +259,7 @@ fn parse_transaction(
         tx_script,
         details,
         commit_height,
-        discarded,
+        discard_cause,
     } = serialized_transaction;
 
     let id: Digest = id.try_into()?;
@@ -302,8 +268,9 @@ fn parse_transaction(
         .map(|script| TransactionScript::read_from_bytes(&script))
         .transpose()?;
 
-    let status = if discarded {
-        TransactionStatus::Discarded
+    let status = if let Some(cause) = discard_cause {
+        let cause = DiscardCause::read_from_bytes(&cause)?;
+        TransactionStatus::Discarded(cause)
     } else {
         let commit_height = commit_height.map(BlockNumber::from);
         commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)

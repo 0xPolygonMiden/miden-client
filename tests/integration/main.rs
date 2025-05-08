@@ -12,11 +12,10 @@ use miden_client::{
     },
     sync::NoteTagSource,
     transaction::{
-        PaymentTransactionData, TransactionExecutorError, TransactionProver,
+        DiscardCause, PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
-use miden_client_tests::common::create_test_client_builder;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -1456,7 +1455,10 @@ async fn test_discarded_transaction() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
+    assert!(matches!(
+        tx_record.status,
+        TransactionStatus::Discarded(DiscardCause::InputConsumed)
+    ));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
@@ -1695,7 +1697,7 @@ async fn test_unused_rpc_api() {
 }
 
 #[tokio::test]
-async fn test_stale_transactions_discarded() {
+async fn test_account_rollback() {
     let (builder, authenticator) = create_test_client_builder().await;
 
     let mut client =
@@ -1769,7 +1771,7 @@ async fn test_stale_transactions_discarded() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded(DiscardCause::Stale)));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
