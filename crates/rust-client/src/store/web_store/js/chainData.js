@@ -1,4 +1,4 @@
-import { blockHeaders, partialBlockchainNodes } from "./schema.js";
+import { blockHeaders, partialBlockchainNodes, stateSync } from "./schema.js";
 
 // INSERT FUNCTIONS
 export async function insertBlockHeader(
@@ -190,6 +190,22 @@ export async function getPartialBlockchainNodes(ids) {
     return results;
   } catch (err) {
     console.error("Failed to get partial blockchain nodes: ", err.toString());
+    throw err;
+  }
+}
+
+export async function pruneIrrelevantBlocks() {
+  try {
+    const syncHeight = await stateSync.get(1).blockNum;
+    const allMatchingRecords = await blockHeaders
+      .where("hasClientNotes")
+      .equals("false")
+      .and((record) => record.blockNum !== 0 && record.blockNum !== syncHeight)
+      .toArray();
+
+    await blockHeaders.bulkDelete(allMatchingRecords.map((r) => r.blockNum));
+  } catch (err) {
+    console.error("Failed to prune irrelevant blocks: ", err.toString());
     throw err;
   }
 }

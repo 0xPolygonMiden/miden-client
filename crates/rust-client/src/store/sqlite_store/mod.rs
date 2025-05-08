@@ -21,7 +21,6 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::{NoteTag, Nullifier},
-    transaction::TransactionId,
 };
 use rusqlite::{Connection, types::Value};
 use tonic::async_trait;
@@ -31,7 +30,6 @@ use super::{
     PartialBlockchainFilter, Store, TransactionFilter,
 };
 use crate::{
-    note::NoteUpdates,
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
@@ -193,6 +191,10 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError> {
+        self.interact_with_connection(SqliteStore::prune_irrelevant_blocks).await
+    }
+
     async fn get_block_headers(
         &self,
         block_numbers: &BTreeSet<BlockNumber>,
@@ -317,17 +319,6 @@ impl Store for SqliteStore {
     async fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         self.interact_with_connection(SqliteStore::get_unspent_input_note_nullifiers)
             .await
-    }
-
-    async fn apply_nullifiers(
-        &self,
-        note_updates: NoteUpdates,
-        transactions_to_discard: Vec<TransactionId>,
-    ) -> Result<(), StoreError> {
-        self.interact_with_connection(move |conn| {
-            SqliteStore::apply_nullifiers(conn, &note_updates, &transactions_to_discard)
-        })
-        .await
     }
 }
 

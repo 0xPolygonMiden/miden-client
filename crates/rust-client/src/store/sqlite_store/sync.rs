@@ -2,18 +2,17 @@
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{Digest, block::BlockNumber, note::NoteTag, transaction::TransactionId};
+use miden_objects::{Digest, block::BlockNumber, note::NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
 use super::{SqliteStore, account::undo_account_state};
 use crate::{
     insert_sql,
-    note::NoteUpdates,
     store::{
         StoreError, TransactionFilter,
         sqlite_store::{
-            account::{lock_account, update_account},
+            account::{lock_account_on_unexpected_commitment, update_account},
             note::apply_note_updates_tx,
         },
     },
@@ -105,34 +104,62 @@ impl SqliteStore {
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
-            block_header,
-            block_has_relevant_notes,
-            new_mmr_peaks,
-            new_authentication_nodes,
+            block_num,
+            block_updates,
             note_updates,
             transaction_updates,
             account_updates,
-            tags_to_remove,
         } = state_sync_update;
+
+        let account_states_to_rollback = Self::get_transactions(
+            conn,
+            &TransactionFilter::Ids(transaction_updates.discarded_transactions().to_vec()),
+        )?
+        .iter()
+        .map(|tx_record| tx_record.details.final_account_state)
+        .collect::<Vec<_>>();
 
         let tx = conn.transaction()?;
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![i64::from(block_header.block_num().as_u32())])?;
+        tx.execute(BLOCK_NUMBER_QUERY, params![i64::from(block_num.as_u32())])?;
 
-        Self::insert_block_header_tx(&tx, &block_header, &new_mmr_peaks, block_has_relevant_notes)?;
+        for (block_header, block_has_relevant_notes, new_mmr_peaks) in block_updates.block_headers()
+        {
+            Self::insert_block_header_tx(
+                &tx,
+                block_header,
+                new_mmr_peaks,
+                *block_has_relevant_notes,
+            )?;
+        }
+
+        // Insert new authentication nodes (inner nodes of the PartialBlockchain)
+        Self::insert_partial_blockchain_nodes_tx(&tx, block_updates.new_authentication_nodes())?;
 
         // Update notes
         apply_note_updates_tx(&tx, &note_updates)?;
 
         // Remove tags
+        let tags_to_remove = note_updates
+            .updated_input_notes()
+            .filter_map(|note_update| {
+                let note = note_update.inner();
+                if note.is_committed() {
+                    Some(NoteTagRecord {
+                        tag: note.metadata().expect("Committed notes should have metadata").tag(),
+                        source: NoteTagSource::Note(note.id()),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
         for tag in tags_to_remove {
             remove_note_tag_tx(&tx, tag)?;
         }
-
-        // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_partial_blockchain_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, transaction_updates.committed_transactions())?;
@@ -141,7 +168,7 @@ impl SqliteStore {
         let account_hashes_to_delete: Vec<Digest> = transaction_updates
             .stale_transactions()
             .iter()
-            .map(|tx| tx.final_account_state)
+            .map(|tx| tx.details.final_account_state)
             .collect();
 
         undo_account_state(&tx, &account_hashes_to_delete)?;
@@ -154,48 +181,19 @@ impl SqliteStore {
         // Mark all transactions as discarded in a single call
         Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
+        // Remove the accounts that are originated from the discarded transactions
+        undo_account_state(&tx, &account_states_to_rollback)?;
+
         // Update public accounts on the db that have been updated onchain
         for account in account_updates.updated_public_accounts() {
             update_account(&tx, account)?;
         }
 
-        for (account_id, _) in account_updates.mismatched_private_accounts() {
-            lock_account(&tx, *account_id)?;
+        for (account_id, digest) in account_updates.mismatched_private_accounts() {
+            lock_account_on_unexpected_commitment(&tx, account_id, digest)?;
         }
 
         // Commit the updates
-        tx.commit()?;
-
-        Ok(())
-    }
-
-    pub(super) fn apply_nullifiers(
-        conn: &mut Connection,
-        note_updates: &NoteUpdates,
-        transactions_to_discard: &[TransactionId],
-    ) -> Result<(), StoreError> {
-        // First we need the `transaction` entries from the `transactions` table that matches the
-        // `transactions_to_discard`
-
-        let transactions_records_to_discard = Self::get_transactions(
-            conn,
-            &TransactionFilter::Ids(transactions_to_discard.to_vec()),
-        )?;
-
-        let tx = conn.transaction()?;
-
-        apply_note_updates_tx(&tx, note_updates)?;
-
-        Self::mark_transactions_as_discarded(&tx, transactions_to_discard)?;
-
-        let final_account_states = transactions_records_to_discard
-            .iter()
-            .map(|tx_record| tx_record.final_account_state)
-            .collect::<Vec<_>>();
-
-        // Remove the accounts that are originated from the discarded transactions
-        undo_account_state(&tx, &final_account_states)?;
-
         tx.commit()?;
 
         Ok(())

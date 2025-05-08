@@ -5,6 +5,7 @@
 ### Features
 
 * Added support for `bech32` account IDs in the CLI (#840).
+* Added `NoteUpdate` type to the note update tracker to distinguish between different types of updates (#821).
 
 ### Changes
 
@@ -16,6 +17,8 @@
 * Added account code to `miden account --show` command (#835).
 * Changed exec's input file format to TOML instead of JSON (#870).
 * [BREAKING] Client's methods renamed after `PartialMmr` change to `PartialBlockchain` (#894).
+* [BREAKING] Added `tx_graceful_blocks` to `Client` constructor and refactored `TransactionRecord` (#848).
+* [BREAKING] Updated the client so that only relevant block headers are stored (#828).
 
 ## 0.8.2 (TBD)
 
@@ -108,6 +111,7 @@
 
 ### Changes
 
+* [BREAKING] Refactored the sync process to use a new `SyncState` component (#650).
 * [BREAKING] Return `None` instead of `Err` when an entity is not found (#632).
 * Add support for notes without assets in transaction requests (#654).
 * Refactored RPC functions and structs to improve code quality (#616).

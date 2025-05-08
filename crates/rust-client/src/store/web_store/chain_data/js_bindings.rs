@@ -40,4 +40,10 @@ extern "C" {
         ids: Vec<String>,
         nodes: Vec<String>,
     ) -> js_sys::Promise;
+
+    // DELETES
+    // ================================================================================================
+
+    #[wasm_bindgen(js_name = pruneIrrelevantBlocks)]
+    pub fn idxdb_prune_irrelevant_blocks() -> js_sys::Promise;
 }

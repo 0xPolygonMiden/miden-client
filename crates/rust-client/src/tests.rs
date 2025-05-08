@@ -367,7 +367,7 @@ async fn test_sync_state_mmr() {
     );
 
     // Try reconstructing the partial_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
+    let partial_mmr = client.build_current_partial_mmr().await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_some()); // Account anchor block
     assert!(partial_mmr.open(1).unwrap().is_some());
@@ -384,6 +384,37 @@ async fn test_sync_state_mmr() {
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     let (block_4, _) = rpc_api.get_block_header_by_number(Some(4.into()), false).await.unwrap();
     partial_mmr.peaks().verify(block_4.commitment(), mmr_proof).unwrap();
+
+    // the blocks for both notes should be stored as they are relevant for the client's accounts
+    // with the addition of the chain tip
+    assert_eq!(client.test_store().get_tracked_block_headers().await.unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn test_sync_state_tags() {
+    // generate test client with a random store name
+    let (mut client, rpc_api, _) = create_test_client().await;
+
+    // Import first mockchain note as expected
+    let expected_notes = rpc_api.notes.values().map(|n| n.note().clone()).collect::<Vec<_>>();
+
+    for tag in expected_notes.iter().map(|n| n.metadata().tag()) {
+        client.add_note_tag(tag).await.unwrap();
+    }
+
+    // assert that we have no  expected notes prior to syncing state
+    assert!(client.get_input_notes(NoteFilter::Expected).await.unwrap().is_empty());
+
+    // sync state
+    let sync_details = client.sync_state().await.unwrap();
+
+    // verify that the client is synced to the latest block
+    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
+
+    // as we are syncing with tags, the response should containt blocks for both notes but they
+    // shouldn't be stored as they are not relevant for the client's accounts. Only the chain
+    // tip should be stored in the database
+    assert_eq!(client.test_store().get_tracked_block_headers().await.unwrap().len(), 1);
 }
 
 #[tokio::test]

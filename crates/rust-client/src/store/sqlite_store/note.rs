@@ -16,11 +16,12 @@ use miden_objects::{
 };
 use rusqlite::{Connection, Transaction, params, params_from_iter, types::Value};
 
-use super::SqliteStore;
+use super::{SqliteStore, chain_data::set_block_header_has_client_notes};
 use crate::{
     insert_sql,
+    note::NoteUpdateTracker,
     store::{
-        NoteFilter, NoteUpdates, StoreError,
+        NoteFilter, StoreError,
         note_record::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState},
     },
     subst,
@@ -286,6 +287,15 @@ impl SqliteStore {
 
         for note in notes {
             upsert_input_note_tx(&tx, note)?;
+
+            // Whenever we insert a note, we also update block relevance
+            if let Some(inclusion_proof) = note.inclusion_proof() {
+                set_block_header_has_client_notes(
+                    &tx,
+                    inclusion_proof.location().block_num().as_u64(),
+                    true,
+                )?;
+            }
         }
 
         Ok(tx.commit()?)
@@ -571,14 +581,14 @@ fn serialize_output_note(note: &OutputNoteRecord) -> SerializedOutputNoteData {
 
 pub(crate) fn apply_note_updates_tx(
     tx: &Transaction,
-    note_updates: &NoteUpdates,
+    note_updates: &NoteUpdateTracker,
 ) -> Result<(), StoreError> {
     for input_note in note_updates.updated_input_notes() {
-        upsert_input_note_tx(tx, input_note)?;
+        upsert_input_note_tx(tx, input_note.inner())?;
     }
 
     for output_note in note_updates.updated_output_notes() {
-        upsert_output_note_tx(tx, output_note)?;
+        upsert_output_note_tx(tx, output_note.inner())?;
     }
 
     Ok(())

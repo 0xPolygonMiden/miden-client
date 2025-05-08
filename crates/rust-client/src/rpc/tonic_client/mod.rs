@@ -260,13 +260,15 @@ impl NodeRpcClient for TonicRpcClient {
             "GetAccountDetails response's account should have a `summary`".to_string(),
         ))?;
 
-        let hash = account_summary.account_commitment.ok_or(RpcError::ExpectedDataMissing(
-            "GetAccountDetails response's account should have an `account_commitment`".to_string(),
-        ))?;
+        let commitment =
+            account_summary.account_commitment.ok_or(RpcError::ExpectedDataMissing(
+                "GetAccountDetails response's account should have an `account_commitment`"
+                    .to_string(),
+            ))?;
 
-        let hash = hash.try_into()?;
+        let commitment = commitment.try_into()?;
 
-        let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
+        let update_summary = AccountUpdateSummary::new(commitment, account_summary.block_num);
         if account_id.is_public() {
             let details_bytes = account_info.details.ok_or(RpcError::ExpectedDataMissing(
                 "GetAccountDetails response's account should have `details`".to_string(),

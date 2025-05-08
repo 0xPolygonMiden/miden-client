@@ -10,12 +10,13 @@ use miden_client::{
         InputNoteRecord, InputNoteState, NoteFilter, OutputNoteState, TransactionFilter,
         input_note_states::ConsumedAuthenticatedLocalNoteState,
     },
-    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
+    sync::NoteTagSource,
     transaction::{
         PaymentTransactionData, TransactionExecutorError, TransactionProver,
         TransactionProverError, TransactionRequestBuilder, TransactionStatus,
     },
 };
+use miden_client_tests::common::create_test_client_builder;
 use miden_objects::{
     account::{AccountId, AccountStorageMode},
     asset::{Asset, FungibleAsset},
@@ -34,7 +35,11 @@ mod swap_transactions_tests;
 
 /// Constant that represents the number of blocks until the p2idr can be recalled. If this value is
 /// too low, some tests might fail due to expected recall failures not happening.
-const RECALL_HEIGHT_DELTA: u32 = 50;
+const RECALL_HEIGHT_DELTA: u32 = 10;
+
+/// Constant that represents the number of blocks until the transaction is considered
+/// stale.
+const TX_GRACEFUL_BLOCKS: u32 = 10;
 
 #[tokio::test]
 async fn test_client_builder_initializes_client_with_endpoint() -> Result<(), ClientError> {
@@ -203,13 +208,10 @@ async fn test_multiple_tx_on_same_block() {
         .collect::<Vec<_>>();
 
     assert_eq!(transactions.len(), 2);
-    assert!(matches!(
-        transactions[0].transaction_status,
-        TransactionStatus::Committed { .. }
-    ));
-    assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
+    assert!(matches!(transactions[0].status, TransactionStatus::Committed { .. }));
+    assert_eq!(transactions[0].status, transactions[1].status);
 
-    let note_id = transactions[0].output_notes.iter().next().unwrap().id();
+    let note_id = transactions[0].details.output_notes.iter().next().unwrap().id();
     let note = client.get_output_note(note_id).await.unwrap().unwrap();
     assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
@@ -520,6 +522,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
     let transaction_execution_result = client.new_transaction(from_account_id, tx_request).await;
     assert!(transaction_execution_result.is_err_and(|err| {
+        println!("{:?}", err);
         matches!(
             err,
             ClientError::TransactionExecutorError(
@@ -932,7 +935,8 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.committed_notes.len(), 1);
+    assert_eq!(new_details.new_public_notes.len(), 1);
+    assert_eq!(new_details.committed_notes.len(), 0);
     assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 
@@ -1080,11 +1084,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
     let second_tx = all_transactions.iter().find(|tx| tx.id == second_note_tx_id).unwrap();
     let third_tx = all_transactions.iter().find(|tx| tx.id == third_note_tx_id).unwrap();
 
-    match (
-        first_tx.transaction_status.clone(),
-        second_tx.transaction_status.clone(),
-        third_tx.transaction_status.clone(),
-    ) {
+    match (first_tx.status.clone(), second_tx.status.clone(), third_tx.status.clone()) {
         (
             TransactionStatus::Committed(first_tx_commit_height),
             TransactionStatus::Committed(second_tx_commit_height),
@@ -1309,6 +1309,66 @@ async fn test_import_consumed_note_with_id() {
 }
 
 #[tokio::test]
+async fn test_import_note_with_proof() {
+    let (mut client_1, authenticator) = create_test_client().await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client_1, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let (mut client_2, _) = create_test_client().await;
+
+    wait_for_node(&mut client_2).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let current_block_num = client_1.get_sync_height().await.unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(current_block_num),
+        NoteType::Private,
+        client_1.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
+
+    let note = client_1
+        .get_input_notes(NoteFilter::Committed)
+        .await
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+
+    // Import the consumed note
+    client_2
+        .import_note(NoteFile::NoteWithProof(
+            note.clone().try_into().unwrap(),
+            note.inclusion_proof().unwrap().clone(),
+        ))
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
+    assert!(matches!(imported_note.state(), InputNoteState::Unverified { .. }));
+
+    client_2.sync_state().await.unwrap();
+    let imported_note = client_2.get_input_note(note.id()).await.unwrap().unwrap();
+    assert!(matches!(imported_note.state(), InputNoteState::Committed { .. }));
+}
+
+#[tokio::test]
 async fn test_discarded_transaction() {
     let (mut client_1, authenticator_1) = create_test_client().await;
     let (first_regular_account, faucet_account_header) =
@@ -1396,7 +1456,7 @@ async fn test_discarded_transaction() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client_1.get_account(from_account_id).await.unwrap().unwrap();
@@ -1636,7 +1696,13 @@ async fn test_unused_rpc_api() {
 
 #[tokio::test]
 async fn test_stale_transactions_discarded() {
-    let (mut client, authenticator) = create_test_client().await;
+    let (builder, authenticator) = create_test_client_builder().await;
+
+    let mut client =
+        builder.with_tx_graceful_blocks(Some(TX_GRACEFUL_BLOCKS)).build().await.unwrap();
+
+    client.sync_state().await.unwrap();
+
     let (regular_account, faucet_account_header) =
         setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
 
@@ -1689,7 +1755,7 @@ async fn test_stale_transactions_discarded() {
         .into_iter()
         .find(|tx| tx.id == tx_id)
         .unwrap();
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
+    assert!(matches!(tx_record.status, TransactionStatus::Pending));
 
     // Sync the state, which should discard the old pending transaction
     wait_for_blocks(&mut client, TX_GRACEFUL_BLOCKS + 1).await;
@@ -1703,7 +1769,7 @@ async fn test_stale_transactions_discarded() {
         .find(|tx| tx.id == tx_id)
         .unwrap();
 
-    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+    assert!(matches!(tx_record.status, TransactionStatus::Discarded));
 
     // Check that the account state has been rolled back after the transaction was discarded
     let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();

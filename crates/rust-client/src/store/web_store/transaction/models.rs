@@ -7,19 +7,14 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error};
 #[serde(rename_all = "camelCase")]
 pub struct TransactionIdxdbObject {
     pub id: String,
-    pub account_id: String, // usually i64
-    pub init_account_state: String,
-    pub final_account_state: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub input_notes: Vec<u8>,
-    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub output_notes: Vec<u8>,
+    pub details: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub script_root: Option<Vec<u8>>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub tx_script: Option<Vec<u8>>,
-    pub block_num: String,             // usually u32
-    pub commit_height: Option<String>, // usually Option<u32>
+    pub block_num: String,
+    pub commit_height: Option<String>,
     pub discarded: bool,
 }
 

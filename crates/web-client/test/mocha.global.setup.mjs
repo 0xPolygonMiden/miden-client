@@ -173,13 +173,13 @@ before(async () => {
             throw new Error("Timeout waiting for transaction");
           }
           await client.syncState();
-          const uncomittedTransactions = await client.getTransactions(
-            window.TransactionFilter.uncomitted()
+          const uncommittedTransactions = await client.getTransactions(
+            window.TransactionFilter.uncommitted()
           );
-          let uncomittedTransactionIds = uncomittedTransactions.map(
+          let uncommittedTransactionIds = uncommittedTransactions.map(
             (transaction) => transaction.id().toHex()
           );
-          if (!uncomittedTransactionIds.includes(transactionId)) {
+          if (!uncommittedTransactionIds.includes(transactionId)) {
             break;
           }
           await new Promise((r) => setTimeout(r, delayInterval));

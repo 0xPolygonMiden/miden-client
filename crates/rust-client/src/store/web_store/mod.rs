@@ -19,7 +19,6 @@ use miden_objects::{
     block::{BlockHeader, BlockNumber},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     note::Nullifier,
-    transaction::TransactionId,
 };
 use tonic::async_trait;
 use wasm_bindgen::prelude::*;
@@ -30,7 +29,6 @@ use super::{
     PartialBlockchainFilter, Store, StoreError, TransactionFilter,
 };
 use crate::{
-    note::NoteUpdates,
     sync::{NoteTagRecord, StateSyncUpdate},
     transaction::{TransactionRecord, TransactionStoreUpdate},
 };
@@ -89,14 +87,6 @@ impl Store for WebStore {
 
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
         self.apply_state_sync(state_sync_update).await
-    }
-
-    async fn apply_nullifiers(
-        &self,
-        note_updates: NoteUpdates,
-        transactions_to_discard: Vec<TransactionId>,
-    ) -> Result<(), StoreError> {
-        self.apply_nullifiers(note_updates, transactions_to_discard).await
     }
 
     // TRANSACTIONS
@@ -176,6 +166,10 @@ impl Store for WebStore {
         block_num: BlockNumber,
     ) -> Result<MmrPeaks, StoreError> {
         self.get_partial_blockchain_peaks_by_block_num(block_num).await
+    }
+
+    async fn prune_irrelevant_blocks(&self) -> Result<(), StoreError> {
+        self.prune_irrelevant_blocks().await
     }
 
     // ACCOUNTS

@@ -56,11 +56,7 @@
 //! For more details on the API and error handling, see the documentation for the specific functions
 //! and types in this module.
 
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    string::ToString,
-    vec::Vec,
-};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::account::AccountId;
@@ -72,6 +68,7 @@ use crate::{
 
 mod import;
 mod note_screener;
+mod note_update_tracker;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -91,6 +88,9 @@ pub use miden_objects::{
     },
 };
 pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScreenerError};
+pub use note_update_tracker::{
+    InputNoteUpdate, NoteUpdateTracker, NoteUpdateType, OutputNoteUpdate,
+};
 
 /// Note retrieval methods.
 impl Client {
@@ -232,96 +232,4 @@ pub async fn get_input_note_with_id_prefix(
     Ok(input_note_records
         .pop()
         .expect("input_note_records should always have one element"))
-}
-
-// NOTE UPDATES
-// ------------------------------------------------------------------------------------------------
-
-/// Contains note changes to apply to the store.
-#[derive(Clone, Debug, Default)]
-pub struct NoteUpdates {
-    /// A map of new and updated input note records to be upserted in the store.
-    updated_input_notes: BTreeMap<NoteId, InputNoteRecord>,
-    /// A map of updated output note records to be upserted in the store.
-    updated_output_notes: BTreeMap<NoteId, OutputNoteRecord>,
-}
-
-impl NoteUpdates {
-    /// Creates a [`NoteUpdates`].
-    pub fn new(
-        updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
-        updated_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
-    ) -> Self {
-        Self {
-            updated_input_notes: updated_input_notes
-                .into_iter()
-                .map(|note| (note.id(), note))
-                .collect(),
-            updated_output_notes: updated_output_notes
-                .into_iter()
-                .map(|note| (note.id(), note))
-                .collect(),
-        }
-    }
-
-    /// Returns all input note records that have been updated.
-    /// This may include:
-    /// - New notes that have been created that should be inserted.
-    /// - Existing tracked notes that should be updated.
-    pub fn updated_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
-        self.updated_input_notes.values()
-    }
-
-    /// Returns all output note records that have been updated.
-    /// This may include:
-    /// - New notes that have been created that should be inserted.
-    /// - Existing tracked notes that should be updated.
-    pub fn updated_output_notes(&self) -> impl Iterator<Item = &OutputNoteRecord> {
-        self.updated_output_notes.values()
-    }
-
-    /// Returns whether no new note-related information has been retrieved.
-    pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty() && self.updated_output_notes.is_empty()
-    }
-
-    /// Returns any note that has been committed into the chain in this update (either new or
-    /// already locally tracked)
-    pub fn committed_input_notes(&self) -> impl Iterator<Item = &InputNoteRecord> {
-        self.updated_input_notes.values().filter(|note| note.is_committed())
-    }
-
-    /// Returns the IDs of all notes that have been committed in this update.
-    /// This includes both new notes and tracked expected notes that were committed in this update.
-    pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
-        let committed_output_note_ids = self
-            .updated_output_notes
-            .values()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        let committed_input_note_ids = self
-            .updated_input_notes
-            .values()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
-
-        committed_input_note_ids
-            .chain(committed_output_note_ids)
-            .collect::<BTreeSet<_>>()
-    }
-
-    /// Returns the IDs of all notes that have been consumed.
-    /// This includes both notes that have been consumed locally or externally in this update.
-    pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
-        let consumed_output_note_ids = self
-            .updated_output_notes
-            .values()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        let consumed_input_note_ids = self
-            .updated_input_notes
-            .values()
-            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
-
-        consumed_input_note_ids.chain(consumed_output_note_ids).collect::<BTreeSet<_>>()
-    }
 }

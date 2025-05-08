@@ -12,7 +12,7 @@ use miden_objects::{
     asset::{Asset, AssetVault},
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{Connection, Transaction, params, types::Value};
+use rusqlite::{Connection, Transaction, named_params, params, types::Value};
 
 use super::{SqliteStore, column_value_as_u64, u64_to_value};
 use crate::{
@@ -298,9 +298,24 @@ pub(super) fn insert_account_asset_vault(
     Ok(())
 }
 
-pub(super) fn lock_account(tx: &Transaction<'_>, account_id: AccountId) -> Result<(), StoreError> {
-    const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = ?";
-    tx.execute(QUERY, params![account_id.to_hex()])?;
+/// Locks the account if the mismatched digest doesn't belong to a previous account state (stale
+/// data).
+pub(super) fn lock_account_on_unexpected_commitment(
+    tx: &Transaction<'_>,
+    account_id: &AccountId,
+    mismatched_digest: &Digest,
+) -> Result<(), StoreError> {
+    // Mismatched digests may be due to stale network data. If the mismatched digest is
+    // tracked in the db and corresponds to the mismatched account, it means we
+    // got a past update and shouldn't lock the account.
+    const QUERY: &str = "UPDATE accounts SET locked = true WHERE id = :account_id AND NOT EXISTS (SELECT 1 FROM accounts WHERE id = :account_id AND account_commitment = :digest)";
+    tx.execute(
+        QUERY,
+        named_params! {
+            ":account_id": account_id.to_hex(),
+            ":digest": mismatched_digest.to_string()
+        },
+    )?;
     Ok(())
 }
 

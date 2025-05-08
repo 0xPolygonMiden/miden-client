@@ -14,6 +14,7 @@ use miden_client::{
         component::{BasicFungibleFaucet, BasicWallet, RpoFalcon512},
     },
     auth::AuthSecretKey,
+    builder::ClientBuilder,
     crypto::FeltRng,
     keystore::FilesystemKeyStore,
     note::{Note, create_p2id_note},
@@ -44,6 +45,7 @@ pub type TestClient = Client;
 pub type TestClientKeyStore = FilesystemKeyStore<StdRng>;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-client-rpc.toml");
+
 /// Creates a `TestClient`.
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
@@ -53,7 +55,7 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE: &str = include_str!("../config/miden-clie
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig].
-pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
+pub async fn create_test_client_builder() -> (ClientBuilder, TestClientKeyStore) {
     let (rpc_endpoint, rpc_timeout, store_config, auth_path) = get_client_config();
 
     let store = {
@@ -66,15 +68,32 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let keystore = FilesystemKeyStore::new(auth_path).unwrap();
+    let keystore = FilesystemKeyStore::new(auth_path.clone()).unwrap();
 
-    let mut client = TestClient::new(
-        Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)),
-        Box::new(rng),
-        store,
-        Arc::new(keystore.clone()),
-        true,
-    );
+    let builder = ClientBuilder::new()
+        .with_rpc(Arc::new(TonicRpcClient::new(&rpc_endpoint, rpc_timeout)))
+        .with_rng(Box::new(rng))
+        .with_store(store)
+        .with_filesystem_keystore(auth_path.to_str().unwrap())
+        .in_debug_mode(true)
+        .with_tx_graceful_blocks(None);
+
+    (builder, keystore)
+}
+
+/// Creates a `TestClient`.
+///
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
+/// random temporary location, so the store section of the config file is ignored.
+///
+/// # Panics
+///
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
+/// deserialized into a [ClientConfig].
+pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
+    let (builder, keystore) = create_test_client_builder().await;
+
+    let mut client = builder.build().await.unwrap();
 
     client.sync_state().await.unwrap();
 
@@ -233,32 +252,36 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             .unwrap()
             .pop()
             .unwrap();
-        let is_tx_committed =
-            matches!(tracked_transaction.transaction_status, TransactionStatus::Committed(_));
 
-        if is_tx_committed {
-            break;
+        match tracked_transaction.status {
+            TransactionStatus::Committed(_) => {
+                break;
+            },
+            TransactionStatus::Pending => {
+                std::thread::sleep(Duration::from_millis(100));
+            },
+            TransactionStatus::Discarded => {
+                panic!("Transaction discarded");
+            },
         }
 
-        std::thread::sleep(Duration::from_millis(100));
-    }
+        // Log wait time in a file if the env var is set
+        // This allows us to aggregate and measure how long the tests are waiting for transactions
+        // to be committed
+        if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
+            let elapsed = now.elapsed();
+            let wait_times_dir = std::path::PathBuf::from("wait_times");
+            std::fs::create_dir_all(&wait_times_dir).unwrap();
 
-    // Log wait time in a file if the env var is set
-    // This allows us to aggregate and measure how long the tests are waiting for transactions to be
-    // committed
-    if std::env::var("LOG_WAIT_TIMES") == Ok("true".to_string()) {
-        let elapsed = now.elapsed();
-        let wait_times_dir = std::path::PathBuf::from("wait_times");
-        std::fs::create_dir_all(&wait_times_dir).unwrap();
-
-        let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(elapsed_time_file)
-            .unwrap();
-        writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
+            let elapsed_time_file = wait_times_dir.join(format!("wait_time_{}", Uuid::new_v4()));
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(elapsed_time_file)
+                .unwrap();
+            writeln!(file, "{:?}", elapsed.as_millis()).unwrap();
+        }
     }
 }
 
