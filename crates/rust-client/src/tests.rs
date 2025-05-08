@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use std::collections::BTreeSet;
+use std::{boxed::Box, collections::BTreeSet, env::temp_dir, println, sync::Arc};
 
 // TESTS
 // ================================================================================================
@@ -18,7 +18,10 @@ use miden_objects::{
         AccountType, AuthSecretKey,
     },
     asset::{Asset, FungibleAsset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    crypto::{
+        dsa::rpo_falcon512::SecretKey,
+        rand::{FeltRng, RpoRandomCoin},
+    },
     note::{
         Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteMetadata, NoteTag,
         NoteType,
@@ -29,20 +32,68 @@ use miden_objects::{
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_UPDATABLE_CODE,
     },
-    transaction::OutputNote,
+    transaction::{InputNote, OutputNote},
     vm::AdviceInputs,
 };
-use miden_tx::utils::{Deserializable, Serializable};
-use rand::{RngCore, rngs::StdRng};
+use miden_tx::{
+    TransactionExecutorError,
+    utils::{Deserializable, Serializable},
+};
+use rand::{Rng, RngCore, rngs::StdRng};
+use uuid::Uuid;
 
 use crate::{
     Client, ClientError,
     keystore::FilesystemKeyStore,
-    mock::create_test_client,
+    note::NoteRelevance,
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, Store, StoreError},
-    transaction::{PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError},
+    store::{
+        InputNoteRecord, InputNoteState, NoteFilter, StoreError, TransactionFilter,
+        input_note_states::ConsumedAuthenticatedLocalNoteState, sqlite_store::SqliteStore,
+    },
+    sync::{NoteTagSource, TX_GRACEFUL_BLOCKS},
+    testing::{
+        common::{
+            ACCOUNT_ID_REGULAR, MINT_AMOUNT, RECALL_HEIGHT_DELTA, TRANSFER_AMOUNT,
+            assert_account_has_single_asset, assert_note_cannot_be_consumed_twice, consume_notes,
+            execute_failing_tx, execute_tx, execute_tx_and_sync, mint_and_consume, mint_note,
+            setup_two_wallets_and_faucet, setup_wallet_and_faucet, wait_for_node, wait_for_tx,
+        },
+        mock::{MockClient, MockRpcApi},
+    },
+    transaction::{
+        PaymentTransactionData, TransactionRequestBuilder, TransactionRequestError,
+        TransactionStatus,
+    },
 };
+
+// HELPERS
+// ================================================================================================
+
+pub async fn create_test_client() -> (MockClient, MockRpcApi, FilesystemKeyStore<StdRng>) {
+    let store = SqliteStore::new(create_test_store_path()).await.unwrap();
+    let store = Arc::new(store);
+
+    let mut rng = rand::rng();
+    let coin_seed: [u64; 4] = rng.random();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+    let keystore = FilesystemKeyStore::new(temp_dir()).unwrap();
+
+    let rpc_api = MockRpcApi::new();
+    let arc_rpc_api = Arc::new(rpc_api.clone());
+
+    let client =
+        MockClient::new(arc_rpc_api, Box::new(rng), store, Arc::new(keystore.clone()), true);
+    (client, rpc_api, keystore)
+}
+
+pub fn create_test_store_path() -> std::path::PathBuf {
+    let mut temp_file = temp_dir();
+    temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+    temp_file
+}
 
 async fn insert_new_wallet(
     client: &mut Client,
@@ -106,6 +157,9 @@ async fn insert_new_fungible_faucet(
     Ok((account, seed))
 }
 
+// TESTS
+// ================================================================================================
+
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test client with a random store name
@@ -115,25 +169,33 @@ async fn test_input_notes_round_trip() {
         .await
         .unwrap();
     // generate test data
-    let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];
+    let available_notes = rpc_api.get_available_notes();
 
     // insert notes into database
     for note in &available_notes {
         client
             .import_note(NoteFile::NoteWithProof(
-                note.note().clone(),
-                note.proof().expect("These notes should be authenticated").clone(),
+                note.note().unwrap().clone(),
+                note.inclusion_proof().clone(),
             ))
             .await
             .unwrap();
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(NoteFilter::Unverified).await.unwrap();
+    assert_eq!(client.get_input_notes(NoteFilter::Unverified).await.unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
+
+    let retrieved_notes = client.get_input_notes(NoteFilter::All).await.unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
-    let recorded_notes: Vec<InputNoteRecord> =
-        available_notes.iter().map(|n| n.clone().into()).collect();
+    let recorded_notes: Vec<InputNoteRecord> = available_notes
+        .into_iter()
+        .map(|n| {
+            let input_note: InputNote = n.try_into().unwrap();
+            input_note.into()
+        })
+        .collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
         assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -145,7 +207,7 @@ async fn test_get_input_note() {
     // generate test client with a random store name
     let (mut client, rpc_api, _) = create_test_client().await;
     // Get note from mocked RPC backend since any note works here
-    let original_note = rpc_api.get_note_at(0).note().clone();
+    let original_note = rpc_api.get_available_notes()[0].note().unwrap().clone();
 
     // insert Note into database
     let note: InputNoteRecord = original_note.clone().into();
@@ -296,9 +358,22 @@ async fn test_sync_state() {
     let (mut client, rpc_api, _) = create_test_client().await;
 
     // Import first mockchain note as expected
-    let expected_notes =
-        rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
-    Store::upsert_input_notes(client.store.as_ref(), &expected_notes).await.unwrap();
+    let expected_notes = rpc_api
+        .get_available_notes()
+        .into_iter()
+        .map(|n| n.note().unwrap().clone())
+        .collect::<Vec<Note>>();
+
+    for note in &expected_notes {
+        client
+            .import_note(NoteFile::NoteDetails {
+                details: note.clone().into(),
+                after_block_num: 0.into(),
+                tag: Some(note.metadata().tag()),
+            })
+            .await
+            .unwrap();
+    }
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
@@ -312,19 +387,16 @@ async fn test_sync_state() {
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
+    assert_eq!(sync_details.block_num, rpc_api.get_chain_tip_block_num());
 
     // verify that we now have one committed note after syncing state
     // TODO: Review these next 3 asserts (see PR 758)
-    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 2);
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
-    assert_eq!(sync_details.consumed_notes.len(), 0);
+    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
+    assert_eq!(sync_details.consumed_notes.len(), 1);
 
     // verify that the latest block number has been updated
-    assert_eq!(
-        client.get_sync_height().await.unwrap(),
-        rpc_api.blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(client.get_sync_height().await.unwrap(), rpc_api.get_chain_tip_block_num());
 }
 
 #[tokio::test]
@@ -337,26 +409,37 @@ async fn test_sync_state_mmr() {
         .await
         .unwrap();
 
-    let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
-    Store::upsert_input_notes(client.store.as_ref(), &notes).await.unwrap();
+    let notes = rpc_api
+        .get_available_notes()
+        .into_iter()
+        .map(|n| n.note().unwrap().clone())
+        .collect::<Vec<Note>>();
+
+    for note in &notes {
+        client
+            .import_note(NoteFile::NoteDetails {
+                details: note.clone().into(),
+                after_block_num: 0.into(),
+                tag: Some(note.metadata().tag()),
+            })
+            .await
+            .unwrap();
+    }
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
+    assert_eq!(sync_details.block_num, rpc_api.get_chain_tip_block_num());
 
     // verify that the latest block number has been updated
-    assert_eq!(
-        client.get_sync_height().await.unwrap(),
-        rpc_api.blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(client.get_sync_height().await.unwrap(), rpc_api.get_chain_tip_block_num());
 
     // verify that we inserted the latest block into the DB via the client
     let latest_block = client.get_sync_height().await.unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        rpc_api.blocks.last().unwrap().commitment(),
+        rpc_api.get_block_header_by_number(None, false).await.unwrap().0.commitment(),
         client
             .test_store()
             .get_block_headers(&[latest_block].into_iter().collect())
@@ -453,68 +536,45 @@ async fn test_mint_transaction() {
 }
 
 #[tokio::test]
-async fn test_get_output_notes() {
-    // generate test client with a random store name
-    let (mut client, _rpc_api, keystore) = create_test_client().await;
-    client.sync_state().await.unwrap();
-
-    // Faucet account generation
-    let (faucet, _seed) =
-        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &keystore)
-            .await
-            .unwrap();
-
-    // Test submitting a mint transaction
-    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap(),
-        miden_objects::note::NoteType::Private,
-        client.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
-
-    //Before executing transaction, there are no output notes
-    assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
-
-    let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
-    client.submit_transaction(transaction).await.unwrap();
-
-    // Check that there was an output note but it wasn't consumed
-    assert!(client.get_output_notes(NoteFilter::Consumed).await.unwrap().is_empty());
-    assert!(!client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
-}
-
-#[tokio::test]
 async fn test_import_note_validation() {
     // generate test client
     let (mut client, rpc_api, _) = create_test_client().await;
 
     // generate test data
-    let committed_note: InputNoteRecord = rpc_api.get_note_at(0).into();
-    let expected_note: InputNoteRecord = rpc_api.get_note_at(1).note().clone().into();
+    let consumed_note = rpc_api.get_available_notes()[0].clone();
+    let expected_note = rpc_api.get_available_notes()[1].clone();
+
+    client
+        .import_note(NoteFile::NoteWithProof(
+            consumed_note.note().unwrap().clone(),
+            consumed_note.inclusion_proof().clone(),
+        ))
+        .await
+        .unwrap();
 
     client
         .import_note(NoteFile::NoteDetails {
-            details: committed_note.clone().into(),
+            details: expected_note.note().unwrap().into(),
             after_block_num: 0.into(),
             tag: None,
         })
         .await
         .unwrap();
-    assert!(client.import_note(NoteFile::NoteId(expected_note.id())).await.is_err());
-    client
-        .import_note(NoteFile::NoteDetails {
-            details: expected_note.clone().into(),
-            after_block_num: 0.into(),
-            tag: None,
-        })
+
+    let expected_note = client
+        .get_input_note(expected_note.note().unwrap().id())
         .await
+        .unwrap()
+        .unwrap();
+
+    let consumed_note = client
+        .get_input_note(consumed_note.note().unwrap().id())
+        .await
+        .unwrap()
         .unwrap();
 
     assert!(expected_note.inclusion_proof().is_none());
-    assert!(committed_note.inclusion_proof().is_some());
+    assert!(consumed_note.is_consumed());
 }
 
 #[tokio::test]
@@ -566,7 +626,7 @@ async fn test_import_processing_note_returns_error() {
     let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         account.id(),
-        miden_objects::note::NoteType::Private,
+        miden_objects::note::NoteType::Public,
         client.rng(),
     )
     .unwrap()
@@ -756,4 +816,631 @@ async fn test_execute_program() {
     }
 
     assert_eq!(output_stack, expected_stack);
+}
+
+#[tokio::test]
+async fn test_real_note_roundtrip() {
+    let (mut client, _, keystore) = create_test_client().await;
+    let (wallet, _seed) = insert_new_wallet(&mut client, AccountStorageMode::Private, &keystore)
+        .await
+        .unwrap();
+    let (faucet, _seed) =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &keystore)
+            .await
+            .unwrap();
+
+    client.sync_state().await.unwrap();
+
+    // Test submitting a mint transaction
+    let transaction_request = TransactionRequestBuilder::mint_fungible_asset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        wallet.id(),
+        miden_objects::note::NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    let note_id = transaction_request.expected_output_notes().next().unwrap().id();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
+    client.submit_transaction(transaction).await.unwrap();
+
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
+    assert!(matches!(note.state(), &InputNoteState::Expected(_)));
+
+    client.sync_state().await.unwrap();
+
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
+    assert!(matches!(note.state(), &InputNoteState::Committed(_)));
+
+    // Consume note
+    let transaction_request =
+        TransactionRequestBuilder::consume_notes(vec![note_id]).build().unwrap();
+
+    let transaction = client.new_transaction(wallet.id(), transaction_request).await.unwrap();
+    client.submit_transaction(transaction).await.unwrap();
+
+    client.sync_state().await.unwrap();
+
+    let note = client.get_input_note(note_id).await.unwrap().unwrap();
+    assert!(matches!(note.state(), &InputNoteState::ConsumedAuthenticatedLocal(_)));
+}
+
+#[tokio::test]
+async fn test_added_notes() {
+    let (mut client, _, authenticator) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let faucet_account_header =
+        insert_new_fungible_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await
+            .unwrap()
+            .0;
+
+    // Mint some asset for an account not tracked by the client. It should not be stored as an
+    // input note afterwards since it is not being tracked by the client
+    let fungible_asset = FungibleAsset::new(faucet_account_header.id(), MINT_AMOUNT).unwrap();
+    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
+        fungible_asset,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    println!("Running Mint tx...");
+    execute_tx_and_sync(&mut client, faucet_account_header.id(), tx_request).await;
+
+    // Check that no new notes were added
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert!(notes.is_empty());
+}
+
+#[tokio::test]
+async fn test_p2id_transfer() {
+    let (mut client, _, authenticator) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // First Mint necessary token
+    mint_and_consume(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    println!("Running P2ID tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        None,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    let transaction_id = execute_tx(&mut client, from_account_id, tx_request).await;
+
+    // Check that a note tag started being tracked for this note.
+    assert!(
+        client
+            .get_note_tags()
+            .await
+            .unwrap()
+            .into_iter()
+            .any(|tag| tag.source == NoteTagSource::Note(note.id()))
+    );
+
+    wait_for_tx(&mut client, transaction_id).await;
+
+    // Check that the tag is not longer being tracked
+    assert!(
+        !client
+            .get_note_tags()
+            .await
+            .unwrap()
+            .into_iter()
+            .any(|tag| tag.source == NoteTagSource::Note(note.id()))
+    );
+
+    // Check that note is committed for the second account to consume
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert!(!notes.is_empty());
+
+    // Consume P2ID note
+    println!("Consuming Note...");
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
+
+    // Ensure we have nothing else to consume
+    let current_notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert!(current_notes.is_empty());
+
+    let regular_account = client.get_account(from_account_id).await.unwrap().unwrap();
+    let seed = regular_account.seed().copied();
+    let regular_account: Account = regular_account.into();
+
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.is_new() && seed.is_none());
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    // Validate the transfered amounts
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), MINT_AMOUNT - TRANSFER_AMOUNT);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+}
+
+#[tokio::test]
+async fn test_p2id_transfer_failing_not_enough_balance() {
+    let (mut client, _, authenticator) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // First Mint necessary token
+    mint_and_consume(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT + 1).unwrap();
+    println!("Running P2ID tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        None,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_failing_tx(
+        &mut client,
+        from_account_id,
+        tx_request,
+        ClientError::AssetError(miden_objects::AssetError::FungibleAssetAmountNotSufficient {
+            minuend: MINT_AMOUNT,
+            subtrahend: MINT_AMOUNT + 1,
+        }),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_p2idr_transfer_consumed_by_target() {
+    let (mut client, _, authenticator) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // First Mint necessary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+    println!("about to consume");
+
+    //Check that the note is not consumed by the target account
+    assert!(matches!(
+        client.get_input_note(note.id()).await.unwrap().unwrap().state(),
+        InputNoteState::Committed { .. }
+    ));
+
+    consume_notes(&mut client, from_account_id, &[note.clone()]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Check that the note is consumed by the target account
+    let input_note = client.get_input_note(note.id()).await.unwrap().unwrap();
+    assert!(matches!(input_note.state(), InputNoteState::ConsumedAuthenticatedLocal { .. }));
+    if let InputNoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
+        submission_data,
+        ..
+    }) = input_note.state()
+    {
+        assert_eq!(submission_data.consumer_account, from_account_id);
+    } else {
+        panic!("Note should be consumed");
+    }
+
+    // Do a transfer from first account to second account with Recall. In this situation we'll do
+    // the happy path where the `to_account_id` consumes the note
+    println!("getting balance");
+    let from_account_balance = client
+        .get_account(from_account_id)
+        .await
+        .unwrap()
+        .unwrap()
+        .account()
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let to_account_balance = client
+        .get_account(to_account_id)
+        .await
+        .unwrap()
+        .unwrap()
+        .account()
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let current_block_num = client.get_sync_height().await.unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(current_block_num + RECALL_HEIGHT_DELTA),
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_tx_and_sync(&mut client, from_account_id, tx_request.clone()).await;
+
+    // Check that note is committed for the second account to consume
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert!(!notes.is_empty());
+
+    // Make the `to_account_id` consume P2IDR note
+    let note_id = tx_request.expected_output_notes().next().unwrap().id();
+    println!("Consuming Note...");
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_id]).build().unwrap();
+    execute_tx_and_sync(&mut client, to_account_id, tx_request).await;
+    let regular_account = client.get_account(from_account_id).await.unwrap().unwrap();
+
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.account().is_new() && regular_account.seed().is_none());
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
+
+    // Validate the transfered amounts
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), from_account_balance - TRANSFER_AMOUNT);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), to_account_balance + TRANSFER_AMOUNT);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, note_id).await;
+}
+
+#[tokio::test]
+async fn test_p2idr_transfer_consumed_by_sender() {
+    let (mut client, mock_rpc_api, authenticator) = create_test_client().await;
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // First Mint necessary token
+    mint_and_consume(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    // Do a transfer from first account to second account with Recall. In this situation we'll do
+    // the happy path where the `to_account_id` consumes the note
+    let from_account_balance = client
+        .get_account(from_account_id)
+        .await
+        .unwrap()
+        .unwrap()
+        .account()
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let current_block_num = client.get_sync_height().await.unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(current_block_num + RECALL_HEIGHT_DELTA),
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
+
+    // Check that note is committed
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
+    assert!(!notes.is_empty());
+
+    // Check that it's still too early to consume
+    println!("Consuming Note (too early)...");
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    let transaction_execution_result = client.new_transaction(from_account_id, tx_request).await;
+    assert!(transaction_execution_result.is_err_and(|err| {
+        matches!(
+            err,
+            ClientError::TransactionExecutorError(
+                TransactionExecutorError::TransactionProgramExecutionFailed(_)
+            )
+        )
+    }));
+
+    // Wait to consume with the sender account
+    println!("Waiting for note to be consumable by sender");
+    mock_rpc_api.advance_blocks(RECALL_HEIGHT_DELTA);
+    client.sync_state().await.unwrap();
+
+    // Consume the note with the sender account
+    println!("Consuming Note...");
+    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
+
+    let regular_account = client.get_account(from_account_id).await.unwrap().unwrap();
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.account().is_new() && regular_account.seed().is_none());
+    assert_eq!(regular_account.account().vault().assets().count(), 1);
+    let asset = regular_account.account().vault().assets().next().unwrap();
+
+    // Validate the sender hasn't lost funds
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), from_account_balance);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    let regular_account: Account = client.get_account(to_account_id).await.unwrap().unwrap().into();
+    assert_eq!(regular_account.vault().assets().count(), 0);
+
+    // Check that the target can't consume the note anymore
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+}
+
+#[tokio::test]
+async fn test_get_consumable_notes() {
+    let (mut client, _, authenticator) = create_test_client().await;
+
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup_two_wallets_and_faucet(&mut client, AccountStorageMode::Private, &authenticator)
+            .await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    //No consumable notes initially
+    assert!(client.get_consumable_notes(None).await.unwrap().is_empty());
+
+    // First Mint necessary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    // Check that note is consumable by the account that minted
+    assert!(!client.get_consumable_notes(None).await.unwrap().is_empty());
+    assert!(!client.get_consumable_notes(Some(from_account_id)).await.unwrap().is_empty());
+    assert!(client.get_consumable_notes(Some(to_account_id)).await.unwrap().is_empty());
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+
+    //After consuming there are no more consumable notes
+    assert!(client.get_consumable_notes(None).await.unwrap().is_empty());
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(100.into()),
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
+
+    // Check that note is consumable by both accounts
+    let consumable_notes = client.get_consumable_notes(None).await.unwrap();
+    let relevant_accounts = &consumable_notes.first().unwrap().1;
+    assert_eq!(relevant_accounts.len(), 2);
+    assert!(!client.get_consumable_notes(Some(from_account_id)).await.unwrap().is_empty());
+    assert!(!client.get_consumable_notes(Some(to_account_id)).await.unwrap().is_empty());
+
+    // Check that the note is only consumable after block 100 for the account that sent the
+    // transaction
+    let from_account_relevance = relevant_accounts
+        .iter()
+        .find(|relevance| relevance.0 == from_account_id)
+        .unwrap()
+        .1;
+    assert_eq!(from_account_relevance, NoteRelevance::After(100));
+
+    // Check that the note is always consumable for the account that received the transaction
+    let to_account_relevance = relevant_accounts
+        .iter()
+        .find(|relevance| relevance.0 == to_account_id)
+        .unwrap()
+        .1;
+    assert_eq!(to_account_relevance, NoteRelevance::Always);
+}
+
+#[tokio::test]
+async fn test_get_output_notes() {
+    let (mut client, _, authenticator) = create_test_client().await;
+
+    let (first_regular_account, faucet_account_header) =
+        setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
+
+    let from_account_id = first_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+    let random_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
+
+    // No output notes initially
+    assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    // First Mint necessary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    // Check that there was an output note but it wasn't consumed
+    assert!(client.get_output_notes(NoteFilter::Consumed).await.unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+
+    //After consuming, the note is returned when using the [NoteFilter::Consumed] filter
+    assert!(!client.get_output_notes(NoteFilter::Consumed).await.unwrap().is_empty());
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    println!("Running P2ID tx...");
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(
+            vec![Asset::Fungible(asset)],
+            from_account_id,
+            random_account_id,
+        ),
+        None,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    let output_note_id = tx_request.expected_output_notes().next().unwrap().id();
+
+    // Before executing, the output note is not found
+    assert!(client.get_output_note(output_note_id).await.unwrap().is_none());
+
+    execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
+
+    // After executing, the note is only found in output notes
+    assert!(client.get_output_note(output_note_id).await.unwrap().is_some());
+    assert!(client.get_input_note(output_note_id).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn test_stale_transactions_discarded() {
+    let (mut client, mock_rpc_api, authenticator) = create_test_client().await;
+    let (regular_account, faucet_account_header) =
+        setup_wallet_and_faucet(&mut client, AccountStorageMode::Private, &authenticator).await;
+
+    let account_id = regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    // Mint a note
+    let note = mint_note(&mut client, account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, account_id, &[note]).await;
+
+    // Create a transaction but don't submit it to the node
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    let tx_request = TransactionRequestBuilder::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], account_id, account_id),
+        None,
+        NoteType::Public,
+        client.rng(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+
+    // Execute the transaction but don't submit it to the node
+    let tx_result = client.new_transaction(account_id, tx_request).await.unwrap();
+    let tx_id = tx_result.executed_transaction().id();
+    client.testing_prove_transaction(&tx_result).await.unwrap();
+
+    // Store the account state before applying the transaction
+    let account_before_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_before_tx = account_before_tx.account().commitment();
+
+    // Apply the transaction
+    client.testing_apply_transaction(tx_result).await.unwrap();
+
+    // Check that the account state has changed after applying the transaction
+    let account_after_tx = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_tx = account_after_tx.account().commitment();
+
+    assert_ne!(
+        account_commitment_before_tx, account_commitment_after_tx,
+        "Account commitment should change after applying the transaction"
+    );
+
+    // Verify the transaction is in pending state
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Pending));
+
+    // Sync the state, which should discard the old pending transaction
+    mock_rpc_api.advance_blocks(TX_GRACEFUL_BLOCKS + 1);
+    client.sync_state().await.unwrap();
+
+    // Verify the transaction is now discarded
+    let tx_record = client
+        .get_transactions(TransactionFilter::All)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+
+    // Check that the account state has been rolled back after the transaction was discarded
+    let account_after_sync = client.get_account(account_id).await.unwrap().unwrap();
+    let account_commitment_after_sync = account_after_sync.account().commitment();
+
+    assert_ne!(
+        account_commitment_after_sync, account_commitment_after_tx,
+        "Account commitment should change after transaction was discarded"
+    );
+    assert_eq!(
+        account_commitment_after_sync, account_commitment_before_tx,
+        "Account commitment should be rolled back to the value before the transaction"
+    );
 }

@@ -368,7 +368,7 @@ pub fn u64_to_value(v: u64) -> Value {
 #[cfg(test)]
 pub mod tests {
     use super::SqliteStore;
-    use crate::mock::create_test_store_path;
+    use crate::tests::create_test_store_path;
 
     pub(crate) async fn create_test_store() -> SqliteStore {
         SqliteStore::new(create_test_store_path()).await.unwrap()

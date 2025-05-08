@@ -21,8 +21,9 @@ repository = "https://github.com/0xPolygonMiden/miden-client"
 async-trait = "0.1"
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
+miden-testing = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["async"] }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["async"] }
-miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next",  default-features = false, features = ["tx-prover"] }
+miden-proving-service-client = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["tx-prover"] }
 miette = { version = "7.2", features = ["fancy"] }
 rand = { version = "0.9" }
 serde = { version = "1.0", features = ["derive"] }

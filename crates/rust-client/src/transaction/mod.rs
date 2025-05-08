@@ -1117,7 +1117,7 @@ mod test {
 
     use super::PaymentTransactionData;
     use crate::{
-        mock::create_test_client,
+        tests::create_test_client,
         transaction::{TransactionRequestBuilder, TransactionResult},
     };
 
