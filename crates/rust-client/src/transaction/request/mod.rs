@@ -78,6 +78,10 @@ pub struct TransactionRequest {
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
+    /// Indicates whether to **silently** ignore invalid input notes when executing the
+    /// transaction. This will allow the transaction to be executed even if some input notes
+    /// are invalid.
+    ignore_invalid_input_notes: bool,
 }
 
 impl TransactionRequest {
@@ -154,9 +158,14 @@ impl TransactionRequest {
         &self.foreign_accounts
     }
 
+    /// Returns whether to ignore invalid input notes or not.
+    pub fn ignore_invalid_input_notes(&self) -> bool {
+        self.ignore_invalid_input_notes
+    }
+
     /// Converts the [`TransactionRequest`] into [`TransactionArgs`] in order to be executed by a
     /// Miden host.
-    pub(super) fn into_transaction_args(
+    pub(crate) fn into_transaction_args(
         self,
         tx_script: TransactionScript,
         foreign_account_inputs: Vec<ForeignAccountInputs>,
@@ -228,6 +237,7 @@ impl Serializable for TransactionRequest {
         self.merkle_store.write_into(target);
         self.foreign_accounts.write_into(target);
         self.expiration_delta.write_into(target);
+        target.write_u8(u8::from(self.ignore_invalid_input_notes));
     }
 }
 
@@ -262,6 +272,7 @@ impl Deserializable for TransactionRequest {
         let merkle_store = MerkleStore::read_from(source)?;
         let foreign_accounts = BTreeSet::<ForeignAccount>::read_from(source)?;
         let expiration_delta = Option::<u16>::read_from(source)?;
+        let ignore_invalid_input_notes = source.read_u8()? == 1;
 
         Ok(TransactionRequest {
             unauthenticated_input_notes,
@@ -273,6 +284,7 @@ impl Deserializable for TransactionRequest {
             merkle_store,
             foreign_accounts,
             expiration_delta,
+            ignore_invalid_input_notes,
         })
     }
 }

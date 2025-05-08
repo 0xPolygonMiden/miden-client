@@ -74,6 +74,14 @@ export const mintTransaction = async (
   );
 };
 
+export const getSyncHeight = async () => {
+  return await testingPage.evaluate(async () => {
+    const client = window.client;
+    let summary = await client.syncState();
+    return summary.blockNum();
+  });
+};
+
 export const sendTransaction = async (
   senderAccountId: string,
   targetAccountId: string,

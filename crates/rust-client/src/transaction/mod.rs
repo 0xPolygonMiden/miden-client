@@ -79,7 +79,10 @@ use miden_objects::{
     note::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{ForeignAccountInputs, TransactionArgs},
 };
-use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use miden_tx::{
+    NoteAccountExecution, NoteConsumptionChecker,
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+};
 use tracing::info;
 
 use super::Client;
@@ -140,7 +143,7 @@ impl TransactionResult {
     /// [`TransactionResult`].
     pub async fn new(
         transaction: ExecutedTransaction,
-        note_screener: NoteScreener,
+        note_screener: NoteScreener<'_>,
         partial_notes: Vec<(NoteDetails, NoteTag)>,
         current_block_num: BlockNumber,
         current_timestamp: Option<u64>,
@@ -502,7 +505,7 @@ impl Client {
 
         self.store.upsert_input_notes(&unauthenticated_input_notes).await?;
 
-        let notes = {
+        let mut notes = {
             let note_ids = transaction_request.get_input_note_ids();
 
             let mut input_notes: Vec<InputNote> = Vec::new();
@@ -531,6 +534,8 @@ impl Client {
         let (fpi_block_num, foreign_account_inputs) =
             self.retrieve_foreign_account_inputs(foreign_accounts).await?;
 
+        let ignore_invalid_notes = transaction_request.ignore_invalid_input_notes();
+
         let tx_args = transaction_request.into_transaction_args(tx_script, foreign_account_inputs);
 
         let block_num = if let Some(block_num) = fpi_block_num {
@@ -547,6 +552,11 @@ impl Client {
             .ok_or(ClientError::AccountDataNotFound(account_id))?;
         let account: Account = account_record.into();
         self.mast_store.load_transaction_code(account.code(), &notes, &tx_args);
+
+        if ignore_invalid_notes {
+            // Remove invalid notes
+            notes = self.get_valid_input_notes(account_id, notes, tx_args.clone()).await?;
+        }
 
         // Execute the transaction and get the witness
         let executed_transaction = self
@@ -573,7 +583,8 @@ impl Client {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }
 
-        let screener = NoteScreener::new(self.store.clone());
+        let screener =
+            NoteScreener::new(self.store.clone(), &self.tx_executor, self.mast_store.clone());
 
         TransactionResult::new(
             executed_transaction,
@@ -891,9 +902,40 @@ impl Client {
         }
     }
 
+    async fn get_valid_input_notes(
+        &self,
+        account_id: AccountId,
+        mut input_notes: InputNotes<InputNote>,
+        tx_args: TransactionArgs,
+    ) -> Result<InputNotes<InputNote>, ClientError> {
+        loop {
+            let execution = NoteConsumptionChecker::new(&self.tx_executor)
+                .check_notes_consumability(
+                    account_id,
+                    self.store.get_sync_height().await?,
+                    input_notes.clone(),
+                    tx_args.clone(),
+                )
+                .await?;
+
+            if let NoteAccountExecution::Failure { failed_note_id, .. } = execution {
+                let filtered_input_notes = InputNotes::new(
+                    input_notes.into_iter().filter(|note| note.id() != failed_note_id).collect(),
+                )
+                .expect("Created from a valid input notes list");
+
+                input_notes = filtered_input_notes;
+            } else {
+                break;
+            }
+        }
+
+        Ok(input_notes)
+    }
+
     /// Retrieves the account interface for the specified account.
-    async fn get_account_interface(
-        &mut self,
+    pub(crate) async fn get_account_interface(
+        &self,
         account_id: AccountId,
     ) -> Result<AccountInterface, ClientError> {
         let account: Account = self.try_get_account(account_id).await?.into();

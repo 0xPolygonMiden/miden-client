@@ -86,7 +86,7 @@ impl From<NativeNoteConsumability> for NoteConsumability {
             note_consumability.0.into(),
             match note_consumability.1 {
                 NoteRelevance::After(block) => Some(block),
-                NoteRelevance::Always => None,
+                NoteRelevance::Now => None,
             },
         )
     }

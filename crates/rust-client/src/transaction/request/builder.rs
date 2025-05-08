@@ -56,6 +56,10 @@ pub struct TransactionRequestBuilder {
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
+    /// Indicates whether to **silently** ignore invalid input notes when executing the
+    /// transaction. This will allow the transaction to be executed even if some input notes
+    /// are invalid.
+    ignore_invalid_input_notes: bool,
 }
 
 impl TransactionRequestBuilder {
@@ -75,6 +79,7 @@ impl TransactionRequestBuilder {
             merkle_store: MerkleStore::default(),
             expiration_delta: None,
             foreign_accounts: BTreeMap::default(),
+            ignore_invalid_input_notes: false,
         }
     }
 
@@ -205,6 +210,14 @@ impl TransactionRequestBuilder {
     #[must_use]
     pub fn with_expiration_delta(mut self, expiration_delta: u16) -> Self {
         self.expiration_delta = Some(expiration_delta);
+        self
+    }
+
+    /// The resulting transaction will **silently** ignore invalid input notes when being executed.
+    /// By default, this will not happen.
+    #[must_use]
+    pub fn ignore_invalid_input_notes(mut self) -> Self {
+        self.ignore_invalid_input_notes = true;
         self
     }
 
@@ -382,6 +395,7 @@ impl TransactionRequestBuilder {
             merkle_store: self.merkle_store,
             foreign_accounts: self.foreign_accounts.into_values().collect(),
             expiration_delta: self.expiration_delta,
+            ignore_invalid_input_notes: self.ignore_invalid_input_notes,
         })
     }
 }

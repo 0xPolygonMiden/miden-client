@@ -22,7 +22,7 @@
     "test": "node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs --grep \"with remote prover\" --invert",
     "test:remote_prover": "npm install && cross-env MIDEN_WEB_TESTING=true npm run build && cross-env REMOTE_PROVER=true node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs -g \"with remote prover\"",
     "test:logs": "cross-env DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
-    "test:clean": "npm install && MIDEN_WEB_TESTING=true npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs --grep \"with remote prover\" --invert"
+    "test:clean": "npm install && MIDEN_WEB_TESTING=true npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs --grep \"get_consumable_notes\" "
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",

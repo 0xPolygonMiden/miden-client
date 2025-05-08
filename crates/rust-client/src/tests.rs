@@ -337,8 +337,15 @@ async fn test_sync_state_mmr() {
         .await
         .unwrap();
 
-    let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
-    Store::upsert_input_notes(client.store.as_ref(), &notes).await.unwrap();
+    for note in rpc_api.notes.values() {
+        let note_file = NoteFile::NoteDetails {
+            details: note.note().clone().into(),
+            after_block_num: 0.into(),
+            tag: Some(note.note().metadata().tag()),
+        };
+
+        client.import_note(note_file).await.unwrap();
+    }
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
