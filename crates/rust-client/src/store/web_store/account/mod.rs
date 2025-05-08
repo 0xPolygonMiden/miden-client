@@ -11,7 +11,6 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
-use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 use super::WebStore;
@@ -326,12 +325,29 @@ impl WebStore {
 
         Ok(())
     }
-}
 
-pub async fn lock_account(account_id: &AccountId) -> Result<(), JsValue> {
-    let account_id_str = account_id.to_string();
-    let promise = idxdb_lock_account(account_id_str);
-    JsFuture::from(promise).await?;
+    /// Locks the account if the mismatched digest doesn't belong to a previous account state (stale
+    /// data).
+    pub(crate) async fn lock_account_on_unexpected_commitment(
+        &self,
+        account_id: &AccountId,
+        mismatched_digest: &Digest,
+    ) -> Result<(), StoreError> {
+        // Mismatched digests may be due to stale network data. If the mismatched digest is
+        // tracked in the db and corresponds to the mismatched account, it means we
+        // got a past update and shouldn't lock the account.
+        if let Some(account) = self.get_account_header_by_commitment(*mismatched_digest).await? {
+            if account.id() == *account_id {
+                return Ok(());
+            }
+        }
 
-    Ok(())
+        let account_id_str = account_id.to_string();
+        let promise = idxdb_lock_account(account_id_str);
+        JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("failed to lock account: {js_error:?}",))
+        })?;
+
+        Ok(())
+    }
 }

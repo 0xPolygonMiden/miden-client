@@ -84,7 +84,9 @@ export async function getTransactions(filter) {
           commitHeight: transactionRecord.commitHeight
             ? transactionRecord.commitHeight
             : null,
-          discardCause: transactionRecord.discardCause,
+          discardCause: transactionRecord.discardCause
+            ? transactionRecord.discardCause
+            : null,
         };
 
         return data;
@@ -148,15 +150,16 @@ export async function upsertTransactionRecord(
 ) {
   try {
     let detailsBlob = new Blob([new Uint8Array(details)]);
+
     let scriptRootBase64 = null;
     if (scriptRoot !== null) {
       let scriptRootArray = new Uint8Array(scriptRoot);
       scriptRootBase64 = uint8ArrayToBase64(scriptRootArray);
     }
-    let discardCauseBase64 = null;
+
+    let discardCauseBlob = null;
     if (discardCause !== null) {
-      let discardCauseArray = new Uint8Array(discardCause);
-      discardCauseBase64 = uint8ArrayToBase64(discardCauseArray);
+      discardCauseBlob = new Blob([new Uint8Array(discardCause)]);
     }
 
     const data = {
@@ -165,7 +168,7 @@ export async function upsertTransactionRecord(
       scriptRoot: scriptRootBase64,
       blockNum: blockNum,
       commitHeight: committed ? committed : null,
-      discardCause: discardCauseBase64,
+      discardCause: discardCauseBlob,
     };
 
     await transactions.put(data);
