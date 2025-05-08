@@ -1,12 +1,8 @@
-use alloc::{
-    collections::BTreeMap,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
-    Digest, Felt,
+    Digest,
     account::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     block::BlockNumber,
     crypto::merkle::{MerklePath, SmtProof},
@@ -15,12 +11,11 @@ use miden_tx::utils::{Deserializable, Serializable, ToHex};
 use thiserror::Error;
 
 use crate::rpc::{
-    RpcError,
     errors::RpcConversionError,
     generated::{
         account::{AccountHeader as ProtoAccountHeader, AccountId as ProtoAccountId},
         requests::get_account_proofs_request,
-        responses::{AccountStateHeader as ProtoAccountStateHeader, StorageSlotMapProof},
+        responses::AccountStateHeader as ProtoAccountStateHeader,
     },
 };
 
@@ -119,8 +114,14 @@ impl TryFrom<ProtoAccountId> for AccountId {
 // ================================================================================================
 
 impl ProtoAccountHeader {
-    #[allow(dead_code)]
-    pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
+    #[cfg(any(feature = "tonic", feature = "web-tonic"))]
+    pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, crate::rpc::RpcError> {
+        use alloc::string::String;
+
+        use miden_objects::Felt;
+
+        use crate::rpc::RpcError;
+
         let ProtoAccountHeader {
             nonce,
             vault_root,
@@ -160,12 +161,14 @@ impl ProtoAccountStateHeader {
     /// # Errors
     /// - If account code is missing both on `self` and `known_account_codes`
     /// - If data cannot be correctly deserialized
-    #[allow(dead_code)]
+    #[cfg(any(feature = "tonic", feature = "web-tonic"))]
     pub fn into_domain(
         self,
         account_id: AccountId,
         known_account_codes: &BTreeMap<Digest, AccountCode>,
-    ) -> Result<StateHeaders, RpcError> {
+    ) -> Result<StateHeaders, crate::rpc::RpcError> {
+        use crate::rpc::{RpcError, generated::responses::StorageSlotMapProof};
+
         let ProtoAccountStateHeader {
             header,
             storage_header,
@@ -173,7 +176,7 @@ impl ProtoAccountStateHeader {
             storage_maps,
         } = self;
         let account_header = header
-            .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
+            .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".into()))?
             .into_domain(account_id)?;
 
         let storage_header = AccountStorageHeader::read_from_bytes(&storage_header)?;
@@ -190,7 +193,7 @@ impl ProtoAccountStateHeader {
                     .get(&account_header.code_commitment())
                     .ok_or(RpcError::InvalidResponse(
                         "Account code was not provided, but the response did not contain it either"
-                            .to_string(),
+                            .into(),
                     ))?
                     .clone(),
             }

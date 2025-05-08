@@ -4,8 +4,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-#[allow(unused_imports)]
-use core::time::Duration;
 
 use async_trait::async_trait;
 use miden_objects::{
@@ -100,7 +98,7 @@ impl TonicRpcClient {
             let new_client = {
                 let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
                     .map_err(|err| RpcError::ConnectionError(err.to_string()))?
-                    .timeout(Duration::from_millis(self.timeout_ms));
+                    .timeout(core::time::Duration::from_millis(self.timeout_ms));
 
                 ApiClient::connect(endpoint)
                     .await
