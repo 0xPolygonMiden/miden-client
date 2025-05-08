@@ -200,35 +200,64 @@ impl TransactionUpdateTracker {
         new_sync_height: BlockNumber,
         tx_graceful_blocks: Option<u32>,
     ) {
-        for transaction in self.mutable_pending_transactions() {
-            if let Some(tx_graceful_blocks) = tx_graceful_blocks {
-                if transaction.details.block_num
-                    < new_sync_height.checked_sub(tx_graceful_blocks).unwrap_or_default()
-                {
-                    transaction.discard_transaction(DiscardCause::Stale);
-                }
-            }
-
-            if transaction.details.expiration_block_num <= new_sync_height {
-                transaction.discard_transaction(DiscardCause::Expired);
-            }
+        if let Some(tx_graceful_blocks) = tx_graceful_blocks {
+            self.discard_transaction_with_predicate(
+                |transaction| {
+                    transaction.details.block_num
+                        < new_sync_height.checked_sub(tx_graceful_blocks).unwrap_or_default()
+                },
+                &DiscardCause::Stale,
+            );
         }
+
+        self.discard_transaction_with_predicate(
+            |transaction| transaction.details.expiration_block_num <= new_sync_height,
+            &DiscardCause::Expired,
+        );
     }
 
     /// Applies the necessary state transitions to the [`TransactionUpdateTracker`] when a note is
     /// nullified. this may result in transactions being discarded because they were processing the
     /// nullified note.
     pub fn apply_input_note_nullified(&mut self, input_note_nullifier: Nullifier) {
+        self.discard_transaction_with_predicate(
+            |transaction| {
+                // Check if the note was being processed by a local transaction that didn't end up
+                // being committed so it should be discarded
+                transaction
+                    .details
+                    .input_note_nullifiers
+                    .contains(&input_note_nullifier.inner())
+            },
+            &DiscardCause::InputConsumed,
+        );
+    }
+
+    /// Discards transactions that have the same initial account state as the provided one.
+    pub fn apply_invalid_initial_account_state(&mut self, invalid_account_state: Digest) {
+        self.discard_transaction_with_predicate(
+            |transaction| transaction.details.init_account_state == invalid_account_state,
+            &DiscardCause::InvalidInitialAccountState,
+        );
+    }
+
+    /// Discards transactions that match the predicate and also applies the new invalid account
+    /// states
+    fn discard_transaction_with_predicate<F>(&mut self, predicate: F, discard_cause: &DiscardCause)
+    where
+        F: Fn(&TransactionRecord) -> bool,
+    {
+        let mut new_invalid_account_states = vec![];
+
         for transaction in self.mutable_pending_transactions() {
-            if transaction
-                .details
-                .input_note_nullifiers
-                .contains(&input_note_nullifier.inner())
-            {
-                // The note was being processed by a local transaction that didn't end up being
-                // committed so it should be discarded
-                transaction.discard_transaction(DiscardCause::InputConsumed);
+            if predicate(transaction) {
+                transaction.discard_transaction(discard_cause.clone());
+                new_invalid_account_states.push(transaction.details.final_account_state);
             }
+        }
+
+        for state in new_invalid_account_states {
+            self.apply_invalid_initial_account_state(state);
         }
     }
 }

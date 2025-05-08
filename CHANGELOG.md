@@ -20,6 +20,7 @@
 * [BREAKING] Added `tx_graceful_blocks` to `Client` constructor and refactored `TransactionRecord` (#848).
 * [BREAKING] Updated the client so that only relevant block headers are stored (#828).
 * [BREAKING] Added `DiscardCause` and merged stale and expired transactions (#853).
+* Chained pending transactions get discarded when one of the transactions in the chain is discarded (#889).
 
 ## 0.8.2 (TBD)
 
