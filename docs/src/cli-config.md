@@ -18,6 +18,7 @@ default_account_id = "0x012345678"
 token_symbol_map_filepath = "token_symbol_map.toml"
 remote_prover_endpoint = "http://localhost:8080"
 component_template_directory = "./templates"
+max_block_number_delta = 256
 
 [rpc]
 endpoint = { protocol = "http", host = "localhost", port = 57291 }
@@ -107,6 +108,15 @@ value = [
     { name = "ticker", type = "token_symbol", description = "Token symbol of the faucet's asset, limited to 4 characters." }, 
     { value = "0" },
 ]
+```
+
+### Block Delta
+The `max_block_number_delta` is an optional field that is used to configure the maximum number of blocks the client can be behind the network.
+
+If not set, the default behavior is to ignore the block difference between the client and the network. If set, the client will check this difference is within the specified maximum when validating a transaction.
+
+```sh
+miden init --block-delta 256
 ```
 
 ### Environment variables
