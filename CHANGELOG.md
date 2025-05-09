@@ -4,6 +4,7 @@
 
 * Converted Web Client `NoteType` class to `enum` (#831)
 * Exported `import_account_by_id` function to Web Client (#858)
+* Fixed duplicate key bug in `import_account` (#899)
 
 ## 0.8.1 (2025-03-28)
 
