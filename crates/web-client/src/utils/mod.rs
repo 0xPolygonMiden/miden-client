@@ -3,6 +3,8 @@ use miden_objects::utils::SliceReader;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::js_sys::Uint8Array;
 
+pub mod assembler_utils;
+
 #[cfg(feature = "testing")]
 pub mod test_utils;
 

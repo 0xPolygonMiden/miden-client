@@ -1,6 +1,8 @@
 use miden_objects::transaction::TransactionScript as NativeTransactionScript;
 use wasm_bindgen::prelude::*;
 
+use crate::models::{assembler::Assembler, transaction_script_inputs::TransactionScriptInputPairArray};
+
 use super::rpo_digest::RpoDigest;
 
 #[derive(Clone)]
@@ -11,6 +13,15 @@ pub struct TransactionScript(NativeTransactionScript);
 impl TransactionScript {
     pub fn root(&self) -> RpoDigest {
         self.0.root().into()
+    }
+
+    pub fn compile(
+        script_code: &str,
+        inputs: TransactionScriptInputPairArray,
+        assembler: &Assembler
+    ) -> TransactionScript {
+        let native_script = NativeTransactionScript::compile(script_code, inputs.into(), assembler.into());
+        TransactionScript(native_script)
     }
 }
 
