@@ -35,8 +35,8 @@ directory"
 pub struct InitCmd {
     /// Network configuration to use. Options are `devnet`, `testnet`, `localhost` or a custom RPC
     /// endpoint. Defaults to the testnet network.
-    #[clap(long, short, default_value = "testnet")]
-    network: Option<Network>,
+    #[clap(long, short)]
+    network: Network,
 
     /// Path to the store file.
     #[clap(long)]
@@ -67,14 +67,8 @@ impl InitCmd {
 
         let mut cli_config = CliConfig::default();
 
-        if let Some(network) = &self.network {
-            let endpoint =
-                CliEndpoint::try_from(network.to_rpc_endpoint().as_str()).map_err(|err| {
-                    CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
-                })?;
-
-            cli_config.rpc.endpoint = endpoint;
-        }
+        let endpoint = CliEndpoint::try_from(self.network.clone())?;
+        cli_config.rpc.endpoint = endpoint;
 
         if let Some(path) = &self.store_path {
             cli_config.store_filepath = PathBuf::from(path);

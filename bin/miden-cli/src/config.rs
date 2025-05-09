@@ -12,6 +12,8 @@ use figment::{
 use miden_client::rpc::Endpoint;
 use serde::{Deserialize, Serialize};
 
+use crate::errors::CliError;
+
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 const DEFAULT_COMPONENT_TEMPLATE_DIR: &str = "./templates";
 
@@ -121,6 +123,16 @@ impl TryFrom<&str> for CliEndpoint {
 impl From<Endpoint> for CliEndpoint {
     fn from(endpoint: Endpoint) -> Self {
         Self(endpoint)
+    }
+}
+
+impl TryFrom<Network> for CliEndpoint {
+    type Error = CliError;
+
+    fn try_from(value: Network) -> Result<Self, Self::Error> {
+        Ok(Self(Endpoint::try_from(value.to_rpc_endpoint().as_str()).map_err(|err| {
+            CliError::Parse(err.into(), "Failed to parse RPC endpoint".to_string())
+        })?))
     }
 }
 
