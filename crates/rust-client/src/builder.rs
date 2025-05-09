@@ -48,6 +48,9 @@ pub struct ClientBuilder {
     keystore: Option<AuthenticatorConfig>,
     /// A flag to enable debug mode.
     in_debug_mode: bool,
+    /// Maximum number of blocks the client can be behind the network for transactions and account
+    /// proofs to be considered valid.
+    max_block_number_delta: Option<u32>,
 }
 
 impl Default for ClientBuilder {
@@ -60,6 +63,7 @@ impl Default for ClientBuilder {
             store_path: "store.sqlite3".to_string(),
             keystore: None,
             in_debug_mode: false,
+            max_block_number_delta: None,
         }
     }
 }
@@ -119,6 +123,14 @@ impl ClientBuilder {
     #[must_use]
     pub fn with_authenticator(mut self, authenticator: Arc<dyn TransactionAuthenticator>) -> Self {
         self.keystore = Some(AuthenticatorConfig::Instance(authenticator));
+        self
+    }
+
+    /// Optionally set a maximum number of blocks that the client can be behind the network.
+    /// By default, there's no maximum.
+    #[must_use]
+    pub fn with_max_block_number_delta(mut self, delta: u32) -> Self {
+        self.max_block_number_delta = Some(delta);
         self
     }
 }
@@ -198,6 +210,13 @@ impl ClientBuilder {
             }
         };
 
-        Ok(Client::new(rpc_api, rng, arc_store, authenticator, self.in_debug_mode))
+        Ok(Client::new(
+            rpc_api,
+            rng,
+            arc_store,
+            authenticator,
+            self.in_debug_mode,
+            self.max_block_number_delta,
+        ))
     }
 }

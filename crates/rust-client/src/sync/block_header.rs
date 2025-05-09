@@ -15,10 +15,6 @@ use crate::{
     store::{NoteFilter, PartialBlockchainFilter, StoreError},
 };
 
-/// Maximum number of blocks the client can be behind the network for transactions and account
-/// proofs to be considered valid.
-pub(crate) const MAX_BLOCK_NUMBER_DELTA: u32 = 256;
-
 /// Network information management methods.
 impl Client {
     /// Updates committed notes with no MMR data. These could be notes that were

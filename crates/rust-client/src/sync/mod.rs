@@ -78,7 +78,6 @@ use crate::{
 };
 
 mod block_header;
-pub(crate) use block_header::MAX_BLOCK_NUMBER_DELTA;
 use block_header::apply_mmr_changes;
 
 mod tag;

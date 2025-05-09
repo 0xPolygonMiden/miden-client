@@ -760,6 +760,7 @@ async fn create_rust_client_with_store_path(store_path: &Path) -> (TestClient, C
             store,
             std::sync::Arc::new(keystore.clone()),
             true,
+            None,
         ),
         keystore,
     )

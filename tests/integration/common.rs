@@ -74,6 +74,7 @@ pub async fn create_test_client() -> (TestClient, TestClientKeyStore) {
         store,
         Arc::new(keystore.clone()),
         true,
+        None,
     );
 
     client.sync_state().await.unwrap();
