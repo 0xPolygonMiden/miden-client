@@ -18,13 +18,13 @@ use crate::{
 };
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Import notes or accounts")]
+#[command(about = "Import notes or accounts")]
 pub struct ImportCmd {
     /// Paths to the files that contains the account/note data.
     #[arg()]
     filenames: Vec<PathBuf>,
     /// Only relevant for accounts. If set, the account will be overwritten if it already exists.
-    #[clap(short, long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     overwrite: bool,
 }
 

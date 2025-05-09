@@ -44,20 +44,20 @@ impl TryInto<ClientNoteFilter> for NoteFilter {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View and manage notes")]
+#[command(about = "View and manage notes")]
 pub struct NotesCmd {
     /// List notes with the specified filter. If no filter is provided, all notes will be listed.
-    #[clap(short, long, group = "action", default_missing_value="all", num_args=0..=1, value_name = "filter")]
+    #[arg(short, long, group = "action", default_missing_value="all", num_args=0..=1, value_name = "filter")]
     list: Option<NoteFilter>,
     /// Show note with the specified ID.
-    #[clap(short, long, group = "action", value_name = "note_id")]
+    #[arg(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
     /// When using --show, include the note code in the output.
-    #[clap(long, requires = "show")]
+    #[arg(long, requires = "show")]
     with_code: bool,
     /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
     /// consumable by this account will be shown.
-    #[clap(short, long, value_name = "account_id")]
+    #[arg(short, long, value_name = "account_id")]
     account_id: Option<String>,
 }
 

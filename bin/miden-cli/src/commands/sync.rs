@@ -4,7 +4,7 @@ use miden_client::Client;
 use crate::errors::CliError;
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Sync this client with the latest state of the Miden network")]
+#[command(about = "Sync this client with the latest state of the Miden network")]
 pub struct SyncCmd {}
 
 impl SyncCmd {
