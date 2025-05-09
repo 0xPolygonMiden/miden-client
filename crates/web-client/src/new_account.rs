@@ -26,12 +26,10 @@ impl WebClient {
             let (new_account, account_seed, key_pair) =
                 generate_wallet(client, storage_mode, mutable, init_seed).await?;
 
-            match client.add_account(&new_account, Some(account_seed), false).await {
-                Ok(_) => (),
-                Err(err) => {
-                    return Err(js_error_with_context(err, "failed to insert new wallet"));
-                },
-            }
+            client
+                .add_account(&new_account, Some(account_seed), false)
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to insert new wallet"))?;
 
             keystore
                 .expect("KeyStore should be initialized")

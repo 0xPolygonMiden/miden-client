@@ -29,13 +29,10 @@ impl WebClient {
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
 
-            let message = match client
+            client
                 .add_account(&account_data.account, account_data.account_seed, false)
                 .await
-            {
-                Ok(_) => format!("Imported account with ID: {account_id}"),
-                Err(err) => return Err(js_error_with_context(err, "failed to import account")),
-            };
+                .map_err(|err| js_error_with_context(err, "failed to import account"))?;
 
             keystore
                 .expect("KeyStore should be initialized")
@@ -43,7 +40,7 @@ impl WebClient {
                 .await
                 .map_err(|err| err.to_string())?;
 
-            Ok(JsValue::from_str(&message))
+            Ok(JsValue::from_str(&format!("Imported account with ID: {account_id}")))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -63,10 +60,10 @@ impl WebClient {
                 .await?;
 
         let native_id = generated_acct.id();
-        match client.import_account_by_id(native_id).await {
-            Ok(_) => (),
-            Err(err) => return Err(js_error_with_context(err, "failed to import public account")),
-        }
+        client
+            .import_account_by_id(native_id)
+            .await
+            .map_err(|err| js_error_with_context(err, "failed to import public account"))?;
 
         keystore
             .expect("KeyStore should be initialized")
