@@ -117,7 +117,7 @@ export class WebClient {
     this.seed = seed;
 
     // Check if Web Workers are available.
-    if (typeof Worker !== "undefined") {
+    if (false) {
       console.log("WebClient: Web Workers are available.");
       // Create the worker.
       this.worker = new Worker(
