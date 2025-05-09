@@ -29,22 +29,18 @@ impl WebClient {
                 .map_err(|err| err.to_string())?;
             let account_id = account_data.account.id().to_string();
 
+            client
+                .add_account(&account_data.account, account_data.account_seed, false)
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to import account"))?;
+
             keystore
                 .expect("KeyStore should be initialized")
                 .add_key(&account_data.auth_secret_key)
                 .await
                 .map_err(|err| err.to_string())?;
 
-            match client
-                .add_account(&account_data.account, account_data.account_seed, false)
-                .await
-            {
-                Ok(_) => {
-                    let message = format!("Imported account with ID: {account_id}");
-                    Ok(JsValue::from_str(&message))
-                },
-                Err(err) => Err(js_error_with_context(err, "failed to import account")),
-            }
+            Ok(JsValue::from_str(&format!("Imported account with ID: {account_id}")))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -63,17 +59,17 @@ impl WebClient {
             generate_wallet(client, &AccountStorageMode::public(), mutable, Some(init_seed))
                 .await?;
 
+        let native_id = generated_acct.id();
+        client
+            .import_account_by_id(native_id)
+            .await
+            .map_err(|err| js_error_with_context(err, "failed to import public account"))?;
+
         keystore
             .expect("KeyStore should be initialized")
             .add_key(&AuthSecretKey::RpoFalcon512(key_pair))
             .await
             .map_err(|err| err.to_string())?;
-
-        let native_id = generated_acct.id();
-        client
-            .import_account_by_id(native_id)
-            .await
-            .map_err(|err| js_error_with_context(err, "failed to import account"))?;
 
         Ok(Account::from(generated_acct))
     }

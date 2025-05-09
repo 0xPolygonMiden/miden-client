@@ -86,7 +86,7 @@ describe("new_wallet tests", () => {
         clientSeed,
         isolatedClient: true,
       })
-    ).to.be.rejectedWith(/storage error: Failed to insert item/);
+    ).to.be.rejectedWith(/failed to insert new wallet/);
   });
 });
 
