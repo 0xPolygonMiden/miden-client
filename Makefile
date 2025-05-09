@@ -16,10 +16,6 @@ FEATURES_CLIENT=--features "testing, concurrent" --no-default-features
 FEATURES_CLI=--features "concurrent"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
-NODE_DIR="miden-node"
-NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
-NODE_BRANCH="next"
-
 PROVER_DIR="miden-base"
 PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
 PROVER_BRANCH="next"
@@ -83,9 +79,18 @@ test-docs: ## Run documentation tests
 
 # --- Integration testing -------------------------------------------------------------------------
 
+.PHONY: start-node
+start-node: ## Start the testing node server
+	./scripts/start-node.sh
+
+.PHONY: stop-node
+stop-node: ## Stop the testing node server
+	-pkill -f "node-builder"
+	sleep 1
+
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) 
+	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 
 .PHONY: integration-test-web-client
 integration-test-web-client: ## Run integration tests for the web client
@@ -99,33 +104,6 @@ integration-test-remote-prover-web-client: ## Run integration tests for the web 
 integration-test-full: ## Run the integration test binary with ignored tests included
 	$(CODEGEN) cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
-
-.PHONY: kill-node
-kill-node: ## Kill node process
-	pkill miden-node || echo 'process not running'
-
-.PHONY: clean-node
-clean-node: ## Clean node directory
-	rm -rf miden-node
-
-.PHONY: node
-node: setup-miden-node update-node-branch build-node ## Setup node directory
-
-.PHONY: setup-miden-node
-setup-miden-node: ## Clone the miden-node repository if it doesn't exist
-	if [ ! -d $(NODE_DIR) ]; then git clone $(NODE_REPO) $(NODE_DIR); fi
-
-.PHONY: update-node-branch
-update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
-	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
-
-.PHONY: build-node
-build-node: update-node-branch ## Update dependencies and build the node binary with specified features
-	cd $(NODE_DIR) && rm -rf data accounts && mkdir data accounts && cargo run --locked --bin miden-node $(NODE_FEATURES_TESTING) --release -- bundled bootstrap --data-directory data --accounts-directory accounts
-
-.PHONY: start-node
-start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd $(NODE_DIR) && cargo run --bin miden-node $(NODE_FEATURES_TESTING) --release --locked -- bundled start --data-directory data --rpc.url http://localhost:57291
 
 .PHONY: clean-prover
 clean-prover: ## Uninstall prover

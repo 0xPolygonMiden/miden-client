@@ -1,0 +1,34 @@
+[package]
+authors.workspace      = true
+description            = "A minimal node implementation for running integration tests of the Miden client. NOT for production use."
+edition.workspace      = true
+keywords               = ["miden", "node", "protobuf", "rpc", "testing"]
+license.workspace      = true
+name                   = "node-builder"
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version = "0.9.0"
+
+[[bin]]
+name = "testing-node-builder"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow                    = "1.0"
+miden-objects             = { workspace = true }
+miden-lib                 = { workspace = true }
+miden-node-block-producer = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-block-producer", branch = "next" }
+miden-node-rpc            = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-rpc", branch = "next" }
+miden-node-store          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-store", branch = "next" }
+miden-node-utils          = { git = "https://github.com/0xPolygonMiden/miden-node", package = "miden-node-utils", branch = "next" }
+rand_chacha               = { version = "0.9" }
+rand                      = { workspace = true }
+tokio                     = { version = "1.0", features = ["full"] }
+url                       = { version = "2.5", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.0"

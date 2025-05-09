@@ -183,8 +183,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
         let cargo_workspace_dir =
             env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let source_path =
-            format!("{cargo_workspace_dir}/../../miden-node/accounts/{genesis_account_filename}",);
+        let source_path = format!("{cargo_workspace_dir}/../../data/{genesis_account_filename}",);
 
         std::fs::copy(source_path, new_file_path).unwrap();
     }
