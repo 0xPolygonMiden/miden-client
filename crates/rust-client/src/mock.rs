@@ -6,20 +6,19 @@ use alloc::{
 use std::env::temp_dir;
 
 use async_trait::async_trait;
-use miden_lib::transaction::TransactionKernel;
+use miden_lib::note::create_p2id_note;
 use miden_objects::{
-    Felt, Word,
+    Felt, FieldElement,
     account::{AccountCode, AccountDelta, AccountId},
-    asset::{FungibleAsset, NonFungibleAsset},
+    asset::FungibleAsset,
     block::{BlockHeader, BlockNumber, ProvenBlock},
     crypto::{
         merkle::{Mmr, MmrProof, SmtProof},
         rand::RpoRandomCoin,
     },
-    note::{NoteId, NoteLocation, NoteTag, Nullifier},
-    testing::{
-        account_id::{ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_PRIVATE_SENDER},
-        note::NoteBuilder,
+    note::{NoteId, NoteLocation, NoteTag, NoteType, Nullifier},
+    testing::account_id::{
+        ACCOUNT_ID_PRIVATE_SENDER, ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
     },
     transaction::{InputNote, OutputNote, ProvenTransaction},
 };
@@ -76,20 +75,30 @@ impl MockRpcApi {
             mock_chain,
         };
 
-        let note_first = NoteBuilder::new(
-            ACCOUNT_ID_PRIVATE_SENDER.try_into().unwrap(),
-            RpoRandomCoin::new(Word::default()),
+        let mut rng = RpoRandomCoin::new([0, 0, 0, 0].map(Felt::new));
+
+        let from_account_id = AccountId::try_from(ACCOUNT_ID_PRIVATE_SENDER).unwrap();
+        let to_account_id =
+            AccountId::try_from(ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE).unwrap();
+
+        let note_first = create_p2id_note(
+            from_account_id,
+            to_account_id,
+            vec![FungibleAsset::mock(10)],
+            NoteType::Private,
+            Felt::ZERO,
+            &mut rng,
         )
-        .add_assets([FungibleAsset::mock(20)])
-        .build(&TransactionKernel::testing_assembler())
         .unwrap();
 
-        let note_second = NoteBuilder::new(
-            ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET.try_into().unwrap(),
-            RpoRandomCoin::new(Word::default()),
+        let note_second = create_p2id_note(
+            from_account_id,
+            to_account_id,
+            vec![FungibleAsset::mock(20)],
+            NoteType::Private,
+            Felt::ZERO,
+            &mut rng,
         )
-        .add_assets([NonFungibleAsset::mock(&[1, 2, 3])])
-        .build(&TransactionKernel::testing_assembler())
         .unwrap();
 
         api.seal_block(vec![], vec![]); // Block 0

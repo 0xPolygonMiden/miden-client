@@ -3,6 +3,7 @@ import { testingPage } from "./mocha.global.setup.mjs";
 import {
   badHexId,
   consumeTransaction,
+  getSyncHeight,
   mintTransaction,
   sendTransaction,
   setupWalletAndFaucet,
@@ -138,7 +139,7 @@ describe("get_consumable_notes", () => {
     const { accountId: senderAccountId, faucetId } =
       await setupWalletAndFaucet();
     const { accountId: targetAccountId } = await setupWalletAndFaucet();
-    const recallHeight = 100;
+    const recallHeight = (await getSyncHeight()) + 10;
     await sendTransaction(
       senderAccountId,
       targetAccountId,

@@ -252,6 +252,16 @@ Meant to be used in conjunction with the force_import_store method
 
 ***
 
+### getSyncHeight()
+
+> **getSyncHeight**(): `Promise`\<`number`\>
+
+#### Returns
+
+`Promise`\<`number`\>
+
+***
+
 ### getTransactions()
 
 > **getTransactions**(`transaction_filter`): `Promise`\<[`TransactionRecord`](TransactionRecord.md)[]\>

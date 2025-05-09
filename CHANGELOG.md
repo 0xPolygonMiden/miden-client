@@ -5,6 +5,7 @@
 ### Features
 
 * Added support for `bech32` account IDs in the CLI (#840).
+* Added a way to ignore invalid input notes when consuming them in a transaction (#898).
 
 ### Changes
 
@@ -17,6 +18,7 @@
 * Changed exec's input file format to TOML instead of JSON (#870).
 * [BREAKING] Client's methods renamed after `PartialMmr` change to `PartialBlockchain` (#894).
 * [BREAKING] Made the maximum number of blocks the client can be behind the network customizable (#895).
+* Improved the consumability check of the `NoteScreener` (#898).
 
 ## 0.8.2 (TBD)
 
