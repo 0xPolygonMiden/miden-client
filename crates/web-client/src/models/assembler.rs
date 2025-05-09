@@ -1,4 +1,4 @@
-use miden_objects::assembly::Assembler as NativeAssembler;
+use miden_objects::assembly::{Assembler as NativeAssembler, Library as NativeLibrary};
 use wasm_bindgen::prelude::*;
 
 use crate::models::library::Library;
@@ -9,9 +9,15 @@ pub struct Assembler(NativeAssembler);
 #[wasm_bindgen]
 impl Assembler {
     #[wasm_bindgen(js_name = "withLibrary")]
-    pub fn with_library(mut self, library: &Library) -> Assembler {
-        self.0 = self.0.with_library(library.clone().into());
-        self
+    pub fn with_library(self, library: &Library) -> Result<Assembler, JsValue> {
+        let native_lib: NativeLibrary = library.into();
+
+        let new_native_asm = self
+            .0
+            .with_library(native_lib)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?; 
+
+        Ok(Assembler(new_native_asm))
     }
 }
 

@@ -1,4 +1,4 @@
-use miden_objects::transaction::TransactionScript as NativeTransactionScript;
+use miden_objects::{Felt as NativeFelt, transaction::TransactionScript as NativeTransactionScript, Word as NativeWord};
 use wasm_bindgen::prelude::*;
 
 use crate::models::{assembler::Assembler, transaction_script_inputs::TransactionScriptInputPairArray};
@@ -19,9 +19,17 @@ impl TransactionScript {
         script_code: &str,
         inputs: TransactionScriptInputPairArray,
         assembler: &Assembler
-    ) -> TransactionScript {
-        let native_script = NativeTransactionScript::compile(script_code, inputs.into(), assembler.into());
-        TransactionScript(native_script)
+    ) -> Result<TransactionScript, JsValue> {
+        let native_inputs: Vec<(NativeWord, Vec<NativeFelt>)> = inputs.into();
+
+        let native = NativeTransactionScript::compile(
+            script_code,
+            native_inputs,         // now the compiler knows this is a Vec<…>
+            assembler.into(),
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(TransactionScript(native))
     }
 }
 

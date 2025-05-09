@@ -8,8 +8,8 @@ pub struct TransactionKernel(NativeTransactionKernel);
 
 #[wasm_bindgen]
 impl TransactionKernel {
-    pub fn assembler(&self) -> Assembler {
-        self.0.assembler().into()
+    pub fn assembler() -> Assembler {
+        NativeTransactionKernel::assembler().into()
     }
 }
 

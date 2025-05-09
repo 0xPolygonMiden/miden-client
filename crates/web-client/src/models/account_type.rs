@@ -1,6 +1,7 @@
 use miden_objects::account::AccountType as NativeAccountType;
 use wasm_bindgen::prelude::*;
 
+#[derive(Clone)]
 #[wasm_bindgen]
 pub enum AccountType {
     FungibleFaucet,

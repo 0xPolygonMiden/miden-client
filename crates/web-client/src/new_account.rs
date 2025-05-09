@@ -123,9 +123,10 @@ impl WebClient {
                 None => None,
             };
             client
-                .add_account(account.into(), account_seed, overwrite)
+                .add_account(&account.into(), account_seed, overwrite)
                 .await
                 .map_err(|err| js_error_with_context(err, "failed to insert new account"))?;
+            Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
