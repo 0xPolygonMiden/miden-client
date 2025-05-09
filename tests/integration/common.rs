@@ -375,15 +375,9 @@ pub async fn mint_note(
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        fungible_asset,
-        basic_account_id,
-        note_type,
-        client.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_mint_fungible_asset(fungible_asset, basic_account_id, note_type, client.rng())
+        .unwrap();
     execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
@@ -401,10 +395,9 @@ pub async fn consume_notes(
     input_notes: &[InputNote],
 ) {
     println!("Consuming Note...");
-    let tx_request =
-        TransactionRequestBuilder::consume_notes(input_notes.iter().map(|n| n.id()).collect())
-            .build()
-            .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_consume_notes(input_notes.iter().map(|n| n.id()).collect())
+        .unwrap();
     execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
@@ -438,8 +431,8 @@ pub async fn assert_note_cannot_be_consumed_twice(
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![note_to_consume_id])
-        .build()
+    let tx_request = TransactionRequestBuilder::new()
+        .build_consume_notes(vec![note_to_consume_id])
         .unwrap();
 
     match client.new_transaction(consuming_account_id, tx_request).await {
@@ -510,15 +503,14 @@ pub async fn mint_and_consume(
     faucet_account_id: AccountId,
     note_type: NoteType,
 ) {
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap(),
-        basic_account_id,
-        note_type,
-        client.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_mint_fungible_asset(
+            FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap(),
+            basic_account_id,
+            note_type,
+            client.rng(),
+        )
+        .unwrap();
 
     execute_tx_and_consume_output_notes(tx_request, client, faucet_account_id, basic_account_id)
         .await;

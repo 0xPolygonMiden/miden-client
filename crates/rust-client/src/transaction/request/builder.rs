@@ -215,9 +215,12 @@ impl TransactionRequestBuilder {
     /// notes.
     ///
     /// - `note_ids` is a list of note IDs to be consumed.
-    pub fn consume_notes(note_ids: Vec<NoteId>) -> Self {
+    pub fn build_consume_notes(
+        self,
+        note_ids: Vec<NoteId>,
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         let input_notes = note_ids.into_iter().map(|id| (id, None));
-        Self::new().with_authenticated_input_notes(input_notes)
+        self.with_authenticated_input_notes(input_notes).build()
     }
 
     /// Returns a new [`TransactionRequestBuilder`] for a transaction to mint fungible assets. This
@@ -228,12 +231,13 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn mint_fungible_asset(
+    pub fn build_mint_fungible_asset(
+        self,
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_id,
@@ -243,7 +247,7 @@ impl TransactionRequestBuilder {
             rng,
         )?;
 
-        Ok(Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)]))
+        self.with_own_output_notes(vec![OutputNote::Full(created_note)]).build()
     }
 
     /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a P2ID or P2IDR note.
@@ -256,12 +260,13 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn pay_to_id(
+    pub fn build_pay_to_id(
+        self,
         payment_data: PaymentTransactionData,
         recall_height: Option<BlockNumber>,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         let PaymentTransactionData {
             assets,
             sender_account_id,
@@ -296,7 +301,7 @@ impl TransactionRequestBuilder {
             )?
         };
 
-        Ok(Self::new().with_own_output_notes(vec![OutputNote::Full(created_note)]))
+        self.with_own_output_notes(vec![OutputNote::Full(created_note)]).build()
     }
 
     /// Returns a new [`TransactionRequestBuilder`] for a transaction to send a SWAP note. This
@@ -307,11 +312,12 @@ impl TransactionRequestBuilder {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn swap(
+    pub fn build_swap(
+        self,
         swap_data: &SwapTransactionData,
         note_type: NoteType,
         rng: &mut ClientRng,
-    ) -> Result<Self, TransactionRequestError> {
+    ) -> Result<TransactionRequest, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually.
         let (created_note, payback_note_details) = create_swap_note(
@@ -326,9 +332,9 @@ impl TransactionRequestBuilder {
         let payback_tag =
             NoteTag::from_account_id(swap_data.account_id(), NoteExecutionMode::Local)?;
 
-        Ok(Self::new()
-            .with_expected_future_notes(vec![(payback_note_details, payback_tag)])
-            .with_own_output_notes(vec![OutputNote::Full(created_note)]))
+        self.with_expected_future_notes(vec![(payback_note_details, payback_tag)])
+            .with_own_output_notes(vec![OutputNote::Full(created_note)])
+            .build()
     }
 
     // FINALIZE BUILDER

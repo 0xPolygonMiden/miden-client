@@ -45,15 +45,14 @@ async fn test_onchain_notes_flow() {
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        basic_wallet_1.id(),
-        NoteType::Public,
-        client_1.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_mint_fungible_asset(
+            FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+            basic_wallet_1.id(),
+            NoteType::Public,
+            client_1.rng(),
+        )
+        .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
@@ -77,19 +76,18 @@ async fn test_onchain_notes_flow() {
     .await;
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
-    let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(
-            vec![p2id_asset.into()],
-            basic_wallet_1.id(),
-            basic_wallet_2.id(),
-        ),
-        None,
-        NoteType::Public,
-        client_2.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_pay_to_id(
+            PaymentTransactionData::new(
+                vec![p2id_asset.into()],
+                basic_wallet_1.id(),
+                basic_wallet_2.id(),
+            ),
+            None,
+            NoteType::Public,
+            client_2.rng(),
+        )
+        .unwrap();
     execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
     // sync client 3 (basic account 2)
@@ -236,15 +234,18 @@ async fn test_onchain_accounts() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
 
     println!("Running P2ID tx...");
-    let tx_request = TransactionRequestBuilder::pay_to_id(
-        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
-        None,
-        NoteType::Public,
-        client_1.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_pay_to_id(
+            PaymentTransactionData::new(
+                vec![Asset::Fungible(asset)],
+                from_account_id,
+                to_account_id,
+            ),
+            None,
+            NoteType::Public,
+            client_1.rng(),
+        )
+        .unwrap();
     execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
 
     // sync on second client until we receive the note
@@ -257,7 +258,9 @@ async fn test_onchain_accounts() {
 
     // Consume the note
     println!("Consuming note on second client...");
-    let tx_request = TransactionRequestBuilder::consume_notes(vec![notes[0].id()]).build().unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_consume_notes(vec![notes[0].id()])
+        .unwrap();
     execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
 
     // sync on first client
@@ -315,15 +318,14 @@ async fn test_onchain_notes_sync_with_tag() {
 
     let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
-    let tx_request = TransactionRequestBuilder::mint_fungible_asset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        target_account_id,
-        NoteType::Public,
-        client_1.rng(),
-    )
-    .unwrap()
-    .build()
-    .unwrap();
+    let tx_request = TransactionRequestBuilder::new()
+        .build_mint_fungible_asset(
+            FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+            target_account_id,
+            NoteType::Public,
+            client_1.rng(),
+        )
+        .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 

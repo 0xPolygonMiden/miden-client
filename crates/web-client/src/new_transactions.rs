@@ -89,16 +89,16 @@ impl WebClient {
                 JsValue::from_str("Client not initialized while generating transaction request")
             })?;
 
-            NativeTransactionRequestBuilder::mint_fungible_asset(
-                fungible_asset,
-                target_account_id.into(),
-                note_type.into(),
-                client.rng(),
-            )
-            .and_then(NativeTransactionRequestBuilder::build)
-            .map_err(|err| {
-                js_error_with_context(err, "failed to create mint transaction request")
-            })?
+            NativeTransactionRequestBuilder::new()
+                .build_mint_fungible_asset(
+                    fungible_asset,
+                    target_account_id.into(),
+                    note_type.into(),
+                    client.rng(),
+                )
+                .map_err(|err| {
+                    js_error_with_context(err, "failed to create mint transaction request")
+                })?
         };
 
         Ok(mint_transaction_request.into())
@@ -129,30 +129,25 @@ impl WebClient {
             })?;
 
             if let Some(recall_height) = recall_height {
-                NativeTransactionRequestBuilder::pay_to_id(
-                    payment_transaction,
-                    Some(BlockNumber::from(recall_height)),
-                    note_type.into(),
-                    client.rng(),
-                )
-                .and_then(NativeTransactionRequestBuilder::build)
-                .map_err(|err| {
-                    js_error_with_context(
-                        err,
-                        "failed to create send transaction request with recall height",
+                NativeTransactionRequestBuilder::new()
+                    .build_pay_to_id(
+                        payment_transaction,
+                        Some(BlockNumber::from(recall_height)),
+                        note_type.into(),
+                        client.rng(),
                     )
-                })?
+                    .map_err(|err| {
+                        js_error_with_context(
+                            err,
+                            "failed to create send transaction request with recall height",
+                        )
+                    })?
             } else {
-                NativeTransactionRequestBuilder::pay_to_id(
-                    payment_transaction,
-                    None,
-                    note_type.into(),
-                    client.rng(),
-                )
-                .and_then(NativeTransactionRequestBuilder::build)
-                .map_err(|err| {
-                    js_error_with_context(err, "failed to create send transaction request")
-                })?
+                NativeTransactionRequestBuilder::new()
+                    .build_pay_to_id(payment_transaction, None, note_type.into(), client.rng())
+                    .map_err(|err| {
+                        js_error_with_context(err, "failed to create send transaction request")
+                    })?
             }
         };
 
@@ -175,8 +170,8 @@ impl WebClient {
                     ))
                 })?;
 
-            NativeTransactionRequestBuilder::consume_notes(native_note_ids)
-                .build()
+            NativeTransactionRequestBuilder::new()
+                .build_consume_notes(native_note_ids)
                 .map_err(|err| {
                     JsValue::from_str(&format!(
                         "Failed to create Consume Transaction Request: {err}"
@@ -229,16 +224,11 @@ impl WebClient {
             .await?;
 
         if let Some(client) = self.get_mut_inner() {
-            let swap_transaction_request = NativeTransactionRequestBuilder::swap(
-                &swap_transaction,
-                note_type.into(),
-                client.rng(),
-            )
-            .map_err(|err| err.to_string())?
-            .build()
-            .map_err(|err| {
-                js_error_with_context(err, "failed to create swap transaction request")
-            })?;
+            let swap_transaction_request = NativeTransactionRequestBuilder::new()
+                .build_swap(&swap_transaction, note_type.into(), client.rng())
+                .map_err(|err| {
+                    js_error_with_context(err, "failed to create swap transaction request")
+                })?;
 
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())

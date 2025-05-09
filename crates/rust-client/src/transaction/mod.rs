@@ -42,13 +42,12 @@
 //!     let asset = FungibleAsset::new(faucet_id, 100)?;
 //!
 //!     // Build a transaction request for a pay-to-id transaction.
-//!     let tx_request = TransactionRequestBuilder::pay_to_id(
+//!     let tx_request = TransactionRequestBuilder::new().build_pay_to_id(
 //!         PaymentTransactionData::new(vec![asset.into()], sender_id, target_id),
 //!         None, // No recall height
 //!         NoteType::Private,
 //!         client.rng(),
-//!     )?
-//!     .build()?;
+//!     )?;
 //!
 //!     // Execute the transaction. This returns a TransactionResult.
 //!     let tx_result: TransactionResult = client.new_transaction(sender_id, tx_request).await?;
@@ -1160,19 +1159,18 @@ mod test {
 
         client.add_account(&account, None, false).await.unwrap();
         client.sync_state().await.unwrap();
-        let tx_request = TransactionRequestBuilder::pay_to_id(
-            PaymentTransactionData::new(
-                vec![asset_1, asset_2],
-                account.id(),
-                ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
-            ),
-            None,
-            NoteType::Private,
-            client.rng(),
-        )
-        .unwrap()
-        .build()
-        .unwrap();
+        let tx_request = TransactionRequestBuilder::new()
+            .build_pay_to_id(
+                PaymentTransactionData::new(
+                    vec![asset_1, asset_2],
+                    account.id(),
+                    ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE.try_into().unwrap(),
+                ),
+                None,
+                NoteType::Private,
+                client.rng(),
+            )
+            .unwrap();
 
         let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(
