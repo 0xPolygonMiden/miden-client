@@ -45,14 +45,14 @@ pub const CLIENT_BINARY_NAME: &str = "miden";
 
 /// Root CLI struct.
 #[derive(Parser, Debug)]
-#[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
+#[command(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     action: Command,
 
     /// Activates the executor's debug mode, which enables debug output for scripts
     /// that were compiled and executed with this mode.
-    #[clap(short, long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     debug: bool,
 }
 
@@ -70,7 +70,7 @@ pub enum Command {
     /// View a summary of the current client state.
     Info,
     Tags(TagsCmd),
-    #[clap(name = "tx")]
+    #[command(name = "tx")]
     Transaction(TransactionCmd),
     Mint(MintCmd),
     Send(SendCmd),

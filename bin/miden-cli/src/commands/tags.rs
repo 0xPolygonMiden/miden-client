@@ -7,18 +7,18 @@ use tracing::info;
 use crate::{Parser, errors::CliError};
 
 #[derive(Default, Debug, Parser, Clone)]
-#[clap(about = "View and manage tags. Defaults to `list` command")]
+#[command(about = "View and manage tags. Defaults to `list` command")]
 pub struct TagsCmd {
     /// List all tags monitored by this client.
-    #[clap(short, long, group = "action")]
+    #[arg(short, long, group = "action")]
     list: bool,
 
     /// Add a new tag to the list of tags monitored by this client.
-    #[clap(short, long, group = "action", value_name = "tag")]
+    #[arg(short, long, group = "action", value_name = "tag")]
     add: Option<u32>,
 
     /// Removes a tag from the list of tags monitored by this client.
-    #[clap(short, long, group = "action", value_name = "tag")]
+    #[arg(short, long, group = "action", value_name = "tag")]
     remove: Option<u32>,
 }
 

@@ -16,14 +16,14 @@ use crate::{
 };
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client output notes, or account data")]
+#[command(about = "Export client output notes, or account data")]
 pub struct ExportCmd {
     /// ID (or a valid prefix) of the output note or account to export.
     #[clap()]
     id: String,
 
     /// Desired filename for the binary file. Defaults to the note ID if not provided.
-    #[clap(short, long)]
+    #[arg(short, long)]
     filename: Option<PathBuf>,
 
     /// Export account data (cannot be used with --note).
@@ -35,7 +35,7 @@ pub struct ExportCmd {
     note: bool,
 
     /// Exported note type.
-    #[clap(short, long, value_enum, conflicts_with = "account")]
+    #[arg(short, long, value_enum, conflicts_with = "account")]
     export_type: Option<ExportType>,
 }
 

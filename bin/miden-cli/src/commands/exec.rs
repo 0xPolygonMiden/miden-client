@@ -11,14 +11,14 @@ use crate::{errors::CliError, utils::get_input_acc_id_by_prefix_or_default};
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(about = "Execute the specified program against the specified account")]
+#[command(about = "Execute the specified program against the specified account")]
 pub struct ExecCmd {
     /// Account ID to use for the program execution
-    #[clap(short = 'a', long = "account")]
+    #[arg(short = 'a', long = "account")]
     account_id: Option<String>,
 
     /// Path to script's source code to be executed
-    #[clap(long, short)]
+    #[arg(long, short)]
     script_path: String,
 
     #[rustfmt::skip]
@@ -37,11 +37,11 @@ pub struct ExecCmd {
     ///        { key = "0x0000001000000000000000000000000000000000000000000000000000000000", values = ["13", "9"]},
     ///        { key = "0x0000000000000000000000000000000000000000000000000000000000000000" , values = ["1", "2"]},
     ///    ]
-    #[clap(long, short)]
+    #[arg(long, short)]
     inputs_path: Option<String>,
 
     /// Print the output stack grouped into words
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     hex_words: bool,
 }
 

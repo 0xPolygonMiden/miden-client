@@ -77,19 +77,19 @@ impl From<CliAccountType> for AccountType {
 #[derive(Debug, Parser, Clone)]
 pub struct NewWalletCmd {
     /// Storage mode of the account.
-    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
+    #[arg(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     pub storage_mode: CliAccountStorageMode,
     /// Defines if the account code is mutable (by default it isn't mutable).
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub mutable: bool,
     /// Optional list of files specifying additional components to add to the account.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub extra_components: Vec<PathBuf>,
     /// Optional file path to a TOML file containing a list of key/values used for initializing
     /// storage. Each of these keys should map to the templated storage values within the passed
     /// list of component templates. The user will be prompted to provide values for any keys not
     /// present in the init storage data file.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub init_storage_data_path: Option<PathBuf>,
 }
 
@@ -148,20 +148,20 @@ impl NewWalletCmd {
 #[derive(Debug, Parser, Clone)]
 pub struct NewAccountCmd {
     /// Storage mode of the account.
-    #[clap(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
+    #[arg(value_enum, short, long, default_value_t = CliAccountStorageMode::Private)]
     pub storage_mode: CliAccountStorageMode,
     /// Account type to create.
-    #[clap(long, value_enum)]
+    #[arg(long, value_enum)]
     pub account_type: CliAccountType,
     /// Optional list of files specifying additional component template files to add to the
     /// account.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub component_templates: Vec<PathBuf>,
     /// Optional file path to a TOML file containing a list of key/values used for initializing
     /// storage. Each of these keys should map to the templated storage values within the passed
     /// list of component templates. The user will be prompted to provide values for any keys not
     /// present in the init storage data file.
-    #[clap(short, long)]
+    #[arg(short, long)]
     pub init_storage_data_path: Option<PathBuf>,
 }
 

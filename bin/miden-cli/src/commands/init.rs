@@ -27,7 +27,7 @@ const BASIC_AUTH_TEMPLATE_FILE: &[u8] =
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(
+#[command(
     about = "Initialize the client. It will create a file named `miden-client.toml` that holds \
 the CLI and client configurations, and will be placed by default in the current working \
 directory"
@@ -35,18 +35,18 @@ directory"
 pub struct InitCmd {
     /// Network configuration to use. Options are `devnet`, `testnet`, `localhost` or a custom RPC
     /// endpoint. Defaults to the testnet network.
-    #[clap(long, short, default_value = "testnet")]
+    #[arg(long, short, default_value = "testnet")]
     network: Option<Network>,
 
     /// Path to the store file.
-    #[clap(long)]
+    #[arg(long)]
     store_path: Option<String>,
 
     /// RPC endpoint for the proving service. Required if proving mode is set to remote.
     /// The endpoint must be in the form of "{protocol}://{hostname}:{port}", being the protocol
     /// and port optional.
     /// If the proving RPC isn't set, the proving mode will be set to local.
-    #[clap(long)]
+    #[arg(long)]
     remote_prover_endpoint: Option<String>,
 
     /// Maximum number of blocks the client can be behind the network.

@@ -43,21 +43,21 @@ impl From<&NoteType> for MidenNoteType {
 /// Mint tokens from a fungible faucet to a wallet.
 pub struct MintCmd {
     /// Target account ID or its hex prefix.
-    #[clap(short = 't', long = "target")]
+    #[arg(short = 't', long = "target")]
     target_account_id: String,
 
     /// Asset to be minted.
-    #[clap(short, long, help=format!("Asset to be minted.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    #[arg(short, long, help=format!("Asset to be minted.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     asset: String,
 
-    #[clap(short, long, value_enum)]
+    #[arg(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation.
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     force: bool,
 
     /// Flag to delegate proving to the remote prover specified in the config file.
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     delegate_proving: bool,
 }
 
@@ -97,30 +97,30 @@ impl MintCmd {
 pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
-    #[clap(short = 's', long = "sender")]
+    #[arg(short = 's', long = "sender")]
     sender_account_id: Option<String>,
     /// Target account ID or its hex prefix.
-    #[clap(short = 't', long = "target")]
+    #[arg(short = 't', long = "target")]
     target_account_id: String,
 
     /// Asset to be sent.
-    #[clap(short, long, help=format!("Asset to be sent.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    #[arg(short, long, help=format!("Asset to be sent.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     asset: String,
 
-    #[clap(short, long, value_enum)]
+    #[arg(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     force: bool,
     /// Set the recall height for the transaction. If the note wasn't consumed by this height, the
     /// sender may consume it back.
     ///
     /// Setting this flag turns the transaction from a `PayToId` to a `PayToIdWithRecall`.
-    #[clap(short, long)]
+    #[arg(short, long)]
     recall_height: Option<u32>,
 
     /// Flag to delegate proving to the remote prover specified in the config file
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     delegate_proving: bool,
 }
 
@@ -170,25 +170,25 @@ impl SendCmd {
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
     /// instead.
-    #[clap(short = 's', long = "source")]
+    #[arg(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
     /// Asset offered.
-    #[clap(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    #[arg(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     offered_asset: String,
 
     /// Asset requested.
-    #[clap(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    #[arg(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     requested_asset: String,
 
-    #[clap(short, long, value_enum)]
+    #[arg(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation.
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     force: bool,
 
     /// Flag to delegate proving to the remote prover specified in the config file.
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     delegate_proving: bool,
 }
 
@@ -254,16 +254,16 @@ impl SwapCmd {
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
     /// default account's ID is used instead.
-    #[clap(short = 'a', long = "account")]
+    #[arg(short = 'a', long = "account")]
     account_id: Option<String>,
     /// A list of note IDs or the hex prefixes of their corresponding IDs.
     list_of_notes: Vec<String>,
     /// Flag to submit the executed transaction without asking for confirmation.
-    #[clap(short, long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     force: bool,
 
     /// Flag to delegate proving to the remote prover specified in the config file.
-    #[clap(long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     delegate_proving: bool,
 }
 

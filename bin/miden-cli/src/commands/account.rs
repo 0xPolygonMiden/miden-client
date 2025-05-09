@@ -23,20 +23,20 @@ use crate::{
 #[allow(clippy::option_option)]
 pub struct AccountCmd {
     /// List all accounts monitored by this client (default action).
-    #[clap(short, long, group = "action")]
+    #[arg(short, long, group = "action")]
     list: bool,
     /// Show details of the account for the specified ID or hex prefix.
-    #[clap(short, long, group = "action", value_name = "ID")]
+    #[arg(short, long, group = "action", value_name = "ID")]
     show: Option<String>,
     /// When using --show, include the account code in the output.
-    #[clap(long, requires = "show")]
+    #[arg(long, requires = "show")]
     with_code: bool,
     /// Manages default account for transaction execution.
     ///
     /// If no ID is provided it will display the current default account ID.
     /// If "none" is provided it will remove the default account else it will set the default
     /// account to the provided ID.
-    #[clap(short, long, group = "action", value_name = "ID")]
+    #[arg(short, long, group = "action", value_name = "ID")]
     default: Option<Option<String>>,
 }
 
