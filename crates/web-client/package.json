@@ -1,9 +1,9 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.8.1-next.1",
-  "description": "Polygon Miden Wasm SDK",
+  "version": "0.8.1-next.2",
+  "description": "Miden Wasm SDK",
   "collaborators": [
-    "Polygon Miden",
+    "Miden",
     "Demox Labs <hi@demoxlabs.xyz>"
   ],
   "type": "module",

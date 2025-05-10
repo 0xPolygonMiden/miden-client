@@ -10,6 +10,7 @@ use crate::{
     utils::{deserialize_from_uint8array, serialize_to_uint8array},
 };
 
+#[derive(Clone)]
 #[wasm_bindgen]
 pub struct Account(NativeAccount);
 
@@ -85,5 +86,17 @@ impl From<NativeAccount> for Account {
 impl From<&NativeAccount> for Account {
     fn from(native_account: &NativeAccount) -> Self {
         Account(native_account.clone())
+    }
+}
+
+impl From<Account> for NativeAccount {
+    fn from(account: Account) -> Self {
+        account.0
+    }
+}
+
+impl From<&Account> for NativeAccount {
+    fn from(account: &Account) -> Self {
+        account.0.clone()
     }
 }

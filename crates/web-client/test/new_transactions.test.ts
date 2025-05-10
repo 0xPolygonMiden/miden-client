@@ -572,6 +572,175 @@ describe("custom transaction with multiple output notes", () => {
   });
 });
 
+// CUSTOM ACCOUNT COMPONENT TESTS
+// =======================================================================================================
+
+export const customAccountComponent = async (): Promise<void> => {
+  return await testingPage.evaluate(async () => {
+    const accountCode = `
+        use.miden::account
+        use.std::sys
+
+        # Inputs: [KEY, VALUE]
+        # Outputs: []
+        export.write_to_map
+            # The storage map is in storage slot 1
+            push.1
+            # => [index, KEY, VALUE]
+
+            # Setting the key value pair in the map
+            exec.account::set_map_item
+            # => [OLD_MAP_ROOT, OLD_MAP_VALUE]
+
+            dropw dropw dropw dropw
+            # => []
+
+            # Incrementing the nonce by 1
+            push.1 exec.account::incr_nonce
+            # => []
+        end
+
+        # Inputs: [KEY]
+        # Outputs: [VALUE]
+        export.get_value_in_map
+            # The storage map is in storage slot 1
+            push.1
+            # => [index, KEY]
+
+            exec.account::get_map_item
+            # => [VALUE]
+        end
+
+        # Inputs: []
+        # Outputs: [CURRENT_ROOT]
+        export.get_current_map_root
+            # Getting the current root from slot 1
+            push.1 exec.account::get_item
+            # => [CURRENT_ROOT]
+
+            exec.sys::truncate_stack
+            # => [CURRENT_ROOT]
+        end
+      `;
+    const scriptCode = `
+        use.miden_by_example::mapping_example_contract
+        use.std::sys
+
+        begin
+
+            push.0.0.0.0
+            adv.push_mapval adv_loadw
+
+            push.111 debug.stack drop
+
+            push.1.2.3.4
+            push.0.0.0.0
+            # => [KEY, VALUE]
+
+            call.mapping_example_contract::write_to_map
+            # => []
+
+            push.0.0.0.0
+            # => [KEY]
+
+            call.mapping_example_contract::get_value_in_map
+            # => [VALUE]
+
+            dropw
+            # => []
+
+            call.mapping_example_contract::get_current_map_root
+            # => [CURRENT_ROOT]
+
+            exec.sys::truncate_stack
+        end
+      `;
+    const client = window.client;
+    let assembler = window.TransactionKernel.assembler();
+    console.log("created assmbler");
+    let emptyStorageSlot = window.StorageSlot.emptyValue();
+    console.log("created emptyStorageSlot");
+    let storageMap = new window.StorageMap();
+    console.log("created storageMap");
+    let storageSlotMap = window.StorageSlot.map(storageMap);
+    console.log("created storageSlotMap");
+
+    let mappingAccountComponent = window.AccountComponent.compile(
+      accountCode,
+      assembler,
+      [emptyStorageSlot, storageSlotMap]
+    ).withSupportsAllTypes();
+    console.log("created mappingAccountComponent");
+
+    const walletSeed = new Uint8Array(32);
+    crypto.getRandomValues(walletSeed);
+    console.log("created wallet seed");
+
+    let anchorBlock = await client.getLatestEpochBlock();
+    console.log("retrieved latest epoch block");
+
+    let accountBuilderResult = new window.AccountBuilder(walletSeed)
+      .anchor(anchorBlock)
+      .accountType(window.AccountType.RegularAccountImmutableCode)
+      .storageMode(window.AccountStorageMode.public())
+      .withComponent(mappingAccountComponent)
+      .build();
+    console.log("created accountBuilderResult");
+
+    await client.newAccount(accountBuilderResult.account, accountBuilderResult.word, false)
+    console.log("created account");
+
+    await client.syncState();
+    console.log("synced state");
+  
+    let accountComponentLib =
+      window.AssemblerUtils.createAccountComponentLibrary(
+        assembler,
+        "miden_by_example::mapping_example_contract",
+        accountCode
+      );
+    console.log("created accountComponentLib");
+
+    // 1) build the advice‐map container
+    const inputs = new window.TransactionScriptInputPairArray();
+
+    // // 2) make the key (all zeros)
+    // const zeroKey = window.Word.newFromU64s(
+    //   new BigUint64Array([ 0n, 0n, 0n, 0n ])
+    // );
+
+    // const felt0 = new window.Felt(BigInt(0));
+
+    // inputs.push(new window.TransactionScriptInputPair(zeroKey, [felt0]));
+
+    let txScript = window.TransactionScript.compile(
+      scriptCode,
+      inputs,
+      assembler.withLibrary(accountComponentLib)
+    );
+    console.log("compiled txScript");
+
+    let txIncrementRequest = new window.TransactionRequestBuilder()
+      .withCustomScript(txScript)
+      .build();
+    console.log("created txIncrementRequest");
+
+    let txResult = await client.newTransaction(
+      accountBuilderResult.account.id(),
+      txIncrementRequest
+    );
+    console.log("created txResult");
+    await client.submitTransaction(txResult);
+    console.log("submitted txResult");
+  });
+};
+
+describe.only("custom account component tests", () => {
+  it("custom account component transaction completes successfully", async () => {
+    await expect(customAccountComponent()).to.be.fulfilled;
+  });
+});
+
 // DISCARDED TRANSACTIONS TESTS
 // ================================================================================================
 

@@ -9,7 +9,7 @@ use miden_objects::{AccountIdError, asset::TokenSymbol};
 use rand::RngCore;
 use wasm_bindgen::prelude::*;
 
-use super::models::{account::Account, account_storage_mode::AccountStorageMode};
+use super::models::{account::Account, account_storage_mode::AccountStorageMode, word::Word};
 use crate::{WebClient, helpers::generate_wallet, js_error_with_context};
 
 #[wasm_bindgen]
@@ -105,6 +105,25 @@ impl WebClient {
                     Err(JsValue::from_str(&error_message))
                 },
             }
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    #[wasm_bindgen(js_name = "newAccount")]
+    pub async fn new_account(
+        &mut self,
+        account: &Account,
+        account_seed: Option<Word>,
+        overwrite: bool,
+    ) -> Result<(), JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let account_seed = account_seed.map(Into::into);
+            client
+                .add_account(&account.into(), account_seed, overwrite)
+                .await
+                .map_err(|err| js_error_with_context(err, "failed to insert new account"))?;
+            Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
