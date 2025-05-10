@@ -1,19 +1,19 @@
-use miden_objects::account::AccountBuilder as NativeAccountBuilder;
+use miden_objects::{
+    account::{AccountBuilder as NativeAccountBuilder, AccountIdAnchor as NativeAccountIdAnchor},
+    block::BlockHeader as NativeBlockHeader,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::models::{
-    account::Account, 
-    account_component::AccountComponent,
-    account_id_anchor::AccountIdAnchor, 
-    account_storage_mode::AccountStorageMode, 
-    account_type::AccountType,
-    word::Word
+    account::Account, account_component::AccountComponent,
+    account_storage_mode::AccountStorageMode, account_type::AccountType, block_header::BlockHeader,
+    word::Word,
 };
 
 #[wasm_bindgen]
-pub struct AccountBuilderResult{
+pub struct AccountBuilderResult {
     account: Account,
-    word: Word
+    word: Word,
 }
 
 #[wasm_bindgen]
@@ -42,9 +42,13 @@ impl AccountBuilder {
         Ok(AccountBuilder(NativeAccountBuilder::new(seed_array)))
     }
 
-    pub fn anchor(mut self, anchor: &AccountIdAnchor) -> Self {
-        self.0 = self.0.anchor(anchor.into());
-        self
+    pub fn anchor(mut self, anchor: &BlockHeader) -> Result<AccountBuilder, JsValue> {
+        let native_block_header: NativeBlockHeader = anchor.into();
+        let native_account_id_anchor: NativeAccountIdAnchor = (&native_block_header)
+            .try_into()
+            .map_err(|_| JsValue::from_str("Error converting block header to account id anchor"))?;
+        self.0 = self.0.anchor(native_account_id_anchor);
+        Ok(self)
     }
 
     #[wasm_bindgen(js_name = "accountType")]
@@ -67,9 +71,10 @@ impl AccountBuilder {
     }
 
     pub fn build(self) -> Result<AccountBuilderResult, JsValue> {
-        let (account, word) = self.0.build().map_err(|err| {
-            JsValue::from_str(&format!("Failed to build account: {}", err))
-        })?;
+        let (account, word) = self
+            .0
+            .build()
+            .map_err(|err| JsValue::from_str(&format!("Failed to build account: {err}")))?;
         Ok(AccountBuilderResult {
             account: account.into(),
             word: word.into(),

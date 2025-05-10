@@ -17,6 +17,12 @@ impl StorageMap {
     }
 }
 
+impl Default for StorageMap {
+    fn default() -> Self {
+        StorageMap::new()
+    }
+}
+
 // CONVERSIONS
 // ================================================================================================
 

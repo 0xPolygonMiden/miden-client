@@ -1,4 +1,6 @@
-use miden_objects::account::{AccountComponent as NativeAccountComponent, StorageSlot as NativeStorageSlot};
+use miden_objects::account::{
+    AccountComponent as NativeAccountComponent, StorageSlot as NativeStorageSlot,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::models::{assembler::Assembler, storage_slot::StorageSlot};
@@ -13,18 +15,12 @@ impl AccountComponent {
         assembler: &Assembler,
         storage_slots: Vec<StorageSlot>,
     ) -> Result<AccountComponent, JsValue> {
-        let native_slots: Vec<NativeStorageSlot> = storage_slots
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let native_slots: Vec<NativeStorageSlot> =
+            storage_slots.into_iter().map(Into::into).collect();
 
-        NativeAccountComponent::compile(
-            account_code,
-            assembler.into(),
-            native_slots,
-        )
-        .map(|native| AccountComponent(native))
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+        NativeAccountComponent::compile(account_code, assembler.into(), native_slots)
+            .map(AccountComponent)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = "withSupportsAllTypes")]

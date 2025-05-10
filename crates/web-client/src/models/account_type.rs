@@ -18,8 +18,12 @@ impl From<AccountType> for NativeAccountType {
         match value {
             AccountType::FungibleFaucet => NativeAccountType::FungibleFaucet,
             AccountType::NonFungibleFaucet => NativeAccountType::NonFungibleFaucet,
-            AccountType::RegularAccountImmutableCode => NativeAccountType::RegularAccountImmutableCode,
-            AccountType::RegularAccountUpdatableCode => NativeAccountType::RegularAccountUpdatableCode,
+            AccountType::RegularAccountImmutableCode => {
+                NativeAccountType::RegularAccountImmutableCode
+            },
+            AccountType::RegularAccountUpdatableCode => {
+                NativeAccountType::RegularAccountUpdatableCode
+            },
         }
     }
 }
@@ -29,8 +33,12 @@ impl From<&AccountType> for NativeAccountType {
         match value {
             AccountType::FungibleFaucet => NativeAccountType::FungibleFaucet,
             AccountType::NonFungibleFaucet => NativeAccountType::NonFungibleFaucet,
-            AccountType::RegularAccountImmutableCode => NativeAccountType::RegularAccountImmutableCode,
-            AccountType::RegularAccountUpdatableCode => NativeAccountType::RegularAccountUpdatableCode,
+            AccountType::RegularAccountImmutableCode => {
+                NativeAccountType::RegularAccountImmutableCode
+            },
+            AccountType::RegularAccountUpdatableCode => {
+                NativeAccountType::RegularAccountUpdatableCode
+            },
         }
     }
 }

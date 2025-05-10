@@ -1,6 +1,9 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{WebClient, js_error_with_context, models::{block_header::BlockHeader, sync_summary::SyncSummary}};
+use crate::{
+    WebClient, js_error_with_context,
+    models::{block_header::BlockHeader, sync_summary::SyncSummary},
+};
 
 #[wasm_bindgen]
 impl WebClient {
@@ -18,6 +21,7 @@ impl WebClient {
         }
     }
 
+    #[wasm_bindgen(js_name = "getLatestEpochBlock")]
     pub async fn get_latest_epoch_block(&mut self) -> Result<BlockHeader, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let block_header = client

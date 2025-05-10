@@ -118,10 +118,7 @@ impl WebClient {
         overwrite: bool,
     ) -> Result<(), JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let account_seed = match account_seed {
-                Some(seed) => Some(seed.into()),
-                None => None,
-            };
+            let account_seed = account_seed.map(Into::into);
             client
                 .add_account(&account.into(), account_seed, overwrite)
                 .await

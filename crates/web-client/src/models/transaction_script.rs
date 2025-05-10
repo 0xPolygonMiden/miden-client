@@ -1,9 +1,13 @@
-use miden_objects::{Felt as NativeFelt, transaction::TransactionScript as NativeTransactionScript, Word as NativeWord};
+use miden_objects::{
+    Felt as NativeFelt, Word as NativeWord,
+    transaction::TransactionScript as NativeTransactionScript,
+};
 use wasm_bindgen::prelude::*;
 
-use crate::models::{assembler::Assembler, transaction_script_inputs::TransactionScriptInputPairArray};
-
 use super::rpo_digest::RpoDigest;
+use crate::models::{
+    assembler::Assembler, transaction_script_inputs::TransactionScriptInputPairArray,
+};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -18,13 +22,13 @@ impl TransactionScript {
     pub fn compile(
         script_code: &str,
         inputs: TransactionScriptInputPairArray,
-        assembler: &Assembler
+        assembler: &Assembler,
     ) -> Result<TransactionScript, JsValue> {
         let native_inputs: Vec<(NativeWord, Vec<NativeFelt>)> = inputs.into();
 
         let native = NativeTransactionScript::compile(
             script_code,
-            native_inputs,         // now the compiler knows this is a Vec<…>
+            native_inputs, // now the compiler knows this is a Vec<…>
             assembler.into(),
         )
         .map_err(|e| JsValue::from_str(&e.to_string()))?;

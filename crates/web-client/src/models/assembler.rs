@@ -12,10 +12,8 @@ impl Assembler {
     pub fn with_library(self, library: &Library) -> Result<Assembler, JsValue> {
         let native_lib: NativeLibrary = library.into();
 
-        let new_native_asm = self
-            .0
-            .with_library(native_lib)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?; 
+        let new_native_asm =
+            self.0.with_library(native_lib).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(Assembler(new_native_asm))
     }
@@ -23,7 +21,6 @@ impl Assembler {
 
 // CONVERSIONS
 // ================================================================================================
-
 
 impl From<NativeAssembler> for Assembler {
     fn from(native_assembler: NativeAssembler) -> Self {
