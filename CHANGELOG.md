@@ -70,6 +70,7 @@
 
 ### Fixes
 
+* [FIX][cli] Used the shared faucet metadata resolver for `account --show`, so token symbols and amounts match note displays and transaction previews. Resolved tracked faucet metadata before RPC, including private faucets and offline use ([#2529](https://github.com/0xMiden/rust-sdk/pull/2529)).
 * [FIX][store] Read complete and minimal partial SQLite accounts, account storage, and account code from one database snapshot per call. Concurrent updates cannot mix account states, and history pruning cannot hide code selected by an earlier query ([#2729](https://github.com/0xMiden/rust-sdk/pull/2729)).
 * [FIX][rust] `GetAccount` responses are now checked against the authenticated account header: the account rebuilt from the returned details must match the header's commitment, and the storage header must match its storage commitment ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
 * [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
