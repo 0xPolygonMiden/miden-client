@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+* [FEATURE][rust] Added `ClientBuilder::seed_genesis`, which stores a genesis block header and its protocol configuration when the client is built ([#2639](https://github.com/0xMiden/rust-sdk/pull/2639)).
+
 ### Enhancements
 
 * `account --show`, `notes --show` and the transaction summary show non-fungible assets in a separate table with their faucet ID and asset ID. The fungible asset tables no longer have an asset type column. `tx --show` shows the asset ID of a non-fungible asset, and `account --list` and `account --show` label a non-fungible faucet as `Non-fungible faucet` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
