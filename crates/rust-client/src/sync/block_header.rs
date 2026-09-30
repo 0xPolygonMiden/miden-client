@@ -7,6 +7,15 @@ use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
 use miden_protocol::{Felt, Word};
 use tracing::warn;
+#[cfg(feature = "std")]
+use {
+    crate::rpc::RpcError,
+    alloc::{boxed::Box, format, string::ToString},
+    miden_protocol::address::NetworkId,
+    miden_protocol::block::SignedBlock,
+    miden_protocol::protocol_config::ProtocolConfig,
+    miden_protocol::utils::serde::{ByteReader, Deserializable, SliceReader},
+};
 
 use crate::rpc::NodeRpcClient;
 use crate::rpc::domain::note::ResolvedSyncNotesBlock;
