@@ -28,6 +28,7 @@
 * [FEATURE][rust] Added the `SendNotesTransactionScript` re-export to `miden_client::transaction` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] The CLI caches faucet metadata lookups for the lifetime of a command, so several assets from the same faucet cause at most one metadata RPC fetch. The cache also holds misses ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] `account --show` no longer fetches storage map entries for an account that the client does not track ([#2680](https://github.com/0xMiden/rust-sdk/pull/2680)).
+* [FEATURE][cli] Package flags (`new-account --packages`, `new-wallet --extra-packages`, `call --package`, `exec --package` and `account --inspect --package`) accept a `<NAME>@<VERSION>` reference to the local package registry. `<NAME>@` and `<NAME>@latest` select the highest semantic version. The CLI resolves the reference with the `miden registry` command of the active Miden toolchain, which requires the `local-registry` midenup component ([#2671](https://github.com/0xMiden/rust-sdk/pull/2671)).
 
 ### Fixes
 
