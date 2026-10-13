@@ -1,24 +1,5 @@
-//! Defines the storage interfaces used by the Miden client.
-//!
-//! It provides mechanisms for persisting and retrieving data, such as account states, transaction
-//! history, block headers, notes, and MMR nodes.
-//!
-//! ## Overview
-//!
-//! The storage module is central to the Miden client’s persistence layer. It defines the [`Store`]
-//! trait which abstracts over any concrete storage implementation. The trait exposes methods to
-//! (among others):
-//!
-//! - Retrieve and update transactions, notes, and accounts.
-//! - Store and query block headers along with MMR peaks and authentication nodes.
-//! - Manage note tags for synchronizing with the node.
-//!
-//! These are all used by the Miden client to provide transaction execution in the correct contexts.
-//!
-//! In addition to the main [`Store`] trait, the module provides types for filtering queries, such
-//! as [`TransactionFilter`], [`NoteFilter`], `StorageFilter` to narrow down the set of returned
-//! transactions, account data, or notes. For more advanced usage, see the documentation of
-//! individual methods in the [`Store`] trait.
+//! Re-exports the storage types from `miden-client-core` that the client API uses, and adapts a
+//! [`Store`] to the data store of the transaction executor.
 
 /// Contains [`ClientDataStore`] to automatically implement [`DataStore`] for anything that
 /// implements [`Store`]. This isn't public because it's an implementation detail to instantiate the

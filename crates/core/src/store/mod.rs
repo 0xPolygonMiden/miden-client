@@ -1,4 +1,14 @@
 //! Defines the storage contract shared by the client and the store implementations.
+//!
+//! The [`Store`] trait abstracts over any concrete storage implementation. It persists and
+//! retrieves the client state:
+//!
+//! - Transactions, notes and accounts.
+//! - Block headers, with the MMR peaks and authentication nodes.
+//! - Note tags used to sync with the node.
+//!
+//! The module also provides filters that narrow the results of a query, such as [`NoteFilter`],
+//! [`TransactionFilter`] and [`AccountStorageFilter`].
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
