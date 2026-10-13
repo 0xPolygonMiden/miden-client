@@ -60,6 +60,7 @@ std = [
   "miden-processor/std",
   "miden-protocol/std",
   "miden-tx/std",
+  "miden-usdcx/std",
   "tonic/tls-native-roots",
   "tonic/tls-ring",
   "tonic/transport",
@@ -71,6 +72,7 @@ testing = [
   "miden-protocol/testing",
   "miden-standards/testing",
   "miden-tx/testing",
+  "miden-usdcx/testing",
 ]
 tonic = []
 
@@ -86,6 +88,7 @@ miden-standards       = { workspace = true }
 miden-testing         = { optional = true, workspace = true }
 miden-tx              = { workspace = true }
 miden-tx-batch        = { workspace = true }
+miden-usdcx           = { workspace = true }
 
 # External dependencies
 anyhow       = { workspace = true }

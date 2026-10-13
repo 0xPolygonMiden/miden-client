@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.4 (TBD)
+
+### Features
+
+* [FEATURE][rust] Added the `miden_client::usdcx` module, which re-exports `miden-usdcx`. It provides the USDCx (Circle xReserve) burn note `XReserveBurnNote`, the `XReserveBurnItems` payload codec, and the `AccountId` to `bytes32` encoding ([#2695](https://github.com/0xMiden/rust-sdk/pull/2695)).
+
 ## 0.17.3 (2026-10-08)
 
 ### Features
