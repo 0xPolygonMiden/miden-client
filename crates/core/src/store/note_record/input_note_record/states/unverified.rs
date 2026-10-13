@@ -32,6 +32,11 @@ impl NoteStateHandler for UnverifiedNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
+        if self.metadata != metadata {
+            return Err(NoteRecordError::StateTransitionError(
+                "Metadata does not match the expected value".to_string(),
+            ));
+        }
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 

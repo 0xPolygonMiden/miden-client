@@ -35,6 +35,13 @@ impl NoteStateHandler for ExpectedNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
+        if let Some(expected_metadata) = self.metadata
+            && expected_metadata != metadata
+        {
+            return Err(NoteRecordError::StateTransitionError(
+                "Metadata does not match the expected value".to_string(),
+            ));
+        }
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
