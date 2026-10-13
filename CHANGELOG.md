@@ -35,6 +35,7 @@
 
 * [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FIX][rust] Note screening treats an account whose trial execution fails in the transaction prologue as unable to consume the note, instead of failing. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it, because the stored vault of the sender still held the asset ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FIX][rust] Implemented `TryFrom` for the `InputNoteRecord` conversions to `Note`, `InputNote`, and `NoteTagRecord`. Existing `.try_into()` calls remain supported ([#2618](https://github.com/0xMiden/rust-sdk/pull/2618)).
 * [FIX][rust] `TransactionRequestBuilder::expected_output_recipients` adds to the expected recipients instead of replacing them, so own output notes added before it keep their recipients and `execute_transaction` no longer panics ([#2670](https://github.com/0xMiden/rust-sdk/pull/2670)).
 * [FIX][rust] `IdPrefixFetchError::NoMatch` names the kind of entry that was looked up, instead of always saying "notes" ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 
