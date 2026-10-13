@@ -293,7 +293,7 @@ mod test {
     use miden_client::block::BlockHeader;
     use miden_client::crypto::{Forest, InOrderIndex, MmrPeaks};
     use miden_client::note::BlockNumber;
-    use miden_client::store::{PartialBlockchainFilter, Store};
+    use miden_client_core::store::{PartialBlockchainFilter, Store};
     use miden_protocol::crypto::merkle::mmr::Mmr;
     use rusqlite::params;
 

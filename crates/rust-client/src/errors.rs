@@ -3,6 +3,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
 
+use miden_client_core::errors::AccountRecordError;
 use miden_protocol::Word;
 use miden_protocol::account::AccountId;
 pub use miden_protocol::errors::{
@@ -32,7 +33,7 @@ use crate::note::NoteScreenerError;
 use crate::note_transport::NoteTransportError;
 use crate::rpc::encryption::TransactionEncryptionError;
 use crate::rpc::{EndpointError, RegisterAccountError, RpcError};
-use crate::store::{AccountRecordError, NoteRecordError, StoreError};
+use crate::store::{NoteRecordError, StoreError};
 use crate::transaction::{
     BatchBuilderError,
     ChainAnchorError,

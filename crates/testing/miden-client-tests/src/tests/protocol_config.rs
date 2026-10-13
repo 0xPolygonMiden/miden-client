@@ -5,11 +5,12 @@ use miden_client::account::AccountType;
 use miden_client::asset::AssetId;
 use miden_client::builder::ClientBuilder;
 use miden_client::keystore::FilesystemKeyStore;
-use miden_client::protocol_config::{ProtocolConfig, protocol_config_setting_key};
-use miden_client::store::{SettingScope, StoreError};
+use miden_client::protocol_config::ProtocolConfig;
+use miden_client::store::StoreError;
 use miden_client::testing::common::create_test_store_path;
 use miden_client::transaction::TransactionRequestBuilder;
 use miden_client::{ClientError, Serializable, Word};
+use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::testing::account_id::ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2;
 

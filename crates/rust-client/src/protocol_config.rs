@@ -1,5 +1,6 @@
 //! Stores protocol configurations by their block header commitments.
 
+use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_protocol::Word;
 pub use miden_protocol::errors::ProtocolConfigError;
 pub use miden_protocol::protocol_config::{NextProtocolConfig, ProtocolConfig};
@@ -7,7 +8,7 @@ use miden_protocol::utils::serde::Deserializable;
 #[cfg(feature = "testing")]
 use miden_protocol::utils::serde::Serializable;
 
-use crate::store::{SettingScope, Store, StoreError};
+use crate::store::{Store, StoreError};
 use crate::{Client, ClientError};
 
 impl<AUTH> Client<AUTH> {
@@ -36,8 +37,6 @@ impl<AUTH> Client<AUTH> {
         Ok(load_protocol_config(self.store.as_ref(), commitment).await?)
     }
 }
-
-pub use miden_client_core::store::protocol_config_setting_key;
 
 pub(crate) async fn load_protocol_config(
     store: &dyn Store,

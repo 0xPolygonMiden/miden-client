@@ -3,6 +3,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use miden_client_core::store::{AccountStorageFilter, PartialBlockchainFilter};
 use miden_protocol::account::{
     Account,
     AccountCode,
@@ -31,7 +32,7 @@ use miden_tx::{
     TransactionMastStore,
 };
 
-use super::{AccountStorageFilter, PartialBlockchainFilter, Store};
+use super::Store;
 use crate::rpc::domain::account::{
     AccountStorageRequirements,
     GetAccountRequest,

@@ -119,8 +119,8 @@ impl Manager for SqlitePoolManager {
 
 #[cfg(test)]
 mod tests {
-    use miden_client::store::{SettingScope, Store};
     use miden_client::testing::common::create_test_store_path;
+    use miden_client_core::store::{SettingScope, Store};
     use rusqlite::params;
 
     use crate::SqliteStore;

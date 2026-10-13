@@ -91,7 +91,7 @@ impl SqliteStore {
 
 #[cfg(test)]
 mod tests {
-    use miden_client::store::{SettingScope, Store};
+    use miden_client_core::store::{SettingScope, Store};
 
     use super::SqliteStore;
     use crate::tests::create_test_store;

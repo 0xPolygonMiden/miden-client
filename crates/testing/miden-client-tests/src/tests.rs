@@ -24,19 +24,15 @@ use miden_client::note::{
     NoteFile,
     NoteSyncHint,
 };
-use miden_client::protocol_config::protocol_config_setting_key;
 use miden_client::pswap::PswapLineageState;
 use miden_client::rpc::NodeRpcClient;
 use miden_client::rpc::encryption::TransactionEncryptionKey;
 use miden_client::store::input_note_states::ConsumedAuthenticatedLocalNoteState;
 use miden_client::store::{
-    AccountStorageFilter,
-    ClientAccountType,
     InputNoteRecord,
     InputNoteState,
     NoteFilter,
     OutputNoteState,
-    SettingScope,
     Store,
     StoreError,
     TransactionFilter,
@@ -65,6 +61,12 @@ use miden_client::transaction::{
     TransactionStatus,
 };
 use miden_client::utils::{Deserializable, Serializable};
+use miden_client_core::store::{
+    AccountStorageFilter,
+    ClientAccountType,
+    SettingScope,
+    protocol_config_setting_key,
+};
 use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::account::{
     Account,

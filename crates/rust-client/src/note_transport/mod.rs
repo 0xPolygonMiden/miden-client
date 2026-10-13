@@ -9,6 +9,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use miden_client_core::store::SettingScope;
 use miden_protocol::address::Address;
 use miden_protocol::block::BlockNumber;
 use miden_protocol::note::{
@@ -32,14 +33,12 @@ use miden_tx::utils::serde::{
 
 pub use self::errors::NoteTransportError;
 use crate::note::{NoteFile, NoteSyncHint};
-use crate::store::{NoteFilter, SettingScope};
+use crate::store::NoteFilter;
 use crate::{Client, ClientError};
 
 pub const NOTE_TRANSPORT_MAINNET_ENDPOINT: &str = "https://transport.mainnet.miden.io";
 pub const NOTE_TRANSPORT_TESTNET_ENDPOINT: &str = "https://transport.miden.io";
 pub const NOTE_TRANSPORT_DEVNET_ENDPOINT: &str = "https://transport.devnet.miden.io";
-#[allow(deprecated)]
-pub use miden_client_core::note_transport::NOTE_TRANSPORT_CURSOR_STORE_SETTING;
 pub use miden_client_core::note_transport::NoteTransportCursor;
 pub const NOTE_TRANSPORT_CURSORS_KEY: &str = "note_transport_cursors";
 
