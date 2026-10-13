@@ -2928,7 +2928,7 @@ dependencies = [
 name = "miden-client-proto"
 version = "0.17.2"
 dependencies = [
- "miden-client",
+ "miden-client-core",
  "miden-objects",
  "miden-protocol",
  "miden-standards",
