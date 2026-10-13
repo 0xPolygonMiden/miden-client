@@ -42,3 +42,5 @@ keystore/
 # Ignore files that spawn using `cargo run`
 miden-node.pid
 data/
+
+# Placeholder
