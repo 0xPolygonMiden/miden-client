@@ -17,10 +17,8 @@
 //! [`Note`](miden_protocol::note::Note), although this is not always possible. Check both
 //! [`InputNoteRecord`]'s and [`OutputNoteRecord`]'s documentation for more details about this.
 
-use alloc::vec::Vec;
-
 use miden_protocol::block::BlockNumber;
-use miden_protocol::note::{NoteDetailsCommitment, NoteId, NoteScriptRoot, Nullifier};
+use miden_protocol::note::NoteDetailsCommitment;
 
 mod input_note_record;
 mod output_note_record;
@@ -84,47 +82,4 @@ impl InputNoteCursor {
     pub fn details_commitment(&self) -> NoteDetailsCommitment {
         self.details_commitment
     }
-}
-
-// NOTE FILTER
-// ================================================================================================
-
-/// Filters for narrowing the set of notes returned by the client's store.
-#[derive(Debug, Clone)]
-pub enum NoteFilter {
-    /// Return a list of all notes ([`InputNoteRecord`] or [`OutputNoteRecord`]).
-    All,
-    /// Return a list of committed notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). These
-    /// represent notes that the blockchain has included in a block.
-    Committed,
-    /// Filter by consumed notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). notes that have been
-    /// used as inputs in transactions.
-    Consumed,
-    /// Return a list of expected notes ([`InputNoteRecord`] or [`OutputNoteRecord`]). These
-    /// represent notes for which the store doesn't have anchor data.
-    Expected,
-    /// Return a list containing any notes that match with the provided [`NoteId`] vector.
-    List(Vec<NoteId>),
-    /// Return a list containing any notes whose details commitment matches one of the provided
-    /// [`NoteDetailsCommitment`] vector. Unlike [`NoteFilter::List`], this matches the
-    /// metadata-independent details commitment, so it also resolves metadata-less notes (which have
-    /// a NULL `note_id`).
-    DetailsCommitments(Vec<NoteDetailsCommitment>),
-    /// Return a list containing any notes that match the provided [`Nullifier`] vector.
-    Nullifiers(Vec<Nullifier>),
-    /// Return a list of notes that are currently being processed. This filter doesn't apply to
-    /// output notes.
-    Processing,
-    /// Return a list containing any notes whose script root matches one of the provided
-    /// [`NoteScriptRoot`]s. Notes whose script isn't known (e.g. partial output notes) never match.
-    ScriptRoots(Vec<NoteScriptRoot>),
-    /// Return a list containing the note that matches with the provided [`NoteId`]. The query will
-    /// return an error if the note isn't found.
-    Unique(NoteId),
-    /// Return a list containing notes that haven't been nullified yet, this includes expected,
-    /// committed, processing and unverified notes.
-    Unspent,
-    /// Return a list containing notes with unverified inclusion proofs. This filter doesn't apply
-    /// to output notes.
-    Unverified,
 }

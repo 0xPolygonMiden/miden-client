@@ -45,6 +45,7 @@ pub use block::BlockRelevance;
 mod filters;
 pub use filters::{
     AccountStorageFilter,
+    NoteFilter,
     PartialBlockchainFilter,
     TransactionFilter,
     TransactionFilterQuery,
@@ -56,7 +57,6 @@ pub use note_record::{
     InputNoteRecord,
     InputNoteState,
     NoteExportType,
-    NoteFilter,
     OutputNoteRecord,
     OutputNoteState,
     input_note_states,
