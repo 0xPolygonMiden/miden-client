@@ -121,9 +121,6 @@ impl TestClient {
         info!(
             %account_id,
             input_note_ids = %format_note_ids(transaction_request.input_note_ids()),
-            expected_output_note_ids = %format_note_ids(
-                transaction_request.expected_output_own_notes().iter().map(Note::id)
-            ),
             "Submitting transaction"
         );
 
@@ -133,7 +130,14 @@ impl TestClient {
         let submission_height =
             self.submit_proven_transaction_retrying(proven_transaction, &tx_result).await?;
         self.client.apply_transaction(&tx_result, submission_height).await?;
-        info!(tx_id = %tx_result.id(), %account_id, "Transaction submitted");
+        info!(
+            tx_id = %tx_result.id(),
+            %account_id,
+            output_note_ids = %format_note_ids(
+                tx_result.created_notes().iter().map(RawOutputNote::id)
+            ),
+            "Transaction submitted"
+        );
 
         Ok(tx_result.id())
     }
