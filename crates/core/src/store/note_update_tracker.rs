@@ -487,7 +487,7 @@ impl NoteUpdateTracker {
     }
 
     /// Insert an output note update
-    pub fn insert_output_note(&mut self, note: OutputNoteRecord, update_type: NoteUpdateType) {
+    fn insert_output_note(&mut self, note: OutputNoteRecord, update_type: NoteUpdateType) {
         let note_id = note.id();
         if let Some(nullifier) = note.nullifier() {
             self.output_notes_by_nullifier.insert(nullifier, note_id);
