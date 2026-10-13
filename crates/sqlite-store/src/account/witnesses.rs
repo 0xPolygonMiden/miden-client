@@ -3,7 +3,7 @@
 use std::string::ToString;
 use std::vec::Vec;
 
-use miden_client_core::store::StoreError;
+use miden_client_core::errors::StoreError;
 use miden_protocol::account::AccountId;
 use miden_protocol::block::account_tree::AccountWitness;
 use miden_protocol::utils::serde::{Deserializable, Serializable};

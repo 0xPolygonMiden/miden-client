@@ -35,7 +35,8 @@ use miden_client::store::{ClientAccountType, Store};
 use miden_client::sync::{NoteTagRecord, NoteTagSource};
 use miden_client::testing::common::{ACCOUNT_ID_REGULAR, create_test_store_path};
 use miden_client::{EMPTY_WORD, Felt, ONE, Serializable, Word, ZERO};
-use miden_client_core::store::{AccountUpdate, StoreError};
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::AccountUpdate;
 use miden_protocol::account::{
     AccountComponentMetadata,
     StorageMapPatch,

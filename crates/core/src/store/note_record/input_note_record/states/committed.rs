@@ -13,7 +13,7 @@ use super::{
     NoteSubmissionData,
     ProcessingAuthenticatedNoteState,
 };
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::Committed`] state.
 #[derive(Clone, Debug, PartialEq)]

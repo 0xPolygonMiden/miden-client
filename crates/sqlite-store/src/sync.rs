@@ -2,7 +2,8 @@
 
 use std::vec::Vec;
 
-use miden_client_core::store::{SettingScope, StoreError, protocol_config_setting_key};
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_client_core::sync::{NoteTagRecord, NoteTagSource, PublicAccountUpdate, StateSyncUpdate};
 use miden_protocol::Word;
 use miden_protocol::account::AccountId;
@@ -231,6 +232,6 @@ mod tests {
         conn.execute("DELETE FROM blockchain_checkpoint", []).unwrap();
 
         let err = SqliteStore::get_sync_height(&mut conn).unwrap_err();
-        assert!(matches!(err, miden_client_core::store::StoreError::QueryError(_)));
+        assert!(matches!(err, miden_client_core::errors::StoreError::QueryError(_)));
     }
 }

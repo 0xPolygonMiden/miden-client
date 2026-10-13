@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::string::ToString;
 use std::vec::Vec;
 
+use miden_client_core::errors::StoreError;
 use miden_client_core::store::{
     AccountRecord,
     AccountRecordData,
@@ -11,7 +12,6 @@ use miden_client_core::store::{
     AccountStorageFilter,
     AccountUpdate,
     ClientAccountType,
-    StoreError,
 };
 use miden_protocol::account::{
     Account,

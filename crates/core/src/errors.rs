@@ -1,4 +1,6 @@
-use alloc::string::String;
+//! Defines the errors of the types shared by the client and the store implementations.
+
+use alloc::string::{String, ToString};
 
 use miden_protocol::account::AccountId;
 use miden_protocol::asset::AssetId;
@@ -77,4 +79,55 @@ pub enum StoreError {
     VaultKeyNotTracked(AssetId, Word),
     #[error("failed to parse word")]
     WordError(#[from] WordError),
+}
+
+// NOTE RECORD ERROR
+// ================================================================================================
+
+/// Errors generated from note records.
+#[derive(Debug, Error)]
+pub enum NoteRecordError {
+    /// Error generated during conversion of note record.
+    #[error("note record conversion error: {0}")]
+    ConversionError(String),
+    /// Note record isn't consumable.
+    #[error("note not consumable: {0}")]
+    NoteNotConsumable(String),
+    /// Invalid state transition.
+    #[error("invalid state transition: {0}")]
+    InvalidStateTransition(String),
+    /// Error generated during a state transition.
+    #[error("state transition error: {0}")]
+    StateTransitionError(String),
+}
+
+impl From<NoteRecordError> for String {
+    fn from(err: NoteRecordError) -> String {
+        err.to_string()
+    }
+}
+
+// ACCOUNT RECORD ERROR
+// ================================================================================================
+
+/// Errors generated when an [`AccountRecord`](crate::store::AccountRecord) does not hold the
+/// requested kind of account data.
+#[derive(Debug, Error)]
+pub enum AccountRecordError {
+    #[error("expected full account data for account {0}, but only partial data is available")]
+    NotFull(AccountId),
+    #[error("expected partial account data for account {0}, but full data was found")]
+    NotPartial(AccountId),
+}
+
+// TRANSACTION ENCRYPTION ERROR
+// ================================================================================================
+
+/// Errors generated when a transaction encryption key is verified or used for sealing.
+#[derive(Debug, Error)]
+pub enum TransactionEncryptionError {
+    #[error("{0}")]
+    KeyRejected(String),
+    #[error("{0}")]
+    SealingFailed(String),
 }

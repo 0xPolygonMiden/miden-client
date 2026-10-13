@@ -2,9 +2,10 @@
 // ================================================================================================
 use core::fmt::Display;
 
-use miden_protocol::account::{Account, AccountId, PartialAccount};
+use miden_protocol::account::{Account, PartialAccount};
 use miden_protocol::{Felt, Word};
-use thiserror::Error;
+
+use crate::errors::AccountRecordError;
 
 // ACCOUNT RECORD DATA
 // ================================================================================================
@@ -123,18 +124,6 @@ impl TryFrom<AccountRecord> for PartialAccount {
             AccountRecordData::Full(acc) => Err(AccountRecordError::NotPartial(acc.id())),
         }
     }
-}
-
-// ACCOUNT RECORD ERROR
-// ================================================================================================
-
-/// Errors generated when an [`AccountRecord`] does not hold the requested kind of account data.
-#[derive(Debug, Error)]
-pub enum AccountRecordError {
-    #[error("expected full account data for account {0}, but only partial data is available")]
-    NotFull(AccountId),
-    #[error("expected partial account data for account {0}, but full data was found")]
-    NotPartial(AccountId),
 }
 
 // ACCOUNT STATUS

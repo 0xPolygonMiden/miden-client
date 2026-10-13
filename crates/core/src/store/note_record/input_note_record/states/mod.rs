@@ -34,7 +34,7 @@ pub use processing_authenticated::ProcessingAuthenticatedNoteState;
 pub use processing_unauthenticated::ProcessingUnauthenticatedNoteState;
 pub use unverified::UnverifiedNoteState;
 
-use super::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 

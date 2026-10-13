@@ -1,5 +1,6 @@
 //! Adapts the transaction encryption types to the node's protobuf and RPC errors.
 
+pub use miden_client_core::errors::TransactionEncryptionError;
 pub use miden_client_core::rpc::encryption::*;
 
 use super::{RpcError, generated as proto};

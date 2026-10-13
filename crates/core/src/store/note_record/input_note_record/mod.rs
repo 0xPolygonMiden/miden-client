@@ -23,7 +23,7 @@ use miden_protocol::utils::serde::{
     Serializable,
 };
 
-use super::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 mod states;
 pub use states::{

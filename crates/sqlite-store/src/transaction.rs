@@ -4,7 +4,8 @@ use std::boxed::Box;
 use std::string::{String, ToString};
 use std::vec::Vec;
 
-use miden_client_core::store::{StoreError, TransactionFilter, TransactionFilterQuery};
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::{TransactionFilter, TransactionFilterQuery};
 use miden_client_core::transaction::{
     TransactionDetails,
     TransactionRecord,

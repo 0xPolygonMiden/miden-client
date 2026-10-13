@@ -10,7 +10,7 @@
 use std::string::{String, ToString};
 use std::vec::Vec;
 
-use miden_client_core::store::StoreError;
+use miden_client_core::errors::StoreError;
 use miden_objects::ConversionError;
 use miden_protocol::utils::serde::DeserializationError;
 

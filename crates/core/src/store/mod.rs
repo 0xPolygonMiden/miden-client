@@ -28,6 +28,7 @@ use miden_protocol::note::{NoteScript, NoteTag, Nullifier};
 use miden_protocol::utils::serde::{Deserializable, Serializable};
 use miden_protocol::{Felt, Word};
 
+use crate::errors::StoreError;
 #[allow(deprecated)]
 use crate::note_transport::{NOTE_TRANSPORT_CURSOR_STORE_SETTING, NoteTransportCursor};
 use crate::rpc::encryption::{TRANSACTION_ENCRYPTION_KEY_STORE_SETTING, TransactionEncryptionKey};
@@ -36,19 +37,10 @@ use crate::sync::{NoteTagRecord, StateSyncUpdate};
 use crate::transaction::{TransactionRecord, TransactionStoreUpdate};
 
 mod account;
-pub use account::{
-    AccountRecord,
-    AccountRecordData,
-    AccountRecordError,
-    AccountStatus,
-    ClientAccountType,
-};
+pub use account::{AccountRecord, AccountRecordData, AccountStatus, ClientAccountType};
 
 mod chain_data;
 pub use chain_data::BlockRelevance;
-
-mod errors;
-pub use errors::*;
 
 mod filters;
 pub use filters::{
@@ -65,7 +57,6 @@ pub use note_record::{
     InputNoteState,
     NoteExportType,
     NoteFilter,
-    NoteRecordError,
     OutputNoteRecord,
     OutputNoteState,
     input_note_states,

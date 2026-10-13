@@ -12,7 +12,7 @@ use super::{
     NoteStateHandler,
     NoteSubmissionData,
 };
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::ProcessingUnauthenticated`] state.
 #[derive(Clone, Debug, PartialEq)]

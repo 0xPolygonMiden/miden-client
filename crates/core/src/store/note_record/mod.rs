@@ -17,12 +17,10 @@
 //! [`Note`](miden_protocol::note::Note), although this is not always possible. Check both
 //! [`InputNoteRecord`]'s and [`OutputNoteRecord`]'s documentation for more details about this.
 
-use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use miden_protocol::block::BlockNumber;
 use miden_protocol::note::{NoteDetailsCommitment, NoteId, NoteScriptRoot, Nullifier};
-use thiserror::Error;
 
 mod input_note_record;
 mod output_note_record;
@@ -45,32 +43,6 @@ pub mod input_note_states {
         ProcessingUnauthenticatedNoteState,
         UnverifiedNoteState,
     };
-}
-
-// NOTE RECORD ERROR
-// ================================================================================================
-
-/// Errors generated from note records.
-#[derive(Debug, Error)]
-pub enum NoteRecordError {
-    /// Error generated during conversion of note record.
-    #[error("note record conversion error: {0}")]
-    ConversionError(String),
-    /// Note record isn't consumable.
-    #[error("note not consumable: {0}")]
-    NoteNotConsumable(String),
-    /// Invalid state transition.
-    #[error("invalid state transition: {0}")]
-    InvalidStateTransition(String),
-    /// Error generated during a state transition.
-    #[error("state transition error: {0}")]
-    StateTransitionError(String),
-}
-
-impl From<NoteRecordError> for String {
-    fn from(err: NoteRecordError) -> String {
-        err.to_string()
-    }
 }
 
 // INPUT NOTE CURSOR

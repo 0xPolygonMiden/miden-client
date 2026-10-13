@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::vec::Vec;
 
-use miden_client_core::store::{BlockRelevance, PartialBlockchainFilter, StoreError};
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::{BlockRelevance, PartialBlockchainFilter};
 use miden_protocol::Word;
 use miden_protocol::block::{BlockHeader, BlockNumber};
 use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, MmrPeaks};

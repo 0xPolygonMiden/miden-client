@@ -7,7 +7,7 @@ use miden_protocol::note::{NoteId, NoteInclusionProof, NoteMetadata};
 use miden_protocol::transaction::TransactionId;
 
 use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::ConsumedAuthenticatedLocal`] state.
 #[derive(Clone, Debug, PartialEq)]

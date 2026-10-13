@@ -14,7 +14,7 @@ use super::{
     NoteSubmissionData,
     ProcessingUnauthenticatedNoteState,
 };
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::Unverified`] state.
 #[derive(Clone, Debug, PartialEq)]

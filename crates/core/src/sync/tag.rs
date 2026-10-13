@@ -11,7 +11,8 @@ use miden_protocol::utils::serde::{
     Serializable,
 };
 
-use crate::store::{InputNoteRecord, NoteRecordError};
+use crate::errors::NoteRecordError;
+use crate::store::InputNoteRecord;
 
 /// Represents a note tag of which the Store can keep track and retrieve.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

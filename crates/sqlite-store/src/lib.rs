@@ -15,6 +15,7 @@ use std::vec::Vec;
 use db_management::migration::SqliteMigrator;
 use db_management::pool_manager::{Pool, SqlitePoolManager};
 use deadpool::Runtime;
+use miden_client_core::errors::StoreError;
 use miden_client_core::store::{
     AccountRecord,
     AccountStatus,
@@ -29,7 +30,6 @@ use miden_client_core::store::{
     SettingMutation,
     SettingScope,
     Store,
-    StoreError,
     TransactionFilter,
 };
 use miden_client_core::sync::{NoteTagRecord, StateSyncUpdate};

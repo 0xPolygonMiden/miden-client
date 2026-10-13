@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::vec::Vec;
 
+use miden_client_core::errors::StoreError;
 use miden_client_core::store::{
     InputNoteCursor,
     InputNoteRecord,
@@ -10,7 +11,6 @@ use miden_client_core::store::{
     NoteUpdateTracker,
     NoteUpdateType,
     OutputNoteRecord,
-    StoreError,
 };
 use miden_protocol::Word;
 use miden_protocol::account::AccountId;

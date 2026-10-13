@@ -27,7 +27,7 @@ use miden_protocol::utils::serde::{
     Serializable,
 };
 
-use super::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 // OUTPUT NOTE RECORD
 // ================================================================================================

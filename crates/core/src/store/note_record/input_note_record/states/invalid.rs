@@ -13,7 +13,7 @@ use super::{
     NoteStateHandler,
     UnverifiedNoteState,
 };
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::Invalid`] state.
 #[derive(Clone, Debug, PartialEq)]

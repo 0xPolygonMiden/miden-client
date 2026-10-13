@@ -2,12 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use miden_client_core::store::{
-    AccountStatus,
-    AccountStorageFilter,
-    ClientAccountType,
-    StoreError,
-};
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::{AccountStatus, AccountStorageFilter, ClientAccountType};
 use miden_protocol::account::{
     AccountCode,
     AccountHeader,

@@ -13,7 +13,7 @@ use super::{
     ProcessingUnauthenticatedNoteState,
     UnverifiedNoteState,
 };
-use crate::store::NoteRecordError;
+use crate::errors::NoteRecordError;
 
 /// Information related to notes in the [`InputNoteState::Expected`] state.
 #[derive(Clone, Debug, PartialEq)]

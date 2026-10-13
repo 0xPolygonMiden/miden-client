@@ -28,10 +28,10 @@
 /// [`ClientDataStore`] at creation time.
 pub(crate) mod data_store;
 
+pub use miden_client_core::errors::{AccountRecordError, NoteRecordError, StoreError};
 pub use miden_client_core::store::{
     AccountRecord,
     AccountRecordData,
-    AccountRecordError,
     AccountSmtForest,
     AccountStatus,
     AccountStorageFilter,
@@ -43,14 +43,12 @@ pub use miden_client_core::store::{
     InputNoteState,
     NoteExportType,
     NoteFilter,
-    NoteRecordError,
     OutputNoteRecord,
     OutputNoteState,
     PartialBlockchainFilter,
     SettingMutation,
     SettingScope,
     Store,
-    StoreError,
     TransactionFilter,
     TransactionFilterQuery,
     input_note_states,

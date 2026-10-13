@@ -50,7 +50,8 @@ use miden_protocol::utils::serde::{
 };
 use miden_protocol::{Hasher, Word};
 use rand::CryptoRng;
-use thiserror::Error;
+
+use crate::errors::TransactionEncryptionError;
 
 // CONSTANTS
 // ================================================================================================
@@ -80,18 +81,6 @@ pub const SUPPORTED_SCHEME: u32 = 1;
 ///
 /// Must match the validator's `MAX_KEY_ID_LEN`.
 const MAX_KEY_ID_LEN: usize = 64;
-
-// TRANSACTION ENCRYPTION ERROR
-// ================================================================================================
-
-/// Errors generated when a transaction encryption key is verified or used for sealing.
-#[derive(Debug, Error)]
-pub enum TransactionEncryptionError {
-    #[error("{0}")]
-    KeyRejected(String),
-    #[error("{0}")]
-    SealingFailed(String),
-}
 
 // TRANSACTION ENCRYPTION KEY
 // ================================================================================================
