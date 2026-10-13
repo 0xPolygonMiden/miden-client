@@ -63,7 +63,6 @@ pub async fn test_batch_builder_submits_two_p2id_on_one_account(
     client_config: ClientConfig,
 ) -> Result<()> {
     let mut client = client_config.into_client().await?;
-    client.wait_for_node().await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
         client.setup_two_wallets_and_faucet(AccountType::Private).await?;
@@ -168,7 +167,6 @@ pub async fn test_batch_builder_submits_two_p2id_on_one_account(
 /// batch.
 pub async fn test_batch_builder_multiple_accounts(client_config: ClientConfig) -> Result<()> {
     let mut client = client_config.into_client().await?;
-    client.wait_for_node().await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
         client.setup_two_wallets_and_faucet(AccountType::Private).await?;
@@ -285,7 +283,6 @@ pub async fn test_batch_builder_multiple_accounts(client_config: ClientConfig) -
 /// reflects one outbound note (all output notes remain pending consumption).
 pub async fn test_batch_builder_interleaved_pushes(client_config: ClientConfig) -> Result<()> {
     let mut client = client_config.into_client().await?;
-    client.wait_for_node().await;
 
     let (first_regular_account, second_regular_account, faucet_account_header) =
         client.setup_two_wallets_and_faucet(AccountType::Private).await?;
@@ -405,7 +402,6 @@ pub async fn test_batch_builder_pushes_transaction_of_another_party(
 ) -> Result<()> {
     let mut client_a = client_config.clone().into_client().await?;
     let mut client_b = client_config.into_client().await?;
-    client_a.wait_for_node().await;
 
     let (wallet_a, faucet_account) = client_a.setup_wallet_and_faucet(AccountType::Private).await?;
     let wallet_a_id = wallet_a.id();
