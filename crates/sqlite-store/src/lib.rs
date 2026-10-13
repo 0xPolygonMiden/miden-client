@@ -717,8 +717,8 @@ pub mod tests {
     use std::boxed::Box;
     use std::sync::LazyLock;
 
-    use miden_client::store::Store;
     use miden_client::testing::common::create_test_store_path;
+    use miden_client_core::store::Store;
 
     use super::db_management::migration::SqliteMigrator;
     use super::db_management::migration::tests::damaging_migration;
