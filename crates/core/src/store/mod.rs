@@ -39,8 +39,8 @@ use crate::transaction::{TransactionRecord, TransactionStoreUpdate};
 mod account;
 pub use account::{AccountRecord, AccountRecordData, AccountStatus, ClientAccountType};
 
-mod chain_data;
-pub use chain_data::BlockRelevance;
+mod block;
+pub use block::BlockRelevance;
 
 mod filters;
 pub use filters::{
