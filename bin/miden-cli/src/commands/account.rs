@@ -243,7 +243,7 @@ async fn show_account<AUTH>(
                         Ok((symbol, decimals)) => {
                             (symbol.to_string(), base_units_to_tokens(asset_amount, decimals))
                         },
-                        Err(_) => (faucet_id.prefix().to_hex(), asset_amount.as_u64().to_string()),
+                        Err(_) => (faucet_id.to_hex(), asset_amount.as_u64().to_string()),
                     };
                     fungible_table.add_row(vec![faucet, amount]);
                 },

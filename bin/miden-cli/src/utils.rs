@@ -444,8 +444,8 @@ pub enum FormattedAsset {
         amount: String,
     },
     NonFungible {
-        /// The faucet prefix.
-        faucet: String,
+        /// The faucet ID.
+        faucet_id: AccountId,
         /// The asset ID.
         asset_id: AssetId,
     },
@@ -457,8 +457,8 @@ impl core::fmt::Display for FormattedAsset {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Fungible { faucet, amount } => write!(f, "{amount} {faucet}"),
-            Self::NonFungible { faucet, asset_id } => {
-                write!(f, "{faucet} (non-fungible, asset ID {asset_id})")
+            Self::NonFungible { faucet_id, asset_id } => {
+                write!(f, "{faucet_id} (non-fungible, asset ID {asset_id})")
             },
         }
     }
@@ -593,7 +593,7 @@ impl FaucetMetadataResolver {
     }
 
     /// Formats an asset for display. A fungible asset is resolved through [`Self::resolve`]. A
-    /// non-fungible asset shows its faucet prefix and its asset ID.
+    /// non-fungible asset shows its faucet ID and its asset ID.
     pub async fn format_asset<AUTH>(
         &self,
         client: &Client<AUTH>,
@@ -605,7 +605,7 @@ impl FaucetMetadataResolver {
                 FormattedAsset::Fungible { faucet, amount }
             },
             None => FormattedAsset::NonFungible {
-                faucet: asset.faucet_id().prefix().to_hex(),
+                faucet_id: asset.faucet_id(),
                 asset_id: asset.id(),
             },
         })
