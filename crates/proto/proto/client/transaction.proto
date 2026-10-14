@@ -62,7 +62,24 @@ message TransactionDetails {
 }
 
 // A transaction that an account can execute.
+//
+// Rules for adding new fields to the message:
+// - Optional data: add a field to `TransactionRequestV1` with a new field number. Readers that do
+//   not know the field ignore it.
+// - Data that the reader must check, or that must agree with other fields: add a
+//   `TransactionRequestV2` message as a new variant of `version`. Readers that do not know the
+//   version reject the request. New readers must read all versions.
+// - A new variant of a oneof inside `TransactionRequestV1` (e.g. a `TransactionScriptTemplate` variant)
+//   can stay in V1 if the reader rejects that oneof when it has no value. An old reader then rejects 
+//   the request instead of misreading it.
 message TransactionRequest {
+  oneof version {
+    TransactionRequestV1 v1 = 1;
+  }
+}
+
+// Version 1 of the transaction request format.
+message TransactionRequestV1 {
   repeated blockchain.BlockNumber block_numbers = 1;
   repeated note.Note input_notes = 2;
   repeated NoteArgsEntry input_notes_args = 3;

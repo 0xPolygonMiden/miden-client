@@ -164,7 +164,7 @@ impl ProtobufValue for TransactionRequest {
     type Message = proto::TransactionRequest;
 
     fn to_proto(&self) -> Self::Message {
-        Self::Message {
+        let request = proto::TransactionRequestV1 {
             block_numbers: self
                 .block_numbers()
                 .iter()
@@ -199,124 +199,137 @@ impl ProtobufValue for TransactionRequest {
             fee_conversion_salt: self.fee_conversion_salt().map(Into::into),
             expected_ntx_scripts: self.expected_ntx_scripts().iter().map(Into::into).collect(),
             account_code_upgrade: self.account_code_upgrade().map(Into::into),
+        };
+
+        Self::Message {
+            version: Some(proto::transaction_request::Version::V1(request)),
         }
     }
 
     fn from_proto(request: Self::Message) -> Result<Self, ProtoDecodeError> {
-        const MESSAGE: &str = "transaction request";
+        use proto::transaction_request::Version;
 
-        // DECODING
-        // ----------------------------------------------------------------------------------------
-
-        let block_numbers = request
-            .block_numbers
-            .into_iter()
-            .map(DecodeMessageExt::decode_and_verify)
-            .collect::<Result<Vec<_>, _>>()?;
-        let input_notes = decode_input_notes(
-            request.input_notes,
-            request.input_notes_args,
-            request.explicit_input_notes,
-        )?;
-        let expected_output_recipients = request
-            .expected_output_recipients
-            .into_iter()
-            .map(DecodeMessageExt::decode_and_verify)
-            .collect::<Result<Vec<NoteRecipient>, _>>()?;
-        let (custom_script, own_output_notes) =
-            decode_script_template(request.script_template, &expected_output_recipients)?;
-        let expected_future_notes = request
-            .expected_future_notes
-            .into_iter()
-            .map(|note| {
-                let details = required(note.details, "expected future note", "details")?
-                    .decode_and_verify()?;
-                Ok((details, NoteTag::from(note.tag)))
-            })
-            .collect::<Result<Vec<(NoteDetails, NoteTag)>, ProtoDecodeError>>()?;
-        let advice_map: AdviceMap =
-            required(request.advice_map, MESSAGE, "advice map")?.decode_and_verify()?;
-        let merkle_store: MerkleStore =
-            required(request.merkle_store, MESSAGE, "merkle store")?.decode_and_verify()?;
-        let foreign_accounts = request
-            .foreign_accounts
-            .into_iter()
-            .map(ForeignAccount::try_from)
-            .collect::<Result<Vec<_>, _>>()?;
-        let expiration_delta = request
-            .expiration_delta
-            .map(|expiration_delta| {
-                u16::try_from(expiration_delta).map_err(|_| {
-                    ProtoDecodeError::InvalidValue(format!(
-                        "expiration delta {expiration_delta} does not fit in 16 bits"
-                    ))
-                })
-            })
-            .transpose()?;
-        let script_arg = request.script_arg.map(Word::try_from).transpose()?;
-        let auth_arg = request.auth_arg.map(Word::try_from).transpose()?;
-        let fee_conversion_salt = request.fee_conversion_salt.map(Word::try_from).transpose()?;
-        let expected_ntx_scripts = request
-            .expected_ntx_scripts
-            .into_iter()
-            .map(DecodeMessageExt::decode_and_verify)
-            .collect::<Result<Vec<_>, _>>()?;
-        let account_code_upgrade: Option<AccountCodeUpgrade> = request
-            .account_code_upgrade
-            .map(DecodeMessageExt::decode_and_verify)
-            .transpose()?;
-
-        // BUILDING
-        // ----------------------------------------------------------------------------------------
-
-        let mut builder = TransactionRequestBuilder::new().block_numbers(block_numbers);
-
-        // The builder appends the input notes in call order, so each note is added with its own
-        // call to keep the order of the request.
-        for input_note in input_notes {
-            builder = match input_note {
-                DecodedInputNote::Explicit(input_note, note_args) => {
-                    builder.explicit_input_notes([(input_note, note_args)])
-                },
-                DecodedInputNote::Plain(note, note_args) => {
-                    builder.input_notes([(note, note_args)])
-                },
-            };
+        match required(request.version, "transaction request", "version")? {
+            Version::V1(request) => decode_transaction_request_v1(request),
         }
-        if let Some(script) = custom_script {
-            builder = builder.custom_script(script);
-        }
-        builder = builder.own_output_notes(own_output_notes);
-        // This call replaces the recipients that `own_output_notes` added, so it receives all of
-        // them.
-        builder = builder
-            .expected_output_recipients(expected_output_recipients)
-            .expected_future_notes(expected_future_notes)
-            .extend_advice_map(advice_map)
-            .extend_merkle_store(merkle_store.inner_nodes())
-            .foreign_accounts(foreign_accounts)
-            .expected_ntx_scripts(expected_ntx_scripts);
-        if let Some(expiration_delta) = expiration_delta {
-            builder = builder.expiration_delta(expiration_delta);
-        }
-        if request.ignore_invalid_input_notes {
-            builder = builder.ignore_invalid_input_notes();
-        }
-        if let Some(script_arg) = script_arg {
-            builder = builder.script_arg(script_arg);
-        }
-        if let Some(auth_arg) = auth_arg {
-            builder = builder.auth_arg(auth_arg);
-        }
-        if let Some(salt) = fee_conversion_salt {
-            builder = builder.fee_conversion_salt(salt);
-        }
-        if let Some(account_code_upgrade) = account_code_upgrade {
-            builder = builder.account_code_upgrade(account_code_upgrade.into_code());
-        }
-
-        builder.build().map_err(|err| ProtoDecodeError::InvalidValue(err.to_string()))
     }
+}
+
+/// Decodes version 1 of the transaction request format. The request is built again with
+/// [`TransactionRequestBuilder`], so decoding applies the same checks as building a request.
+fn decode_transaction_request_v1(
+    request: proto::TransactionRequestV1,
+) -> Result<TransactionRequest, ProtoDecodeError> {
+    const MESSAGE: &str = "transaction request";
+
+    // DECODING
+    // ----------------------------------------------------------------------------------------
+
+    let block_numbers = request
+        .block_numbers
+        .into_iter()
+        .map(DecodeMessageExt::decode_and_verify)
+        .collect::<Result<Vec<_>, _>>()?;
+    let input_notes = decode_input_notes(
+        request.input_notes,
+        request.input_notes_args,
+        request.explicit_input_notes,
+    )?;
+    let expected_output_recipients = request
+        .expected_output_recipients
+        .into_iter()
+        .map(DecodeMessageExt::decode_and_verify)
+        .collect::<Result<Vec<NoteRecipient>, _>>()?;
+    let (custom_script, own_output_notes) =
+        decode_script_template(request.script_template, &expected_output_recipients)?;
+    let expected_future_notes = request
+        .expected_future_notes
+        .into_iter()
+        .map(|note| {
+            let details =
+                required(note.details, "expected future note", "details")?.decode_and_verify()?;
+            Ok((details, NoteTag::from(note.tag)))
+        })
+        .collect::<Result<Vec<(NoteDetails, NoteTag)>, ProtoDecodeError>>()?;
+    let advice_map: AdviceMap =
+        required(request.advice_map, MESSAGE, "advice map")?.decode_and_verify()?;
+    let merkle_store: MerkleStore =
+        required(request.merkle_store, MESSAGE, "merkle store")?.decode_and_verify()?;
+    let foreign_accounts = request
+        .foreign_accounts
+        .into_iter()
+        .map(ForeignAccount::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+    let expiration_delta = request
+        .expiration_delta
+        .map(|expiration_delta| {
+            u16::try_from(expiration_delta).map_err(|_| {
+                ProtoDecodeError::InvalidValue(format!(
+                    "expiration delta {expiration_delta} does not fit in 16 bits"
+                ))
+            })
+        })
+        .transpose()?;
+    let script_arg = request.script_arg.map(Word::try_from).transpose()?;
+    let auth_arg = request.auth_arg.map(Word::try_from).transpose()?;
+    let fee_conversion_salt = request.fee_conversion_salt.map(Word::try_from).transpose()?;
+    let expected_ntx_scripts = request
+        .expected_ntx_scripts
+        .into_iter()
+        .map(DecodeMessageExt::decode_and_verify)
+        .collect::<Result<Vec<_>, _>>()?;
+    let account_code_upgrade: Option<AccountCodeUpgrade> = request
+        .account_code_upgrade
+        .map(DecodeMessageExt::decode_and_verify)
+        .transpose()?;
+
+    // BUILDING
+    // ----------------------------------------------------------------------------------------
+
+    let mut builder = TransactionRequestBuilder::new().block_numbers(block_numbers);
+
+    // The builder appends the input notes in call order, so each note is added with its own call to
+    // keep the order of the request.
+    for input_note in input_notes {
+        builder = match input_note {
+            DecodedInputNote::Explicit(input_note, note_args) => {
+                builder.explicit_input_notes([(input_note, note_args)])
+            },
+            DecodedInputNote::Plain(note, note_args) => builder.input_notes([(note, note_args)]),
+        };
+    }
+    if let Some(script) = custom_script {
+        builder = builder.custom_script(script);
+    }
+    builder = builder.own_output_notes(own_output_notes);
+    // This call replaces the recipients that `own_output_notes` added, so it receives all of them.
+    builder = builder
+        .expected_output_recipients(expected_output_recipients)
+        .expected_future_notes(expected_future_notes)
+        .extend_advice_map(advice_map)
+        .extend_merkle_store(merkle_store.inner_nodes())
+        .foreign_accounts(foreign_accounts)
+        .expected_ntx_scripts(expected_ntx_scripts);
+    if let Some(expiration_delta) = expiration_delta {
+        builder = builder.expiration_delta(expiration_delta);
+    }
+    if request.ignore_invalid_input_notes {
+        builder = builder.ignore_invalid_input_notes();
+    }
+    if let Some(script_arg) = script_arg {
+        builder = builder.script_arg(script_arg);
+    }
+    if let Some(auth_arg) = auth_arg {
+        builder = builder.auth_arg(auth_arg);
+    }
+    if let Some(salt) = fee_conversion_salt {
+        builder = builder.fee_conversion_salt(salt);
+    }
+    if let Some(account_code_upgrade) = account_code_upgrade {
+        builder = builder.account_code_upgrade(account_code_upgrade.into_code());
+    }
+
+    builder.build().map_err(|err| ProtoDecodeError::InvalidValue(err.to_string()))
 }
 
 /// An input note of a decoded request, with its arguments.
