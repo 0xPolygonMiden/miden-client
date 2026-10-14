@@ -16,10 +16,7 @@ pub async fn test_transport_note_inclusion_proof_and_consumption(
     client_config: ClientConfig,
 ) -> Result<()> {
     if client_config.note_transport_endpoint.is_none() {
-        eprintln!(
-            "Skipping note transport test (set TEST_MIDEN_NOTE_TRANSPORT_URL or use \
-             --note-transport-url to enable)"
-        );
+        eprintln!("Skipping note transport test (set TEST_MIDEN_NOTE_TRANSPORT_URL to enable)");
         return Ok(());
     }
 
@@ -32,8 +29,6 @@ pub async fn test_transport_note_inclusion_proof_and_consumption(
         .into_unsynced_client()
         .await
         .context("failed to build recipient")?;
-
-    sender.wait_for_node().await;
 
     let faucet_account = sender
         .insert_faucet(AccountType::Private)
@@ -107,8 +102,7 @@ pub async fn test_transport_note_inclusion_proof_and_consumption(
     );
 
     // Consume the note
-    let tx_id = recipient.consume_notes(recipient_account.id(), &[note]).await?;
-    recipient.wait_for_tx(tx_id).await?;
+    recipient.consume_notes_and_wait(recipient_account.id(), &[note]).await?;
 
     // Verify balance
     recipient
@@ -123,10 +117,7 @@ pub async fn test_transport_multiple_notes_different_blocks(
     client_config: ClientConfig,
 ) -> Result<()> {
     if client_config.note_transport_endpoint.is_none() {
-        eprintln!(
-            "Skipping note transport test (set TEST_MIDEN_NOTE_TRANSPORT_URL or use \
-             --note-transport-url to enable)"
-        );
+        eprintln!("Skipping note transport test (set TEST_MIDEN_NOTE_TRANSPORT_URL to enable)");
         return Ok(());
     }
 
@@ -139,8 +130,6 @@ pub async fn test_transport_multiple_notes_different_blocks(
         .into_unsynced_client()
         .await
         .context("failed to build recipient")?;
-
-    sender.wait_for_node().await;
 
     let faucet_account = sender
         .insert_faucet(AccountType::Private)
@@ -252,8 +241,7 @@ pub async fn test_transport_multiple_notes_different_blocks(
     );
 
     // Consume all notes
-    let tx_id = recipient.consume_notes(recipient_account.id(), &minted_notes).await?;
-    recipient.wait_for_tx(tx_id).await?;
+    recipient.consume_notes_and_wait(recipient_account.id(), &minted_notes).await?;
 
     // Verify total balance (10 + 20 + 30 = 60)
     recipient

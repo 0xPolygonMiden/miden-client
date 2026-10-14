@@ -11,9 +11,9 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::{
-//! #   account::{Account, AccountBuilder, AccountBuilderSchemaCommitmentExt, AccountType, component::BasicWallet},
-//! #   crypto::FeltRng
+//! # use miden_client::account::{
+//! #     AccountBuilder, AccountBuilderSchemaCommitmentExt, AccountType,
+//! #     standards::wallets::BasicWallet,
 //! # };
 //! # async fn add_new_account_example<AUTH>(
 //! #     client: &mut miden_client::Client<AUTH>
@@ -32,7 +32,6 @@
 //!
 //! For more details on accounts, refer to the [Account] documentation.
 
-use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -82,7 +81,6 @@ pub use miden_protocol::account::{
 pub use miden_protocol::address::{Address, AddressInterface, AddressType, NetworkId};
 use miden_protocol::asset::AssetVault;
 pub use miden_protocol::errors::{AccountIdError, AddressError, NetworkIdError};
-use miden_protocol::note::NoteTag;
 use miden_tx::utils::serde::{
     ByteReader,
     ByteWriter,
@@ -136,7 +134,9 @@ fn faucet_metadata_from_token_config(token_config: [Felt; 4]) -> Option<FaucetMe
 
 mod account_reader;
 pub use account_reader::AccountReader;
-/// Raw access to `miden-standards` account modules for items not curated by `miden-client`.
+/// Provides built-in account components and their configuration types.
+///
+/// Use the [`component`] module to define custom account components.
 pub use miden_standards::account as standards;
 use miden_standards::account::auth::{Approver, AuthSingleSig, NetworkAccount};
 use miden_standards::account::faucets::FungibleFaucet;
@@ -160,12 +160,13 @@ use crate::errors::ClientError;
 use crate::rpc::domain::account::GetAccountRequest;
 use crate::rpc::node::{EndpointError, GetAccountError};
 use crate::store::{AccountStatus, AccountStorageFilter, ClientAccountType};
-use crate::sync::{NoteTagRecord, NoteTagSource};
 
+/// Provides types to define account components and their storage schemas.
+///
+/// Use the [`standards`] module for built-in account components.
 pub mod component {
     pub const MIDEN_PACKAGE_EXTENSION: &str = "masp";
 
-    pub use miden_protocol::account::auth::*;
     pub use miden_protocol::account::component::{
         FeltSchema,
         InitStorageData,
@@ -184,69 +185,17 @@ pub mod component {
     };
     pub use miden_protocol::account::{
         AccountComponent,
+        AccountComponentCode,
         AccountComponentMetadata,
         AccountComponentName,
         AccountProcedureRoot,
         RoleSymbol,
     };
-    pub use miden_standards::account::access::{
-        AccessControl,
-        Authority,
-        AuthorityError,
-        Ownable2Step,
-        Ownable2StepError,
-        Pausable,
-        PausableManager,
-        PausableStorage,
-        RoleBasedAccessControl,
+    pub use miden_protocol::errors::{
+        AccountComponentNameError,
+        ComponentMetadataError,
+        RoleSymbolError,
     };
-    pub use miden_standards::account::auth::*;
-    pub use miden_standards::account::components::StandardAccountComponent;
-    pub use miden_standards::account::faucets::{
-        Description,
-        ExternalLink,
-        FungibleFaucet,
-        FungibleFaucetBuilder,
-        FungibleFaucetError,
-        LogoURI,
-        NonFungibleFaucet,
-        TokenMetadata,
-        TokenMetadataError,
-        TokenName,
-        create_network_fungible_faucet,
-        create_singlesig_user_fungible_faucet,
-    };
-    pub use miden_standards::account::fees::{
-        BasicConstantFeePolicy,
-        FeePolicy,
-        FeePolicyError,
-        FeePolicyManager,
-        FeePolicyManagerBuilder,
-    };
-    pub use miden_standards::account::policies::{
-        AllowlistManager,
-        AllowlistStorage,
-        BasicAllowlist,
-        BasicBlocklist,
-        BlocklistManager,
-        BlocklistStorage,
-        BurnAllowAll,
-        BurnOwnerOnly,
-        BurnPolicy,
-        BurnPolicyError,
-        MinBurnAmount,
-        MintAllowAll,
-        MintOwnerOnly,
-        MintPolicy,
-        MintPolicyError,
-        TokenPolicyManager,
-        TokenPolicyManagerBuilder,
-        TransferAllowAll,
-        TransferPolicy,
-        TransferPolicyError,
-    };
-    pub use miden_standards::account::upgrade::UpgradeManager;
-    pub use miden_standards::account::wallets::BasicWallet;
 }
 
 // CLIENT METHODS
@@ -272,9 +221,6 @@ pub mod component {
 ///
 /// - **Data retrieval:** The module also provides methods to fetch account-related data.
 impl<AUTH> Client<AUTH> {
-    // Mirror of node MAX_TAGS_PER_FETCH_REQUEST. NTL allows up to 128 tags per request.
-    pub const MAX_ACCOUNT_TAGS: usize = 128;
-
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -383,24 +329,6 @@ impl<AUTH> Client<AUTH> {
         Ok(self.rpc_api.is_account_allowed(account_id).await?)
     }
 
-    /// Returns an error if `tag` is a new account tag and the client already tracks
-    /// [`Self::MAX_ACCOUNT_TAGS`] account tags.
-    async fn validate_can_track_more_account_tags(&self, tag: NoteTag) -> Result<(), ClientError> {
-        let tracked_tags: BTreeSet<NoteTag> = self
-            .store
-            .get_note_tags()
-            .await?
-            .into_iter()
-            .filter(|record| matches!(record.source, NoteTagSource::Account(_)))
-            .map(|record| record.tag)
-            .collect();
-        if !tracked_tags.contains(&tag) && tracked_tags.len() >= Self::MAX_ACCOUNT_TAGS {
-            return Err(ClientError::AccountTagLimitExceeded(tracked_tags.len()));
-        }
-
-        Ok(())
-    }
-
     /// Returns whether a transaction against `account_id` creates an account that the network
     /// allowlist gates.
     ///
@@ -424,8 +352,10 @@ impl<AUTH> Client<AUTH> {
         Ok(NetworkAccount::new(account).is_err())
     }
 
-    /// Inserts `account` into the store (or overwrites it if `overwrite` is true) and registers the
-    /// per-account note tag if `client_account_type` is [`ClientAccountType::Native`].
+    /// Inserts `account` into the store (or overwrites it if `overwrite` is true).
+    ///
+    /// If `client_account_type` is [`ClientAccountType::Native`], the client tracks the note tag of
+    /// the default address of the account.
     ///
     /// Switching the [`ClientAccountType`] of an already-tracked account is not supported and
     /// returns [`ClientError::AccountWatchedMismatch`].
@@ -453,23 +383,11 @@ impl<AUTH> Client<AUTH> {
         match tracked_account {
             None => {
                 let default_address = Address::new(account.id());
-                if matches!(client_account_type, ClientAccountType::Native) {
-                    self.validate_can_track_more_account_tags(default_address.to_note_tag())
-                        .await?;
-                }
 
                 self.store
-                    .insert_account(account, default_address.clone(), client_account_type)
+                    .insert_account(account, default_address, client_account_type)
                     .await
                     .map_err(ClientError::StoreError)?;
-
-                if matches!(client_account_type, ClientAccountType::Native) {
-                    // Set the default address note tag so sync pulls notes.
-                    let default_address_note_tag = default_address.to_note_tag();
-                    let note_tag_record =
-                        NoteTagRecord::with_account_source(default_address_note_tag, account.id());
-                    self.store.add_note_tag(note_tag_record).await?;
-                }
 
                 Ok(())
             },
@@ -481,8 +399,8 @@ impl<AUTH> Client<AUTH> {
 
                 if client_account_type != tracked_account.client_account_type() {
                     // Switching between Watched and Native after the account is tracked is not
-                    // supported: the per-account note tag and any client-side state derived from
-                    // that mode are set up at insertion time and not migrated on the fly.
+                    // supported. The store keeps the mode that the account has at insertion and
+                    // does not change it on update.
                     return Err(ClientError::AccountWatchedMismatch(account.id()));
                 }
 
@@ -535,9 +453,9 @@ impl<AUTH> Client<AUTH> {
     /// Starts watching an on-chain account ([`ClientAccountType::Watched`]).
     ///
     /// Like [`Self::import_account_by_id`], the account is fetched from the network by its ID.
-    /// Unlike `import_account_by_id`, the account is added without registering its derived note
-    /// tag: `sync_state` will keep the account's commitment, nonce and storage up to date but will
-    /// **not** pull notes targeted at it.
+    /// Unlike `import_account_by_id`, the client does not track the note tags of the addresses of
+    /// the account. `sync_state` will keep the account's commitment, nonce and storage up to date
+    /// but will **not** pull notes targeted at it.
     ///
     /// If the account is already being tracked as watched its state is overwritten. Switching an
     /// already-tracked native account to watched is not supported.
@@ -652,8 +570,10 @@ impl<AUTH> Client<AUTH> {
         Ok(faucet_metadata_from_token_config(*slot_header.value()))
     }
 
-    /// Adds an [`Address`] to the associated [`AccountId`], alongside its derived [`NoteTag`]. If
-    /// the account is tracked as watched, the note tag is not registered.
+    /// Adds an [`Address`] to the associated [`AccountId`].
+    ///
+    /// If the account is native, the client tracks the [`NoteTag`](crate::note::NoteTag) of the
+    /// address. If the account is watched, the client does not track the tag.
     ///
     /// # Errors
     /// - If the account is not found on the network.
@@ -669,47 +589,22 @@ impl<AUTH> Client<AUTH> {
             return Err(ClientError::AddressAlreadyTracked(address_bench32));
         }
 
-        let tracked_account = self.store.get_minimal_partial_account(account_id).await?;
-        match tracked_account {
-            None => Err(ClientError::AccountDataNotFound(account_id)),
-            Some(tracked_account) => {
-                if !tracked_account.is_watched() {
-                    self.validate_can_track_more_account_tags(address.to_note_tag()).await?;
-                }
-                self.store.insert_address(address.clone(), account_id).await?;
-                // Watched accounts intentionally have no derived note tag registered to avoid sync
-                // state pulling notes for them.
-                if !tracked_account.is_watched() {
-                    let derived_note_tag: NoteTag = address.to_note_tag();
-                    let note_tag_record =
-                        NoteTagRecord::with_account_source(derived_note_tag, account_id);
-                    self.store.add_note_tag(note_tag_record).await?;
-                }
-                Ok(())
-            },
+        if self.store.get_minimal_partial_account(account_id).await?.is_none() {
+            return Err(ClientError::AccountDataNotFound(account_id));
         }
+
+        self.store.insert_address(address, account_id).await?;
+        Ok(())
     }
 
-    /// Removes an [`Address`] from the associated [`AccountId`], alongside its derived [`NoteTag`].
+    /// Removes an [`Address`] from the account it belongs to.
     ///
-    /// Returns `true` if the address was tracked. If it wasn't, this is a no-op: the derived tag is
-    /// left in place, since it may have been registered by something other than this address.
-    pub async fn remove_address(
-        &mut self,
-        address: Address,
-        account_id: AccountId,
-    ) -> Result<bool, ClientError> {
-        let derived_note_tag = address.to_note_tag();
-        let note_tag_record = NoteTagRecord::with_account_source(derived_note_tag, account_id);
-        if !self.store.remove_address(address).await? {
-            return Ok(false);
-        }
-        // Remove the note tag if no other address are associated with it.
-        let addresses = self.store.get_addresses_by_account_id(account_id).await?;
-        if addresses.iter().all(|address| address.to_note_tag() != derived_note_tag) {
-            self.store.remove_note_tag(note_tag_record).await?;
-        }
-        Ok(true)
+    /// If the account is native and no other address of the account has the same
+    /// [`NoteTag`](crate::note::NoteTag), the client no longer tracks the tag.
+    ///
+    /// Returns `true` if the address was tracked. If it was not tracked, this is a no-op.
+    pub async fn remove_address(&mut self, address: Address) -> Result<bool, ClientError> {
+        Ok(self.store.remove_address(address).await?)
     }
 
     // ACCOUNT DATA RETRIEVAL

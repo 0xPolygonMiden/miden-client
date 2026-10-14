@@ -255,24 +255,22 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Specifies a transaction's expected output note recipients.
+    /// Adds recipients to the transaction's expected output note recipients.
     ///
     /// The set of specified recipients is treated as a subset of the recipients for notes that may
     /// be created by a transaction. That is, the transaction must create notes for all the
     /// specified expected recipients, but it may also create notes for other recipients not
-    /// included in this set.
+    /// included in this set. Recipients added by earlier calls, including the recipients of notes
+    /// passed to [`TransactionRequestBuilder::own_output_notes`], are kept.
     #[must_use]
     pub fn expected_output_recipients(
         mut self,
         recipients: impl IntoIterator<Item = impl Into<NoteRecipient>>,
     ) -> Self {
-        self.expected_output_recipients = recipients
-            .into_iter()
-            .map(|recipient| {
-                let recipient: NoteRecipient = recipient.into();
-                (recipient.digest(), recipient)
-            })
-            .collect::<BTreeMap<_, _>>();
+        self.expected_output_recipients.extend(recipients.into_iter().map(|recipient| {
+            let recipient: NoteRecipient = recipient.into();
+            (recipient.digest(), recipient)
+        }));
         self
     }
 
@@ -685,10 +683,10 @@ impl TransactionRequestBuilder {
         self.input_notes(vec![(pswap_note, None)]).build()
     }
 
-    /// Consumes the builder and returns a [`TransactionRequest`] for a transaction that upgrades
-    /// the code of the executing account to `code`. This request must be executed against an
-    /// account with the [`UpgradeManager`](crate::account::component::UpgradeManager) component and
-    /// the [`Authority::AuthControlled`](crate::account::component::Authority::AuthControlled)
+    /// Builds a [`TransactionRequest`] that upgrades the executing account to `code`. The account
+    /// must contain the [`UpgradeManager`](crate::account::standards::upgrade::UpgradeManager)
+    /// component. The component must use the
+    /// [`Authority::AuthControlled`](crate::account::standards::access::Authority::AuthControlled)
     /// authority.
     ///
     /// - `code` is the new code of the account.
