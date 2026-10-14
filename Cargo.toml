@@ -55,7 +55,7 @@ miden-standards = { default-features = false, version = "0.17" }
 miden-testing   = { default-features = false, version = "0.17" }
 miden-tx        = { default-features = false, version = "0.17" }
 miden-tx-batch  = { default-features = false, version = "0.17" }
-miden-usdcx     = { default-features = false, version = "0.17.1" }
+miden-usdcx     = { default-features = false, version = "0.17" }
 
 # Miden node dependencies
 miden-node-proto-build = { default-features = false, version = "0.17.3" }
