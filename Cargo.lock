@@ -2817,6 +2817,7 @@ dependencies = [
  "miden-testing",
  "miden-tx",
  "miden-tx-batch",
+ "miden-usdcx",
  "miette",
  "prost",
  "prost-types",
@@ -3628,6 +3629,24 @@ dependencies = [
  "miden-prover",
  "miden-verifier",
  "thiserror",
+]
+
+[[package]]
+name = "miden-usdcx"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf4aa588e0224fd03ed6cc9837f7c4f0384eba222416816f53892d4f535ae72e"
+dependencies = [
+ "bon",
+ "miden-assembly",
+ "miden-core-lib",
+ "miden-package-registry",
+ "miden-protocol",
+ "miden-protocol-build-utils",
+ "miden-standards",
+ "miden-tx",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
