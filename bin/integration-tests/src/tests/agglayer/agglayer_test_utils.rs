@@ -17,7 +17,7 @@ use miden_client::agglayer::{EthAddress, EthAmount, EthEmbeddedAccountId};
 use miden_client::utils::hex_to_bytes;
 use miden_protocol::account::AccountId;
 use serde::Deserialize;
-use tracing::{debug, info};
+use tracing::info;
 
 // SERDE HELPERS
 // ================================================================================================
@@ -206,7 +206,7 @@ pub fn generate_claim_data_for_account(
         String::from_utf8_lossy(&output.stderr)
     );
 
-    debug!(stdout = %String::from_utf8_lossy(&output.stdout), "forge test completed");
+    info!(stdout = %String::from_utf8_lossy(&output.stdout), "forge test completed");
 
     // Read and parse the generated JSON
     let json_path = foundry_dir.join(FOUNDRY_OUTPUT_JSON);
