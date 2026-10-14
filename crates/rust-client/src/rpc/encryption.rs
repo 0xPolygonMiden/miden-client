@@ -57,9 +57,6 @@ use super::{RpcError, generated as proto};
 // CONSTANTS
 // ================================================================================================
 
-/// Key used to store the transaction encryption key in the settings table.
-pub(crate) const TRANSACTION_ENCRYPTION_KEY_STORE_SETTING: &str = "transaction_encryption_key";
-
 /// Domain tag prefixed to the associated data of sealed transaction inputs.
 ///
 /// Separates this transcript from every other use of the same key material, in particular from the

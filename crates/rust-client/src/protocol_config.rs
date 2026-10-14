@@ -32,8 +32,7 @@ impl<AUTH> Client<AUTH> {
 
 /// Returns the settings key that holds the protocol configuration for `commitment`.
 ///
-/// The default [`Store::get_protocol_config`] reads this key. A [`Store`] implementation that keeps
-/// that default needs this key to persist a configuration a sync returned.
+/// A [`Store`] implementation can use this key to persist a configuration in a key-value table.
 pub fn protocol_config_setting_key(commitment: Word) -> alloc::string::String {
     format!("protocol_config:{commitment}")
 }

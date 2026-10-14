@@ -1,21 +1,13 @@
-//! Client-side persistence for PSWAP lineages. The default [`Store`] PSWAP methods keep lineages in
-//! the `settings` KV store, using two key families:
-//!
-//! ```text
-//! pswap/order/{order_id_hex}    →  serialized PswapLineageRecord  (PRIMARY; stable, never re-keyed)
-//! pswap/tip/{tip_note_id_hex}   →  order_id (Felt, 8 bytes)       (SECONDARY INDEX; re-keyed each round)
-//! ```
-//!
-//! The record lives under the stable `order_id`. The tip changes each round, so it keys a tiny
-//! index value (the `order_id`) that lets discovery resolve a consumed tip back to its order
-//! without a full scan.
+//! Client-side persistence for PSWAP lineages. The [`Store`] PSWAP methods keep each lineage under
+//! its stable `order_id`. They also keep an index from the current tip to the `order_id`. The tip
+//! changes each round. The index lets discovery resolve a consumed tip back to its order without a
+//! full scan.
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::{format, vec};
 
+use miden_protocol::Word;
 use miden_protocol::note::{Note, NoteDetails, NoteId, NoteInclusionProof};
-use miden_protocol::{Felt, Word};
 use miden_standards::note::PswapNote;
 
 use super::errors::PswapLineageError;
@@ -23,28 +15,6 @@ use super::lineage::{PswapLineageRoundUpdate, PswapLineageState};
 use crate::store::input_note_states::{CommittedNoteState, UnverifiedNoteState};
 use crate::store::{InputNoteRecord, NoteFilter, Store, StoreError};
 use crate::sync::{NoteTagRecord, NoteTagSource};
-use crate::utils::bytes_to_hex_string;
-
-// KEY SCHEME
-// ================================================================================================
-
-pub(crate) const ORDER_PREFIX: &str = "pswap/order/";
-const TIP_PREFIX: &str = "pswap/tip/";
-
-/// Stable primary key for an order's lineage record. Hex of the `order_id` canonical bytes — only
-/// uniqueness + stability matter; we never parse it back (the record carries its own `order_id`).
-pub(crate) fn order_key(order_id: Felt) -> String {
-    format!(
-        "{ORDER_PREFIX}{}",
-        bytes_to_hex_string(order_id.as_canonical_u64().to_le_bytes())
-    )
-}
-
-/// Secondary-index key for the current tip. Hex convention matches the note id encoding used
-/// elsewhere in the store layer.
-pub(crate) fn tip_key(tip: NoteId) -> String {
-    format!("{TIP_PREFIX}{}", tip.as_word())
-}
 
 // READ / WRITE HELPERS
 // ================================================================================================
@@ -189,63 +159,4 @@ async fn upsert_round_note(
     store
         .upsert_input_notes(&[InputNoteRecord::new(details, attachments, None, state)])
         .await
-}
-
-// TESTS
-// ================================================================================================
-
-#[cfg(test)]
-mod tests {
-    use miden_protocol::Word;
-
-    use super::*;
-
-    /// Builds a deterministic `Felt` from a `u64` for key-encoding tests.
-    fn felt(value: u64) -> Felt {
-        Felt::new(value).unwrap()
-    }
-
-    /// Builds a deterministic `NoteId` from a `u64` for key-encoding tests.
-    fn note_id(value: u64) -> NoteId {
-        let f = felt(value);
-        NoteId::from_raw(Word::from([f, f, f, f]))
-    }
-
-    #[test]
-    fn order_key_carries_order_prefix() {
-        assert!(order_key(felt(1)).starts_with(ORDER_PREFIX));
-    }
-
-    #[test]
-    fn tip_key_carries_tip_prefix() {
-        assert!(tip_key(note_id(1)).starts_with(TIP_PREFIX));
-    }
-
-    /// The default `Store::get_pswap_lineages` skips `pswap/tip/` rows by prefix. This works only
-    /// while neither key family is a prefix of the other. This test fails if a prefix change makes
-    /// tip rows appear in the order scan.
-    #[test]
-    fn key_families_are_prefix_isolated() {
-        assert!(!TIP_PREFIX.starts_with(ORDER_PREFIX));
-        assert!(!ORDER_PREFIX.starts_with(TIP_PREFIX));
-        assert!(!tip_key(note_id(1)).starts_with(ORDER_PREFIX));
-        assert!(!order_key(felt(1)).starts_with(TIP_PREFIX));
-    }
-
-    /// Both key families must map each id to one stable, unique key — a non-deterministic or
-    /// colliding encoding would corrupt lookups. Pin determinism + injectivity.
-    #[test]
-    fn keys_are_deterministic_and_injective() {
-        // Bind each construction separately so `clippy::eq_op` doesn't flag the determinism checks
-        // (identical call expressions as assert operands).
-        let order_a = order_key(felt(7));
-        let order_b = order_key(felt(7));
-        assert_eq!(order_a, order_b);
-        assert_ne!(order_key(felt(1)), order_key(felt(2)));
-
-        let tip_a = tip_key(note_id(7));
-        let tip_b = tip_key(note_id(7));
-        assert_eq!(tip_a, tip_b);
-        assert_ne!(tip_key(note_id(1)), tip_key(note_id(2)));
-    }
 }
