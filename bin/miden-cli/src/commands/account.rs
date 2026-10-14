@@ -684,7 +684,7 @@ fn decode_token_config(
 /// # Errors
 /// Returns an error if the account is not tracked by the client, has no symbol slot (i.e. is not a
 /// non-fungible faucet), or the symbol can't be decoded.
-async fn get_non_fungible_faucet_symbol<AUTH>(
+pub(crate) async fn get_non_fungible_faucet_symbol<AUTH>(
     client: &Client<AUTH>,
     account_id: AccountId,
 ) -> Result<TokenSymbol, CliError> {

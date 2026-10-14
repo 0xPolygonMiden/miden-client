@@ -17,7 +17,7 @@ use miden_client::{AssetError, Client, Felt, WORD_SIZE, Word};
 use serde::Deserialize;
 
 use super::{CLIENT_CONFIG_FILE_NAME, create_dynamic_table, get_account_with_id_prefix};
-use crate::commands::account::DEFAULT_ACCOUNT_ID_KEY;
+use crate::commands::account::{DEFAULT_ACCOUNT_ID_KEY, get_non_fungible_faucet_symbol};
 use crate::config::{CliConfig, get_global_miden_dir, get_local_miden_dir};
 use crate::errors::CliError;
 
@@ -433,6 +433,9 @@ pub struct FaucetMetadataResolver {
     /// as well as hits, so several assets from the same untracked faucet cause at most one RPC
     /// fetch.
     cache: Mutex<BTreeMap<AccountId, Option<FaucetMetadata>>>,
+    /// Holds the outcome of every non-fungible faucet symbol lookup, misses included, for the
+    /// lifetime of the resolver.
+    non_fungible_symbol_cache: Mutex<BTreeMap<AccountId, Option<String>>>,
 }
 
 /// An asset formatted for display in a CLI table.
@@ -444,21 +447,29 @@ pub enum FormattedAsset {
         amount: String,
     },
     NonFungible {
-        /// The faucet prefix.
-        faucet: String,
+        /// The bech32 address of the faucet.
+        address: String,
+        /// The token symbol of the faucet when it is known.
+        symbol: Option<String>,
         /// The asset ID.
         asset_id: AssetId,
     },
 }
 
 /// Renders a fungible asset as its amount and faucet, and a non-fungible asset as its faucet and
-/// asset ID, on one line.
+/// asset ID, on one line. A non-fungible asset shows its token symbol when it is known. Otherwise,
+/// it shows the faucet address.
 impl core::fmt::Display for FormattedAsset {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Fungible { faucet, amount } => write!(f, "{amount} {faucet}"),
-            Self::NonFungible { faucet, asset_id } => {
-                write!(f, "{faucet} (non-fungible, asset ID {asset_id})")
+            Self::NonFungible {
+                symbol: Some(symbol), address, asset_id, ..
+            } => {
+                write!(f, "{symbol} (non-fungible, faucet {address}, asset ID {asset_id})")
+            },
+            Self::NonFungible { symbol: None, address, asset_id, .. } => {
+                write!(f, "{address} (non-fungible, asset ID {asset_id})")
             },
         }
     }
@@ -517,6 +528,7 @@ impl FaucetMetadataResolver {
         Ok(Self {
             toml: parsed,
             cache: Mutex::new(BTreeMap::new()),
+            non_fungible_symbol_cache: Mutex::new(BTreeMap::new()),
         })
     }
 
@@ -593,22 +605,62 @@ impl FaucetMetadataResolver {
     }
 
     /// Formats an asset for display. A fungible asset is resolved through [`Self::resolve`]. A
-    /// non-fungible asset shows its faucet prefix and its asset ID.
+    /// non-fungible asset shows its faucet address, its asset ID and, when it is known, its token
+    /// symbol (see [`Self::resolve_non_fungible_symbol`]).
     pub async fn format_asset<AUTH>(
         &self,
         client: &Client<AUTH>,
         asset: &Asset,
     ) -> Result<FormattedAsset, CliError> {
-        Ok(match asset.as_fungible() {
-            Some(fungible) => {
-                let (faucet, amount) = self.format_fungible_asset(client, &fungible).await?;
-                FormattedAsset::Fungible { faucet, amount }
-            },
-            None => FormattedAsset::NonFungible {
-                faucet: asset.faucet_id().prefix().to_hex(),
-                asset_id: asset.id(),
-            },
+        if let Some(fungible) = asset.as_fungible() {
+            let (faucet, amount) = self.format_fungible_asset(client, &fungible).await?;
+            return Ok(FormattedAsset::Fungible { faucet, amount });
+        }
+
+        let faucet_id = asset.faucet_id();
+        Ok(FormattedAsset::NonFungible {
+            address: Address::new(faucet_id).encode(configured_network_id()?),
+            symbol: self.resolve_non_fungible_symbol(client, faucet_id).await,
+            asset_id: asset.id(),
         })
+    }
+
+    /// Looks up the token symbol of a non-fungible faucet. It reads the storage of a faucet that
+    /// the client tracks, and otherwise fetches the symbol of a public faucet from the network.
+    /// Returns `None` when the symbol is not found.
+    async fn resolve_non_fungible_symbol<AUTH>(
+        &self,
+        client: &Client<AUTH>,
+        faucet_id: AccountId,
+    ) -> Option<String> {
+        // The lock is scoped so the guard drops before the `await` below.
+        {
+            let cache = self
+                .non_fungible_symbol_cache
+                .lock()
+                .expect("non-fungible symbol cache mutex is poisoned");
+            if let Some(cached) = cache.get(&faucet_id) {
+                return cached.clone();
+            }
+        }
+
+        let symbol = if let Ok(symbol) = get_non_fungible_faucet_symbol(client, faucet_id).await {
+            Some(symbol.to_string())
+        } else {
+            // A transient RPC error is not cached. A later lookup can then retry.
+            match client.fetch_remote_non_fungible_faucet_symbol(faucet_id).await {
+                Ok(symbol) => symbol.map(|symbol| symbol.to_string()),
+                Err(_) => {
+                    return None;
+                },
+            }
+        };
+
+        self.non_fungible_symbol_cache
+            .lock()
+            .expect("non-fungible symbol cache mutex is poisoned")
+            .insert(faucet_id, symbol.clone());
+        symbol
     }
 
     /// Formats a fungible asset using [`Self::resolve`]. On miss, returns `(<bech32 faucet

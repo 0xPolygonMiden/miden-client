@@ -26,6 +26,7 @@
 
 * [FEATURE][rust] Added `TransactionRequestBuilder::build_mint_non_fungible_asset`, which builds a request for a non-fungible faucet to mint a non-fungible asset to a target account, and `TransactionRequestBuilder::build_burn_non_fungible_asset`, which builds a request that sends a non-fungible asset to its faucet in a BURN note ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FEATURE][rust] Re-exported `BurnNote` from `miden_client::note` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FEATURE][rust] Added `Client::fetch_remote_non_fungible_faucet_symbol`, which fetches the token symbol of a public non-fungible faucet from the network ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FEATURE][cli] Added `tx --show <ID>`, which prints the transaction record and its input and output notes with their standard note name, store state and decoded P2ID, P2IDE, SWAP or PSWAP storage. Added `--account-id`, `--status` and `--limit` filters to `tx --list`, which now orders transactions by creation time ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][rust] Added the `SendNotesTransactionScript` re-export to `miden_client::transaction` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] The CLI caches faucet metadata lookups for the lifetime of a command, so several assets from the same faucet cause at most one metadata RPC fetch. The cache also holds misses ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
