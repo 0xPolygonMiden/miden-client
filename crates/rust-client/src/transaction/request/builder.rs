@@ -442,7 +442,9 @@ impl TransactionRequestBuilder {
     }
 
     /// Consumes the builder and returns a [`TransactionRequest`] for a transaction to mint a
-    /// non-fungible asset. This request must be executed against a non-fungible faucet account.
+    /// non-fungible asset. This request must be executed against a a non-fungible faucet account
+    /// (i.e. an account that has the
+    /// [`NonFungibleFaucet`](crate::account::standards::faucets::NonFungibleFaucet) component).
     ///
     /// - `asset` is the non-fungible asset to be minted. Its faucet must be the executing account.
     /// - `target_id` is the account ID of the account to receive the minted asset.
