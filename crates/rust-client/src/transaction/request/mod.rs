@@ -4,9 +4,9 @@ use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::borrow::Borrow;
 use core::num::NonZeroU16;
 
-use miden_protocol::Word;
 use miden_protocol::account::{AccountCodeInterface, AccountCodeUpgrade, AccountId};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::BlockNumber;
@@ -37,6 +37,7 @@ use miden_protocol::transaction::{
     TransactionScript,
 };
 use miden_protocol::vm::AdviceMap;
+use miden_protocol::{Felt, Word};
 use miden_standards::account::auth::{FeeConversionInfo, commit_fee_conversion_info};
 use miden_standards::errors::CodeBuilderError;
 use miden_standards::tx_script::{
@@ -283,6 +284,61 @@ impl TransactionRequest {
 
     // STATE MUTATORS
     // --------------------------------------------------------------------------------------------
+
+    /// Adds the auth inputs of the executing account to the request.
+    ///
+    /// This method sets the auth arg to `auth_arg`. It adds `advice_entries` to the advice map. It
+    /// adds `block_numbers` to the blocks that the transaction must be able to authenticate. The
+    /// parameters take the same types as [`TransactionRequestBuilder::auth_arg`],
+    /// [`TransactionRequestBuilder::extend_advice_map`] and
+    /// [`TransactionRequestBuilder::block_numbers`]. All other fields of the request stay the same.
+    ///
+    /// Use this method when one party builds the request and a different party executes it. The
+    /// executing party can add the auth inputs of its account to the request without a rebuild, and
+    /// a rebuild from the public accessors does not keep all fields.
+    ///
+    /// The auth arg replaces a declared fee conversion salt, as
+    /// [`TransactionRequestBuilder::auth_arg`] does: the client attaches fee conversion info only
+    /// to a request without an auth arg, so the salt has no effect after this call.
+    ///
+    /// # Errors
+    /// - If the request already has an auth arg that commits anything (see
+    ///   [`TransactionRequest::has_auth_arg`]).
+    /// - If the advice map already holds a key from `advice_entries` with a different value.
+    pub fn with_auth<A, V, N, B>(
+        mut self,
+        auth_arg: Word,
+        advice_entries: A,
+        block_numbers: N,
+    ) -> Result<Self, TransactionRequestError>
+    where
+        A: IntoIterator<Item = (Word, V)>,
+        V: AsRef<[Felt]>,
+        N: IntoIterator<Item = B>,
+        B: Borrow<BlockNumber>,
+    {
+        // The request author owns an auth arg that commits anything. Do not replace it.
+        if self.has_auth_arg() {
+            return Err(TransactionRequestError::AuthAlreadySet);
+        }
+
+        let mut auth_advice_map = AdviceMap::default();
+        auth_advice_map
+            .extend(advice_entries.into_iter().map(|(key, value)| (key, value.as_ref().to_vec())));
+        // The merge refuses a changed value for a key that the request already holds, so the
+        // entries of the request author stay the same.
+        self.advice_map
+            .merge(&auth_advice_map)
+            .map_err(|((key, _), _)| TransactionRequestError::ConflictingAdviceMapEntry(key))?;
+
+        self.block_numbers
+            .extend(block_numbers.into_iter().map(|block_num| *block_num.borrow()));
+        self.auth_arg = Some(auth_arg);
+        self.fee_conversion_salt = None;
+        self.validate()?;
+
+        Ok(self)
+    }
 
     /// Adds `note` to the notes this request consumes, as an unauthenticated input.
     ///
@@ -612,6 +668,15 @@ pub enum TransactionRequestError {
     AccountError(#[from] AccountError),
     #[error("asset error")]
     AssetError(#[from] AssetError),
+    #[error(
+        "the request already has an auth arg; `TransactionRequest::with_auth` does not replace it"
+    )]
+    AuthAlreadySet,
+    #[error(
+        "the advice map already holds key {} with a different value",
+        .0.to_hex()
+    )]
+    ConflictingAdviceMapEntry(Word),
     #[error("duplicate input note: note {0} was added more than once to the transaction")]
     DuplicateInputNote(NoteId),
     #[error("transaction expiration delta must be greater than zero")]
@@ -714,7 +779,7 @@ mod tests {
     };
     use miden_protocol::asset::FungibleAsset;
     use miden_protocol::block::account_tree::AccountTree;
-    use miden_protocol::note::{NoteTag, NoteType};
+    use miden_protocol::note::{Note, NoteTag, NoteType};
     use miden_protocol::testing::account_id::{
         ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
         ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
@@ -735,6 +800,7 @@ mod tests {
         NonZeroU16,
         TransactionRequest,
         TransactionRequestBuilder,
+        TransactionRequestError,
         TransactionScript,
     };
     use crate::rng::draw_word;
@@ -817,6 +883,179 @@ mod tests {
         tx_request.input_notes_args.push((note_id, None));
 
         assert!(TransactionRequest::read_from_bytes(&tx_request.to_bytes()).is_err());
+    }
+
+    /// Returns a builder that sets every field of a request except the auth inputs. The values are
+    /// the same on each call.
+    fn request_builder_without_auth() -> TransactionRequestBuilder {
+        let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
+        let target_id =
+            AccountId::try_from(ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE).unwrap();
+        let faucet_id = AccountId::try_from(ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET).unwrap();
+        let mut rng = ChaCha20Rng::seed_from_u64(7);
+
+        let mut notes: Vec<Note> = Vec::new();
+        for amount in 100..105 {
+            let note = P2idNote::builder()
+                .sender(sender_id)
+                .target(target_id)
+                .assets(vec![FungibleAsset::new(faucet_id, amount).unwrap()])
+                .note_type(NoteType::Private)
+                .serial_number(draw_word(&mut rng))
+                .build()
+                .unwrap();
+            notes.push(note.into());
+        }
+
+        TransactionRequestBuilder::new()
+            .block_numbers([BlockNumber::from(1u32), BlockNumber::from(3u32)])
+            .input_notes(vec![(notes.pop().unwrap(), Some(draw_word(&mut rng)))])
+            .explicit_input_notes(vec![(InputNote::unauthenticated(notes.pop().unwrap()), None)])
+            .expected_future_notes(vec![(
+                notes.pop().unwrap().into(),
+                NoteTag::with_account_target(sender_id),
+            )])
+            .extend_advice_map([(draw_word(&mut rng), vec![Felt::from(1u32), Felt::from(2u32)])])
+            .foreign_accounts([ForeignAccount::public(
+                target_id,
+                AccountStorageRequirements::default(),
+            )
+            .unwrap()])
+            .own_output_notes(vec![notes.pop().unwrap(), notes.pop().unwrap()])
+            .expiration_delta(12)
+            .ignore_invalid_input_notes()
+            .script_arg(draw_word(&mut rng))
+            .expected_ntx_scripts(vec![P2idNote::script()])
+    }
+
+    #[test]
+    fn with_auth_adds_auth_inputs_and_keeps_other_fields() {
+        let auth_arg = Word::from([21u32, 22, 23, 24]);
+        let auth_advice = vec![Felt::from(5u32), Felt::from(6u32), Felt::from(7u32)];
+        let auth_block = BlockNumber::from(5u32);
+
+        let original = request_builder_without_auth().build().unwrap();
+        let request = original
+            .clone()
+            .with_auth(auth_arg, [(auth_arg, auth_advice.clone())], [auth_block, 3u32.into()])
+            .unwrap();
+
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
+        assert_eq!(request.advice_map().get(&auth_arg).map(|value| &**value), Some(&*auth_advice));
+        assert_eq!(
+            request.block_numbers().iter().copied().collect::<Vec<_>>(),
+            vec![1u32.into(), 3u32.into(), auth_block],
+        );
+
+        // A request that the builder makes with the same auth inputs is the same request.
+        let expected = request_builder_without_auth()
+            .auth_arg(auth_arg)
+            .extend_advice_map([(auth_arg, auth_advice)])
+            .block_numbers([auth_block])
+            .build()
+            .unwrap();
+        assert_eq!(request, expected);
+
+        // Two separate builds of the same request do not always serialize to the same bytes, so the
+        // byte check uses the original request. Without the auth inputs, the bytes are equal.
+        let mut without_auth = request;
+        without_auth.auth_arg = None;
+        without_auth.advice_map.remove(&auth_arg);
+        without_auth.block_numbers.remove(&auth_block);
+        assert_eq!(without_auth.to_bytes(), original.to_bytes());
+    }
+
+    #[test]
+    fn with_auth_survives_serialization() {
+        let auth_arg = Word::from([31u32, 32, 33, 34]);
+        let auth_advice = vec![Felt::from(8u32)];
+        let auth_block = BlockNumber::from(9u32);
+
+        let request = request_builder_without_auth()
+            .build()
+            .unwrap()
+            .with_auth(auth_arg, [(auth_arg, auth_advice.clone())], [auth_block])
+            .unwrap();
+        let decoded = TransactionRequest::read_from_bytes(&request.to_bytes()).unwrap();
+
+        assert_eq!(decoded, request);
+        assert_eq!(decoded.auth_arg(), &Some(auth_arg));
+        assert_eq!(decoded.advice_map().get(&auth_arg).map(|value| &**value), Some(&*auth_advice));
+        assert!(decoded.block_numbers().contains(&auth_block));
+    }
+
+    #[test]
+    fn with_auth_refuses_existing_auth_arg() {
+        let auth_arg = Word::from([41u32, 42, 43, 44]);
+        let no_advice: [(Word, Vec<Felt>); 0] = [];
+        let no_blocks: [BlockNumber; 0] = [];
+
+        let request = TransactionRequestBuilder::new()
+            .auth_arg(Word::from([1u32, 2, 3, 4]))
+            .build()
+            .unwrap();
+        assert!(matches!(
+            request.with_auth(auth_arg, no_advice.clone(), no_blocks),
+            Err(TransactionRequestError::AuthAlreadySet)
+        ));
+
+        // An empty auth arg commits nothing (see `has_auth_arg`), so it is replaced.
+        let request = TransactionRequestBuilder::new()
+            .auth_arg(Word::empty())
+            .build()
+            .unwrap()
+            .with_auth(auth_arg, no_advice, no_blocks)
+            .unwrap();
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
+    }
+
+    #[test]
+    fn with_auth_replaces_fee_conversion_salt_like_the_builder() {
+        let auth_arg = Word::from([61u32, 62, 63, 64]);
+        let salt = Word::from([5u32, 6, 7, 8]);
+        let no_advice: [(Word, Vec<Felt>); 0] = [];
+        let no_blocks: [BlockNumber; 0] = [];
+
+        let request = TransactionRequestBuilder::new()
+            .fee_conversion_salt(salt)
+            .build()
+            .unwrap()
+            .with_auth(auth_arg, no_advice, no_blocks)
+            .unwrap();
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
+        assert_eq!(request.fee_conversion_salt(), None);
+
+        let expected = TransactionRequestBuilder::new()
+            .fee_conversion_salt(salt)
+            .auth_arg(auth_arg)
+            .build()
+            .unwrap();
+        assert_eq!(request, expected);
+    }
+
+    #[test]
+    fn with_auth_refuses_changed_advice_map_entry() {
+        let auth_arg = Word::from([51u32, 52, 53, 54]);
+        let no_blocks: [BlockNumber; 0] = [];
+        let request = TransactionRequestBuilder::new()
+            .extend_advice_map([(auth_arg, vec![Felt::from(1u32)])])
+            .build()
+            .unwrap();
+
+        let result =
+            request
+                .clone()
+                .with_auth(auth_arg, [(auth_arg, vec![Felt::from(2u32)])], no_blocks);
+        assert!(matches!(
+            result,
+            Err(TransactionRequestError::ConflictingAdviceMapEntry(key)) if key == auth_arg
+        ));
+
+        // The same value under the same key changes nothing, so it is accepted.
+        let request = request
+            .with_auth(auth_arg, [(auth_arg, vec![Felt::from(1u32)])], no_blocks)
+            .unwrap();
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
     }
 
     fn assert_transaction_request_serialization_with<F>(auth_component: F)

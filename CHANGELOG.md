@@ -5,6 +5,7 @@
 ### Features
 
 * [FEATURE][rust] Added the `miden_client::usdcx` module, which re-exports `miden-usdcx`. It provides the USDCx (Circle xReserve) burn note `XReserveBurnNote`, the `XReserveBurnItems` payload codec, and the `AccountId` to `bytes32` encoding ([#2695](https://github.com/0xMiden/rust-sdk/pull/2695)).
+* [FEATURE][rust] Added `TransactionRequest::with_auth`. It adds an auth arg, advice map entries, and block numbers to a request that is already built, so the executing account can add its auth inputs to a request that another party built. It refuses a request that already has an auth arg, and an advice entry that changes an existing value. Like `TransactionRequestBuilder::auth_arg`, it replaces a declared fee conversion salt. Added `TransactionRequestError::AuthAlreadySet` and `TransactionRequestError::ConflictingAdviceMapEntry`.
 
 ## 0.17.3 (2026-10-08)
 
