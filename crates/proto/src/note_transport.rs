@@ -1,11 +1,23 @@
 //! Protobuf conversion of note transport values.
 
 use std::collections::BTreeMap;
+#[cfg(feature = "testing")]
+use std::vec::Vec;
 
+#[cfg(feature = "client")]
+use miden_client::note_transport::NoteInfo;
+#[cfg(feature = "testing")]
+use miden_client::testing::note_transport::MockNoteTransportNode;
 use miden_client_core::note_transport::NoteTransportCursor;
+#[cfg(feature = "client")]
+use miden_objects::DecodeMessageExt;
 use miden_protocol::note::NoteTag;
+#[cfg(feature = "client")]
+use miden_protocol::utils::serde::Serializable;
 
 use crate as proto;
+#[cfg(feature = "client")]
+use crate::read_upstream;
 use crate::{ProtoDecodeError, ProtobufValue, required};
 
 impl ProtobufValue for NoteTransportCursor {
@@ -51,5 +63,82 @@ impl ProtobufValue for BTreeMap<NoteTag, NoteTransportCursor> {
                 Ok((NoteTag::from(entry.tag), NoteTransportCursor::from_proto(cursor)?))
             })
             .collect()
+    }
+}
+
+#[cfg(feature = "client")]
+impl ProtobufValue for NoteInfo {
+    type Message = proto::NoteInfo;
+
+    fn to_proto(&self) -> Self::Message {
+        Self::Message {
+            header: self.header.to_bytes(),
+            details: self.details_bytes.clone(),
+            block_hint: self.block_hint.map(Into::into),
+        }
+    }
+
+    fn from_proto(info: Self::Message) -> Result<Self, ProtoDecodeError> {
+        Ok(NoteInfo {
+            header: read_upstream(&info.header)?,
+            details_bytes: info.details,
+            block_hint: info.block_hint.map(DecodeMessageExt::decode_and_verify).transpose()?,
+        })
+    }
+}
+
+#[cfg(feature = "testing")]
+impl ProtobufValue for MockNoteTransportNode {
+    type Message = proto::MockNoteTransportNode;
+
+    fn to_proto(&self) -> Self::Message {
+        use proto::mock_note_transport_node::{Entry, TagNotes};
+
+        Self::Message {
+            notes: self
+                .notes()
+                .iter()
+                .map(|(tag, notes)| TagNotes {
+                    tag: tag.as_u32(),
+                    notes: notes
+                        .iter()
+                        .map(|(note, cursor)| Entry {
+                            note: Some(note.to_proto()),
+                            cursor: Some(cursor.to_proto()),
+                        })
+                        .collect(),
+                })
+                .collect(),
+            nonce: self.nonce(),
+            next_sequence: self.next_sequence(),
+        }
+    }
+
+    fn from_proto(node: Self::Message) -> Result<Self, ProtoDecodeError> {
+        const MESSAGE: &str = "mock note transport entry";
+
+        let notes = node
+            .notes
+            .into_iter()
+            .map(|tag_notes| {
+                let notes = tag_notes
+                    .notes
+                    .into_iter()
+                    .map(|entry| {
+                        Ok((
+                            NoteInfo::from_proto(required(entry.note, MESSAGE, "note")?)?,
+                            NoteTransportCursor::from_proto(required(
+                                entry.cursor,
+                                MESSAGE,
+                                "cursor",
+                            )?)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, ProtoDecodeError>>()?;
+                Ok((NoteTag::from(tag_notes.tag), notes))
+            })
+            .collect::<Result<BTreeMap<_, _>, ProtoDecodeError>>()?;
+
+        Ok(MockNoteTransportNode::from_parts(notes, node.nonce, node.next_sequence))
     }
 }
