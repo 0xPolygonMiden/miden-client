@@ -135,6 +135,7 @@ fn faucet_metadata_from_token_config(token_config: [Felt; 4]) -> Option<FaucetMe
 
 mod account_reader;
 pub use account_reader::AccountReader;
+use miden_client_core::store::{AccountStorageFilter, ClientAccountType};
 /// Provides built-in account components and their configuration types.
 ///
 /// Use the [`component`] module to define custom account components.
@@ -160,7 +161,7 @@ use crate::asset::TokenSymbol;
 use crate::errors::ClientError;
 use crate::rpc::domain::account::GetAccountRequest;
 use crate::rpc::node::{EndpointError, GetAccountError};
-use crate::store::{AccountStatus, AccountStorageFilter, ClientAccountType};
+use crate::store::AccountStatus;
 
 /// Provides types to define account components and their storage schemas.
 ///
