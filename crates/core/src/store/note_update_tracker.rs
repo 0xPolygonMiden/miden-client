@@ -2,6 +2,7 @@ use alloc::collections::BTreeMap;
 
 use miden_protocol::block::BlockNumber;
 use miden_protocol::note::{NoteDetailsCommitment, NoteId, NoteMetadata, Nullifier};
+use miden_protocol::transaction::TransactionId;
 use miden_protocol::utils::serde::{
     ByteReader,
     ByteWriter,
@@ -10,6 +11,7 @@ use miden_protocol::utils::serde::{
     Serializable,
 };
 
+use crate::errors::NoteRecordError;
 use crate::store::{InputNoteRecord, OutputNoteRecord};
 
 // NOTE UPDATE
@@ -484,6 +486,22 @@ impl NoteUpdateTracker {
             // overwrite a metadata-bearing record that already supersedes it.
             self.input_notes.insert(commitment, update);
         }
+    }
+
+    /// Releases notes that the discarded transaction was processing. Leaves all other notes
+    /// unchanged.
+    pub fn apply_transaction_discarded(
+        &mut self,
+        transaction_id: TransactionId,
+    ) -> Result<(), NoteRecordError> {
+        for update in self.input_notes.values_mut() {
+            if update.note.transaction_discarded(transaction_id)? {
+                // Mark the changed note for storage.
+                update.inner_mut();
+            }
+        }
+
+        Ok(())
     }
 
     /// Insert an output note update
