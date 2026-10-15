@@ -64,12 +64,7 @@ use miden_standards::account::auth::Approver;
 use miden_standards::account::wallets::BasicWallet;
 
 use super::PaymentNoteDescription;
-use crate::tests::{
-    TX_DISCARD_DELTA,
-    create_test_client,
-    create_test_client_builder,
-    seed_mock_transaction_encryption_key,
-};
+use crate::tests::{TX_DISCARD_DELTA, create_test_client, mock_client_builder, prebuilt_rpc_api};
 
 #[tokio::test]
 async fn dap_transaction_execution_records_replay_data() {
@@ -1595,11 +1590,15 @@ async fn consuming_a_processing_note_is_rejected_before_submission() {
 #[case::authenticated_while_processing(false)]
 #[tokio::test]
 async fn discarded_transaction_releases_its_input_notes(#[case] authenticated: bool) {
-    let (builder, rpc_api) = Box::pin(create_test_client_builder()).await;
-    let mut client =
-        TestClient::from(builder.tx_discard_delta(Some(TX_DISCARD_DELTA)).build().await.unwrap());
-    client.ensure_genesis_in_place().await.unwrap();
-    seed_mock_transaction_encryption_key(&mut client).await;
+    let rpc_api = prebuilt_rpc_api().await;
+    let mut client = TestClient::from(
+        mock_client_builder(Arc::new(rpc_api.clone()))
+            .await
+            .tx_discard_delta(Some(TX_DISCARD_DELTA))
+            .build()
+            .await
+            .unwrap(),
+    );
     let (wallet, faucet) = client.setup_wallet_and_faucet(AccountType::Private).await.unwrap();
 
     let note = client.mint_note(wallet.id(), faucet.id(), NoteType::Private).await.unwrap().1;
