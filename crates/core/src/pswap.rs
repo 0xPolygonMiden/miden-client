@@ -4,19 +4,13 @@ use miden_protocol::Felt;
 use miden_protocol::account::AccountId;
 use miden_protocol::asset::AssetAmount;
 use miden_protocol::note::NoteId;
-use miden_protocol::utils::serde::{
-    ByteReader,
-    ByteWriter,
-    Deserializable,
-    DeserializationError,
-    Serializable,
-};
+use miden_protocol::utils::serde::DeserializationError;
 
 // PSWAP LINEAGE STATE
 // ================================================================================================
 
-/// Lifecycle state of a PSWAP order. Discriminants are part of the serialized encoding — do not
-/// renumber.
+/// Lifecycle state of a PSWAP order. A store can persist the discriminants, so do not renumber
+/// them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PswapLineageState {
@@ -33,7 +27,8 @@ impl PswapLineageState {
         self as u8
     }
 
-    /// Errors on unknown discriminants, guards against forward-incompatible serialized encodings.
+    /// Returns an error for an unknown discriminant, for example a value that a newer client
+    /// version persisted.
     pub fn try_from_u8(value: u8) -> Result<Self, DeserializationError> {
         match value {
             0 => Ok(Self::Active),
@@ -141,55 +136,12 @@ impl PswapLineageFilter {
     }
 }
 
-// VALUE CODEC
-// ================================================================================================
-
-/// Encodes the record's fields in declaration order: the `original_note_id` fetch handle, the
-/// mirrored order id and creator, then the mutable tip state. Only the remaining *amounts* are
-/// written — the faucets and full note live on the depth-0 note, recovered via `original_note_id`
-/// when needed.
-impl Serializable for PswapLineageRecord {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        self.original_note_id.write_into(target);
-        self.order_id.write_into(target);
-        self.creator_account_id.write_into(target);
-        self.current_tip_note_id.write_into(target);
-        self.current_depth.write_into(target);
-        self.remaining_offered.write_into(target);
-        self.remaining_requested.write_into(target);
-        self.state.as_u8().write_into(target);
-    }
-}
-
-impl Deserializable for PswapLineageRecord {
-    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let original_note_id = NoteId::read_from(source)?;
-        let order_id = Felt::read_from(source)?;
-        let creator_account_id = AccountId::read_from(source)?;
-        let current_tip_note_id = NoteId::read_from(source)?;
-        let current_depth = u32::read_from(source)?;
-        let remaining_offered = AssetAmount::read_from(source)?;
-        let remaining_requested = AssetAmount::read_from(source)?;
-        let state = PswapLineageState::try_from_u8(u8::read_from(source)?)?;
-        Ok(Self::from_parts(
-            original_note_id,
-            order_id,
-            creator_account_id,
-            current_tip_note_id,
-            current_depth,
-            remaining_offered,
-            remaining_requested,
-            state,
-        ))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Stable byte encoding of `PswapLineageState`. The values are persisted in the serialized
-    /// lineage record; reordering would silently corrupt existing stores.
+    /// Stable byte encoding of `PswapLineageState`. A store can persist these values, so a
+    /// reordering would corrupt the stored lineages.
     #[test]
     fn state_byte_encoding_is_stable() {
         assert_eq!(PswapLineageState::Active.as_u8(), 0);
@@ -197,8 +149,8 @@ mod tests {
         assert_eq!(PswapLineageState::Reclaimed.as_u8(), 2);
     }
 
-    /// Round-trip every state via `try_from_u8`. Belt-and-suspenders against a future renumbering
-    /// breaking the serialized format.
+    /// Round-trips every state through `try_from_u8`, so a renumbering cannot change the persisted
+    /// values.
     #[test]
     fn state_try_from_u8_round_trips_known_variants() {
         for state in [
