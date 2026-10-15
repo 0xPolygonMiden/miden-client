@@ -477,7 +477,8 @@ impl TransactionRequestBuilder {
     /// account that holds the asset.
     ///
     /// The transaction creates a public BURN note that carries the asset. The asset is burned only
-    /// when the faucet that issued it consumes the note.
+    /// when the faucet that issued it consumes the note. A BURN note for a public faucet is a
+    /// network note targeted at that faucet, so a public faucet must be a network account.
     ///
     /// - `asset` is the non-fungible asset to be burned.
     /// - `sender` is the account ID of the account that holds the asset.
