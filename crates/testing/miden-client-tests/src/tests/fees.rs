@@ -22,7 +22,6 @@ use miden_client::transaction::{
     TransactionRequestBuilder,
     TransactionRequestError,
 };
-use miden_client::utils::{Deserializable, Serializable};
 use miden_protocol::account::{AccountBuilder, AccountComponent, AccountType};
 use miden_protocol::note::NoteType;
 use miden_protocol::testing::account_id::ACCOUNT_ID_FEE_FAUCET;
@@ -511,7 +510,8 @@ async fn serialized_multisig_request_uses_native_auth_args(
         .own_output_notes(vec![own_note.into()])
         .build()
         .unwrap();
-    let mut request = TransactionRequest::read_from_bytes(&request.to_bytes()).unwrap();
+    let mut request: TransactionRequest =
+        miden_client_proto::decode(&miden_client_proto::encode(&request)).unwrap();
     let anchor = client.chain_anchor_for_request(&request).await.unwrap();
 
     rpc_api.prove_block();
@@ -563,9 +563,10 @@ async fn multisig_proposal_reexecutes_after_bound_account_state_is_pruned() {
     // The executing party sets the auth args on a request that it received serialized. The request
     // does not declare the bound block, so the client must track it.
     let request = TransactionRequestBuilder::new().build().unwrap();
-    let request = TransactionRequest::read_from_bytes(&request.to_bytes())
-        .unwrap()
-        .with_auth_args(&auth_args);
+    let request =
+        miden_client_proto::decode::<TransactionRequest>(&miden_client_proto::encode(&request))
+            .unwrap()
+            .with_auth_args(&auth_args);
 
     let original_summary = unauthorized_summary(
         Box::pin(client.execute_transaction(account.id(), request.clone()))

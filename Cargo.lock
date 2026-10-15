@@ -2896,7 +2896,6 @@ dependencies = [
  "miden-objects",
  "miden-protocol",
  "miden-standards",
- "miden-testing",
  "rand 0.10.3",
  "rand_chacha 0.10.0",
  "thiserror",
@@ -2992,6 +2991,7 @@ version = "0.17.4"
 dependencies = [
  "miden-client",
  "miden-client-core",
+ "miden-client-proto",
  "miden-client-sqlite-store",
  "miden-debug",
  "miden-protocol",

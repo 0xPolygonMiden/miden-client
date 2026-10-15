@@ -312,7 +312,6 @@ mod tests {
     };
     use miden_protocol::testing::account_id::ACCOUNT_ID_SENDER;
     use miden_protocol::transaction::TransactionId;
-    use miden_protocol::utils::serde::{Deserializable, Serializable};
     use miden_protocol::{Felt, Word, ZERO};
     use miden_standards::note::StandardNote;
 
@@ -416,7 +415,7 @@ mod tests {
         let mut tracker = NoteUpdateTracker::for_transaction_updates(vec![], vec![note], vec![]);
 
         // After external consumption the note must still be reported as consumed by its id via
-        // `input_notes_by_id`, both in memory and after a serialization round trip.
+        // `input_notes_by_id`.
         apply_note_consumption(
             &mut tracker,
             &NoteConsumption {
@@ -428,19 +427,8 @@ mod tests {
         )
         .expect("external consumption should apply");
 
-        // In memory the id is reported correctly.
-        let before: alloc::vec::Vec<NoteId> = tracker.consumed_input_note_ids().collect();
-        assert_eq!(before, vec![id]);
-
-        // The retained id must survive a serialize/deserialize round trip.
-        let bytes = tracker.to_bytes();
-        let restored = NoteUpdateTracker::read_from_bytes(&bytes).expect("round-trip should work");
-        let after: alloc::vec::Vec<NoteId> = restored.consumed_input_note_ids().collect();
-        assert_eq!(
-            after,
-            vec![id],
-            "the retained id of an externally consumed note must survive serialization"
-        );
+        let consumed: alloc::vec::Vec<NoteId> = tracker.consumed_input_note_ids().collect();
+        assert_eq!(consumed, vec![id]);
     }
 
     #[test]
@@ -541,7 +529,6 @@ mod tests {
         };
         assert_eq!(state.submission_data, original_state.submission_data);
         assert_eq!(state.inclusion_proof, proof);
-        assert_eq!(InputNoteRecord::read_from_bytes(&note.to_bytes()).unwrap(), note);
         assert!(!note.inclusion_received(proof, metadata, &header).unwrap());
     }
 }

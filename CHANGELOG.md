@@ -54,6 +54,8 @@
 * [BREAKING][type][rust] Added `NodeRpcClient::get_genesis_block_header`, which returns the genesis block header and the `ProtocolConfig` that it commits to. `Client::ensure_genesis_in_place` stores the genesis protocol configuration, so note screening works on the first sync ([#2724](https://github.com/0xMiden/rust-sdk/pull/2724)).
 * [BREAKING][removal][rust] Removed `NodeRpcClient::has_genesis_commitment`. `Client::ensure_genesis_in_place` checks the store for the genesis block header and its protocol configuration instead ([#2724](https://github.com/0xMiden/rust-sdk/pull/2724)).
 * [BREAKING][removal][rust] Removed the `Serializable` and `Deserializable` implementations of `PswapLineageRecord`, `RpcLimits`, `TransactionEncryptionKey`, `TransactionDetails`, `TransactionStatus`, `DiscardCause` and `TransportNote` ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
+* [BREAKING][removal][rust] Removed the `Serializable` and `Deserializable` implementations of the remaining client types, among them `TransactionRequest`, `TransactionResult`, `TransactionStoreUpdate`, `SyncSummary`, `ChainAnchor`, `NoteTagSource`, `FaucetMetadata`, `MockNoteTransportNode` and the input and output note records and their states ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
+* [BREAKING][param][rust] `Client::set_setting` takes the value as `Vec<u8>` and `Client::get_setting` returns `Option<Vec<u8>>`, so the caller encodes the value ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
 
 ### Features
 
