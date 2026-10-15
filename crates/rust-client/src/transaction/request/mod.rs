@@ -10,6 +10,7 @@ use miden_protocol::Word;
 use miden_protocol::account::{AccountCodeInterface, AccountCodeUpgrade, AccountId};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::BlockNumber;
+use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::crypto::merkle::MerkleError;
 use miden_protocol::crypto::merkle::store::MerkleStore;
 use miden_protocol::errors::{
@@ -37,7 +38,11 @@ use miden_protocol::transaction::{
     TransactionScript,
 };
 use miden_protocol::vm::AdviceMap;
-use miden_standards::account::auth::{FeeConversionInfo, commit_fee_conversion_info};
+use miden_standards::account::auth::{
+    FeeConversionInfo,
+    MultisigAuthArgs,
+    commit_fee_conversion_info,
+};
 use miden_standards::errors::CodeBuilderError;
 use miden_standards::tx_script::{
     ExpirationTransactionScript,
@@ -304,6 +309,13 @@ impl TransactionRequest {
         let (auth_arg, preimage) =
             commit_fee_conversion_info(FeeConversionInfo::one_to_one(fee_faucet_id), salt);
         self.advice_map.insert(auth_arg, preimage);
+        self.auth_arg = Some(auth_arg);
+    }
+
+    /// Commits the multisig block, salt, and fee conversion info through the auth args.
+    pub(crate) fn commit_multisig_auth_args(&mut self, auth_args: MultisigAuthArgs) {
+        let auth_arg = auth_args.to_commitment();
+        self.advice_map.insert(auth_arg, auth_args.to_elements());
         self.auth_arg = Some(auth_arg);
     }
 

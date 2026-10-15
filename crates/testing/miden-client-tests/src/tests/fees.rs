@@ -20,25 +20,34 @@ use miden_client::testing::common::{TestClient, create_test_store_path};
 use miden_client::testing::mock::MockRpcApi;
 use miden_client::transaction::{
     TransactionExecutorError,
+    TransactionRequest,
     TransactionRequestBuilder,
     TransactionRequestError,
 };
+use miden_client::utils::{Deserializable, Serializable};
 use miden_client_sqlite_store::ClientBuilderSqliteExt;
 use miden_protocol::account::{AccountBuilder, AccountComponent, AccountType};
 use miden_protocol::crypto::SequentialCommit;
+use miden_protocol::note::NoteType;
 use miden_protocol::testing::account_id::ACCOUNT_ID_FEE_FAUCET;
 use miden_protocol::transaction::TransactionSummary;
-use miden_protocol::{Felt, Word};
+use miden_protocol::{Felt, Hasher, Word};
 use miden_standards::account::AccountBuilderSchemaCommitmentExt;
 use miden_standards::account::auth::{
     Approver,
     ApproverSet,
+    AuthGuardedMultisig,
+    AuthGuardedMultisigConfig,
     AuthMultisig,
     AuthMultisigConfig,
+    AuthMultisigSmart,
+    AuthMultisigSmartConfig,
     AuthSingleSig,
+    GuardianConfig,
     MultisigAuthArgs,
 };
 use miden_standards::account::wallets::BasicWallet;
+use miden_standards::note::P2idNote;
 use miden_standards::testing::note::NoteBuilder;
 use miden_testing::{Auth, MockChain, MockChainBuilder};
 use rand::SeedableRng;
@@ -432,6 +441,98 @@ async fn a_multisig_account_is_told_to_declare_its_own_conversion_info() {
         ) => assert_eq!(auth_component, AccountComponentInterface::AuthMultisig.name()),
         other => panic!("expected FeeConversionInfoRequired(Multisig), got {other:?}"),
     }
+}
+
+/// A serialized request with a declared salt supports multisig preview and execution against the
+/// same anchor.
+#[rstest::rstest]
+#[case::multisig(AccountComponentInterface::AuthMultisig)]
+#[case::guarded_multisig(AccountComponentInterface::AuthGuardedMultisig)]
+#[case::smart_multisig(AccountComponentInterface::AuthMultisigSmart)]
+#[tokio::test]
+async fn serialized_multisig_request_uses_native_auth_args(
+    #[case] auth_component: AccountComponentInterface,
+) {
+    let key = AuthSecretKey::new_falcon512_poseidon2();
+    let approvers = ApproverSet::new(
+        vec![Approver::new(
+            key.public_key().to_commitment(),
+            AuthSchemeId::Falcon512Poseidon2,
+        )],
+        1,
+    )
+    .unwrap();
+    let guardian_key = AuthSecretKey::new_falcon512_poseidon2();
+    let auth: AccountComponent = match &auth_component {
+        AccountComponentInterface::AuthMultisig => {
+            AuthMultisig::new(AuthMultisigConfig::new(approvers)).unwrap().into()
+        },
+        AccountComponentInterface::AuthGuardedMultisig => {
+            let guardian = GuardianConfig::new(Approver::new(
+                guardian_key.public_key().to_commitment(),
+                AuthSchemeId::Falcon512Poseidon2,
+            ));
+            AuthGuardedMultisig::new(AuthGuardedMultisigConfig::new(approvers, guardian).unwrap())
+                .unwrap()
+                .into()
+        },
+        AccountComponentInterface::AuthMultisigSmart => {
+            AuthMultisigSmart::new(AuthMultisigSmartConfig::new(approvers)).unwrap().into()
+        },
+        _ => unreachable!(),
+    };
+    let (mut client, rpc_api, account) =
+        Box::pin(fee_charging_client_with_auth_and_rpc(auth, key)).await;
+    if matches!(auth_component, AccountComponentInterface::AuthGuardedMultisig) {
+        client.keystore().add_key(&guardian_key, account.id()).await.unwrap();
+    }
+
+    let own_note = P2idNote::builder()
+        .sender(account.id())
+        .target(account.id())
+        .asset(FungibleAsset::new(ACCOUNT_ID_FEE_FAUCET.try_into().unwrap(), 100).unwrap())
+        .note_type(NoteType::Public)
+        .serial_number(Word::from([5u32, 6, 7, 8]))
+        .build()
+        .unwrap();
+    let request = TransactionRequestBuilder::new()
+        .fee_conversion_salt(Word::from([1u32, 2, 3, 4]))
+        .own_output_notes(vec![own_note.into()])
+        .build()
+        .unwrap();
+    let mut request = TransactionRequest::read_from_bytes(&request.to_bytes()).unwrap();
+    let anchor = client.chain_anchor_for_request(&request).await.unwrap();
+
+    rpc_api.prove_block();
+    client.sync_state().await.unwrap();
+    assert!(client.get_sync_height().await.unwrap() > anchor.block_num());
+
+    let summary = unauthorized_summary(
+        Box::pin(client.execute_transaction_at(account.id(), request.clone(), anchor.clone()))
+            .await
+            .expect_err("an unsigned multisig request should return its summary"),
+    );
+    assert_eq!(summary.block_number(), anchor.block_num());
+
+    let message = summary.to_commitment();
+    for key in client.keystore().get_keys_for_account(&account.id()).await.unwrap() {
+        let public_key: Word = key.public_key().to_commitment().into();
+        request.advice_map_mut().insert(
+            Hasher::merge(&[public_key, message]),
+            key.sign(message).to_encoded_signature(message),
+        );
+    }
+    let result = Box::pin(client.execute_transaction_at(account.id(), request, anchor))
+        .await
+        .expect("the signed request should execute");
+    // The smart multisig auth component does not create a fee note.
+    let expected_note_count =
+        if matches!(auth_component, AccountComponentInterface::AuthMultisigSmart) {
+            1
+        } else {
+            2
+        };
+    assert_eq!(result.executed_transaction().output_notes().num_notes(), expected_note_count);
 }
 
 /// A multisig proposal can bind its summary to an old block and execute against the current chain

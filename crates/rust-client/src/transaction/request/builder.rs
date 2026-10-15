@@ -348,9 +348,12 @@ impl TransactionRequestBuilder {
 
     /// Declares the salt the fee conversion info is committed under.
     ///
-    /// Fees are always settled in the chain's native fee asset at rate 1/1. The client commits that
-    /// info through the transaction's auth args when preparing the transaction, under a fixed
-    /// default salt.
+    /// Fees are settled in the chain's native fee asset at rate 1/1. The client commits that info
+    /// through the transaction's auth args when preparing the transaction.
+    ///
+    /// Multisig accounts require a caller-declared salt. The client also binds their auth args to
+    /// the transaction's reference block. Use the same reference block when collecting signatures
+    /// across repeated executions. See [`crate::Client::execute_transaction_at`].
     #[must_use]
     pub fn fee_conversion_salt(mut self, salt: Word) -> Self {
         self.fee_conversion_salt = Some(salt);

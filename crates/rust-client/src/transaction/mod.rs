@@ -86,7 +86,7 @@ use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::PartialBlockchain;
 use miden_protocol::vm::MIN_STACK_DEPTH;
 use miden_protocol::{Felt, Word};
-use miden_standards::account::auth::FeeConversionInfo;
+use miden_standards::account::auth::{FeeConversionInfo, MultisigAuthArgs};
 use miden_standards::account::faucets::FungibleFaucet;
 use miden_standards::account::interface::AccountComponentInterfaceExt;
 use miden_standards::note::TxFeeNote;
@@ -1570,11 +1570,10 @@ fn get_outgoing_assets(
 /// alone, unless the request declares a salt such a component can never read (see
 /// [`validate_fee_conversion_info_support`]).
 ///
-/// The default salt is fixed because the signed transaction summary covers the auth args, and a
-/// random salt would change the summary on every execution, breaking flows that reproduce one to
-/// verify a signature over it. `AuthMultisig` is the mirror image: there the salt *is* the replay
-/// guard, so the fixed one would eventually collide, and such a caller must declare a fresh one
-/// with [`TransactionRequestBuilder::fee_conversion_salt`].
+/// Single-sig accounts use a fixed default salt so that repeated executions at the same reference
+/// block produce the same auth args. Multisig accounts require a caller-declared replay salt
+/// through [`TransactionRequestBuilder::fee_conversion_salt`]. Their auth args also bind the
+/// transaction's reference block. Explicit auth args remain unchanged.
 fn attach_native_fee_conversion_info(
     transaction_request: &mut TransactionRequest,
     account_code_interface: &AccountCodeInterface,
@@ -1604,10 +1603,11 @@ fn attach_native_fee_conversion_info(
         },
         FeeAuth::CallerChosenSalt(component) => match declared_salt {
             Some(salt) => {
-                transaction_request.commit_native_fee_conversion_info(
-                    protocol_config.fee_asset_id().faucet_id(),
-                    salt,
-                );
+                let auth_args = MultisigAuthArgs::new(reference_header.block_num(), salt)
+                    .with_conversion_info(FeeConversionInfo::one_to_one(
+                        protocol_config.fee_asset_id().faucet_id(),
+                    ));
+                transaction_request.commit_multisig_auth_args(auth_args);
                 Ok(())
             },
             None => Err(ClientError::TransactionRequestError(
@@ -1630,8 +1630,8 @@ enum FeeAuth {
     /// Reads it as fee conversion info without constraining the salt, so the client's fixed default
     /// salt works where the caller declares none.
     FixedSalt,
-    /// Reads it as conversion info too, but reuses the salt as a replay guard the caller must
-    /// choose. Carries the component's name for the error.
+    /// Reads a bound block, a caller-declared replay salt, and conversion info. Carries the
+    /// component's name for the error.
     CallerChosenSalt(String),
     /// Does not read it as conversion info, so anything written there is ignored and the fee is
     /// settled some other way. Carries the auth component's name, or `"unrecognized"` when the
@@ -1659,10 +1659,8 @@ impl FeeAuth {
             return Self::FixedSalt;
         }
 
-        // Every multisig flavour whose MASM calls `fee::load_conversion_info` belongs here.
-        // `multisig_smart.masm` and `guarded_multisig.masm` both `dupw` the auth argument, load the
-        // conversion info out of it and keep the copy as the summary salt, so the salt is the
-        // caller's replay guard in both.
+        // Multisig components read the bound block, replay salt, and conversion info from the auth
+        // args.
         let caller_chosen_salt = components.iter().find_map(|component| match component {
             AccountComponentInterface::AuthMultisig
             | AccountComponentInterface::AuthMultisigSmart
@@ -1992,6 +1990,7 @@ mod tests {
     };
     use miden_protocol::asset::{AssetId, FungibleAsset};
     use miden_protocol::block::{BlockHeader, BlockNumber, FeeParameters};
+    use miden_protocol::crypto::SequentialCommit;
     use miden_protocol::note::{Note, NoteType};
     use miden_protocol::protocol_config::ProtocolConfig;
     use miden_protocol::testing::account_id::{
@@ -2013,6 +2012,7 @@ mod tests {
         AuthSingleSig,
         FeeConversionInfo,
         GuardianConfig,
+        MultisigAuthArgs,
         NoAuth,
         commit_fee_conversion_info,
     };
@@ -2294,6 +2294,14 @@ mod tests {
         auth_arg
     }
 
+    fn native_multisig_commitment(salt: Word) -> Word {
+        MultisigAuthArgs::new(BlockNumber::from(1u32), salt)
+            .with_conversion_info(FeeConversionInfo::one_to_one(
+                AccountId::try_from(NATIVE_FEE_FAUCET).unwrap(),
+            ))
+            .to_commitment()
+    }
+
     #[test]
     fn a_declared_salt_is_used_for_the_native_commitment() {
         let salt = Word::from([17u32, 18, 19, 20]);
@@ -2352,9 +2360,7 @@ mod tests {
         .expect("a guarded multisig reads the auth args as conversion info");
     }
 
-    /// `guarded_multisig.masm` reuses the auth args as the summary salt after loading the
-    /// conversion info out of them, exactly as `multisig.masm` does, so the same reasoning applies:
-    /// the salt is the caller's replay guard and the client cannot pick it.
+    /// Guarded multisig accounts require a caller-declared salt for replay protection.
     #[test]
     fn a_guarded_multisig_account_must_declare_its_own_fee_conversion_info() {
         let err = try_injected_auth_arg(
@@ -2376,7 +2382,7 @@ mod tests {
         assert_eq!(
             try_injected_auth_arg(fee_conversion_request(), &guarded_multisig_account(), 500)
                 .expect("a declared salt is accepted"),
-            Some(native_commitment(salt)),
+            Some(native_multisig_commitment(salt)),
             "a guarded multisig account that declares a salt commits the native conversion info"
         );
 
@@ -2407,10 +2413,7 @@ mod tests {
         account_with_auth(AuthMultisigSmart::new(AuthMultisigSmartConfig::new(approvers)).unwrap())
     }
 
-    /// As of `0.16.0-rc.9` `multisig_smart.masm` loads the conversion info out of the auth args and
-    /// pays the fee with it, exactly as `guarded_multisig.masm` does, so a declared asset and rate
-    /// are what the account pays with rather than something discarded and reinterpreted as the
-    /// summary salt.
+    /// Smart multisig accounts accept the standard multisig auth args.
     #[test]
     fn fee_conversion_info_is_accepted_by_a_smart_multisig_account() {
         validate_fee_conversion_info_support(
@@ -2420,9 +2423,7 @@ mod tests {
         .expect("a smart multisig reads the auth args as conversion info");
     }
 
-    /// `multisig_smart.masm` reuses the auth args as the summary salt after loading the conversion
-    /// info out of them, so the same reasoning as for the other multisig flavours applies: the salt
-    /// is the caller's replay guard and the client cannot pick it.
+    /// Smart multisig accounts require a caller-declared salt for replay protection.
     #[test]
     fn a_smart_multisig_account_must_declare_its_own_fee_conversion_info() {
         let err = try_injected_auth_arg(
@@ -2444,7 +2445,7 @@ mod tests {
         assert_eq!(
             try_injected_auth_arg(fee_conversion_request(), &smart_multisig_account(), 500)
                 .expect("a declared salt is accepted"),
-            Some(native_commitment(salt)),
+            Some(native_multisig_commitment(salt)),
             "a smart multisig account that declares a salt commits the native conversion info"
         );
 
