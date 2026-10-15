@@ -4,12 +4,12 @@
 
 ### Features
 
-* [FEATURE][rust] Added `TransactionRequestBuilder::auth_args`, which sets the auth arg to the commitment of the given auth args and adds their preimage to the advice map.
+* [FEATURE][rust] Added `TransactionRequestBuilder::auth_args`, which sets the auth arg to the commitment of the given auth args and adds their preimage to the advice map ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
 * [FEATURE][rust] Added the `miden_client::usdcx` module, which re-exports `miden-usdcx`. It provides the USDCx (Circle xReserve) burn note `XReserveBurnNote`, the `XReserveBurnItems` payload codec, and the `AccountId` to `bytes32` encoding ([#2695](https://github.com/0xMiden/rust-sdk/pull/2695)).
 
 ### Fixes
 
-* [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt.
+* [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
 
 ## 0.17.3 (2026-10-08)
 
