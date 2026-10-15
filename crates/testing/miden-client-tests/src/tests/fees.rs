@@ -27,7 +27,6 @@ use miden_client::transaction::{
 use miden_client::utils::{Deserializable, Serializable};
 use miden_client_sqlite_store::ClientBuilderSqliteExt;
 use miden_protocol::account::{AccountBuilder, AccountComponent, AccountType};
-use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::note::NoteType;
 use miden_protocol::testing::account_id::ACCOUNT_ID_FEE_FAUCET;
 use miden_protocol::transaction::TransactionSummary;
@@ -549,11 +548,9 @@ async fn multisig_proposal_reexecutes_after_bound_account_state_is_pruned() {
     let fee_faucet_id: AccountId = ACCOUNT_ID_FEE_FAUCET.try_into().unwrap();
     let auth_args = MultisigAuthArgs::new(bound_block_num, Word::from([21u32, 22, 23, 24]))
         .with_conversion_info(FeeConversionInfo::one_to_one(fee_faucet_id));
-    let auth_arg = auth_args.to_commitment();
     let request = TransactionRequestBuilder::new()
         .block_numbers([bound_block_num])
-        .auth_arg(auth_arg)
-        .extend_advice_map([(auth_arg, auth_args.to_elements())])
+        .auth_args(&auth_args)
         .build()
         .unwrap();
 

@@ -706,6 +706,7 @@ mod tests {
     };
     use miden_protocol::asset::FungibleAsset;
     use miden_protocol::block::account_tree::AccountTree;
+    use miden_protocol::crypto::SequentialCommit;
     use miden_protocol::note::{NoteTag, NoteType};
     use miden_protocol::testing::account_id::{
         ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
@@ -714,7 +715,7 @@ mod tests {
     };
     use miden_protocol::transaction::{AccountInputs, InputNote};
     use miden_protocol::{EMPTY_WORD, Felt, Word};
-    use miden_standards::account::auth::{Approver, AuthSingleSig};
+    use miden_standards::account::auth::{Approver, AuthSingleSig, MultisigAuthArgs};
     use miden_standards::note::P2idNote;
     use miden_standards::testing::account_component::MockAccountComponent;
     use miden_tx::utils::serde::{Deserializable, Serializable};
@@ -753,6 +754,22 @@ mod tests {
             ))
             .into()
         });
+    }
+
+    #[test]
+    fn auth_args_set_the_commitment_and_its_preimage() {
+        let auth_args = MultisigAuthArgs::new(BlockNumber::from(7u32), Word::from([1u32, 2, 3, 4]));
+
+        let request = TransactionRequestBuilder::new()
+            .fee_conversion_salt(Word::from([5u32, 6, 7, 8]))
+            .auth_args(&auth_args)
+            .build()
+            .unwrap();
+
+        let auth_arg = auth_args.to_commitment();
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
+        assert_eq!(request.fee_conversion_salt(), None);
+        assert_eq!(request.advice_map().get(&auth_arg).unwrap().as_ref(), auth_args.to_elements());
     }
 
     #[test]
