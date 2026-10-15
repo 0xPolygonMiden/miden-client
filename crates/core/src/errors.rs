@@ -123,11 +123,9 @@ pub enum AccountRecordError {
 // TRANSACTION ENCRYPTION ERROR
 // ================================================================================================
 
-/// Errors generated when a transaction encryption key is verified or used for sealing.
+/// Errors generated when a transaction encryption key is verified.
 #[derive(Debug, Error)]
 pub enum TransactionEncryptionError {
     #[error("{0}")]
     KeyRejected(String),
-    #[error("{0}")]
-    SealingFailed(String),
 }

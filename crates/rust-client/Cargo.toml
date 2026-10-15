@@ -125,10 +125,11 @@ prost                  = { features = ["derive"], workspace = true }
 tonic-prost-build      = { version = "0.14" }
 
 [dev-dependencies]
-miden-protocol  = { default-features = false, features = ["testing"], workspace = true }
-miden-standards = { features = ["testing"], workspace = true }
-miden-testing   = { default-features = false, workspace = true }
-tokio           = { workspace = true }
+miden-client-core = { features = ["testing"], workspace = true }
+miden-protocol    = { default-features = false, features = ["testing"], workspace = true }
+miden-standards   = { features = ["testing"], workspace = true }
+miden-testing     = { default-features = false, workspace = true }
+tokio             = { workspace = true }
 
 [lints]
 workspace = true

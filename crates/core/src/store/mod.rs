@@ -41,7 +41,7 @@ use miden_protocol::{Felt, Word};
 use crate::errors::StoreError;
 #[allow(deprecated)]
 use crate::note_transport::{NOTE_TRANSPORT_CURSOR_STORE_SETTING, NoteTransportCursor};
-use crate::rpc::encryption::{TRANSACTION_ENCRYPTION_KEY_STORE_SETTING, TransactionEncryptionKey};
+use crate::rpc::encryption::TransactionEncryptionKey;
 use crate::rpc::{RPC_LIMITS_STORE_SETTING, RpcLimits};
 use crate::sync::{NoteTagRecord, StateSyncUpdate};
 use crate::transaction::{TransactionRecord, TransactionStoreUpdate};
@@ -85,6 +85,12 @@ pub use settings::{SettingMutation, SettingScope, protocol_config_setting_key};
 
 mod smt_forest;
 pub use smt_forest::{AccountSmtForest, AccountUpdate};
+
+// CONSTANTS
+// ================================================================================================
+
+/// Key used to store the transaction encryption key in the settings table.
+const TRANSACTION_ENCRYPTION_KEY_STORE_SETTING: &str = "transaction_encryption_key";
 
 // STORE TRAIT
 // ================================================================================================
