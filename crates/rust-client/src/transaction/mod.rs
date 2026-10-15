@@ -71,7 +71,8 @@ use alloc::vec::Vec;
 use miden_protocol::account::{AccountCode, AccountCodeInterface, AccountId, PartialAccount};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::account_tree::AccountWitness;
-use miden_protocol::block::{BlockHeader, BlockNumber, FeeParameters};
+use miden_protocol::block::{BlockHeader, BlockNumber};
+use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::errors::AssetError;
 use miden_protocol::note::{
     Note,
@@ -86,7 +87,11 @@ use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::PartialBlockchain;
 use miden_protocol::vm::MIN_STACK_DEPTH;
 use miden_protocol::{Felt, Word};
-use miden_standards::account::auth::{FeeConversionInfo, MultisigAuthArgs};
+use miden_standards::account::auth::{
+    FeeConversionInfo,
+    MultisigAuthArgs,
+    commit_fee_conversion_info,
+};
 use miden_standards::account::faucets::FungibleFaucet;
 use miden_standards::account::interface::AccountComponentInterfaceExt;
 use miden_standards::note::TxFeeNote;
@@ -204,7 +209,7 @@ pub use result::TransactionResult;
 
 /// Salt the client commits native fee conversion info under when the request declares none.
 ///
-/// See [`attach_native_fee_conversion_info`] for why this is a constant.
+/// See [`attach_default_auth_args`] for why this is a constant.
 pub(crate) const NATIVE_FEE_CONVERSION_SALT: Word = Word::empty();
 
 /// Transaction management methods
@@ -716,7 +721,7 @@ where
             }
         }
 
-        attach_native_fee_conversion_info(
+        attach_default_auth_args(
             &mut transaction_request,
             &account_code_interface,
             &reference_header,
@@ -1561,20 +1566,12 @@ fn get_outgoing_assets(
     request::collect_assets(outgoing_assets)
 }
 
-/// Commits fee conversion info paying the transaction fee in the chain's native fee asset at rate
-/// 1/1, unless the account cannot read it.
+/// Sets default auth args when the request defines none.
 ///
-/// Signature-based auth components abort when a non-zero `verification_base_fee` meets auth args
-/// carrying no conversion info, so a request built without one is unexecutable rather than merely
-/// suboptimal. Components that ignore the auth args settle their fee some other way and are left
-/// alone, unless the request declares a salt such a component can never read (see
-/// [`validate_fee_conversion_info_support`]).
-///
-/// Single-sig accounts use a fixed default salt so that repeated executions at the same reference
-/// block produce the same auth args. Multisig accounts require a caller-declared replay salt
-/// through [`TransactionRequestBuilder::fee_conversion_salt`]. Their auth args also bind the
-/// transaction's reference block. Explicit auth args remain unchanged.
-fn attach_native_fee_conversion_info(
+/// The default auth args depend on the layout that the auth component reads (see
+/// [`AuthArgsLayout`]). They pay the fee in the chain's native fee asset at rate 1/1. On a chain
+/// that charges a fee, signature-based auth components abort without them.
+fn attach_default_auth_args(
     transaction_request: &mut TransactionRequest,
     account_code_interface: &AccountCodeInterface,
     reference_header: &BlockHeader,
@@ -1593,62 +1590,44 @@ fn attach_native_fee_conversion_info(
         return Ok(());
     }
 
-    match FeeAuth::of(account_code_interface) {
-        FeeAuth::FixedSalt => {
-            transaction_request.commit_native_fee_conversion_info(
-                protocol_config.fee_asset_id().faucet_id(),
-                declared_salt.unwrap_or(NATIVE_FEE_CONVERSION_SALT),
-            );
-            Ok(())
-        },
-        FeeAuth::CallerChosenSalt(component) => match declared_salt {
-            Some(salt) => {
-                let auth_args = MultisigAuthArgs::new(reference_header.block_num(), salt)
-                    .with_conversion_info(FeeConversionInfo::one_to_one(
-                        protocol_config.fee_asset_id().faucet_id(),
-                    ));
-                transaction_request.commit_multisig_auth_args(auth_args);
-                Ok(())
-            },
-            None => Err(ClientError::TransactionRequestError(
-                TransactionRequestError::FeeConversionInfoRequired(component),
-            )),
-        },
-        FeeAuth::Ignored(component) => match declared_salt {
-            // Batch execution skips `validate_account_request`, so the mismatch is caught here too
-            // rather than silently dropping the declared salt.
-            Some(_) => Err(ClientError::TransactionRequestError(
-                TransactionRequestError::FeeConversionInfoUnsupported(component),
-            )),
-            None => Ok(()),
-        },
+    if let Some((auth_arg, preimage)) = AuthArgsLayout::of(account_code_interface)
+        .default_auth_args(
+            declared_salt,
+            reference_header.block_num(),
+            protocol_config.fee_asset_id().faucet_id(),
+        )?
+    {
+        transaction_request.commit_auth_args(auth_arg, preimage);
     }
+
+    Ok(())
 }
 
-/// How an account's auth component treats the transaction's auth argument where a fee is charged.
-enum FeeAuth {
-    /// Reads it as fee conversion info without constraining the salt, so the client's fixed default
-    /// salt works where the caller declares none.
-    FixedSalt,
-    /// Reads a bound block, a caller-declared replay salt, and conversion info. Carries the
-    /// component's name for the error.
-    CallerChosenSalt(String),
-    /// Does not read it as conversion info, so anything written there is ignored and the fee is
-    /// settled some other way. Carries the auth component's name, or `"unrecognized"` when the
-    /// client recognizes no auth component at all.
-    Ignored(String),
+/// The auth args layout that an account's auth component reads where a fee is charged.
+pub(crate) enum AuthArgsLayout {
+    /// `[SALT, CONVERSION_INFO]`. The salt does not constrain anything, so the client's fixed
+    /// default salt works where the caller declares none.
+    SingleSig,
+    /// `[BLOCK_WORD, SALT, CONVERSION_INFO]`. The salt is the replay guard of the account, so the
+    /// caller must declare it. Carries the component's name for the error.
+    Multisig(String),
+    /// The component does not read the auth args as conversion info, so anything written there is
+    /// ignored and the fee is settled some other way. Carries the auth component's name, or
+    /// `"unrecognized"` when the client recognizes no auth component at all.
+    Unsupported(String),
 }
 
-impl FeeAuth {
+impl AuthArgsLayout {
     /// Classifies the account's auth component.
     ///
     /// A single-sig component decides the answer wherever it sits in the component list, so the
     /// classification does not depend on the order components come back in.
     ///
-    /// An unrecognized component is [`FeeAuth::Ignored`] and left alone: writing an argument such a
-    /// component may read for its own purposes is worse than writing nothing. The component list is
-    /// inspected directly because `AccountInterface::new` panics on exactly those components.
-    fn of(account_code_interface: &AccountCodeInterface) -> Self {
+    /// An unrecognized component is [`AuthArgsLayout::Unsupported`] and left alone: writing an
+    /// argument such a component may read for its own purposes is worse than writing nothing. The
+    /// component list is inspected directly because `AccountInterface::new` panics on exactly those
+    /// components.
+    pub(crate) fn of(account_code_interface: &AccountCodeInterface) -> Self {
         let procedures: Vec<_> = account_code_interface.procedures().iter().copied().collect();
         let components = AccountComponentInterface::from_procedures(&procedures);
 
@@ -1656,21 +1635,19 @@ impl FeeAuth {
             .iter()
             .any(|component| matches!(component, AccountComponentInterface::AuthSingleSig))
         {
-            return Self::FixedSalt;
+            return Self::SingleSig;
         }
 
-        // Multisig components read the bound block, replay salt, and conversion info from the auth
-        // args.
-        let caller_chosen_salt = components.iter().find_map(|component| match component {
+        let multisig = components.iter().find_map(|component| match component {
             AccountComponentInterface::AuthMultisig
             | AccountComponentInterface::AuthMultisigSmart
             | AccountComponentInterface::AuthGuardedMultisig => {
-                Some(Self::CallerChosenSalt(component.name()))
+                Some(Self::Multisig(component.name()))
             },
             _ => None,
         });
 
-        caller_chosen_salt.unwrap_or_else(|| {
+        multisig.unwrap_or_else(|| {
             let name = components
                 .iter()
                 .find(|component| {
@@ -1682,31 +1659,45 @@ impl FeeAuth {
                 })
                 .map_or_else(|| "unrecognized".into(), AccountComponentInterface::name);
 
-            Self::Ignored(name)
+            Self::Unsupported(name)
         })
     }
-}
 
-/// Returns the conversion info an account should commit to settle its fee in the native asset at
-/// rate 1/1, or `None` when the account pays its fee some other way.
-///
-/// Shared with note screening so the two cannot disagree about what an account needs.
-pub(crate) fn native_fee_conversion_info(
-    account_code_interface: &AccountCodeInterface,
-    fee_parameters: &FeeParameters,
-    protocol_config: &ProtocolConfig,
-) -> Option<FeeConversionInfo> {
-    if fee_parameters.verification_base_fee() == 0 {
-        return None;
-    }
+    /// Returns the auth arg commitment and the preimage that pay the fee in `fee_faucet_id`'s asset
+    /// at rate 1/1, or `None` when the component does not read them.
+    ///
+    /// Multisig auth args bind `bound_block_num`.
+    ///
+    /// # Errors
+    /// - If the component is a multisig and `declared_salt` is `None`.
+    /// - If the component does not read the auth args and `declared_salt` is `Some`. Batch
+    ///   execution skips `validate_account_request`, so this check also catches the mismatch there.
+    pub(crate) fn default_auth_args(
+        &self,
+        declared_salt: Option<Word>,
+        bound_block_num: BlockNumber,
+        fee_faucet_id: AccountId,
+    ) -> Result<Option<(Word, Vec<Felt>)>, TransactionRequestError> {
+        let conversion_info = FeeConversionInfo::one_to_one(fee_faucet_id);
 
-    // Only a fixed salt can be paired with this info by anyone other than the caller: where the
-    // salt is the account's replay guard, the caller is the one who has to choose it.
-    match FeeAuth::of(account_code_interface) {
-        FeeAuth::FixedSalt => {
-            Some(FeeConversionInfo::one_to_one(protocol_config.fee_asset_id().faucet_id()))
-        },
-        FeeAuth::CallerChosenSalt(_) | FeeAuth::Ignored(_) => None,
+        match (self, declared_salt) {
+            (Self::SingleSig, salt) => Ok(Some(commit_fee_conversion_info(
+                conversion_info,
+                salt.unwrap_or(NATIVE_FEE_CONVERSION_SALT),
+            ))),
+            (Self::Multisig(_), Some(salt)) => {
+                let auth_args = MultisigAuthArgs::new(bound_block_num, salt)
+                    .with_conversion_info(conversion_info);
+                Ok(Some((auth_args.to_commitment(), auth_args.to_elements())))
+            },
+            (Self::Multisig(component), None) => {
+                Err(TransactionRequestError::FeeConversionInfoRequired(component.clone()))
+            },
+            (Self::Unsupported(component), Some(_)) => {
+                Err(TransactionRequestError::FeeConversionInfoUnsupported(component.clone()))
+            },
+            (Self::Unsupported(_), None) => Ok(None),
+        }
     }
 }
 
@@ -1723,9 +1714,9 @@ fn validate_fee_conversion_info_support(
         return Ok(());
     }
 
-    match FeeAuth::of(account_code_interface) {
-        FeeAuth::FixedSalt | FeeAuth::CallerChosenSalt(_) => Ok(()),
-        FeeAuth::Ignored(auth_component) => Err(ClientError::TransactionRequestError(
+    match AuthArgsLayout::of(account_code_interface) {
+        AuthArgsLayout::SingleSig | AuthArgsLayout::Multisig(_) => Ok(()),
+        AuthArgsLayout::Unsupported(auth_component) => Err(ClientError::TransactionRequestError(
             TransactionRequestError::FeeConversionInfoUnsupported(auth_component),
         )),
     }
@@ -2026,7 +2017,7 @@ mod tests {
         NATIVE_FEE_CONVERSION_SALT,
         TransactionRequest,
         TransactionRequestBuilder,
-        attach_native_fee_conversion_info,
+        attach_default_auth_args,
         validate_fee_conversion_info_support,
         validate_output_note_senders,
     };
@@ -2204,7 +2195,7 @@ mod tests {
         account: &Account,
         verification_base_fee: u32,
     ) -> Option<Word> {
-        let _ = attach_native_fee_conversion_info(
+        let _ = attach_default_auth_args(
             &mut request,
             &account.code_interface(),
             &header_with_base_fee(verification_base_fee),
@@ -2219,7 +2210,7 @@ mod tests {
         account: &Account,
         verification_base_fee: u32,
     ) -> Result<Option<Word>, ClientError> {
-        attach_native_fee_conversion_info(
+        attach_default_auth_args(
             &mut request,
             &account.code_interface(),
             &header_with_base_fee(verification_base_fee),

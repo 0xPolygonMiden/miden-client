@@ -6,11 +6,9 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::num::NonZeroU16;
 
-use miden_protocol::Word;
 use miden_protocol::account::{AccountCodeInterface, AccountCodeUpgrade, AccountId};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::BlockNumber;
-use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::crypto::merkle::MerkleError;
 use miden_protocol::crypto::merkle::store::MerkleStore;
 use miden_protocol::errors::{
@@ -38,11 +36,7 @@ use miden_protocol::transaction::{
     TransactionScript,
 };
 use miden_protocol::vm::AdviceMap;
-use miden_standards::account::auth::{
-    FeeConversionInfo,
-    MultisigAuthArgs,
-    commit_fee_conversion_info,
-};
+use miden_protocol::{Felt, Word};
 use miden_standards::errors::CodeBuilderError;
 use miden_standards::tx_script::{
     ExpirationTransactionScript,
@@ -299,23 +293,9 @@ impl TransactionRequest {
         self.input_notes.push(note);
     }
 
-    /// Commits fee conversion info paying the fee in `fee_faucet_id`'s asset at rate 1/1 under
-    /// `salt`, through the auth args.
-    pub(crate) fn commit_native_fee_conversion_info(
-        &mut self,
-        fee_faucet_id: AccountId,
-        salt: Word,
-    ) {
-        let (auth_arg, preimage) =
-            commit_fee_conversion_info(FeeConversionInfo::one_to_one(fee_faucet_id), salt);
+    /// Sets `auth_arg` and adds its `preimage` to the advice map.
+    pub(crate) fn commit_auth_args(&mut self, auth_arg: Word, preimage: Vec<Felt>) {
         self.advice_map.insert(auth_arg, preimage);
-        self.auth_arg = Some(auth_arg);
-    }
-
-    /// Commits the multisig block, salt, and fee conversion info through the auth args.
-    pub(crate) fn commit_multisig_auth_args(&mut self, auth_args: MultisigAuthArgs) {
-        let auth_arg = auth_args.to_commitment();
-        self.advice_map.insert(auth_arg, auth_args.to_elements());
         self.auth_arg = Some(auth_arg);
     }
 

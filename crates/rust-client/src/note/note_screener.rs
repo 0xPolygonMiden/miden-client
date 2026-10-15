@@ -8,7 +8,6 @@ use miden_protocol::Word;
 use miden_protocol::account::{AccountCode, AccountId};
 use miden_protocol::block::BlockNumber;
 use miden_protocol::note::{Note, NoteId};
-use miden_standards::account::auth::commit_fee_conversion_info;
 use miden_standards::note::NoteConsumptionStatus;
 use miden_tx::{
     NoteCheckerError,
@@ -24,13 +23,7 @@ use crate::rpc::domain::note::CommittedNote;
 use crate::store::data_store::ClientDataStore;
 use crate::store::{InputNoteRecord, NoteFilter, Store, StoreError};
 use crate::sync::{NoteUpdateAction, OnNoteReceived};
-use crate::transaction::{
-    AdviceMap,
-    InputNote,
-    NATIVE_FEE_CONVERSION_SALT,
-    TransactionArgs,
-    native_fee_conversion_info,
-};
+use crate::transaction::{AdviceMap, AuthArgsLayout, InputNote, TransactionArgs};
 
 /// Represents the consumability of a note by a specific account.
 ///
@@ -248,20 +241,26 @@ impl NoteScreener {
             return Ok(tx_args);
         };
 
-        let Some(conversion_info) = native_fee_conversion_info(
+        if header.fee_parameters().verification_base_fee() == 0 {
+            return Ok(tx_args);
+        }
+
+        let protocol_config = crate::protocol_config::load_protocol_config(
+            self.store.as_ref(),
+            header.protocol_config_commitment(),
+        )
+        .await?;
+
+        // Only the single-sig layout works without a caller-declared salt. Where the salt is the
+        // replay guard of the account, the caller must choose it, so the trial runs without auth
+        // args.
+        let Ok(Some((auth_arg, preimage))) = AuthArgsLayout::of(
             &account_code.interface(account_id),
-            header.fee_parameters(),
-            &crate::protocol_config::load_protocol_config(
-                self.store.as_ref(),
-                header.protocol_config_commitment(),
-            )
-            .await?,
-        ) else {
+        )
+        .default_auth_args(None, block_ref, protocol_config.fee_asset_id().faucet_id()) else {
             return Ok(tx_args);
         };
 
-        let (auth_arg, preimage) =
-            commit_fee_conversion_info(conversion_info, NATIVE_FEE_CONVERSION_SALT);
         let mut tx_args = tx_args.with_auth_args(auth_arg);
         tx_args.extend_advice_map([(auth_arg, preimage)]);
 
