@@ -547,17 +547,17 @@ pub async fn test_consumed_note_ordering(client_config: ClientConfig) -> Result<
     client.wait_for_tx(bootstrap_tx_id).await?;
     client.sync_state().await?;
 
-    // Mint 3 notes, each in a separate transaction.
-    let mut minted_notes = Vec::new();
-    for i in 0..3 {
-        let (tx_id, note) = client
-            .mint_note(wallet_account.id(), faucet_account.id(), NoteType::Private)
-            .await?;
-        info!(tx_id = %tx_id, note_id = %note.id(), index = i, "Minted note");
-        client.wait_for_tx(tx_id).await?;
-        minted_notes.push(note);
-    }
-    client.sync_state().await?;
+    // Mint 3 notes in one transaction. The ordering assertion needs three distinct notes to
+    // consume, not three distinct mint blocks.
+    let fungible_asset = FungibleAsset::new(faucet_account.id(), MINT_AMOUNT)?;
+    let mint_tx_request = client.mint_multiple_fungible_asset(
+        fungible_asset,
+        &[wallet_account.id(); 3],
+        NoteType::Private,
+    )?;
+    let minted_notes = mint_tx_request.expected_output_own_notes();
+    client.execute_tx_and_sync(faucet_account.id(), mint_tx_request).await?;
+    info!(count = minted_notes.len(), "Minted notes");
 
     let mut batch = client.new_transaction_batch();
     for (i, note) in minted_notes.iter().enumerate() {

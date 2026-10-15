@@ -632,7 +632,7 @@ impl TestClient {
                 return Ok(summary);
             }
 
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
@@ -655,7 +655,7 @@ impl TestClient {
                 return Ok(());
             }
 
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
@@ -708,7 +708,7 @@ impl TestClient {
                 %deadline_block,
                 "No consumable notes yet, waiting..."
             );
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
