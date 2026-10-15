@@ -150,12 +150,7 @@ impl NoteScreener {
             data_store.mast_store().load_account_code(&account_code);
 
             let account_tx_args = self
-                .with_native_fee_conversion_info(
-                    tx_args.clone(),
-                    account_id,
-                    &account_code,
-                    block_ref,
-                )
+                .with_default_auth_args(tx_args.clone(), account_id, &account_code, block_ref)
                 .await?;
 
             for note in notes {
@@ -194,7 +189,7 @@ impl NoteScreener {
         let block_ref = self.store.get_sync_height().await?;
         let account_code = self.get_account_code(account_id).await?;
         let tx_args = self
-            .with_native_fee_conversion_info(self.tx_args(), account_id, &account_code, block_ref)
+            .with_default_auth_args(self.tx_args(), account_id, &account_code, block_ref)
             .await?;
 
         let data_store = ClientDataStore::new(self.store.clone(), self.rpc_api.clone())
@@ -217,14 +212,14 @@ impl NoteScreener {
     /// Screening runs the full kernel, so a fee it cannot pay aborts the trial execution, and
     /// [`NoteConsumptionChecker`] reports that as [`NoteConsumptionStatus::UnconsumableConditions`]
     /// — which [`is_relevant`] drops from the sync. Only custom-script notes reach execution;
-    /// standard ones are answered without it. The info comes from [`native_fee_conversion_info`],
-    /// so screening measures the fee execution would pay.
+    /// standard ones are answered without it. The auth args come from
+    /// [`AuthArgsLayout::default_auth_args`], so screening measures the fee execution would pay.
     ///
     /// TODO: remove once the checker can report a note as consumable-but-unaffordable, which would
     /// make the fee irrelevant to screening rather than something to satisfy:
     /// <https://github.com/0xMiden/protocol/issues/3710>. That would also cover the case this
     /// cannot: an account whose vault is too empty to pay even with the info attached.
-    async fn with_native_fee_conversion_info(
+    async fn with_default_auth_args(
         &self,
         tx_args: TransactionArgs,
         account_id: AccountId,
@@ -241,6 +236,8 @@ impl NoteScreener {
             return Ok(tx_args);
         };
 
+        // Without a fee, only multisig components need auth args, and the trial cannot supply them.
+        // Returning here also skips loading the protocol configuration.
         if header.fee_parameters().verification_base_fee() == 0 {
             return Ok(tx_args);
         }
@@ -257,7 +254,7 @@ impl NoteScreener {
         let Ok(Some((auth_arg, preimage))) = AuthArgsLayout::of(
             &account_code.interface(account_id),
         )
-        .default_auth_args(None, block_ref, protocol_config.fee_asset_id().faucet_id()) else {
+        .default_auth_args(None, &header, &protocol_config) else {
             return Ok(tx_args);
         };
 
