@@ -443,7 +443,7 @@ impl TransactionRequestBuilder {
     /// Consumes the builder and returns a [`TransactionRequest`] for a transaction to mint a
     /// non-fungible asset. This request must be executed against a a non-fungible faucet account
     /// (i.e. an account that has the
-    /// [`NonFungibleFaucet`](crate::account::standards::faucets::NonFungibleFaucet) component).
+    /// [`NonFungibleFaucet`](miden_standards::account::faucets::NonFungibleFaucet) component).
     ///
     /// - `asset` is the non-fungible asset to be minted. Its faucet must be the executing account.
     /// - `target_id` is the account ID of the account to receive the minted asset.
@@ -457,7 +457,7 @@ impl TransactionRequestBuilder {
         asset: NonFungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut ClientRng,
+        rng: &mut impl FeltRng,
     ) -> Result<TransactionRequest, TransactionRequestError> {
         let created_note = P2idNote::builder()
             .sender(asset.faucet_id())
@@ -489,7 +489,7 @@ impl TransactionRequestBuilder {
         self,
         asset: NonFungibleAsset,
         sender: AccountId,
-        rng: &mut ClientRng,
+        rng: &mut impl FeltRng,
     ) -> Result<TransactionRequest, TransactionRequestError> {
         let created_note = BurnNote::builder()
             .sender(sender)
