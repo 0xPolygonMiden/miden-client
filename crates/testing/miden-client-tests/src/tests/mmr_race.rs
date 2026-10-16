@@ -662,8 +662,8 @@ fn untrack_with_sql(store_path: &Path, block: u32) {
     assert_eq!(updated, 1);
 }
 
-/// Stores the header of `block` as tracked, with its leaf and its full path at `height`, as an import
-/// of another note in that block does.
+/// Stores the header of `block` as tracked, with its leaf and its full path at `height`, as an
+/// import of another note in that block does.
 async fn track_with_full_path(
     store_path: &Path,
     node: &MockRpcApi,
