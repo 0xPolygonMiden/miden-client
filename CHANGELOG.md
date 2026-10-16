@@ -6,6 +6,10 @@
 
 * [FEATURE][rust] Added the `miden_client::usdcx` module, which re-exports `miden-usdcx`. It provides the USDCx (Circle xReserve) burn note `XReserveBurnNote`, the `XReserveBurnItems` payload codec, and the `AccountId` to `bytes32` encoding ([#2695](https://github.com/0xMiden/rust-sdk/pull/2695)).
 
+### Fixes
+
+* [FIX][rust,store] Fixed stores that every sync and import refused with "inconsistent partial mmr: missing sibling for tracked leaf". Two client instances on one store could interleave an import, a sync and a prune so that a tracked block header was stored with an MMR path for an older forest. `SqliteStore` now refuses a block header insert, a sync update or a prune after which a tracked block does not have its full path at the stored sync height, and a sync update whose `StateSyncUpdate::block_from` is not the stored sync height. It returns `StoreError::DatabaseTransientError`, and the client retries the import, sync or prune with a new view of the store. `Client::get_current_partial_mmr` repairs a store that is already in this state: it requests the proofs of the broken blocks from the node and stores only the missing nodes. Added `StateSyncUpdate::with_block_from`, `StateSyncUpdate::block_from`, `store::build_partial_mmr` and `store::tracked_leaf_path_indices`. Other `Store` implementations should refuse the same writes ([#2713](https://github.com/0xMiden/rust-sdk/issues/2713)).
+
 ## 0.17.3 (2026-10-08)
 
 ### Features
