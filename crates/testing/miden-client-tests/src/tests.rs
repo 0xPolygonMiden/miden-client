@@ -1752,7 +1752,7 @@ async fn consume_note_and_prove(mock_rpc: &MockRpcApi, account_id: AccountId, no
 #[tokio::test]
 async fn irrelevant_block_pruning_respects_sync_interval() {
     let (mut client, mock_rpc, account_id, note_second) =
-        setup_prunable_block_scenario(Some(2)).await;
+        Box::pin(setup_prunable_block_scenario(Some(2))).await;
 
     consume_note_and_prove(&mock_rpc, account_id, note_second).await;
 
@@ -1774,7 +1774,8 @@ async fn irrelevant_block_pruning_respects_sync_interval() {
 
 #[tokio::test]
 async fn irrelevant_block_pruning_disabled_when_interval_is_none() {
-    let (mut client, mock_rpc, account_id, note_second) = setup_prunable_block_scenario(None).await;
+    let (mut client, mock_rpc, account_id, note_second) =
+        Box::pin(setup_prunable_block_scenario(None)).await;
 
     consume_note_and_prove(&mock_rpc, account_id, note_second).await;
 
@@ -4640,14 +4641,14 @@ async fn sync_committed_private_note_with_attachments(
 #[tokio::test]
 async fn sync_stores_private_note_attachments_carried_by_the_sync_response() {
     let (committed, private_note, get_notes_by_id_calls) =
-        sync_committed_private_note_with_attachments(
+        Box::pin(sync_committed_private_note_with_attachments(
             |target_id| {
                 let ntx_target =
                     NetworkAccountTarget::new(target_id, NoteExecutionHint::Always).unwrap();
                 NoteAttachments::new(vec![ntx_target.into()]).unwrap()
             },
             false,
-        )
+        ))
         .await;
 
     assert_eq!(
@@ -4673,7 +4674,7 @@ async fn sync_stores_private_note_attachments_carried_by_the_sync_response() {
 #[tokio::test]
 async fn sync_fetches_private_note_attachments_sent_as_a_commitment() {
     let (committed, private_note, get_notes_by_id_calls) =
-        sync_committed_private_note_with_attachments(
+        Box::pin(sync_committed_private_note_with_attachments(
             |_| {
                 let attachment = NoteAttachment::with_words(
                     NoteAttachmentScheme::new(100).unwrap(),
@@ -4683,7 +4684,7 @@ async fn sync_fetches_private_note_attachments_sent_as_a_commitment() {
                 NoteAttachments::new(vec![attachment]).unwrap()
             },
             true,
-        )
+        ))
         .await;
 
     assert_eq!(

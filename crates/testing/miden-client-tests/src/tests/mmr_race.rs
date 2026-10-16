@@ -1348,7 +1348,7 @@ async fn round_note_of_a_block_without_a_stored_header_is_accepted() {
     let late_block = late_note.commit(&node);
 
     let note_id = late_note.note.id();
-    let Some(FetchedNote::Public(note, inclusion_proof)) =
+    let Some(FetchedNote::Public(round_note, inclusion_proof)) =
         node.get_notes_by_id(&[note_id]).await.unwrap().pop()
     else {
         panic!("the node must return the public note");
@@ -1356,12 +1356,12 @@ async fn round_note_of_a_block_without_a_stored_header_is_accepted() {
     let (header, _) = node.get_block_header_by_number(Some(late_block), false).await.unwrap();
     let state = CommittedNoteState {
         inclusion_proof,
-        metadata: *note.metadata(),
+        metadata: *round_note.metadata(),
         block_note_root: header.note_root(),
     };
     let record = InputNoteRecord::new(
-        NoteDetails::from(note.clone()),
-        note.attachments().clone(),
+        NoteDetails::from(round_note.clone()),
+        round_note.attachments().clone(),
         None,
         state.into(),
     );
@@ -1415,24 +1415,24 @@ async fn sync_chain_stops_after_the_last_refused_write() {
 #[tokio::test]
 async fn sync_state_retries_a_refused_write_and_commits_a_transport_note() {
     let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
-    let note = &notes[0];
+    let transport_note = &notes[0];
     let transport = Arc::new(RwLock::new(MockNoteTransportNode::new()));
     transport
         .write()
-        .add_note(*note.header(), NoteDetails::from(note.clone()).to_bytes());
+        .add_note(*transport_note.header(), NoteDetails::from(transport_note.clone()).to_bytes());
     let (mut client, store, _) = refusing_client(node.clone(), |builder| {
         builder.note_transport(Arc::new(MockNoteTransportApi::new(transport.clone())))
     })
     .await;
-    client.add_note_tag(note.metadata().tag()).await.unwrap();
+    client.add_note_tag(transport_note.metadata().tag()).await.unwrap();
 
     store.syncs.refuse_next(1);
     let summary = client.sync_state().await.expect("the sync must fetch the chain again");
 
     assert_eq!(store.syncs.calls(), 2);
-    assert_eq!(summary.new_private_notes, [note.id()]);
+    assert_eq!(summary.new_private_notes, [transport_note.id()]);
     let record = client
-        .get_input_note(note.id())
+        .get_input_note(transport_note.id())
         .await
         .unwrap()
         .expect("the note must be stored");
@@ -1652,12 +1652,12 @@ async fn import_by_proof_returns_the_stale_write_when_its_writes_run_out() {
         store.inserts.refuse_next(STALE_WRITE_ATTEMPTS);
         store.inserts.calls()
     });
-    let ((import, inserts_before), synced) =
+    let ((import, inserts_before), sync_ran) =
         Box::pin(while_held(&store.read_gate, import, async {
             syncer.sync_chain().await.unwrap();
         }))
         .await;
-    synced.expect("the import must read the partial MMR");
+    sync_ran.expect("the import must read the partial MMR");
     let inserts_before = inserts_before.expect("the import must store the note block");
 
     assert!(
@@ -1763,13 +1763,13 @@ async fn import_by_details_refuses_a_requested_header_that_differs_from_the_note
         details: notes[0].clone().into(),
         sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, notes[0].metadata().tag()),
     }];
-    let (import, synced) =
+    let (import, sync_ran) =
         Box::pin(while_held(&rpc.sync_notes_gate, importer.import_notes(&note_files), async {
             node.advance_blocks(40);
             syncer.sync_state().await.unwrap();
         }))
         .await;
-    synced.expect("the import must sync the notes");
+    sync_ran.expect("the import must sync the notes");
 
     assert!(
         matches!(&import, Err(ClientError::ChainValidationError(message))
