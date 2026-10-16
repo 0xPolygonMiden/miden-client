@@ -24,7 +24,6 @@ use miden_client::note::{
     NoteFile,
     NoteSyncHint,
 };
-use miden_client::protocol_config::protocol_config_setting_key;
 use miden_client::pswap::PswapLineageState;
 use miden_client::rpc::NodeRpcClient;
 use miden_client::rpc::domain::note::CommittedNote;
@@ -34,13 +33,10 @@ use miden_client::store::input_note_states::{
     ConsumedAuthenticatedLocalNoteState,
 };
 use miden_client::store::{
-    AccountStorageFilter,
-    ClientAccountType,
     InputNoteRecord,
     InputNoteState,
     NoteFilter,
     OutputNoteState,
-    SettingScope,
     Store,
     StoreError,
     TransactionFilter,
@@ -69,7 +65,13 @@ use miden_client::transaction::{
     TransactionStatus,
 };
 use miden_client::utils::{Deserializable, Serializable};
-use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
+use miden_client_core::store::{
+    AccountStorageFilter,
+    ClientAccountType,
+    SettingScope,
+    protocol_config_setting_key,
+};
+use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::account::{
     Account,
     AccountBuilder,
@@ -4940,7 +4942,7 @@ async fn prepare_offline_bootstrap_inserts_mock_chain_genesis() {
 
     let mut client = ClientBuilder::new()
         .rpc(Arc::new(MockRpcApi::default()))
-        .sqlite_store(create_test_store_path())
+        .store(Arc::new(SqliteStore::new(create_test_store_path()).await.unwrap()))
         .authenticator(Arc::new(FilesystemKeyStore::new(temp_dir()).unwrap()))
         .build()
         .await
