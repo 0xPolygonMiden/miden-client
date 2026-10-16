@@ -18,8 +18,9 @@ use crate::store::{BlockRelevance, StoreError};
 use crate::test_utils::mock::MockRpcApi;
 use crate::{CachedPartialMmr, Client, ClientError};
 
-/// The number of times a client writes chain data when the store refuses the write because another
-/// writer changed the chain data in between.
+/// The number of times a sync fetches and writes the chain updates, and the number of times an
+/// import writes a block header, while the write is stale because another writer changed the chain
+/// data after the client read it. A prune writes once, and the next sync prunes again.
 pub(crate) const MAX_STALE_WRITE_ATTEMPTS: usize = 3;
 
 /// Network information management methods.
