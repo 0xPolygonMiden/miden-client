@@ -15,27 +15,12 @@ use std::vec::Vec;
 use db_management::migration::SqliteMigrator;
 use db_management::pool_manager::{Pool, SqlitePoolManager};
 use deadpool::Runtime;
-use miden_client::Word;
-use miden_client::account::{
-    Account,
-    AccountCode,
-    AccountHeader,
-    AccountId,
-    AccountStorage,
-    Address,
-    StorageMapKey,
-    StorageSlotName,
-};
-use miden_client::asset::{Asset, AssetVault, AssetWitness};
-use miden_client::block::{AccountWitness, BlockHeader};
-use miden_client::crypto::{InOrderIndex, MmrPeaks};
-use miden_client::note::{BlockNumber, NoteId, NoteScript, NoteTag, Nullifier};
-use miden_client::note_transport::{NOTE_TRANSPORT_CURSORS_KEY, NoteTransportCursor};
-use miden_client::protocol_config::{ProtocolConfig, protocol_config_setting_key};
-use miden_client::pswap::{PswapLineageFilter, PswapLineageRecord};
-use miden_client::rpc::RpcLimits;
-use miden_client::rpc::encryption::TransactionEncryptionKey;
-use miden_client::store::{
+use miden_client_core::errors::StoreError;
+use miden_client_core::note_transport::{NOTE_TRANSPORT_CURSORS_KEY, NoteTransportCursor};
+use miden_client_core::pswap::{PswapLineageFilter, PswapLineageRecord};
+use miden_client_core::rpc::RpcLimits;
+use miden_client_core::rpc::encryption::TransactionEncryptionKey;
+use miden_client_core::store::{
     AccountRecord,
     AccountStatus,
     AccountStorageFilter,
@@ -49,16 +34,31 @@ use miden_client::store::{
     SettingMutation,
     SettingScope,
     Store,
-    StoreError,
     TransactionFilter,
+    protocol_config_setting_key,
 };
-use miden_client::sync::{NoteTagRecord, StateSyncUpdate};
-use miden_client::transaction::{TransactionRecord, TransactionStoreUpdate};
-use miden_client::utils::Serializable;
+use miden_client_core::sync::{NoteTagRecord, StateSyncUpdate};
+use miden_client_core::transaction::{TransactionRecord, TransactionStoreUpdate};
 use miden_client_proto as proto;
-use miden_protocol::Felt;
-use miden_protocol::account::StorageMapWitness;
-use miden_protocol::asset::AssetId;
+use miden_protocol::account::{
+    Account,
+    AccountCode,
+    AccountHeader,
+    AccountId,
+    AccountStorage,
+    StorageMapKey,
+    StorageMapWitness,
+    StorageSlotName,
+};
+use miden_protocol::address::Address;
+use miden_protocol::asset::{Asset, AssetId, AssetVault, AssetWitness};
+use miden_protocol::block::account_tree::AccountWitness;
+use miden_protocol::block::{BlockHeader, BlockNumber};
+use miden_protocol::crypto::merkle::mmr::{InOrderIndex, MmrPeaks};
+use miden_protocol::note::{NoteId, NoteScript, NoteTag, Nullifier};
+use miden_protocol::protocol_config::ProtocolConfig;
+use miden_protocol::utils::serde::Serializable;
+use miden_protocol::{Felt, Word};
 use rusqlite::Connection;
 use rusqlite::types::Value;
 use sql_error::SqlResultExt;
@@ -67,7 +67,6 @@ use crate::account::rows::query_vault_assets;
 use crate::settings::{RPC_LIMITS_KEY, TRANSACTION_ENCRYPTION_KEY_KEY};
 
 mod account;
-mod builder;
 mod chain_data;
 mod db_management;
 mod forest;
@@ -77,8 +76,6 @@ mod settings;
 mod sql_error;
 mod sync;
 mod transaction;
-
-pub use builder::ClientBuilderSqliteExt;
 
 // SQLITE STORE
 // ================================================================================================
@@ -848,8 +845,8 @@ pub mod tests {
     use std::boxed::Box;
     use std::sync::LazyLock;
 
-    use miden_client::store::Store;
     use miden_client::testing::common::create_test_store_path;
+    use miden_client_core::store::Store;
 
     use super::db_management::migration::SqliteMigrator;
     use super::db_management::migration::tests::damaging_migration;

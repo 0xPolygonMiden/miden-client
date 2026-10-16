@@ -2,7 +2,7 @@
 
 use std::string::ToString;
 
-use miden_client::pswap::{PswapLineageRecord, PswapLineageState};
+use miden_client_core::pswap::{PswapLineageRecord, PswapLineageState};
 use miden_objects::DecodeMessageExt;
 use miden_protocol::asset::AssetAmount;
 
