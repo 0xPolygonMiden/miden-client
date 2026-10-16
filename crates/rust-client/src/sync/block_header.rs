@@ -246,8 +246,8 @@ impl<AUTH> Client<AUTH> {
 
             let nodes = match track_proof(current_partial_mmr, &block_header, &mmr_proof) {
                 Ok(nodes) => nodes,
-                // The proof is for a smaller forest than the partial MMR. The next iteration requests
-                // a new proof from the node.
+                // The proof is for a smaller forest than the partial MMR. The next iteration
+                // requests a new proof from the node.
                 Err(MmrError::ForestOutOfBounds(..)) if !requested_again => {
                     requested_again = true;
                     continue;
