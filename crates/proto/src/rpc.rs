@@ -1,7 +1,7 @@
 //! Protobuf conversion of values that the client receives from the node.
 
-use miden_client::rpc::RpcLimits;
-use miden_client::rpc::encryption::TransactionEncryptionKey;
+use miden_client_core::rpc::RpcLimits;
+use miden_client_core::rpc::encryption::TransactionEncryptionKey;
 use miden_protocol::crypto::dsa::eddsa_25519_sha512::PublicKey;
 use miden_protocol::utils::serde::{Deserializable, Serializable};
 

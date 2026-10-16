@@ -5,7 +5,7 @@ use miden_protocol::Word;
 use miden_protocol::account::AccountId;
 use miden_protocol::block::BlockNumber;
 use miden_protocol::transaction::{RawOutputNotes, TransactionId, TransactionScript};
-use miden_tx::utils::serde::DeserializationError;
+use miden_protocol::utils::serde::DeserializationError;
 
 // TRANSACTION RECORD
 // ================================================================================================
