@@ -266,7 +266,7 @@ where
     /// A stored note whose inclusion proof names a block at or below the sync height is verified
     /// against the authenticated header of that block, and is marked consumed when its nullifier is
     /// at or below the sync height. A stored note whose block is after the sync height stays
-    /// unverified and keeps its note tag, so the next sync verifies it.
+    /// unverified and keeps its note tag, so that a later sync can verify it.
     ///
     /// # Errors:
     /// - If a note doesn't exist on the node.
@@ -435,7 +435,7 @@ where
                     note_changed |= note_record.block_header_received(&block_header)?;
                 } else {
                     // If the note is in the future we import it as unverified. We add the note tag
-                    // so that the note is verified naturally in the next sync.
+                    // so that a later sync can verify the note.
                     self.store
                         .add_note_tag(NoteTagRecord::with_note_source(
                             tag,
