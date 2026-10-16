@@ -11,6 +11,10 @@
 
 * [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
 
+### Changes
+
+* [DEPRECATION][rust] Deprecated `TransactionRequestBuilder::auth_arg`. Use `TransactionRequestBuilder::auth_args` to set the auth args commitment and its advice-map preimage together ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
+
 ## 0.17.3 (2026-10-08)
 
 ### Features

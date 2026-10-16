@@ -338,8 +338,14 @@ impl TransactionRequestBuilder {
         self
     }
 
-    /// Sets an optional [`Word`] that will be pushed to the stack for the authentication procedure
-    /// during transaction execution.
+    /// Sets the raw word passed to the authentication procedure during transaction execution.
+    ///
+    /// This method does not add an advice-map preimage. Use [`Self::auth_args`] for auth components
+    /// that resolve committed auth args from the advice map.
+    #[deprecated(
+        since = "0.17.4",
+        note = "use `auth_args` to set the auth args commitment and its advice-map preimage together"
+    )]
     #[must_use]
     pub fn auth_arg(mut self, auth_arg: Word) -> Self {
         self.auth_arg = Some(auth_arg);
@@ -360,7 +366,9 @@ impl TransactionRequestBuilder {
     pub fn auth_args<A: SequentialCommit<Commitment = Word>>(mut self, auth_args: &A) -> Self {
         let auth_arg = auth_args.to_commitment();
         self.advice_map.insert(auth_arg, auth_args.to_elements());
-        self.auth_arg(auth_arg)
+        self.auth_arg = Some(auth_arg);
+        self.fee_conversion_salt = None;
+        self
     }
 
     /// Declares the salt the fee conversion info is committed under.

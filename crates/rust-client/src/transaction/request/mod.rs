@@ -843,6 +843,7 @@ mod tests {
         assert!(TransactionRequest::read_from_bytes(&tx_request.to_bytes()).is_err());
     }
 
+    #[allow(deprecated)]
     fn assert_transaction_request_serialization_with<F>(auth_component: F)
     where
         F: FnOnce() -> AccountComponent,

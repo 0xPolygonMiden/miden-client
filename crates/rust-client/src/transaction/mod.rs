@@ -2235,6 +2235,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn an_explicit_auth_arg_is_not_overwritten() {
         let auth_arg = Word::from([21u32, 22, 23, 24]);
         let request = TransactionRequestBuilder::new().auth_arg(auth_arg).build().unwrap();
