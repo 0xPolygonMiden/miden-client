@@ -836,13 +836,13 @@ fn expected_note_file(expected: &Note) -> NoteFile {
     }
 }
 
-/// Spends `note` in a new block of `node`, and returns that block.
-async fn spend_note(node: &MockRpcApi, note: &Note) -> BlockNumber {
+/// Spends `input_note` in a new block of `node`, and returns that block.
+async fn spend_note(node: &MockRpcApi, input_note: &Note) -> BlockNumber {
     let chain = node.mock_chain.read().clone();
     let transaction = Box::pin(
         chain
             .build_transaction(node.first_account_id())
-            .authenticated_input_note(note.id())
+            .authenticated_input_note(input_note.id())
             .build()
             .unwrap()
             .execute(),
@@ -2186,15 +2186,18 @@ async fn import_by_proof_of_a_note_after_the_sync_height_adds_its_tag() {
     let (mut importer, ..) = refusing_client(node.clone(), |builder| builder).await;
     Box::pin(importer.sync_state()).await.unwrap();
     let late_block = late_note.commit(&node);
-    let Some(FetchedNote::Public(note, proof)) =
+    let Some(FetchedNote::Public(public_note, proof)) =
         node.get_notes_by_id(&[late_note.note.id()]).await.unwrap().pop()
     else {
         panic!("the node must return the public note");
     };
-    let tag = NoteTagRecord::with_note_source(note.metadata().tag(), note.details_commitment());
+    let tag = NoteTagRecord::with_note_source(
+        public_note.metadata().tag(),
+        public_note.details_commitment(),
+    );
     assert!(!has_note_tag(&importer, tag).await);
 
-    Box::pin(importer.import_notes(&[NoteFile::Committed { note, proof }]))
+    Box::pin(importer.import_notes(&[NoteFile::Committed { note: public_note, proof }]))
         .await
         .unwrap();
 
