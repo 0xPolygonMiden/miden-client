@@ -24,13 +24,19 @@ use crate::store::{BlockRelevance, StoreError};
 use crate::test_utils::mock::MockRpcApi;
 use crate::{Client, ClientError};
 
-/// The number of times a sync fetches and writes the chain updates, and the number of times an
-/// import writes a block header, while the write is stale because another writer changed the chain
-/// data after the client read it. A prune writes once, and the next sync prunes again.
+/// The maximum number of attempts of a write that the store refuses. The store refuses a write as
+/// stale when another writer changed the chain data after the client read it. Each of these writes
+/// has its own count of attempts:
 ///
-/// An import counts only its writes of a block header. When the store refuses the last write, the
-/// import returns the error of the stale write. The import does not count these steps, which have
-/// their own limits:
+/// - A sync fetches and writes the chain updates.
+/// - An import writes a block header.
+/// - An import writes a note. The writes that the store refuses because the database is locked
+///   also count.
+///
+/// When the store refuses the last write, the sync or the import returns the error of that write. A
+/// prune writes once, and the next sync prunes again.
+///
+/// The count of the block header writes does not include these steps, which have their own limits:
 ///
 /// - A proof for a smaller forest than the partial MMR is requested from the node again, at most
 ///   once for each read of the partial MMR. If the new proof is also for a smaller forest, the node

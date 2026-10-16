@@ -206,8 +206,11 @@ where
     /// height, so this call then marks the note consumed if its nullifier is at or below the sync
     /// height. Then it reads the stored record. If another writer has processed or consumed the
     /// note, or has committed the note and this call found no spend, this call returns the stored
-    /// record and does not write the note. Otherwise it writes the note again, at most
-    /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
+    /// record and does not write the note. Otherwise it writes the note again.
+    ///
+    /// This call writes the note at most [`MAX_STALE_WRITE_ATTEMPTS`] times in total. The writes
+    /// that the store refuses because the database is locked also count. After the last refused
+    /// write, this call returns the error. An earlier note of the same import stays written,
     /// because a write of a note record replaces the stored record.
     ///
     /// This call does these checks only after a refused write. A write that the store accepts

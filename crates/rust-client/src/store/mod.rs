@@ -296,16 +296,33 @@ pub trait Store: Send + Sync {
     /// write moves a block from untracked to tracked, an implementation should refuse the write
     /// with [`StoreError::DatabaseTransientError`] and write nothing when the store does not then
     /// hold the leaf and the full path of the block at the forest that includes the sync-height
-    /// block (see [`tracked_leaf_path_indices`]). The client then stores the block with its path
-    /// and writes the notes again.
+    /// block (see [`tracked_leaf_path_indices`]). The store has no header of a block after the sync
+    /// height, so this refusal occurs only for a block at or below the sync height.
     ///
     /// A sync starts after the sync height, so it does not store or verify the block of a note at
     /// or below the sync height. An implementation should refuse the write in the same way when an
     /// inclusion proof names such a block and the note is unverified, or the note is unspent (see
-    /// [`InputNoteRecord::is_unspent`]) and the store does not have the header of the block. The
-    /// client then stores and authenticates the block, applies its header to the note, and writes
-    /// the note again. A note of a block after the sync height needs no stored header, so the write
-    /// is not refused for it.
+    /// [`InputNoteRecord::is_unspent`]) and the store does not have the header of the block. A note
+    /// of a block after the sync height needs no stored header, so the write is not refused for it.
+    ///
+    /// An implementation should refuse a write as stale only when the block of an inclusion proof
+    /// in the write is at or below the sync height.
+    /// [`Client::import_notes`](crate::Client::import_notes) takes the refusal of any other note
+    /// write as a locked database, and writes the same record again. The import writes a note at
+    /// most `MAX_STALE_WRITE_ATTEMPTS` times in total, and then returns the error.
+    ///
+    /// After a stale refusal, the import stores and authenticates the block, applies its header to
+    /// the note, and marks the note consumed if its nullifier is at or below the sync height. Then
+    /// it reads the stored record. It keeps a stored record that another writer has processed or
+    /// consumed, or has committed when the import found no spend. Otherwise it writes the note
+    /// again. The import does these checks only after a refused write. A write that the store
+    /// accepts replaces the stored record, also when another writer changed the record after the
+    /// import read the store (see <https://github.com/0xMiden/rust-sdk/issues/2716>).
+    ///
+    /// A [`NoteObserver::apply`](crate::sync::NoteObserver::apply) hook that returns the refusal
+    /// fails the sync, and [`Client::sync_chain`](crate::Client::sync_chain) and
+    /// [`Client::sync_state`](crate::Client::sync_state) fetch the chain updates again. The PSWAP
+    /// observer returns the refusal of a round note write.
     async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError>;
 
     /// Returns the note script associated with the given root.

@@ -2271,6 +2271,45 @@ async fn import_by_proof_writes_a_note_after_the_sync_height_again_after_a_lock_
     );
 }
 
+/// An import by proof of a new note in a block after the sync height, whose writes the store
+/// refuses as it does when the database is locked, writes the note three times in total and then
+/// returns the error of the last refused write. The import requests no block proof.
+#[tokio::test]
+async fn import_by_proof_of_a_note_after_the_sync_height_stops_after_the_last_refused_write() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let rpc = GatedRpc::new(node.clone());
+    let (mut importer, store, _) = refusing_client(rpc.clone(), |builder| builder).await;
+    Box::pin(importer.sync_state()).await.unwrap();
+    late_note.commit(&node);
+    let Some(FetchedNote::Public(public_note, proof)) =
+        node.get_notes_by_id(&[late_note.note.id()]).await.unwrap().pop()
+    else {
+        panic!("the node must return the public note");
+    };
+
+    // The store would also refuse a fourth write, so the import stops on its own budget.
+    store.upserts.refuse_next(STALE_WRITE_ATTEMPTS + 1);
+    let upserts_before = store.upserts.calls();
+    let requests_before = rpc.proof_requests();
+    let result =
+        Box::pin(importer.import_notes(&[NoteFile::Committed { note: public_note, proof }])).await;
+
+    assert_eq!(
+        rpc.proof_requests(),
+        requests_before,
+        "the import must not request a block proof"
+    );
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + STALE_WRITE_ATTEMPTS,
+        "the import must write the note {STALE_WRITE_ATTEMPTS} times in total"
+    );
+    assert!(
+        is_stale_write(&result),
+        "the import must return the error of the last refused write, got {result:?}"
+    );
+}
+
 /// A re-import by details of a stored expected note whose writes the store refuses on every attempt
 /// returns the error of a stale chain write and keeps the note tag.
 #[tokio::test]
