@@ -471,7 +471,8 @@ impl StateSync {
                 transaction_updates,
                 account_updates,
                 None,
-            ));
+            )
+            .with_block_from(block_from));
         };
         // Check the note blocks have been screened before building the update
         if !note_blocks_awaiting_screening.is_empty() {
@@ -504,7 +505,8 @@ impl StateSync {
             transaction_updates,
             account_updates,
             protocol_config,
-        ))
+        )
+        .with_block_from(block_from))
     }
 
     /// Checks the node for nullifiers of every note `chain_sync_data` could have consumed.

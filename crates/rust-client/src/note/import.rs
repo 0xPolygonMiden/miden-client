@@ -329,7 +329,7 @@ where
                 }
             }
         }
-        self.cache_partial_mmr(partial_mmr).await?;
+        self.cache_partial_mmr(partial_mmr)?;
 
         Ok(note_records)
     }
@@ -350,14 +350,15 @@ where
             note_requests.push((details.commitment(), *tag));
             lowest_request_block = lowest_request_block.min(*after_block_num);
         }
-        let blocks = self.sync_expected_notes(lowest_request_block, &note_requests).await?;
+        let (blocks, block_to) =
+            self.sync_expected_notes(lowest_request_block, &note_requests).await?;
 
         // The blocks arrive with the notes, so a committed note needs no further block lookup. They
         // are stored first, so a record is never persisted as committed before the header that
         // proves its inclusion is tracked and stored.
         let mut partial_mmr = self.get_current_partial_mmr().await?;
-        self.insert_note_blocks(&blocks, &mut partial_mmr).await?;
-        self.cache_partial_mmr(partial_mmr).await?;
+        self.insert_note_blocks(&blocks, block_to, &mut partial_mmr).await?;
+        self.cache_partial_mmr(partial_mmr)?;
 
         let mut note_records = vec![];
         for (previous_note, details, after_block_num, tag) in requested_notes {
@@ -469,24 +470,25 @@ where
     }
 
     /// Fetches every block between `request_block_num` and the client's sync height that holds a
-    /// note under one of `sync_tags`.
+    /// note under one of `sync_tags`, and returns the blocks with the sync height that the request
+    /// used.
     ///
-    /// Each block carries its header and the MMR path proving its inclusion at the sync height,
-    /// which is the forest the client's partial MMR is at, so a note found here needs no further
-    /// block lookup. Deciding which of the returned notes answer a request is the caller's.
+    /// Each block carries its header and the MMR path proving its inclusion at that sync height, so
+    /// a note found here needs no further block lookup. Deciding which of the returned notes answer
+    /// a request is the caller's.
     async fn sync_expected_notes(
         &self,
         request_block_num: BlockNumber,
         // Expected notes' details commitments with their tags.
         expected_notes: &[(NoteDetailsCommitment, NoteTag)],
-    ) -> Result<Vec<ResolvedSyncNotesBlock>, ClientError> {
+    ) -> Result<(Vec<ResolvedSyncNotesBlock>, BlockNumber), ClientError> {
         let sync_tags: BTreeSet<NoteTag> = expected_notes.iter().map(|(_, tag)| *tag).collect();
         let current_block_num = self.get_sync_height().await?;
 
         // Notes expected only after a block we have not reached can't be committed within our
         // synced view yet: skip the lookup and let them stay expected until a future sync.
         if request_block_num > current_block_num {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), current_block_num));
         }
 
         let blocks = self
@@ -530,7 +532,7 @@ where
             }
         }
 
-        Ok(matched_blocks)
+        Ok((matched_blocks, current_block_num))
     }
 }
 
