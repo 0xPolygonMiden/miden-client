@@ -816,7 +816,8 @@ async fn has_note_tag(client: &Client, tag: NoteTagRecord) -> bool {
     client.get_note_tags().await.unwrap().contains(&tag)
 }
 
-/// Returns the file that imports `expected` by its details, with a sync hint from the genesis block.
+/// Returns the file that imports `expected` by its details, with a sync hint from the genesis
+/// block.
 fn expected_note_file(expected: &Note) -> NoteFile {
     NoteFile::ExpectedNote {
         details: expected.clone().into(),

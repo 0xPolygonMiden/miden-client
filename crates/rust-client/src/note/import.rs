@@ -167,8 +167,8 @@ where
                     .await?;
             }
             let note = self.upsert_imported_note(note).await?;
-            // A note that is neither expected nor unverified does not need its note tag. The tag
-            // is removed only after the write, so an import that fails keeps the tag of each note.
+            // A note that is neither expected nor unverified does not need its note tag. The tag is
+            // removed only after the write, so an import that fails keeps the tag of each note.
             if !note.is_inclusion_pending()
                 && let Some(metadata) = note.metadata()
             {
