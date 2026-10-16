@@ -2,14 +2,17 @@ use std::collections::BTreeMap;
 use std::string::ToString;
 use std::vec::Vec;
 
-use miden_client::Word;
-use miden_client::rpc::domain::account::AccountStorageRequirements;
-use miden_client::transaction::{
-    AdviceMap, DiscardCause, ForeignAccount, NoteArgs, TransactionDetails, TransactionRequest,
-    TransactionRequestBuilder, TransactionScriptTemplate, TransactionStatus,
+use miden_client_core::rpc::AccountStorageRequirements;
+use miden_client_core::transaction::{
+    DiscardCause,
+    ForeignAccount,
+    NoteArgs,
+    TransactionDetails,
+    TransactionRequest,
+    TransactionRequestBuilder,
+    TransactionScriptTemplate,
+    TransactionStatus,
 };
-use miden_client_core::transaction::{DiscardCause, TransactionDetails, TransactionStatus};
-use miden_objects::DecodeMessageExt;
 use miden_objects::DecodeMessageExt;
 use miden_protocol::Word;
 use miden_protocol::account::{AccountCodeUpgrade, PartialAccount, StorageMapKey, StorageSlotName};
@@ -17,6 +20,7 @@ use miden_protocol::block::account_tree::AccountWitness;
 use miden_protocol::crypto::merkle::store::MerkleStore;
 use miden_protocol::note::{Note, NoteDetails, NoteId, NoteRecipient, NoteTag, PartialNote};
 use miden_protocol::transaction::{AccountInputs, InputNote, TransactionScript};
+use miden_protocol::vm::AdviceMap;
 
 use crate as proto;
 use crate::{ProtoDecodeError, ProtobufValue, required};
@@ -564,12 +568,19 @@ mod tests {
     use std::vec;
     use std::vec::Vec;
 
-    use miden_client::transaction::{
-        ForeignAccount, TransactionRequest, TransactionRequestBuilder,
+    use miden_client_core::transaction::{
+        ForeignAccount,
+        TransactionRequest,
+        TransactionRequestBuilder,
     };
     use miden_protocol::account::auth::{AuthScheme, PublicKeyCommitment};
     use miden_protocol::account::{
-        Account, AccountBuilder, AccountCode, AccountId, AccountType, StorageMapKey,
+        Account,
+        AccountBuilder,
+        AccountCode,
+        AccountId,
+        AccountType,
+        StorageMapKey,
         StorageSlotName,
     };
     use miden_protocol::asset::FungibleAsset;
@@ -579,7 +590,8 @@ mod tests {
     use miden_protocol::crypto::rand::{FeltRng, RandomCoin};
     use miden_protocol::note::{Note, NoteScript, NoteTag, NoteType};
     use miden_protocol::testing::account_id::{
-        ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET, ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
+        ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
+        ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
         ACCOUNT_ID_SENDER,
     };
     use miden_protocol::transaction::{AccountInputs, InputNote, TransactionScript};
