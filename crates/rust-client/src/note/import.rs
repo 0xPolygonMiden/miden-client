@@ -353,13 +353,14 @@ where
         // The note sync stops at the sync height of the partial MMR, so the paths of its blocks are
         // at the forest of the partial MMR. The blocks arrive with the notes, so a committed note
         // needs no further block lookup. They are stored first, so a record is never persisted as
-        // committed before the header that proves its inclusion is tracked and stored.
+        // committed before the header that proves its inclusion is tracked and stored. A record
+        // takes only a header that `insert_note_blocks` returns, which the client authenticated.
         let mut partial_mmr = self.get_current_partial_mmr().await?;
         let sync_height = block_num_from_forest(&partial_mmr)?;
         let blocks = self
             .sync_expected_notes(lowest_request_block, sync_height, &note_requests)
             .await?;
-        self.insert_note_blocks(&blocks, &mut partial_mmr).await?;
+        let block_headers = self.insert_note_blocks(&blocks, &mut partial_mmr).await?;
         self.cache_partial_mmr(partial_mmr);
 
         let mut note_records = vec![];
@@ -380,15 +381,18 @@ where
 
             // Notes the node has not reported as committed keep their expected record untouched.
             let commitment = note_record.details_commitment();
-            let Some((sync_note, block_header)) = blocks.iter().find_map(|block| {
+            let Some((sync_note, block_num)) = blocks.iter().find_map(|block| {
                 let sync_note = block.notes.values().find(|sync_note| {
                     NoteId::new(commitment, &sync_note.metadata) == sync_note.note_id
                 })?;
-                Some((sync_note, &block.block_header))
+                Some((sync_note, block.block_header.block_num()))
             }) else {
                 note_records.push(note_record);
                 continue;
             };
+            let block_header = block_headers
+                .get(&block_num)
+                .expect("insert_note_blocks returns the header of each note block");
 
             // A note that carries no attachments has nothing to apply to the record.
             let attachments =

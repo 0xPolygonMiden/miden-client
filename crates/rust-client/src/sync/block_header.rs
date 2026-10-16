@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -143,30 +144,35 @@ impl<AUTH> Client<AUTH> {
         }
     }
 
-    /// Stores the header and the path of each note block, and tracks each block in `partial_mmr`.
+    /// Stores the header and the path of each note block, tracks each block in `partial_mmr`, and
+    /// returns the header of each block by its number.
     ///
     /// `blocks` come from a note sync up to the sync height of `partial_mmr`, so each path is at
-    /// the forest of `partial_mmr`.
+    /// the forest of `partial_mmr`. Each returned header is authenticated against the partial MMR
+    /// or is the header that the store tracks. Use these headers, not the headers of `blocks`.
     pub(crate) async fn insert_note_blocks(
         &self,
         blocks: &[ResolvedSyncNotesBlock],
         partial_mmr: &mut PartialMmr,
-    ) -> Result<(), ClientError> {
+    ) -> Result<BTreeMap<BlockNumber, BlockHeader>, ClientError> {
         let forest = partial_mmr.forest();
+        let mut headers = BTreeMap::new();
         for block in blocks {
             let block_header = block.block_header.clone();
             let block_num = block_header.block_num();
             let path = MmrPath::new(forest, block_num.as_usize(), block.mmr_path.clone());
             let mmr_proof = MmrProof::new(path, block_header.commitment());
-            self.get_and_store_authenticated_block(
-                block_num,
-                partial_mmr,
-                Some((block_header, mmr_proof)),
-            )
-            .await?;
+            let block_header = self
+                .get_and_store_authenticated_block(
+                    block_num,
+                    partial_mmr,
+                    Some((block_header, mmr_proof)),
+                )
+                .await?;
+            headers.insert(block_num, block_header);
         }
 
-        Ok(())
+        Ok(headers)
     }
 
     // HELPERS
@@ -178,7 +184,7 @@ impl<AUTH> Client<AUTH> {
     /// `prefetched` is a header and an MMR proof of the block that the caller already has, for
     /// example from a note sync. Without it, this call requests both from the node. If the store
     /// already contains MMR data for the block, this call makes no request and returns the stored
-    /// header.
+    /// header. A prefetched header must be the stored header.
     ///
     /// If the store refuses the write because another writer changed the chain data after
     /// `current_partial_mmr` was read, this call reads the partial MMR again and adjusts the proof
@@ -201,6 +207,14 @@ impl<AUTH> Client<AUTH> {
                     .get_block_header_by_num(block_num)
                     .await?
                     .ok_or(StoreError::BlockHeaderNotFound(block_num))?;
+                // The partial MMR authenticated the stored header. A prefetched header that differs
+                // is not in the chain.
+                if expected_header.as_ref().is_some_and(|expected| *expected != block_header) {
+                    return Err(ClientError::ChainValidationError(format!(
+                        "the node returned a header for block {block_num} that differs from the \
+                         stored header"
+                    )));
+                }
                 return Ok(block_header);
             }
 
