@@ -199,6 +199,10 @@ where
     /// of that block, applies the header to the note, and writes the note again, at most
     /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
     /// because a write of a note record replaces the stored record.
+    ///
+    /// When the header verifies an unverified note, this call also marks the note consumed if its
+    /// nullifier is at or below the sync height. If another writer has committed, processed or
+    /// consumed the note, this call returns the stored record and does not write the note.
     async fn upsert_imported_note(
         &mut self,
         mut note: InputNoteRecord,
@@ -215,6 +219,7 @@ where
                     let block_num = inclusion_proof.location().block_num();
                     warn!(%block_num, %err, "store refused a note record; storing its block again");
                     attempt += 1;
+                    let unverified = matches!(note.state(), InputNoteState::Unverified(_));
                     let mut partial_mmr = self.read_partial_mmr_uncached().await?;
                     let block_header = self
                         .get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
@@ -223,6 +228,26 @@ where
                     // The header verifies an unverified note. A later sync does not do it, because
                     // the block is at or below the sync height.
                     note.block_header_received(&block_header)?;
+                    if unverified {
+                        // A later sync also does not check a nullifier at or below the sync height.
+                        self.mark_externally_consumed(core::slice::from_mut(&mut note)).await?;
+                        // Another writer can commit, process or consume the note during the import.
+                        // The write must not replace that record.
+                        let stored = self
+                            .store
+                            .get_input_notes(NoteFilter::DetailsCommitments(vec![
+                                note.details_commitment(),
+                            ]))
+                            .await?
+                            .pop();
+                        if let Some(stored) = stored
+                            && (stored.is_committed()
+                                || stored.is_processing()
+                                || stored.is_consumed())
+                        {
+                            return Ok(stored);
+                        }
+                    }
                 },
                 result => return result.map(|()| note).map_err(Into::into),
             }
@@ -239,8 +264,9 @@ where
     /// Only records that changed as a result of the import are returned.
     ///
     /// A stored note whose inclusion proof names a block at or below the sync height is verified
-    /// against the authenticated header of that block. A stored note whose block is after the sync
-    /// height stays unverified and keeps its note tag, so the next sync verifies it.
+    /// against the authenticated header of that block, and is marked consumed when its nullifier is
+    /// at or below the sync height. A stored note whose block is after the sync height stays
+    /// unverified and keeps its note tag, so the next sync verifies it.
     ///
     /// # Errors:
     /// - If a note doesn't exist on the node.
@@ -265,6 +291,8 @@ where
         // Read only when a stored note needs the header of its block.
         let mut partial_mmr = None;
         let mut note_records = Vec::new();
+        // Stored notes that this import verifies at or below the sync height.
+        let mut verified_records = Vec::new();
         let mut notes_to_request = vec![];
         for fetched_note in fetched_notes {
             let note_id = fetched_note.id();
@@ -289,6 +317,7 @@ where
                             .await?;
                         partial_mmr = Some(mmr);
                         previous_note.block_header_received(&block_header)?;
+                        verified_records.push(previous_note);
                     } else {
                         // The next sync finds the note only through its note tag.
                         self.store
@@ -297,8 +326,8 @@ where
                                 previous_note.details_commitment(),
                             ))
                             .await?;
+                        note_records.push(previous_note);
                     }
-                    note_records.push(previous_note);
                 }
             } else {
                 let fetched_note = match fetched_note {
@@ -318,6 +347,11 @@ where
         if let Some(partial_mmr) = partial_mmr {
             self.cache_partial_mmr(partial_mmr);
         }
+
+        // A sync checks only the nullifiers after the sync height, so no sync finds a spend of
+        // these notes at or below that height.
+        self.mark_externally_consumed(&mut verified_records).await?;
+        note_records.extend(verified_records);
 
         if !notes_to_request.is_empty() {
             let note_records_by_proof = self.import_note_records_by_proof(notes_to_request).await?;
