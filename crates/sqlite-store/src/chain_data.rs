@@ -855,6 +855,26 @@ pub(crate) mod test {
         }
     }
 
+    /// Tests that the store checks a tracked path at the forest that includes the sync-height
+    /// block. At sync height 3, leaf 0 is in the tree of 4 leaves, so its level 0 sibling is not
+    /// enough.
+    #[tokio::test]
+    async fn insert_block_header_checks_the_forest_of_the_sync_height_block() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(4);
+        set_sync_height(&store, &mmr, &headers, 3).await;
+
+        let full_path = path_nodes(&mmr, &headers, 0, Forest::new(4).unwrap());
+        assert_eq!(full_path.len(), 3);
+        let result = Store::insert_block_header(&store, &headers[0], &full_path[..2], true).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "a path with only the level 0 sibling must be refused, got {result:?}"
+        );
+
+        Store::insert_block_header(&store, &headers[0], &full_path, true).await.unwrap();
+    }
+
     /// Tests that a prune computed from a view that predates a tracked insert is refused when it
     /// deletes nodes the inserted block needs.
     #[tokio::test]

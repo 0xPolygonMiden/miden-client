@@ -2,7 +2,8 @@
 //!
 //! The race tests hold one client at a point between its read of the partial MMR and its write, let
 //! the other client change the chain data, then let the first client continue. The heal tests
-//! remove stored nodes with raw SQL, as an older client could leave them.
+//! remove stored nodes with raw SQL, as an older client could leave them. The refusal tests use a
+//! store that refuses chain writes, so that each branch that handles a refused write runs.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::env::temp_dir;
@@ -13,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use miden_client::builder::ClientBuilder;
 use miden_client::crypto::{Forest, InOrderIndex, PartialMmr};
 use miden_client::keystore::FilesystemKeyStore;
-use miden_client::note::{BlockNumber, NoteFile, NoteSyncHint};
+use miden_client::note::{BlockNumber, NoteDetails, NoteFile, NoteSyncHint};
 use miden_client::rpc::domain::account::{AccountProof, GetAccountRequest};
 use miden_client::rpc::domain::account_vault::AccountVaultInfo;
 use miden_client::rpc::domain::note::{FetchedNote, SyncNotesBlock, SyncedNote};
@@ -27,7 +28,8 @@ use miden_client::store::{PartialBlockchainFilter, Store, StoreError};
 use miden_client::sync::{NoteObserver, StateSync, StateSyncUpdate};
 use miden_client::testing::common::create_test_store_path;
 use miden_client::testing::mock::{MockClient, MockRpcApi};
-use miden_client::utils::Serializable;
+use miden_client::testing::note_transport::{MockNoteTransportApi, MockNoteTransportNode};
+use miden_client::utils::{RwLock, Serializable};
 use miden_client::{ClientError, Word};
 use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
 use miden_protocol::Felt;
@@ -37,14 +39,17 @@ use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::{BlockHeader, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::{MmrError, MmrProof};
 use miden_protocol::note::{Note, NoteId, NoteScript, NoteTag, NoteType};
-use miden_protocol::transaction::{ProvenTransaction, RawOutputNote};
+use miden_protocol::transaction::{ExecutedTransaction, ProvenTransaction, RawOutputNote};
 use miden_protocol::vm::ExecutionProof;
 use miden_standards::testing::note::NoteBuilder;
 use miden_testing::MockChainBuilder;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use refusing_store::RefusingStore;
 
 use crate::tests::seed_mock_transaction_encryption_key;
+
+mod refusing_store;
 
 type Client = MockClient<FilesystemKeyStore>;
 
@@ -54,6 +59,10 @@ const NOTE_BLOCK: u32 = 1;
 /// The sync height of the heal tests. At forest 71, leaf 1 is in the tree of 64 leaves and its path
 /// has 6 siblings.
 const HEAL_HEIGHT: u32 = 70;
+
+/// The number of times a sync fetches and writes the chain updates while the store refuses the
+/// write.
+const STALE_WRITE_ATTEMPTS: usize = 3;
 
 // GATES
 // ================================================================================================
@@ -132,7 +141,8 @@ impl NoteObserver for GateObserver {
 // GATED RPC
 // ================================================================================================
 
-/// Delegates to the mock node, with switches for the block proof requests and the note sync.
+/// Delegates to the mock node, with switches for the block proof requests, the note sync and the
+/// chain sync.
 ///
 /// `sync_notes` returns each path at the forest of `block_to`, as the node does. The mock node
 /// returns the paths at its current tip instead.
@@ -142,12 +152,18 @@ struct GatedRpc {
     proof_gate: Gate,
     /// Holds a note sync request.
     sync_notes_gate: Gate,
+    /// Holds a chain MMR sync request.
+    chain_gate: Gate,
     /// Makes each block proof request fail as if the node were not reachable.
     fail_proofs: AtomicBool,
     /// Returns each block proof at this forest, as a node that is behind the client does.
     proof_forest: Mutex<Option<Forest>>,
+    /// Returns the next block proof at this forest, once.
+    next_proof_forest: Mutex<Option<Forest>>,
     /// The number of block proof requests, including the failed ones.
     proof_requests: AtomicUsize,
+    /// The number of chain MMR sync requests.
+    chain_requests: AtomicUsize,
 }
 
 impl GatedRpc {
@@ -156,14 +172,21 @@ impl GatedRpc {
             inner,
             proof_gate: Gate::default(),
             sync_notes_gate: Gate::default(),
+            chain_gate: Gate::default(),
             fail_proofs: AtomicBool::new(false),
             proof_forest: Mutex::new(None),
+            next_proof_forest: Mutex::new(None),
             proof_requests: AtomicUsize::new(0),
+            chain_requests: AtomicUsize::new(0),
         })
     }
 
     fn proof_requests(&self) -> usize {
         self.proof_requests.load(Ordering::SeqCst)
+    }
+
+    fn chain_requests(&self) -> usize {
+        self.chain_requests.load(Ordering::SeqCst)
     }
 }
 
@@ -220,7 +243,8 @@ impl NodeRpcClient for GatedRpc {
         }
 
         let (header, proof) = self.inner.get_block_header_by_number(block_num, true).await?;
-        let proof_forest = *self.proof_forest.lock().unwrap();
+        let next_proof_forest = self.next_proof_forest.lock().unwrap().take();
+        let proof_forest = next_proof_forest.or(*self.proof_forest.lock().unwrap());
         let proof = match proof_forest {
             Some(forest) => Some(
                 self.inner
@@ -250,6 +274,8 @@ impl NodeRpcClient for GatedRpc {
         current_block_height: BlockNumber,
         upper_bound: SyncTarget,
     ) -> Result<ChainMmrInfo, RpcError> {
+        self.chain_requests.fetch_add(1, Ordering::SeqCst);
+        self.chain_gate.pass().await;
         self.inner.sync_chain_mmr(current_block_height, upper_bound).await
     }
 
@@ -373,12 +399,43 @@ impl NodeRpcClient for GatedRpc {
 ///
 /// The blocks must be ascending and larger than 0. The chain tip is the last block.
 async fn node_with_notes(note_blocks: &[u32]) -> (Arc<MockRpcApi>, Vec<Note>) {
+    let (node, notes, _) = build_node(note_blocks, false).await;
+    (node, notes)
+}
+
+/// Builds a mock node as [`node_with_notes`] does, and a note that the node commits only when the
+/// test commits it.
+async fn node_with_a_late_note(note_blocks: &[u32]) -> (Arc<MockRpcApi>, Vec<Note>, LateNote) {
+    let (node, notes, late_note) = build_node(note_blocks, true).await;
+    (node, notes, late_note.expect("the node must have a late note"))
+}
+
+/// A public note whose transaction is executed, but which the node commits only when a test commits
+/// it.
+struct LateNote {
+    note: Note,
+    transaction: ExecutedTransaction,
+}
+
+impl LateNote {
+    /// Commits the note in a new block of `node`, and returns that block.
+    fn commit(&self, node: &MockRpcApi) -> BlockNumber {
+        node.add_pending_executed_transaction(&self.transaction);
+        node.prove_block();
+        node.get_chain_tip_block_num()
+    }
+}
+
+async fn build_node(
+    note_blocks: &[u32],
+    with_late_note: bool,
+) -> (Arc<MockRpcApi>, Vec<Note>, Option<LateNote>) {
     let mut builder = MockChainBuilder::new();
     let account = builder.add_existing_mock_account(miden_testing::Auth::IncrNonce).unwrap();
 
     let mut notes = Vec::new();
     let mut spawn_notes = Vec::new();
-    for seed in 0..note_blocks.len() {
+    for seed in 0..note_blocks.len() + usize::from(with_late_note) {
         let note = NoteBuilder::new(account.id(), ChaCha20Rng::seed_from_u64(seed as u64))
             .note_type(NoteType::Public)
             .tag(NoteTag::new(0).into())
@@ -389,9 +446,13 @@ async fn node_with_notes(note_blocks: &[u32]) -> (Arc<MockRpcApi>, Vec<Note>) {
     }
 
     let mut chain = builder.build().unwrap();
-    for ((&block, note), spawn_note) in note_blocks.iter().zip(&notes).zip(spawn_notes) {
-        while chain.latest_block_header().block_num().as_u32() + 1 < block {
-            chain.prove_next_block().unwrap();
+    let mut late_note = None;
+    for (index, (note, spawn_note)) in notes.iter().zip(spawn_notes).enumerate() {
+        let block = note_blocks.get(index).copied();
+        if let Some(block) = block {
+            while chain.latest_block_header().block_num().as_u32() + 1 < block {
+                chain.prove_next_block().unwrap();
+            }
         }
         let transaction = Box::pin(
             chain
@@ -404,22 +465,47 @@ async fn node_with_notes(note_blocks: &[u32]) -> (Arc<MockRpcApi>, Vec<Note>) {
         )
         .await
         .unwrap();
+        let Some(block) = block else {
+            late_note = Some(LateNote { note: note.clone(), transaction });
+            break;
+        };
         chain.add_pending_executed_transaction(&transaction).unwrap();
         chain.prove_next_block().unwrap();
         assert_eq!(chain.latest_block_header().block_num().as_u32(), block);
     }
+    notes.truncate(note_blocks.len());
 
-    (Arc::new(MockRpcApi::new(chain)), notes)
+    (Arc::new(MockRpcApi::new(chain)), notes, late_note)
 }
 
 /// Builds a client on the store at `store_path`.
 async fn client_on(store_path: &Path, rpc: Arc<dyn NodeRpcClient>, cache_mmr: bool) -> Client {
-    let mut client = ClientBuilder::new()
-        .rpc(rpc)
-        .sqlite_store(store_path.to_path_buf())
+    build_client(
+        ClientBuilder::new()
+            .rpc(rpc)
+            .sqlite_store(store_path.to_path_buf())
+            .cache_partial_mmr_in_memory(cache_mmr),
+    )
+    .await
+}
+
+/// Builds a client on a [`RefusingStore`] over a new store file. `configure` sets the other options
+/// that the test needs.
+async fn refusing_client(
+    rpc: Arc<dyn NodeRpcClient>,
+    configure: impl FnOnce(ClientBuilder<FilesystemKeyStore>) -> ClientBuilder<FilesystemKeyStore>,
+) -> (Client, Arc<RefusingStore>, PathBuf) {
+    let store_path = create_test_store_path();
+    let store = Arc::new(RefusingStore::new(&store_path).await);
+    let client = build_client(configure(ClientBuilder::new().rpc(rpc).store(store.clone()))).await;
+    (client, store, store_path)
+}
+
+/// Builds the client that `builder` configures, with the options that all test clients share.
+async fn build_client(builder: ClientBuilder<FilesystemKeyStore>) -> Client {
+    let mut client = builder
         .authenticator(Arc::new(FilesystemKeyStore::new(temp_dir()).unwrap()))
         .tx_discard_delta(None)
-        .cache_partial_mmr_in_memory(cache_mmr)
         .build()
         .await
         .unwrap();
@@ -484,6 +570,21 @@ async fn assert_full_path(store_path: &Path, node: &MockRpcApi, block: u32, heig
     assert_eq!(proof.merkle_path(), expected.merkle_path());
 }
 
+/// Deletes the siblings of `block` above level 1 at [`HEAL_HEIGHT`], as in the field report.
+fn delete_upper_siblings(store_path: &Path, block: u32) {
+    let siblings = sibling_indices(block, path_depth(BlockNumber::from(HEAL_HEIGHT), block));
+    delete_nodes(store_path, &siblings[2..]);
+}
+
+/// Marks `block` as not tracked and keeps its header.
+fn untrack_with_sql(store_path: &Path, block: u32) {
+    let conn = rusqlite::Connection::open(store_path).unwrap();
+    let updated = conn
+        .execute("UPDATE block_headers SET has_client_notes = 0 WHERE block_num = ?1", [block])
+        .unwrap();
+    assert_eq!(updated, 1);
+}
+
 fn delete_nodes(store_path: &Path, indices: &[InOrderIndex]) {
     let conn = rusqlite::Connection::open(store_path).unwrap();
     for index in indices {
@@ -517,6 +618,8 @@ async fn stored_nodes(store_path: &Path) -> BTreeMap<InOrderIndex, Word> {
         .unwrap()
 }
 
+/// Returns whether `result` is the error of a stale chain write, which the store and the client
+/// return when another writer changed the chain data.
 fn is_stale_write(result: &Result<impl core::fmt::Debug, ClientError>) -> bool {
     matches!(result, Err(ClientError::StoreError(StoreError::DatabaseTransientError(_))))
 }
@@ -536,15 +639,20 @@ struct HealSetup {
     client: Client,
     rpc: Arc<GatedRpc>,
     node: Arc<MockRpcApi>,
+    store: Arc<RefusingStore>,
     store_path: PathBuf,
 }
 
 async fn heal_setup(note_blocks: &[u32]) -> HealSetup {
     let (node, notes) = node_with_notes(note_blocks).await;
+    heal_setup_on(node, &notes, note_blocks).await
+}
+
+/// Builds the [`HealSetup`] on `node`, which commits `notes[i]` in block `note_blocks[i]`.
+async fn heal_setup_on(node: Arc<MockRpcApi>, notes: &[Note], note_blocks: &[u32]) -> HealSetup {
     node.advance_blocks(HEAL_HEIGHT - node.get_chain_tip_block_num().as_u32());
     let rpc = GatedRpc::new(node.clone());
-    let store_path = create_test_store_path();
-    let mut client = client_on(&store_path, rpc.clone(), false).await;
+    let (mut client, store, store_path) = refusing_client(rpc.clone(), |builder| builder).await;
     client.sync_state().await.unwrap();
     let note_files: Vec<NoteFile> = notes.iter().map(|note| NoteFile::NoteId(note.id())).collect();
     client.import_notes(&note_files).await.unwrap();
@@ -555,7 +663,7 @@ async fn heal_setup(note_blocks: &[u32]) -> HealSetup {
         assert_full_path(&store_path, &node, block, height).await;
     }
 
-    HealSetup { client, rpc, node, store_path }
+    HealSetup { client, rpc, node, store, store_path }
 }
 
 // RACE TESTS
@@ -752,6 +860,299 @@ async fn cached_partial_mmr_sees_a_block_tracked_during_a_sync() {
     assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
 }
 
+/// A sync whose chain fetch spans a sync of another client fetches the chain again and succeeds.
+#[tokio::test]
+async fn sync_chain_fetches_again_after_another_sync_moves_the_store() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let rpc = GatedRpc::new(node.clone());
+    let store_path = create_test_store_path();
+    let mut syncer = client_on(&store_path, rpc.clone(), false).await;
+    let mut other = client_on(&store_path, node.clone(), false).await;
+
+    syncer.sync_chain().await.unwrap();
+    node.advance_blocks(10);
+
+    rpc.chain_gate.arm();
+    let requests_before = rpc.chain_requests();
+    let (sync, other_sync) =
+        Box::pin(while_held(&rpc.chain_gate, syncer.sync_chain(), other.sync_chain())).await;
+    other_sync
+        .expect("the sync must fetch the chain")
+        .expect("the other sync must succeed");
+
+    sync.expect("the sync must fetch the chain again and succeed");
+    assert_eq!(rpc.chain_requests(), requests_before + 2);
+    assert_eq!(syncer.get_sync_height().await.unwrap(), node.get_chain_tip_block_num());
+}
+
+/// A full sync whose chain fetch spans a sync of another client fetches the chain again and
+/// succeeds.
+#[tokio::test]
+async fn sync_state_fetches_again_after_another_sync_moves_the_store() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let rpc = GatedRpc::new(node.clone());
+    let store_path = create_test_store_path();
+    let mut syncer = client_on(&store_path, rpc.clone(), false).await;
+    let mut other = client_on(&store_path, node.clone(), false).await;
+
+    syncer.sync_state().await.unwrap();
+    node.advance_blocks(10);
+
+    rpc.chain_gate.arm();
+    let requests_before = rpc.chain_requests();
+    let (sync, other_sync) =
+        Box::pin(while_held(&rpc.chain_gate, syncer.sync_state(), other.sync_chain())).await;
+    other_sync
+        .expect("the sync must fetch the chain")
+        .expect("the other sync must succeed");
+
+    sync.expect("the sync must fetch the chain again and succeed");
+    assert_eq!(rpc.chain_requests(), requests_before + 2);
+    assert_eq!(syncer.get_sync_height().await.unwrap(), node.get_chain_tip_block_num());
+}
+
+/// An import by details whose note block insert the store refuses, because another client synced
+/// across a tree merge after the import read the partial MMR, stores the full path of every note
+/// block.
+#[tokio::test]
+async fn import_by_details_with_a_refused_note_block_stores_every_full_path() {
+    let note_blocks = [NOTE_BLOCK, 6];
+    let (node, notes) = node_with_notes(&note_blocks).await;
+    node.advance_blocks(4);
+    let rpc = GatedRpc::new(node.clone());
+    let (mut importer, store, store_path) = refusing_client(rpc, |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+
+    importer.sync_state().await.unwrap();
+    let height_before = importer.get_sync_height().await.unwrap();
+
+    store.hold_insert_of(BlockNumber::from(NOTE_BLOCK));
+    let note_files: Vec<NoteFile> = notes
+        .iter()
+        .map(|note| NoteFile::ExpectedNote {
+            details: note.clone().into(),
+            sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, note.metadata().tag()),
+        })
+        .collect();
+    let (import, height_after) =
+        Box::pin(while_held(&store.insert_gate, importer.import_notes(&note_files), async {
+            node.advance_blocks(40);
+            syncer.sync_state().await.unwrap();
+            syncer.get_sync_height().await.unwrap()
+        }))
+        .await;
+    let height_after = height_after.expect("the import must store the note block");
+    assert!(path_depth(height_after, NOTE_BLOCK) > path_depth(height_before, NOTE_BLOCK));
+
+    import.expect("the import must succeed");
+    for block in note_blocks {
+        assert_full_path(&store_path, &node, block, height_after).await;
+    }
+}
+
+/// An import by proof whose first proof is for a smaller forest than the partial MMR requests the
+/// proof again and stores the full path.
+#[tokio::test]
+async fn import_by_proof_with_a_lagging_proof_requests_it_again() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(HEAL_HEIGHT - node.get_chain_tip_block_num().as_u32());
+    let rpc = GatedRpc::new(node.clone());
+    let store_path = create_test_store_path();
+    let mut importer = client_on(&store_path, rpc.clone(), false).await;
+    importer.sync_state().await.unwrap();
+    let height = importer.get_sync_height().await.unwrap();
+
+    *rpc.next_proof_forest.lock().unwrap() = Some(Forest::new(40).unwrap());
+    importer
+        .import_notes(&[NoteFile::NoteId(notes[0].id())])
+        .await
+        .expect("the import must request the proof again and succeed");
+
+    assert_eq!(node.block_header_requests(NOTE_BLOCK.into()), [true, true]);
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+}
+
+/// An import by proof that read the partial MMR before another client synced past the block of the
+/// note reads the partial MMR again and uses the proof that it holds.
+#[tokio::test]
+async fn import_by_proof_after_a_sync_reads_the_partial_mmr_again() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    importer.sync_state().await.unwrap();
+    let late_block = late_note.commit(&node);
+
+    store.read_gate.arm();
+    let note_files = [NoteFile::NoteId(late_note.note.id())];
+    let (import, height) =
+        Box::pin(while_held(&store.read_gate, importer.import_notes(&note_files), async {
+            syncer.sync_chain().await.unwrap();
+            syncer.get_sync_height().await.unwrap()
+        }))
+        .await;
+    let height = height.expect("the import must read the partial MMR");
+    assert_eq!(height, late_block);
+
+    import.expect("the import must read the partial MMR again and succeed");
+    assert_eq!(
+        node.block_header_requests(late_block),
+        [true],
+        "the import must use the proof that it holds"
+    );
+    assert_full_path(&store_path, &node, late_block.as_u32(), height).await;
+}
+
+/// A client that caches its partial MMR reads it from the store once while the store does not
+/// change.
+#[tokio::test]
+async fn cached_partial_mmr_is_read_from_the_store_once() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, _) =
+        refusing_client(node.clone(), |builder| builder.cache_partial_mmr_in_memory(true)).await;
+    client.sync_chain().await.unwrap();
+
+    let reads_before = store.partial_mmr_reads();
+    let first = client.get_current_partial_mmr().await.unwrap();
+    let second = client.get_current_partial_mmr().await.unwrap();
+
+    assert_eq!(first, second);
+    assert_eq!(
+        store.partial_mmr_reads(),
+        reads_before,
+        "a read with no store change must use the cached partial MMR"
+    );
+}
+
+// REFUSED WRITE TESTS
+// ================================================================================================
+
+/// A sync whose write the store refuses once fetches the chain again and succeeds.
+#[tokio::test]
+async fn sync_chain_retries_a_refused_write() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, _) = refusing_client(node.clone(), |builder| builder).await;
+
+    store.syncs.refuse_next(1);
+    client
+        .sync_chain()
+        .await
+        .expect("the sync must fetch the chain again and succeed");
+
+    assert_eq!(store.syncs.calls(), 2);
+    assert_eq!(client.get_sync_height().await.unwrap(), node.get_chain_tip_block_num());
+}
+
+/// A sync whose write the store refuses on every attempt returns the error of a stale chain write.
+#[tokio::test]
+async fn sync_chain_stops_after_the_last_refused_write() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, _) = refusing_client(node.clone(), |builder| builder).await;
+
+    store.syncs.refuse_next(STALE_WRITE_ATTEMPTS);
+    let result = client.sync_chain().await;
+
+    assert!(is_stale_write(&result), "the sync must return the stale write, got {result:?}");
+    assert_eq!(store.syncs.calls(), STALE_WRITE_ATTEMPTS);
+    assert_eq!(client.get_sync_height().await.unwrap(), BlockNumber::GENESIS);
+}
+
+/// A full sync whose write the store refuses once fetches the chain again, and it commits the note
+/// that it received from the note transport.
+#[tokio::test]
+async fn sync_state_retries_a_refused_write_and_commits_a_transport_note() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let note = &notes[0];
+    let transport = Arc::new(RwLock::new(MockNoteTransportNode::new()));
+    transport
+        .write()
+        .add_note(*note.header(), NoteDetails::from(note.clone()).to_bytes());
+    let (mut client, store, _) = refusing_client(node.clone(), |builder| {
+        builder.note_transport(Arc::new(MockNoteTransportApi::new(transport.clone())))
+    })
+    .await;
+    client.add_note_tag(note.metadata().tag()).await.unwrap();
+
+    store.syncs.refuse_next(1);
+    let summary = client.sync_state().await.expect("the sync must fetch the chain again");
+
+    assert_eq!(store.syncs.calls(), 2);
+    assert_eq!(summary.new_private_notes, [note.id()]);
+    let record = client
+        .get_input_note(note.id())
+        .await
+        .unwrap()
+        .expect("the note must be stored");
+    assert!(record.is_committed(), "the sync must commit the note, got {:?}", record.state());
+}
+
+/// A full sync whose write the store refuses on every attempt returns the error of a stale chain
+/// write.
+#[tokio::test]
+async fn sync_state_stops_after_the_last_refused_write() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, _) = refusing_client(node.clone(), |builder| builder).await;
+
+    store.syncs.refuse_next(STALE_WRITE_ATTEMPTS);
+    let result = client.sync_state().await;
+
+    assert!(is_stale_write(&result), "the sync must return the stale write, got {result:?}");
+    assert_eq!(store.syncs.calls(), STALE_WRITE_ATTEMPTS);
+    assert_eq!(client.get_sync_height().await.unwrap(), BlockNumber::GENESIS);
+}
+
+/// A prune that the store refuses does not fail the sync and does not record the prune height, so
+/// the next sync prunes again. The refused prune leaves the store readable.
+#[tokio::test]
+async fn refused_prune_runs_again_on_the_next_sync() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, store_path) =
+        refusing_client(node.clone(), |builder| builder.irrelevant_block_prune_interval(Some(100)))
+            .await;
+
+    store.prunes.refuse_next(1);
+    client.sync_chain().await.expect("a refused prune must not fail the sync");
+    assert_eq!(store.prunes.calls(), 1, "the client must not prune again in the same sync");
+    raw_partial_mmr(&store_path).await.expect("the store must stay readable");
+
+    client.sync_chain().await.unwrap();
+    assert_eq!(store.prunes.calls(), 2, "the next sync must prune again");
+}
+
+/// A sync update that the store refuses returns the error of a stale chain write. The client does
+/// not prune, and it drops its cached partial MMR.
+#[tokio::test]
+async fn refused_apply_state_sync_returns_the_stale_write() {
+    let (node, _notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut client, store, _) =
+        refusing_client(node.clone(), |builder| builder.cache_partial_mmr_in_memory(true)).await;
+    client.sync_chain().await.unwrap();
+    assert!(client.test_has_cached_partial_mmr());
+    let height = client.get_sync_height().await.unwrap();
+    node.advance_blocks(5);
+
+    let state_sync = StateSync::new(
+        node.clone(),
+        Arc::new(client.note_screener()),
+        None,
+        client.get_validator_config().await.unwrap(),
+    );
+    let mut partial_mmr = client.get_current_partial_mmr().await.unwrap();
+    let input = client.build_sync_input().await.unwrap();
+    let update = Box::pin(state_sync.sync_state(&mut partial_mmr, input)).await.unwrap();
+
+    store.syncs.refuse_next(1);
+    let prunes_before = store.prunes.calls();
+    let result = client.apply_state_sync(update).await;
+
+    assert!(is_stale_write(&result), "the update must be refused, got {result:?}");
+    assert_eq!(client.get_sync_height().await.unwrap(), height);
+    assert_eq!(store.prunes.calls(), prunes_before, "a refused update must not prune");
+    assert!(
+        !client.test_has_cached_partial_mmr(),
+        "a refused update must drop the cached MMR"
+    );
+}
+
 // HEAL TESTS
 // ================================================================================================
 
@@ -759,7 +1160,7 @@ async fn cached_partial_mmr_sees_a_block_tracked_during_a_sync() {
 /// with one proof request.
 #[tokio::test]
 async fn partial_mmr_read_heals_missing_upper_siblings() {
-    let HealSetup { mut client, rpc, node, store_path } = heal_setup(&[NOTE_BLOCK]).await;
+    let HealSetup { mut client, rpc, node, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
     let height = BlockNumber::from(HEAL_HEIGHT);
     let siblings = sibling_indices(NOTE_BLOCK, path_depth(height, NOTE_BLOCK));
     delete_nodes(&store_path, &siblings[2..]);
@@ -818,7 +1219,7 @@ async fn partial_mmr_read_heals_two_broken_blocks() {
 /// next read after the node is reachable again repairs the store.
 #[tokio::test]
 async fn partial_mmr_heal_without_the_node_writes_nothing() {
-    let HealSetup { client, rpc, node, store_path } = heal_setup(&[NOTE_BLOCK]).await;
+    let HealSetup { client, rpc, node, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
     let height = BlockNumber::from(HEAL_HEIGHT);
     let siblings = sibling_indices(NOTE_BLOCK, path_depth(height, NOTE_BLOCK));
     delete_nodes(&store_path, &siblings[2..]);
@@ -880,27 +1281,159 @@ async fn partial_mmr_heal_refuses_a_conflicting_stored_node() {
     assert_eq!(stored_nodes(&store_path).await, nodes_before);
 }
 
-/// A block that another client untracks while the repair waits for its proof stays untracked.
+/// A heal whose plan starts after another client repaired the store returns the result of a new
+/// read.
 #[tokio::test]
-async fn partial_mmr_heal_does_not_track_an_untracked_block_again() {
-    let HealSetup { client, rpc, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
-    let height = BlockNumber::from(HEAL_HEIGHT);
-    let siblings = sibling_indices(NOTE_BLOCK, path_depth(height, NOTE_BLOCK));
-    delete_nodes(&store_path, &siblings[2..]);
-    let other_store = SqliteStore::new(store_path.clone()).await.unwrap();
+async fn partial_mmr_heal_reads_again_after_another_client_heals() {
+    let HealSetup { client, node, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    let other = client_on(&store_path, node.clone(), false).await;
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
 
-    rpc.proof_gate.arm();
-    let (result, untrack) = while_held(
-        &rpc.proof_gate,
+    store.peaks_gate.arm();
+    let (result, healed) = Box::pin(while_held(
+        &store.peaks_gate,
         client.get_current_partial_mmr(),
-        other_store.untrack_and_prune_irrelevant_blocks(&[NOTE_BLOCK.into()], &[]),
+        other.get_current_partial_mmr(),
+    ))
+    .await;
+    healed
+        .expect("the heal must read the stored peaks")
+        .expect("the other client must repair the store");
+
+    result.expect("the read must return the result of a new read");
+    assert_full_path(&store_path, &node, NOTE_BLOCK, BlockNumber::from(HEAL_HEIGHT)).await;
+}
+
+/// A heal whose plan read the stored peaks before a sync of another client tracked a later block
+/// returns the result of a new read.
+#[tokio::test]
+async fn partial_mmr_heal_reads_again_after_a_sync_tracks_a_later_block() {
+    let (node, notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let HealSetup { client, store, store_path, .. } =
+        heal_setup_on(node.clone(), &notes, &[NOTE_BLOCK]).await;
+    let mut other = build_client(
+        ClientBuilder::new()
+            .rpc(node.clone())
+            .sqlite_store(store_path.clone())
+            .irrelevant_block_prune_interval(None),
     )
     .await;
-    untrack.expect("the read must request the block proof").unwrap();
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
+
+    let late_file = NoteFile::ExpectedNote {
+        details: late_note.note.clone().into(),
+        sync_hint: NoteSyncHint::new(HEAL_HEIGHT.into(), late_note.note.metadata().tag()),
+    };
+    store.peaks_gate.arm();
+    let (result, late_block) =
+        Box::pin(while_held(&store.peaks_gate, client.get_current_partial_mmr(), async {
+            other.import_notes(&[late_file]).await.unwrap();
+            let late_block = late_note.commit(&node);
+            other.sync_chain().await.unwrap();
+            late_block
+        }))
+        .await;
+    let late_block = late_block.expect("the heal must read the stored peaks");
+
+    let partial_mmr = result.expect("the read must return the result of a new read");
+    assert!(
+        partial_mmr.is_tracked(late_block.as_usize()),
+        "the sync must track the later block"
+    );
+    assert_full_path(&store_path, &node, NOTE_BLOCK, late_block).await;
+}
+
+/// A heal whose insert the store refuses returns the result of a new read, which still fails. The
+/// heal does not insert again, and a later read repairs the store.
+#[tokio::test]
+async fn partial_mmr_heal_with_a_refused_insert_reads_again() {
+    let HealSetup { client, node, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
+    let nodes_before = stored_nodes(&store_path).await;
+
+    store.inserts.refuse_next(1);
+    let inserts_before = store.inserts.calls();
+    let reads_before = store.partial_mmr_reads();
+    let result = client.get_current_partial_mmr().await;
+    assert!(is_inconsistent_mmr(&result), "the read must fail again, got {result:?}");
+    assert_eq!(store.inserts.calls(), inserts_before + 1, "the heal must not insert again");
+    assert_eq!(store.partial_mmr_reads(), reads_before + 2, "the heal must read again");
+    assert_eq!(stored_nodes(&store_path).await, nodes_before);
+
+    client
+        .get_current_partial_mmr()
+        .await
+        .expect("a later read must repair the store");
+    assert_full_path(&store_path, &node, NOTE_BLOCK, BlockNumber::from(HEAL_HEIGHT)).await;
+}
+
+/// A heal whose insert the store refuses after another client repaired the store returns the result
+/// of a new read.
+#[tokio::test]
+async fn partial_mmr_heal_returns_the_new_read_after_a_refused_insert() {
+    let HealSetup { client, node, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    let other = client_on(&store_path, node.clone(), false).await;
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
+
+    store.hold_insert_of(BlockNumber::from(NOTE_BLOCK));
+    store.inserts.refuse_next(1);
+    let inserts_before = store.inserts.calls();
+    let (result, healed) = Box::pin(while_held(
+        &store.insert_gate,
+        client.get_current_partial_mmr(),
+        other.get_current_partial_mmr(),
+    ))
+    .await;
+    healed
+        .expect("the heal must insert the missing nodes")
+        .expect("the other client must repair the store");
+
+    result.expect("the read must return the result of a new read");
+    assert_eq!(store.inserts.calls(), inserts_before + 1);
+    assert_full_path(&store_path, &node, NOTE_BLOCK, BlockNumber::from(HEAL_HEIGHT)).await;
+}
+
+/// A block that another writer untracks after the heal checked it, and before the heal stores its
+/// missing nodes, stays untracked.
+#[tokio::test]
+async fn partial_mmr_heal_keeps_a_block_untracked_during_its_insert() {
+    let HealSetup { client, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
+
+    store.hold_insert_of(BlockNumber::from(NOTE_BLOCK));
+    let (result, untracked) =
+        Box::pin(while_held(&store.insert_gate, client.get_current_partial_mmr(), async {
+            untrack_with_sql(&store_path, NOTE_BLOCK);
+        }))
+        .await;
+    untracked.expect("the heal must insert the missing nodes");
 
     let partial_mmr = result.expect("the read must succeed");
     assert!(!partial_mmr.is_tracked(NOTE_BLOCK as usize));
-    let tracked = other_store.get_tracked_block_header_numbers().await.unwrap();
+    let tracked = store.get_tracked_block_header_numbers().await.unwrap();
     assert!(!tracked.contains(&(NOTE_BLOCK as usize)), "the repair must not track the block");
+}
+
+/// A block that another writer untracks while the heal waits for its proof stays untracked, and the
+/// heal stores no node for it.
+#[tokio::test]
+async fn partial_mmr_heal_writes_nothing_for_a_block_untracked_during_its_proof_request() {
+    let HealSetup { client, rpc, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    delete_upper_siblings(&store_path, NOTE_BLOCK);
+    let nodes_before = stored_nodes(&store_path).await;
+
+    rpc.proof_gate.arm();
+    let (result, untracked) =
+        Box::pin(while_held(&rpc.proof_gate, client.get_current_partial_mmr(), async {
+            untrack_with_sql(&store_path, NOTE_BLOCK);
+        }))
+        .await;
+    untracked.expect("the heal must request the block proof");
+
+    let partial_mmr = result.expect("the read must succeed");
+    assert!(!partial_mmr.is_tracked(NOTE_BLOCK as usize));
+    let tracked = store.get_tracked_block_header_numbers().await.unwrap();
+    assert!(!tracked.contains(&(NOTE_BLOCK as usize)), "the repair must not track the block");
+    assert_eq!(stored_nodes(&store_path).await, nodes_before, "the heal must store no node");
     raw_partial_mmr(&store_path).await.unwrap();
 }
