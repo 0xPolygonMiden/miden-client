@@ -548,14 +548,12 @@ async fn multisig_proposal_reexecutes_after_bound_account_state_is_pruned() {
     let fee_faucet_id: AccountId = ACCOUNT_ID_FEE_FAUCET.try_into().unwrap();
     let auth_args = MultisigAuthArgs::new(bound_block_num, Word::from([21u32, 22, 23, 24]))
         .with_conversion_info(FeeConversionInfo::one_to_one(fee_faucet_id));
-    let request = TransactionRequestBuilder::new()
-        .block_numbers([bound_block_num])
-        .auth_args(&auth_args)
-        .build()
-        .unwrap();
-
-    let anchor = client.chain_anchor_for_request(&request).await.unwrap();
-    assert!(anchor.partial_blockchain().contains_block(bound_block_num));
+    // The executing party sets the auth args on a request that it received serialized. The request
+    // does not declare the bound block, so the client must track it.
+    let request = TransactionRequestBuilder::new().build().unwrap();
+    let request = TransactionRequest::read_from_bytes(&request.to_bytes())
+        .unwrap()
+        .with_auth_args(&auth_args);
 
     let original_summary = unauthorized_summary(
         Box::pin(client.execute_transaction(account.id(), request.clone()))

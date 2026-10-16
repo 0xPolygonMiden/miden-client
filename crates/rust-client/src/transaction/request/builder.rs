@@ -354,8 +354,8 @@ impl TransactionRequestBuilder {
     /// example [`MultisigAuthArgs`](miden_standards::account::auth::MultisigAuthArgs). Use
     /// [`Self::auth_arg`] for auth components that read the auth arg directly.
     ///
-    /// The client does not change auth args that the caller sets. If the auth args bind a block
-    /// before the transaction's reference block, declare that block with [`Self::block_numbers`].
+    /// The client does not change auth args that the caller sets. The client tracks the bound block
+    /// of multisig auth args.
     #[must_use]
     pub fn auth_args<A: SequentialCommit<Commitment = Word>>(mut self, auth_args: &A) -> Self {
         let auth_arg = auth_args.to_commitment();

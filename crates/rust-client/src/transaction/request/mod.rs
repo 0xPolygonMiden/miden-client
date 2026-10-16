@@ -9,6 +9,7 @@ use core::num::NonZeroU16;
 use miden_protocol::account::{AccountCodeInterface, AccountCodeUpgrade, AccountId};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::BlockNumber;
+use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::crypto::merkle::MerkleError;
 use miden_protocol::crypto::merkle::store::MerkleStore;
 use miden_protocol::errors::{
@@ -291,6 +292,20 @@ impl TransactionRequest {
     pub(crate) fn add_unauthenticated_input_note(&mut self, note: Note) {
         self.input_notes_args.push((note.id(), None));
         self.input_notes.push(note);
+    }
+
+    /// Returns this request with the auth arg set to the commitment of `auth_args`, and with their
+    /// preimage added to the advice map.
+    ///
+    /// The executing party can use this method to set auth args that only it can choose, for
+    /// example [`MultisigAuthArgs`](miden_standards::account::auth::MultisigAuthArgs) with a salt
+    /// and a bound block of its choice. The new auth args replace the previous auth args and the
+    /// declared fee conversion salt. The client tracks the bound block of multisig auth args.
+    #[must_use]
+    pub fn with_auth_args<A: SequentialCommit<Commitment = Word>>(mut self, auth_args: &A) -> Self {
+        self.commit_auth_args(auth_args.to_commitment(), auth_args.to_elements());
+        self.fee_conversion_salt = None;
+        self
     }
 
     /// Sets `auth_arg` and adds its `preimage` to the advice map.

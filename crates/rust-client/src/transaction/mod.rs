@@ -697,7 +697,12 @@ where
             .await?;
 
         let ignore_invalid_notes = transaction_request.ignore_invalid_input_notes();
-        let block_numbers = transaction_request.block_numbers().clone();
+        let mut block_numbers = transaction_request.block_numbers().clone();
+        block_numbers.extend(
+            AuthArgsLayout::of(&account_code_interface)
+                .bound_block(&transaction_request)
+                .filter(|bound_block| *bound_block < block_num),
+        );
 
         let reference_header = match anchor {
             Some(anchor) => anchor.header().clone(),
@@ -1633,6 +1638,22 @@ impl AuthArgsLayout {
                 _ => None,
             })
             .unwrap_or_else(|| Self::Unsupported("unrecognized".into()))
+    }
+
+    /// Returns the block that the auth args of `transaction_request` bind, or `None` when the
+    /// layout binds no block or the request carries no auth args.
+    ///
+    /// The kernel reads the commitment of this block, so the transaction must track it.
+    fn bound_block(&self, transaction_request: &TransactionRequest) -> Option<BlockNumber> {
+        if !matches!(self, Self::Multisig(_)) || !transaction_request.has_auth_arg() {
+            return None;
+        }
+
+        let auth_arg = (*transaction_request.auth_arg())?;
+        let preimage = transaction_request.advice_map().get(&auth_arg)?;
+        let bound_block = u32::try_from(preimage.first()?.as_canonical_u64()).ok()?;
+
+        Some(BlockNumber::from(bound_block))
     }
 
     /// Returns the default auth arg commitment and its preimage, or `None` when the component does
