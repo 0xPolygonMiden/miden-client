@@ -272,7 +272,7 @@ pub(crate) enum TrackedPaths {
 }
 
 /// Refuses a write after which a tracked block does not have its leaf and its full path at the
-/// forest of the stored sync height plus one.
+/// forest that includes the sync-height block (see [`tracked_leaf_path_indices`]).
 ///
 /// A store in that state cannot build its partial MMR, so every later sync and import fails. Run
 /// this check inside the write transaction, after all of its writes, so that it sees the rows that
@@ -310,14 +310,9 @@ pub(crate) fn check_tracked_paths_tx(
     }
 
     let sync_height = query_sync_height(conn)?;
-    let mut forest = Forest::new(sync_height.as_usize()).map_err(|err| {
-        StoreError::ParsingError(format!("invalid sync height {sync_height}: {err}"))
-    })?;
-    forest.append_leaf().map_err(StoreError::MmrError)?;
-
     let mut required = Vec::new();
     for block in tracked_blocks {
-        let Some(indices) = tracked_leaf_path_indices(forest, block) else {
+        let Some(indices) = tracked_leaf_path_indices(sync_height, block) else {
             return Err(stale_chain_write(format!(
                 "tracked block {block} is after the sync height {sync_height}"
             )));

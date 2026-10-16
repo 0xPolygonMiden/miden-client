@@ -364,8 +364,9 @@ pub trait Store: Send + Sync {
     ///
     /// If the block is tracked after the write, an implementation should refuse the write with
     /// [`StoreError::DatabaseTransientError`] and write nothing when the store does not then hold
-    /// the leaf and the full path of the block at the forest of the stored sync height (see
-    /// [`tracked_leaf_path_indices`]). The client then reads the partial MMR again and retries.
+    /// the leaf and the full path of the block at the forest that includes the sync-height block,
+    /// which has the stored sync height plus one leaves (see [`tracked_leaf_path_indices`]). The
+    /// client then reads the partial MMR again and retries.
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
@@ -384,7 +385,8 @@ pub trait Store: Send + Sync {
     ///
     /// An implementation should refuse the prune with [`StoreError::DatabaseTransientError`] and
     /// write nothing when a block that stays tracked does not then have its leaf and its full path
-    /// at the forest of the stored sync height (see [`tracked_leaf_path_indices`]).
+    /// at the forest that includes the sync-height block, which has the stored sync height plus one
+    /// leaves (see [`tracked_leaf_path_indices`]).
     async fn untrack_and_prune_irrelevant_blocks(
         &self,
         blocks_to_untrack: &[BlockNumber],
@@ -622,7 +624,8 @@ pub trait Store: Send + Sync {
     /// An implementation should refuse the update with [`StoreError::DatabaseTransientError`] and
     /// write nothing when [`StateSyncUpdate::block_from`] is set and differs from the stored sync
     /// height. It should also refuse the update when a tracked block does not then have its leaf
-    /// and its full path at the forest of the new sync height (see [`tracked_leaf_path_indices`]).
+    /// and its full path at the forest that includes the new sync-height block, which has the new
+    /// sync height plus one leaves (see [`tracked_leaf_path_indices`]).
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 
     // TRANSPORT
@@ -938,14 +941,21 @@ pub fn build_partial_mmr(
     Ok(PartialMmr::from_parts(partial_mmr.peaks(), nodes, tracked_blocks)?)
 }
 
-/// Returns the in-order indices of the nodes that a [`PartialMmr`] at `forest` needs to open
-/// `leaf`: the index of the leaf, then the index of one sibling for each level of its tree.
+/// Returns the in-order indices of the nodes that a store at the sync height `sync_height` needs to
+/// open the tracked block `leaf`: the index of the leaf, then the index of one sibling for each
+/// level of its tree.
 ///
-/// A store that tracks a block must hold all of these nodes for the forest of its sync height plus
-/// one. Otherwise [`PartialMmr::from_parts`] refuses to build the partial MMR.
+/// The indices are for the forest that includes the sync-height block, which has `sync_height` plus
+/// one leaves. [`PartialMmr::from_parts`] refuses to build the partial MMR of the store if one of
+/// these nodes is missing.
 ///
-/// Returns `None` if `forest` does not include `leaf`.
-pub fn tracked_leaf_path_indices(forest: Forest, leaf: usize) -> Option<Vec<InOrderIndex>> {
+/// Returns `None` if `leaf` is after `sync_height`, or if a forest cannot have `sync_height` plus
+/// one leaves.
+pub fn tracked_leaf_path_indices(
+    sync_height: BlockNumber,
+    leaf: usize,
+) -> Option<Vec<InOrderIndex>> {
+    let forest = Forest::new(sync_height.as_usize() + 1).ok()?;
     let depth = forest.leaf_to_corresponding_tree(leaf)?;
     let mut index = InOrderIndex::from_leaf_pos(leaf);
     let mut indices = Vec::with_capacity(depth as usize + 1);
@@ -1068,6 +1078,7 @@ pub enum AccountStorageFilter {
 mod tests {
     use alloc::collections::{BTreeMap, BTreeSet};
 
+    use miden_protocol::block::BlockNumber;
     use miden_protocol::crypto::merkle::mmr::{InOrderIndex, Mmr, PartialMmr};
     use miden_protocol::{Felt, Word};
     use rand::{RngExt, SeedableRng};
@@ -1088,7 +1099,7 @@ mod tests {
                 mmr.add(Word::new([Felt::from(leaf); 4])).unwrap();
             }
             let peaks = mmr.peaks();
-            let forest = peaks.forest();
+            let sync_height = BlockNumber::from(num_leaves - 1);
 
             let tracked: BTreeSet<usize> =
                 (0..num_leaves as usize).filter(|_| rng.random_bool(0.1)).collect();
@@ -1107,7 +1118,7 @@ mod tests {
             nodes.retain(|_, _| !rng.random_bool(0.1));
             let missing: BTreeSet<InOrderIndex> = tracked
                 .iter()
-                .flat_map(|&leaf| tracked_leaf_path_indices(forest, leaf).unwrap())
+                .flat_map(|&leaf| tracked_leaf_path_indices(sync_height, leaf).unwrap())
                 .filter(|index| !nodes.contains_key(index))
                 .collect();
 
@@ -1119,5 +1130,20 @@ mod tests {
             }
             PartialMmr::from_parts(peaks, nodes, tracked).unwrap();
         }
+    }
+
+    /// Tests that the indices are for the forest that includes the sync-height block. At sync
+    /// height 3 the forest has 4 leaves, so leaf 0 has two siblings and block 3 has a path.
+    #[test]
+    fn tracked_leaf_path_indices_include_the_sync_height_block() {
+        let sync_height = BlockNumber::from(3u32);
+        let leaf_0 = InOrderIndex::from_leaf_pos(0);
+
+        assert_eq!(
+            tracked_leaf_path_indices(sync_height, 0),
+            Some(vec![leaf_0, leaf_0.sibling(), leaf_0.parent().sibling()])
+        );
+        assert!(tracked_leaf_path_indices(sync_height, 3).is_some());
+        assert_eq!(tracked_leaf_path_indices(sync_height, 4), None);
     }
 }

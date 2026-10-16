@@ -160,7 +160,7 @@ async fn plan_repairs(
 
     let mut broken_blocks = Vec::new();
     for block in tracked_blocks {
-        let Some(indices) = tracked_leaf_path_indices(forest, block) else {
+        let Some(indices) = tracked_leaf_path_indices(sync_height, block) else {
             return Err(Stop::StoreChanged(format!(
                 "tracked block {block} is after the sync height {sync_height}"
             )));
