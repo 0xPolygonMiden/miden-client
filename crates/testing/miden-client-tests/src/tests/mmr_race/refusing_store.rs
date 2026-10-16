@@ -87,6 +87,7 @@ pub(super) struct RefusingStore {
     pub(super) syncs: Refusals,
     pub(super) prunes: Refusals,
     pub(super) inserts: Refusals,
+    pub(super) upserts: Refusals,
     /// The number of `get_current_partial_mmr` calls.
     partial_mmr_reads: AtomicUsize,
     /// Holds the `insert_block_header` call of the block that [`Self::hold_insert_of`] names,
@@ -97,6 +98,11 @@ pub(super) struct RefusingStore {
     pub(super) read_gate: Gate,
     /// Holds a `get_current_blockchain_peaks` call after `SQLite` answers it.
     pub(super) peaks_gate: Gate,
+    /// Holds an `upsert_input_notes` call before the call is refused or reaches `SQLite`.
+    pub(super) upsert_gate: Gate,
+    /// Holds an `untrack_and_prune_irrelevant_blocks` call before the call is refused or reaches
+    /// `SQLite`.
+    pub(super) prune_gate: Gate,
 }
 
 impl RefusingStore {
@@ -106,11 +112,14 @@ impl RefusingStore {
             syncs: Refusals::default(),
             prunes: Refusals::default(),
             inserts: Refusals::default(),
+            upserts: Refusals::default(),
             partial_mmr_reads: AtomicUsize::new(0),
             insert_gate: Gate::default(),
             held_insert: Mutex::new(None),
             read_gate: Gate::default(),
             peaks_gate: Gate::default(),
+            upsert_gate: Gate::default(),
+            prune_gate: Gate::default(),
         }
     }
 
@@ -206,6 +215,8 @@ impl Store for RefusingStore {
     }
 
     async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
+        self.upsert_gate.pass().await;
+        self.upserts.check()?;
         self.inner.upsert_input_notes(notes).await
     }
 
@@ -236,6 +247,7 @@ impl Store for RefusingStore {
         blocks_to_untrack: &[BlockNumber],
         node_indices_to_remove: &[InOrderIndex],
     ) -> Result<(), StoreError> {
+        self.prune_gate.pass().await;
         self.prunes.check()?;
         self.inner
             .untrack_and_prune_irrelevant_blocks(blocks_to_untrack, node_indices_to_remove)

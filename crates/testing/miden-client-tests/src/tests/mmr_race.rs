@@ -17,14 +17,22 @@ use miden_client::keystore::FilesystemKeyStore;
 use miden_client::note::{BlockNumber, NoteDetails, NoteFile, NoteSyncHint};
 use miden_client::rpc::domain::account::{AccountProof, GetAccountRequest};
 use miden_client::rpc::domain::account_vault::AccountVaultInfo;
-use miden_client::rpc::domain::note::{FetchedNote, SyncNotesBlock, SyncedNote};
+use miden_client::rpc::domain::note::{CommittedNote, FetchedNote, SyncNotesBlock, SyncedNote};
 use miden_client::rpc::domain::nullifier::NullifierUpdate;
 use miden_client::rpc::domain::storage_map::StorageMapInfo;
 use miden_client::rpc::domain::sync::{ChainMmrInfo, SyncTarget};
 use miden_client::rpc::domain::transaction::TransactionRecord;
 use miden_client::rpc::encryption::{AttestedTransactionEncryptionKey, SealedTransactionInputs};
 use miden_client::rpc::{NetworkNoteStatusInfo, NodeRpcClient, RpcError, RpcLimits, RpcStatusInfo};
-use miden_client::store::{PartialBlockchainFilter, Store, StoreError};
+use miden_client::store::input_note_states::CommittedNoteState;
+use miden_client::store::{
+    InputNoteRecord,
+    InputNoteState,
+    NoteFilter,
+    PartialBlockchainFilter,
+    Store,
+    StoreError,
+};
 use miden_client::sync::{NoteObserver, StateSync, StateSyncUpdate};
 use miden_client::testing::common::create_test_store_path;
 use miden_client::testing::mock::{MockClient, MockRpcApi};
@@ -32,15 +40,16 @@ use miden_client::testing::note_transport::{MockNoteTransportApi, MockNoteTransp
 use miden_client::utils::{RwLock, Serializable};
 use miden_client::{ClientError, Word};
 use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
-use miden_protocol::Felt;
 use miden_protocol::account::AccountId;
 use miden_protocol::address::NetworkId;
 use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::{BlockHeader, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::{MmrError, MmrProof};
-use miden_protocol::note::{Note, NoteId, NoteScript, NoteTag, NoteType};
+use miden_protocol::crypto::merkle::smt::{LeafIndex, SimpleSmt};
+use miden_protocol::note::{Note, NoteId, NoteInclusionProof, NoteScript, NoteTag, NoteType};
 use miden_protocol::transaction::{ExecutedTransaction, ProvenTransaction, RawOutputNote};
 use miden_protocol::vm::ExecutionProof;
+use miden_protocol::{BLOCK_NOTE_TREE_DEPTH, Felt};
 use miden_standards::testing::note::NoteBuilder;
 use miden_testing::MockChainBuilder;
 use rand::SeedableRng;
@@ -160,6 +169,12 @@ struct GatedRpc {
     proof_forest: Mutex<Option<Forest>>,
     /// Returns the next block proof at this forest, once.
     next_proof_forest: Mutex<Option<Forest>>,
+    /// Returns each block of a note sync with the header and the note paths that
+    /// [`forge_note_block`] makes.
+    forge_note_blocks: AtomicBool,
+    /// Returns each block proof with a header that is not in the chain, and a proof whose leaf is
+    /// that header.
+    forge_proofs: AtomicBool,
     /// The number of block proof requests, including the failed ones.
     proof_requests: AtomicUsize,
     /// The number of chain MMR sync requests.
@@ -176,6 +191,8 @@ impl GatedRpc {
             fail_proofs: AtomicBool::new(false),
             proof_forest: Mutex::new(None),
             next_proof_forest: Mutex::new(None),
+            forge_note_blocks: AtomicBool::new(false),
+            forge_proofs: AtomicBool::new(false),
             proof_requests: AtomicUsize::new(0),
             chain_requests: AtomicUsize::new(0),
         })
@@ -254,6 +271,11 @@ impl NodeRpcClient for GatedRpc {
             ),
             None => proof,
         };
+        if self.forge_proofs.load(Ordering::SeqCst) {
+            let forged = forged_header(&header, header.note_root(), header.timestamp() + 1);
+            let proof = proof.map(|proof| MmrProof::new(proof.path().clone(), forged.commitment()));
+            return Ok((forged, proof));
+        }
         Ok((header, proof))
     }
 
@@ -295,6 +317,9 @@ impl NodeRpcClient for GatedRpc {
                 .unwrap()
                 .merkle_path()
                 .clone();
+            if self.forge_note_blocks.load(Ordering::SeqCst) {
+                forge_note_block(block);
+            }
         }
         self.sync_notes_gate.pass().await;
         Ok(blocks)
@@ -390,6 +415,58 @@ impl NodeRpcClient for GatedRpc {
     ) -> Result<NetworkNoteStatusInfo, RpcError> {
         self.inner.get_network_note_status(note_id).await
     }
+}
+
+/// Returns `header` with `note_root` and `timestamp` in place of its own values.
+fn forged_header(header: &BlockHeader, note_root: Word, timestamp: u32) -> BlockHeader {
+    BlockHeader::new(
+        header.prev_block_commitment(),
+        header.block_num(),
+        header.chain_commitment(),
+        header.account_root(),
+        header.nullifier_root(),
+        note_root,
+        header.tx_commitment(),
+        header.validator_config().clone(),
+        header.fee_parameters().clone(),
+        header.protocol_config_commitment(),
+        header.next_protocol_config().cloned(),
+        timestamp,
+    )
+}
+
+/// Replaces the header of `block` with a header whose note tree also holds a note that the chain
+/// does not have, and replaces the inclusion proof of each note with its path in that tree.
+///
+/// Each path verifies against the note root of the new header, but the chain MMR does not have the
+/// new header.
+fn forge_note_block(block: &mut SyncNotesBlock) {
+    let block_num = block.block_header.block_num();
+    let mut leaves: Vec<(u64, Word)> = block
+        .notes
+        .values()
+        .map(|note| {
+            let index = note.inclusion_proof().location().block_note_tree_index();
+            (u64::from(index), note.note_id().as_word())
+        })
+        .collect();
+    let unknown_index = leaves.iter().map(|(index, _)| index + 1).max().expect("a note block");
+    leaves.push((unknown_index, Word::new([Felt::from(9u32); 4])));
+    let tree = SimpleSmt::<BLOCK_NOTE_TREE_DEPTH>::with_leaves(leaves).unwrap();
+
+    for note in block.notes.values_mut() {
+        let index = note.inclusion_proof().location().block_note_tree_index();
+        let path = tree.open(&LeafIndex::new(u64::from(index)).unwrap()).path;
+        let proof = NoteInclusionProof::new(block_num, index, path).unwrap();
+        let mut forged = CommittedNote::new(*note.note_id(), *note.metadata(), proof);
+        if let Some(attachments) = note.attachments() {
+            forged = forged.with_attachments(attachments.clone()).unwrap();
+        }
+        *note = forged;
+    }
+
+    let timestamp = block.block_header.timestamp();
+    block.block_header = forged_header(&block.block_header, tree.root(), timestamp);
 }
 
 // HELPERS
@@ -583,6 +660,40 @@ fn untrack_with_sql(store_path: &Path, block: u32) {
         .execute("UPDATE block_headers SET has_client_notes = 0 WHERE block_num = ?1", [block])
         .unwrap();
     assert_eq!(updated, 1);
+}
+
+/// Stores the header of `block` as tracked, with its leaf and its full path at `height`, as an import
+/// of another note in that block does.
+async fn track_with_full_path(
+    store_path: &Path,
+    node: &MockRpcApi,
+    block: u32,
+    height: BlockNumber,
+) {
+    let (header, _) = node.get_block_header_by_number(Some(block.into()), false).await.unwrap();
+    let proof = node
+        .get_mmr()
+        .open_at(block as usize, Forest::new(height.as_usize() + 1).unwrap())
+        .unwrap();
+    let mut nodes = vec![(InOrderIndex::from_leaf_pos(block as usize), header.commitment())];
+    nodes.extend(
+        sibling_indices(block, path_depth(height, block))
+            .into_iter()
+            .zip(proof.merkle_path().nodes().iter().copied()),
+    );
+    SqliteStore::new(store_path.to_path_buf())
+        .await
+        .unwrap()
+        .insert_block_header(&header, &nodes, true)
+        .await
+        .unwrap();
+}
+
+/// Returns the leaf of `block` and its siblings at `height`.
+fn leaf_and_path_indices(block: u32, height: BlockNumber) -> Vec<InOrderIndex> {
+    let mut indices = vec![InOrderIndex::from_leaf_pos(block as usize)];
+    indices.extend(sibling_indices(block, path_depth(height, block)));
+    indices
 }
 
 fn delete_nodes(store_path: &Path, indices: &[InOrderIndex]) {
@@ -1023,6 +1134,147 @@ async fn cached_partial_mmr_is_read_from_the_store_once() {
     );
 }
 
+/// A prune that another client's import runs into keeps the block of the imported note: the import
+/// commits a note in a block that the prune read as irrelevant, before the prune writes.
+#[tokio::test]
+async fn prune_keeps_a_block_that_an_import_makes_relevant() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let (mut pruner, store, store_path) =
+        refusing_client(node.clone(), |builder| builder.irrelevant_block_prune_interval(Some(1)))
+            .await;
+    let mut importer = client_on(&store_path, node.clone(), false).await;
+    pruner.sync_chain().await.unwrap();
+    let height = pruner.get_sync_height().await.unwrap();
+    track_with_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    node.advance_blocks(1);
+
+    store.prune_gate.arm();
+    let note_files = [NoteFile::NoteId(notes[0].id())];
+    let (sync, import) = Box::pin(while_held(
+        &store.prune_gate,
+        pruner.sync_chain(),
+        importer.import_notes(&note_files),
+    ))
+    .await;
+    import.expect("the sync must prune").expect("the import must succeed");
+    sync.expect("a refused prune must not fail the sync");
+
+    let height = pruner.get_sync_height().await.unwrap();
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the import must commit the note, got {:?}",
+        record.state()
+    );
+}
+
+/// An import whose note record the store refuses, because another writer removed the path of the
+/// note block after the import stored it, stores the block again and writes the record again.
+#[tokio::test]
+async fn import_writes_a_note_again_after_the_store_refuses_its_block() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let height = importer.get_sync_height().await.unwrap();
+
+    store.upsert_gate.arm();
+    let upserts_before = store.upserts.calls();
+    let note_files = [NoteFile::NoteId(notes[0].id())];
+    let (import, removed) =
+        Box::pin(while_held(&store.upsert_gate, importer.import_notes(&note_files), async {
+            untrack_with_sql(&store_path, NOTE_BLOCK);
+            delete_nodes(&store_path, &leaf_and_path_indices(NOTE_BLOCK, height));
+        }))
+        .await;
+    removed.expect("the import must write the note record");
+
+    import.expect("the import must store the block again and succeed");
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 2,
+        "the store must refuse the first write of the record"
+    );
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the import must commit the note, got {:?}",
+        record.state()
+    );
+}
+
+/// An import by proof of a note in a block after the sync height, whose block another client syncs
+/// to before the import writes the record, succeeds and stores the full path of that block.
+#[tokio::test]
+async fn import_by_proof_of_a_future_note_survives_a_sync_to_its_block() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    importer.sync_state().await.unwrap();
+    let late_block = late_note.commit(&node);
+
+    store.upsert_gate.arm();
+    let note_files = [NoteFile::NoteId(late_note.note.id())];
+    let (import, height) =
+        Box::pin(while_held(&store.upsert_gate, importer.import_notes(&note_files), async {
+            syncer.sync_chain().await.unwrap();
+            syncer.get_sync_height().await.unwrap()
+        }))
+        .await;
+    assert_eq!(height.expect("the import must write the note record"), late_block);
+
+    import.expect("the import must succeed");
+    let record = importer
+        .get_input_note(late_note.note.id())
+        .await
+        .unwrap()
+        .expect("the note must be stored");
+    assert!(record.inclusion_proof().is_some());
+    assert_full_path(&store_path, &node, late_block.as_u32(), late_block).await;
+}
+
+/// A PSWAP round note, which the sync writes before it stores the headers of its blocks, is
+/// accepted when the store does not have the header of its block.
+#[tokio::test]
+async fn round_note_of_a_block_without_a_stored_header_is_accepted() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let store_path = create_test_store_path();
+    let mut client = client_on(&store_path, node.clone(), false).await;
+    client.sync_state().await.unwrap();
+    let late_block = late_note.commit(&node);
+
+    let note_id = late_note.note.id();
+    let Some(FetchedNote::Public(note, inclusion_proof)) =
+        node.get_notes_by_id(&[note_id]).await.unwrap().pop()
+    else {
+        panic!("the node must return the public note");
+    };
+    let (header, _) = node.get_block_header_by_number(Some(late_block), false).await.unwrap();
+    let state = CommittedNoteState {
+        inclusion_proof,
+        metadata: *note.metadata(),
+        block_note_root: header.note_root(),
+    };
+    let record = InputNoteRecord::new(
+        NoteDetails::from(note.clone()),
+        note.attachments().clone(),
+        None,
+        state.into(),
+    );
+
+    let store = SqliteStore::new(store_path.clone()).await.unwrap();
+    assert!(store.get_block_header_by_num(late_block).await.unwrap().is_none());
+    store
+        .upsert_input_notes(&[record])
+        .await
+        .expect("the store must accept the note");
+
+    assert_eq!(store.get_input_notes(NoteFilter::List(vec![note_id])).await.unwrap().len(), 1);
+    raw_partial_mmr(&store_path).await.expect("the store must stay readable");
+}
+
 // REFUSED WRITE TESTS
 // ================================================================================================
 
@@ -1151,6 +1403,195 @@ async fn refused_apply_state_sync_returns_the_stale_write() {
         !client.test_has_cached_partial_mmr(),
         "a refused update must drop the cached MMR"
     );
+}
+
+/// An import by details whose first two note block writes the store refuses, after another client
+/// synced across a tree merge, writes the block a third time and stores every full path. A proof
+/// that the import requests again does not use a write.
+#[tokio::test]
+async fn import_by_details_counts_only_writes_against_the_stale_write_budget() {
+    let note_blocks = [NOTE_BLOCK, 6];
+    let (node, notes) = node_with_notes(&note_blocks).await;
+    node.advance_blocks(4);
+    let rpc = GatedRpc::new(node.clone());
+    let (mut importer, store, store_path) = refusing_client(rpc, |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    importer.sync_state().await.unwrap();
+
+    store.hold_insert_of(BlockNumber::from(NOTE_BLOCK));
+    store.inserts.refuse_next(STALE_WRITE_ATTEMPTS - 1);
+    let inserts_before = store.inserts.calls();
+    let note_files: Vec<NoteFile> = notes
+        .iter()
+        .map(|note| NoteFile::ExpectedNote {
+            details: note.clone().into(),
+            sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, note.metadata().tag()),
+        })
+        .collect();
+    let (import, height) =
+        Box::pin(while_held(&store.insert_gate, importer.import_notes(&note_files), async {
+            node.advance_blocks(40);
+            syncer.sync_state().await.unwrap();
+            syncer.get_sync_height().await.unwrap()
+        }))
+        .await;
+    let height = height.expect("the import must store the note block");
+
+    import.expect("the import must write the note block a third time and succeed");
+    assert_eq!(
+        store.inserts.calls(),
+        inserts_before + STALE_WRITE_ATTEMPTS + 1,
+        "the import must write the first note block {STALE_WRITE_ATTEMPTS} times and the second once"
+    );
+    for block in note_blocks {
+        assert_full_path(&store_path, &node, block, height).await;
+    }
+}
+
+/// An import by proof that reads the partial MMR again because it is older than the note block, and
+/// whose writes the store then refuses, returns the error of a stale chain write after the last
+/// write.
+#[tokio::test]
+async fn import_by_proof_returns_the_stale_write_when_its_writes_run_out() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    let mut later_syncer = client_on(&store_path, node.clone(), false).await;
+    importer.sync_state().await.unwrap();
+    let late_block = late_note.commit(&node);
+
+    store.read_gate.arm();
+    store.hold_insert_of(late_block);
+    store.inserts.refuse_next(STALE_WRITE_ATTEMPTS);
+    let inserts_before = store.inserts.calls();
+    let note_files = [NoteFile::NoteId(late_note.note.id())];
+    let import = while_held(&store.insert_gate, importer.import_notes(&note_files), async {
+        node.advance_blocks(40);
+        later_syncer.sync_chain().await.unwrap();
+    });
+    let ((import, grown), synced) = Box::pin(while_held(&store.read_gate, import, async {
+        syncer.sync_chain().await.unwrap();
+    }))
+    .await;
+    synced.expect("the import must read the partial MMR");
+    grown.expect("the import must store the note block");
+
+    assert!(
+        is_stale_write(&import),
+        "the import must return the stale write, got {import:?}"
+    );
+    assert_eq!(store.inserts.calls(), inserts_before + STALE_WRITE_ATTEMPTS);
+    assert_eq!(
+        node.block_header_requests(late_block),
+        [true, true],
+        "the import must request the proof again once, after the forest grew"
+    );
+}
+
+/// An import by proof from a node whose proofs stay at a smaller forest than the store requests the
+/// proof once more, then returns an error that the node is behind and writes nothing.
+#[tokio::test]
+async fn import_by_proof_from_a_node_behind_the_store_writes_nothing() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(HEAL_HEIGHT - node.get_chain_tip_block_num().as_u32());
+    let rpc = GatedRpc::new(node.clone());
+    let (mut importer, store, store_path) = refusing_client(rpc.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let nodes_before = stored_nodes(&store_path).await;
+
+    *rpc.proof_forest.lock().unwrap() = Some(Forest::new(40).unwrap());
+    let requests_before = rpc.proof_requests();
+    let inserts_before = store.inserts.calls();
+    let result = importer.import_notes(&[NoteFile::NoteId(notes[0].id())]).await;
+
+    assert!(
+        matches!(&result, Err(ClientError::ChainValidationError(message)) if message.contains("behind")),
+        "the import must return that the node is behind, got {result:?}"
+    );
+    assert_eq!(rpc.proof_requests(), requests_before + 2);
+    assert_eq!(store.inserts.calls(), inserts_before, "the import must not write");
+    assert_eq!(stored_nodes(&store_path).await, nodes_before);
+}
+
+// NOTE BLOCK HEADER TESTS
+// ================================================================================================
+
+/// An import by details of a note in a block that the client tracks refuses a note sync whose
+/// header for that block differs from the stored header, and keeps the record expected.
+#[tokio::test]
+async fn import_by_details_refuses_a_header_that_differs_from_the_tracked_header() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let rpc = GatedRpc::new(node.clone());
+    let store_path = create_test_store_path();
+    let mut importer = client_on(&store_path, rpc.clone(), false).await;
+    importer.sync_state().await.unwrap();
+    let height = importer.get_sync_height().await.unwrap();
+
+    let details: NoteDetails = notes[0].clone().into();
+    let tag = notes[0].metadata().tag();
+    importer
+        .import_notes(&[NoteFile::ExpectedNote {
+            details: details.clone(),
+            sync_hint: NoteSyncHint::new(height + 1, tag),
+        }])
+        .await
+        .unwrap();
+    track_with_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+
+    rpc.forge_note_blocks.store(true, Ordering::SeqCst);
+    let result = importer
+        .import_notes(&[NoteFile::ExpectedNote {
+            details: details.clone(),
+            sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, tag),
+        }])
+        .await;
+
+    let records = importer
+        .get_input_notes(NoteFilter::DetailsCommitments(vec![details.commitment()]))
+        .await
+        .unwrap();
+    assert!(
+        matches!(records[0].state(), InputNoteState::Expected(_)),
+        "the record must stay expected, got {:?}",
+        records[0].state()
+    );
+    assert!(
+        matches!(result, Err(ClientError::ChainValidationError(_))),
+        "the import must refuse the header, got {result:?}"
+    );
+}
+
+/// An import by details whose note block write the store refuses requests the proof again, and
+/// refuses a header from the node that differs from the header of the note sync.
+#[tokio::test]
+async fn import_by_details_refuses_a_requested_header_that_differs_from_the_note_sync() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let rpc = GatedRpc::new(node.clone());
+    let store_path = create_test_store_path();
+    let mut importer = client_on(&store_path, rpc.clone(), false).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    importer.sync_state().await.unwrap();
+
+    rpc.forge_proofs.store(true, Ordering::SeqCst);
+    rpc.sync_notes_gate.arm();
+    let note_files = [NoteFile::ExpectedNote {
+        details: notes[0].clone().into(),
+        sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, notes[0].metadata().tag()),
+    }];
+    let (import, synced) =
+        Box::pin(while_held(&rpc.sync_notes_gate, importer.import_notes(&note_files), async {
+            node.advance_blocks(40);
+            syncer.sync_state().await.unwrap();
+        }))
+        .await;
+    synced.expect("the import must sync the notes");
+
+    assert!(
+        matches!(&import, Err(ClientError::ChainValidationError(message))
+            if message.contains("two different headers")),
+        "the import must refuse the requested header, got {import:?}"
+    );
+    assert_eq!(rpc.proof_requests(), 1);
 }
 
 // HEAL TESTS
