@@ -13,6 +13,7 @@ use miden_client::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
 use super::SqliteStore;
+use crate::chain_data::{TrackedPaths, check_tracked_paths_tx};
 use crate::forest::{ScopedAccountForest, SqliteForestBackend};
 use crate::note::apply_note_updates_tx;
 use crate::sql_error::SqlResultExt;
@@ -77,6 +78,7 @@ impl SqliteStore {
         conn: &mut Connection,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let block_from = state_sync_update.block_from();
         let (
             block_num,
             partial_blockchain_updates,
@@ -87,6 +89,18 @@ impl SqliteStore {
         ) = state_sync_update.into_parts();
 
         with_write_tx(conn, |db_tx| {
+            // The update was computed from the chain data at `block_from`. If another writer moved
+            // the sync height since then, the update is stale.
+            if let Some(block_from) = block_from {
+                let sync_height = query_sync_height(db_tx)?;
+                if sync_height != block_from {
+                    return Err(StoreError::DatabaseTransientError(format!(
+                        "stale chain write: the sync update starts at block {block_from} but the \
+                         sync height is {sync_height}"
+                    )));
+                }
+            }
+
             let mut smt_forest = ScopedAccountForest::new(SqliteForestBackend::new(db_tx))?;
             // Update blockchain checkpoint (block number and peaks) only if moving forward.
             let new_peaks_bytes = proto::encode_mmr_peaks(&partial_blockchain_updates.new_peaks);
@@ -94,14 +108,17 @@ impl SqliteStore {
                 UPDATE blockchain_checkpoint \
                 SET block_num = ?1, partial_blockchain_peaks = ?2 \
                 WHERE block_num < ?1";
-            db_tx
+            let checkpoint_moved = db_tx
                 .execute(BLOCKCHAIN_CHECKPOINT_QUERY, params![block_num.as_u32(), new_peaks_bytes])
-                .into_store_error()?;
+                .into_store_error()?
+                > 0;
 
+            let mut tracks_block = false;
             for (block_header, is_relevant) in
                 partial_blockchain_updates.block_headers_to_store(block_num)
             {
                 Self::insert_block_header_tx(db_tx, block_header, *is_relevant)?;
+                tracks_block |= *is_relevant;
             }
 
             // Insert new authentication nodes (inner nodes of the PartialBlockchain)
@@ -109,6 +126,12 @@ impl SqliteStore {
                 db_tx,
                 partial_blockchain_updates.new_authentication_nodes(),
             )?;
+
+            // A tree merge at the new sync height adds levels to the paths of tracked blocks. The
+            // update has the new nodes only for the blocks in the view that it was computed from.
+            if checkpoint_moved || tracks_block {
+                check_tracked_paths_tx(db_tx, TrackedPaths::All)?;
+            }
 
             // Update notes
             apply_note_updates_tx(db_tx, &note_updates)?;

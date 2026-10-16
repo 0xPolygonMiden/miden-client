@@ -6,11 +6,17 @@ use std::vec::Vec;
 
 use miden_client::Word;
 use miden_client::block::BlockHeader;
-use miden_client::crypto::{Forest, InOrderIndex, MmrPeaks};
+use miden_client::crypto::{Forest, InOrderIndex, MmrPeaks, PartialMmr};
 use miden_client::note::BlockNumber;
-use miden_client::store::{BlockRelevance, PartialBlockchainFilter, StoreError};
+use miden_client::store::{
+    BlockRelevance,
+    PartialBlockchainFilter,
+    StoreError,
+    build_partial_mmr,
+    tracked_leaf_path_indices,
+};
 use miden_client::utils::{Deserializable, Serializable};
-use rusqlite::{Connection, Transaction, params, params_from_iter};
+use rusqlite::{Connection, OptionalExtension, Transaction, params, params_from_iter};
 
 use super::SqliteStore;
 use crate::sql_error::SqlResultExt;
@@ -19,7 +25,7 @@ use crate::{insert_sql, int_array, proto, subst, with_write_tx};
 
 impl SqliteStore {
     pub(crate) fn get_block_headers(
-        conn: &mut Connection,
+        conn: &Connection,
         block_numbers: &BTreeSet<BlockNumber>,
     ) -> Result<Vec<(BlockHeader, BlockRelevance)>, StoreError> {
         let block_number_list =
@@ -37,7 +43,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_tracked_block_headers(
-        conn: &mut Connection,
+        conn: &Connection,
     ) -> Result<Vec<BlockHeader>, StoreError> {
         // `idx_block_headers_has_notes` is declared `WHERE has_client_notes = 1`, and SQLite
         // matches a partial index only when the predicate is spelled the same way.
@@ -52,7 +58,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_tracked_block_header_numbers(
-        conn: &mut Connection,
+        conn: &Connection,
     ) -> Result<BTreeSet<usize>, StoreError> {
         const QUERY: &str = "SELECT block_num FROM block_headers WHERE has_client_notes=1";
         conn.prepare(QUERY)
@@ -67,7 +73,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_partial_blockchain_nodes(
-        conn: &mut Connection,
+        conn: &Connection,
         filter: &PartialBlockchainFilter,
     ) -> Result<BTreeMap<InOrderIndex, Word>, StoreError> {
         match filter {
@@ -104,9 +110,7 @@ impl SqliteStore {
         }
     }
 
-    pub(crate) fn get_current_blockchain_peaks(
-        conn: &mut Connection,
-    ) -> Result<MmrPeaks, StoreError> {
+    pub(crate) fn get_current_blockchain_peaks(conn: &Connection) -> Result<MmrPeaks, StoreError> {
         const QUERY: &str =
             "SELECT block_num, partial_blockchain_peaks FROM blockchain_checkpoint LIMIT 1";
 
@@ -122,6 +126,29 @@ impl SqliteStore {
         parse_partial_blockchain_peaks(block_num, &peaks_bytes)
     }
 
+    /// Reads the parts of the current partial MMR in one transaction, so that a concurrent write
+    /// cannot make them inconsistent, and builds the partial MMR from them.
+    pub(crate) fn get_current_partial_mmr(conn: &mut Connection) -> Result<PartialMmr, StoreError> {
+        let tx = conn.transaction().into_store_error()?;
+
+        let peaks = Self::get_current_blockchain_peaks(&tx)?;
+        let sync_height = BlockNumber::from(
+            u32::try_from(peaks.num_leaves())
+                .map_err(|err| StoreError::ParsingError(err.to_string()))?,
+        );
+        let (sync_header, relevance) = Self::get_block_headers(&tx, &[sync_height].into())?
+            .pop()
+            .ok_or(StoreError::BlockHeaderNotFound(sync_height))?;
+        let tracked_blocks = Self::get_tracked_block_header_numbers(&tx)?;
+        let mut forest = peaks.forest();
+        forest.append_leaf().map_err(StoreError::MmrError)?;
+        let nodes =
+            Self::get_partial_blockchain_nodes(&tx, &PartialBlockchainFilter::Forest(forest))?;
+        tx.commit().into_store_error()?;
+
+        build_partial_mmr(peaks, &sync_header, relevance, tracked_blocks, nodes)
+    }
+
     pub(crate) fn insert_block_header(
         conn: &mut Connection,
         block_header: &BlockHeader,
@@ -130,7 +157,9 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         with_write_tx(conn, |tx| {
             Self::insert_block_header_tx(tx, block_header, has_client_notes)?;
-            Self::insert_partial_blockchain_nodes_tx(tx, nodes)
+            Self::insert_partial_blockchain_nodes_tx(tx, nodes)?;
+            // An insert only adds rows, so it cannot remove a node that another block needs.
+            check_tracked_paths_tx(tx, TrackedPaths::Block(block_header.block_num()))
         })
     }
 
@@ -180,15 +209,17 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         with_write_tx(conn, |tx| {
             // 1. Delete stale MMR authentication nodes.
+            let mut deleted_nodes = 0;
             if !node_indices_to_remove.is_empty() {
                 let id_values =
                     int_array(node_indices_to_remove.iter().map(|id| id.inner() as u64));
 
-                tx.execute(
-                    "DELETE FROM partial_blockchain_nodes WHERE id IN rarray(?)",
-                    params![id_values],
-                )
-                .into_store_error()?;
+                deleted_nodes = tx
+                    .execute(
+                        "DELETE FROM partial_blockchain_nodes WHERE id IN rarray(?)",
+                        params![id_values],
+                    )
+                    .into_store_error()?;
             }
 
             // 2. Mark untracked blocks as irrelevant.
@@ -216,16 +247,112 @@ impl SqliteStore {
             )
             .into_store_error()?;
 
+            // The caller computes the nodes to delete from its own view of the partial MMR. If
+            // another writer tracked a block after that read, the deleted nodes can be part of the
+            // path of that block.
+            if deleted_nodes > 0 {
+                check_tracked_paths_tx(tx, TrackedPaths::All)?;
+            }
+
             Ok(())
         })
     }
+}
+
+// TRACKED PATH CHECK
+// ================================================================================================
+
+/// The tracked blocks that [`check_tracked_paths_tx`] checks.
+#[derive(Clone, Copy)]
+pub(crate) enum TrackedPaths {
+    /// Only the given block, and only if it is tracked.
+    Block(BlockNumber),
+    /// Every tracked block.
+    All,
+}
+
+/// Refuses a write after which a tracked block does not have its leaf and its full path at the
+/// forest of the stored sync height plus one.
+///
+/// A store in that state cannot build its partial MMR, so every later sync and import fails. Run
+/// this check inside the write transaction, after all of its writes, so that it sees the rows that
+/// other connections committed before the transaction started.
+///
+/// # Errors
+///
+/// Returns [`StoreError::DatabaseTransientError`] that names the first block and node that are
+/// missing. The caller can read the partial MMR again and retry the write.
+pub(crate) fn check_tracked_paths_tx(
+    conn: &Connection,
+    scope: TrackedPaths,
+) -> Result<(), StoreError> {
+    let tracked_blocks: Vec<usize> = match scope {
+        TrackedPaths::Block(block_num) => {
+            let tracked: Option<bool> = conn
+                .query_row(
+                    "SELECT has_client_notes FROM block_headers WHERE block_num = ?",
+                    params![block_num.as_u32()],
+                    |row| row.get(0),
+                )
+                .optional()
+                .into_store_error()?;
+            if tracked != Some(true) {
+                return Ok(());
+            }
+            vec![block_num.as_usize()]
+        },
+        TrackedPaths::All => {
+            SqliteStore::get_tracked_block_header_numbers(conn)?.into_iter().collect()
+        },
+    };
+    if tracked_blocks.is_empty() {
+        return Ok(());
+    }
+
+    let sync_height = query_sync_height(conn)?;
+    let mut forest = Forest::new(sync_height.as_usize()).map_err(|err| {
+        StoreError::ParsingError(format!("invalid sync height {sync_height}: {err}"))
+    })?;
+    forest.append_leaf().map_err(StoreError::MmrError)?;
+
+    let mut required = Vec::new();
+    for block in tracked_blocks {
+        let Some(indices) = tracked_leaf_path_indices(forest, block) else {
+            return Err(stale_chain_write(format!(
+                "tracked block {block} is after the sync height {sync_height}"
+            )));
+        };
+        required.extend(indices.into_iter().map(|index| (block, index)));
+    }
+
+    const QUERY: &str = "SELECT id FROM partial_blockchain_nodes WHERE id IN rarray(?)";
+    let ids = int_array(required.iter().map(|(_, index)| index.inner() as u64));
+    let stored: BTreeSet<usize> = conn
+        .prepare_cached(QUERY)
+        .into_store_error()?
+        .query_map(params![ids], |row| row.get::<_, usize>(0))
+        .into_store_error()?
+        .collect::<Result<_, _>>()
+        .into_store_error()?;
+
+    match required.into_iter().find(|(_, index)| !stored.contains(&index.inner())) {
+        Some((block, index)) => Err(stale_chain_write(format!(
+            "tracked block {block} has no node at index {} for the sync height {sync_height}",
+            index.inner()
+        ))),
+        None => Ok(()),
+    }
+}
+
+fn stale_chain_write(reason: String) -> StoreError {
+    StoreError::DatabaseTransientError(format!("stale chain write: {reason}"))
 }
 
 // HELPERS
 // ================================================================================================
 
 fn query_partial_blockchain_nodes<P: rusqlite::Params>(
-    conn: &mut Connection,
+    conn: &Connection,
     sql: &str,
     params: P,
 ) -> Result<BTreeMap<InOrderIndex, Word>, StoreError> {
@@ -420,6 +547,9 @@ pub(crate) mod test {
         for header in &headers {
             mmr.add(header.commitment()).expect("valid MMR append");
         }
+
+        // The paths are at forest 8, so the sync height must be block 7.
+        set_sync_height(&store, &mmr, &headers, TOTAL_BLOCKS - 1).await;
 
         let tracked: BTreeSet<usize> = [5].into();
         let auth_nodes = collect_auth_nodes(&mmr, &headers, &tracked);

@@ -28,7 +28,7 @@ use miden_client::account::{
 };
 use miden_client::asset::{Asset, AssetVault, AssetWitness};
 use miden_client::block::{AccountWitness, BlockHeader};
-use miden_client::crypto::{InOrderIndex, MmrPeaks};
+use miden_client::crypto::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_client::note::{BlockNumber, NoteScript, NoteTag, Nullifier};
 use miden_client::store::{
     AccountRecord,
@@ -331,11 +331,12 @@ impl Store for SqliteStore {
     }
 
     async fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
-        self.interact_with_connection(SqliteStore::get_tracked_block_headers).await
+        self.interact_with_connection(|conn| SqliteStore::get_tracked_block_headers(conn))
+            .await
     }
 
     async fn get_tracked_block_header_numbers(&self) -> Result<BTreeSet<usize>, StoreError> {
-        self.interact_with_connection(SqliteStore::get_tracked_block_header_numbers)
+        self.interact_with_connection(|conn| SqliteStore::get_tracked_block_header_numbers(conn))
             .await
     }
 
@@ -350,7 +351,12 @@ impl Store for SqliteStore {
     }
 
     async fn get_current_blockchain_peaks(&self) -> Result<MmrPeaks, StoreError> {
-        self.interact_with_connection(SqliteStore::get_current_blockchain_peaks).await
+        self.interact_with_connection(|conn| SqliteStore::get_current_blockchain_peaks(conn))
+            .await
+    }
+
+    async fn get_current_partial_mmr(&self) -> Result<PartialMmr, StoreError> {
+        self.interact_with_connection(SqliteStore::get_current_partial_mmr).await
     }
 
     async fn insert_account(

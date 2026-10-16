@@ -361,6 +361,11 @@ pub trait Store: Send + Sync {
     /// The MMR nodes are likewise inserted-if-not-exists: an `InOrderIndex` already present is left
     /// untouched (auth paths of tracked blocks share internal nodes, so re-inserting an existing
     /// index must be a no-op, not an error).
+    ///
+    /// If the block is tracked after the write, an implementation should refuse the write with
+    /// [`StoreError::DatabaseTransientError`] and write nothing when the store does not then hold
+    /// the leaf and the full path of the block at the forest of the stored sync height (see
+    /// [`tracked_leaf_path_indices`]). The client then reads the partial MMR again and retries.
     async fn insert_block_header(
         &self,
         block_header: &BlockHeader,
@@ -376,6 +381,10 @@ pub trait Store: Send + Sync {
     ///    consumed).
     /// 3. Deletes block headers with `has_client_notes = false` that are not the genesis or
     ///    sync-height block.
+    ///
+    /// An implementation should refuse the prune with [`StoreError::DatabaseTransientError`] and
+    /// write nothing when a block that stays tracked does not then have its leaf and its full path
+    /// at the forest of the stored sync height (see [`tracked_leaf_path_indices`]).
     async fn untrack_and_prune_irrelevant_blocks(
         &self,
         blocks_to_untrack: &[BlockNumber],
@@ -609,6 +618,11 @@ pub trait Store: Send + Sync {
     /// - Storing new MMR authentication nodes.
     /// - Updating the tracked public accounts.
     /// - Storing the protocol configuration the update carries, before the sync height advances.
+    ///
+    /// An implementation should refuse the update with [`StoreError::DatabaseTransientError`] and
+    /// write nothing when [`StateSyncUpdate::block_from`] is set and differs from the stored sync
+    /// height. It should also refuse the update when a tracked block does not then have its leaf
+    /// and its full path at the forest of the new sync height (see [`tracked_leaf_path_indices`]).
     async fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 
     // TRANSPORT
@@ -718,44 +732,29 @@ pub trait Store: Send + Sync {
     /// known leaves thus far.
     ///
     /// The default implementation is based on [`Store::get_partial_blockchain_nodes`],
-    /// [`Store::get_current_blockchain_peaks`] and [`Store::get_block_header_by_num`]
+    /// [`Store::get_current_blockchain_peaks`] and [`Store::get_block_header_by_num`]. These are
+    /// separate reads, so a write between them can make the result inconsistent. An implementation
+    /// should read all the parts in one transaction and call [`build_partial_mmr`].
     async fn get_current_partial_mmr(&self) -> Result<PartialMmr, StoreError> {
         let current_peaks = self.get_current_blockchain_peaks().await?;
         let current_block_num = u32::try_from(current_peaks.num_leaves())
             .map_err(|err| StoreError::ParsingError(err.to_string()))?
             .into();
 
-        let (current_block, has_client_notes) = self
+        let (current_block, relevance) = self
             .get_block_header_by_num(current_block_num)
             .await?
             .ok_or(StoreError::BlockHeaderNotFound(current_block_num))?;
 
-        let mut current_partial_mmr = PartialMmr::from_peaks(current_peaks);
-        let has_client_notes = has_client_notes.into();
-        current_partial_mmr
-            .add(current_block.commitment(), has_client_notes)
-            .map_err(StoreError::MmrError)?;
+        let tracked_blocks = self.get_tracked_block_header_numbers().await?;
 
-        // Build tracked_leaves from blocks that have client notes.
-        let mut tracked_leaves = self.get_tracked_block_header_numbers().await?;
-
-        // Also track the latest leaf if it is relevant (it has client notes) _and_ the forest
-        // actually has a single leaf tree bit.
-        if has_client_notes && current_partial_mmr.forest().has_single_leaf_tree() {
-            let latest_leaf = current_partial_mmr.forest().num_leaves().saturating_sub(1);
-            tracked_leaves.insert(latest_leaf);
-        }
-
-        let tracked_nodes = self
-            .get_partial_blockchain_nodes(PartialBlockchainFilter::Forest(
-                current_partial_mmr.forest(),
-            ))
+        let mut forest = current_peaks.forest();
+        forest.append_leaf().map_err(StoreError::MmrError)?;
+        let nodes = self
+            .get_partial_blockchain_nodes(PartialBlockchainFilter::Forest(forest))
             .await?;
 
-        let current_partial_mmr =
-            PartialMmr::from_parts(current_partial_mmr.peaks(), tracked_nodes, tracked_leaves)?;
-
-        Ok(current_partial_mmr)
+        build_partial_mmr(current_peaks, &current_block, relevance, tracked_blocks, nodes)
     }
 
     // ACCOUNT VAULT AND STORE
@@ -901,6 +900,63 @@ pub enum PartialBlockchainFilter {
     Forest(Forest),
 }
 
+// PARTIAL MMR
+// ================================================================================================
+
+/// Builds the current [`PartialMmr`] from the parts that a store keeps.
+///
+/// - `peaks` are the peaks at the sync height, which exclude the sync-height block.
+/// - `sync_header` is the header at the sync height, and `sync_header_relevance` is its stored
+///   relevance.
+/// - `tracked_blocks` are the numbers of the blocks that have client notes.
+/// - `nodes` are the stored nodes inside the forest that includes the sync-height block.
+///
+/// # Errors
+///
+/// Returns [`StoreError::MmrError`] if a tracked block is outside the forest, or if it does not
+/// have its leaf and its full path in `nodes`.
+pub fn build_partial_mmr(
+    peaks: MmrPeaks,
+    sync_header: &BlockHeader,
+    sync_header_relevance: BlockRelevance,
+    mut tracked_blocks: BTreeSet<usize>,
+    nodes: BTreeMap<InOrderIndex, Word>,
+) -> Result<PartialMmr, StoreError> {
+    let mut partial_mmr = PartialMmr::from_peaks(peaks);
+    let has_client_notes = sync_header_relevance.into();
+    partial_mmr
+        .add(sync_header.commitment(), has_client_notes)
+        .map_err(StoreError::MmrError)?;
+
+    // Also track the latest leaf if it is relevant (it has client notes) _and_ the forest actually
+    // has a single leaf tree bit.
+    if has_client_notes && partial_mmr.forest().has_single_leaf_tree() {
+        let latest_leaf = partial_mmr.forest().num_leaves().saturating_sub(1);
+        tracked_blocks.insert(latest_leaf);
+    }
+
+    Ok(PartialMmr::from_parts(partial_mmr.peaks(), nodes, tracked_blocks)?)
+}
+
+/// Returns the in-order indices of the nodes that a [`PartialMmr`] at `forest` needs to open
+/// `leaf`: the index of the leaf, then the index of one sibling for each level of its tree.
+///
+/// A store that tracks a block must hold all of these nodes for the forest of its sync height plus
+/// one. Otherwise [`PartialMmr::from_parts`] refuses to build the partial MMR.
+///
+/// Returns `None` if `forest` does not include `leaf`.
+pub fn tracked_leaf_path_indices(forest: Forest, leaf: usize) -> Option<Vec<InOrderIndex>> {
+    let depth = forest.leaf_to_corresponding_tree(leaf)?;
+    let mut index = InOrderIndex::from_leaf_pos(leaf);
+    let mut indices = Vec::with_capacity(depth as usize + 1);
+    indices.push(index);
+    for _ in 0..depth {
+        indices.push(index.sibling());
+        index = index.parent();
+    }
+    Some(indices)
+}
+
 // TRANSACTION FILTERS
 // ================================================================================================
 
@@ -1006,4 +1062,62 @@ pub enum AccountStorageFilter {
     /// Useful to avoid loading the full storage when only a known subset of slots is needed (e.g.
     /// when applying a delta to a large account).
     SlotNames(Vec<StorageSlotName>),
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::collections::{BTreeMap, BTreeSet};
+
+    use miden_protocol::crypto::merkle::mmr::{InOrderIndex, Mmr, PartialMmr};
+    use miden_protocol::{Felt, Word};
+    use rand::{RngExt, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
+
+    use super::tracked_leaf_path_indices;
+
+    /// Tests that the nodes that `tracked_leaf_path_indices` names are exactly the nodes that
+    /// `PartialMmr::from_parts` needs: the build fails while one of them is missing, and it
+    /// succeeds when all of them are present.
+    #[test]
+    fn tracked_leaf_path_indices_match_partial_mmr_requirements() {
+        let mut rng = ChaCha20Rng::seed_from_u64(2713);
+        for _ in 0..500 {
+            let num_leaves: u32 = rng.random_range(1..300);
+            let mut mmr = Mmr::new();
+            for leaf in 0..num_leaves {
+                mmr.add(Word::new([Felt::from(leaf); 4])).unwrap();
+            }
+            let peaks = mmr.peaks();
+            let forest = peaks.forest();
+
+            let tracked: BTreeSet<usize> =
+                (0..num_leaves as usize).filter(|_| rng.random_bool(0.1)).collect();
+            let mut full_nodes = BTreeMap::new();
+            for &leaf in &tracked {
+                let proof = mmr.open(leaf).unwrap();
+                let mut index = InOrderIndex::from_leaf_pos(leaf);
+                full_nodes.insert(index, proof.leaf());
+                for node in proof.merkle_path().nodes() {
+                    full_nodes.insert(index.sibling(), *node);
+                    index = index.parent();
+                }
+            }
+
+            let mut nodes = full_nodes.clone();
+            nodes.retain(|_, _| !rng.random_bool(0.1));
+            let missing: BTreeSet<InOrderIndex> = tracked
+                .iter()
+                .flat_map(|&leaf| tracked_leaf_path_indices(forest, leaf).unwrap())
+                .filter(|index| !nodes.contains_key(index))
+                .collect();
+
+            let built = PartialMmr::from_parts(peaks.clone(), nodes.clone(), tracked.clone());
+            assert_eq!(missing.is_empty(), built.is_ok(), "missing {missing:?}, built {built:?}");
+
+            for index in missing {
+                nodes.insert(index, full_nodes[&index]);
+            }
+            PartialMmr::from_parts(peaks, nodes, tracked).unwrap();
+        }
+    }
 }
