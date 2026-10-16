@@ -27,6 +27,16 @@ use crate::{Client, ClientError};
 /// The number of times a sync fetches and writes the chain updates, and the number of times an
 /// import writes a block header, while the write is stale because another writer changed the chain
 /// data after the client read it. A prune writes once, and the next sync prunes again.
+///
+/// An import counts only its writes of a block header. When the store refuses the last write, the
+/// import returns the error of the stale write. The import does not count these steps, which have
+/// their own limits:
+///
+/// - A proof for a smaller forest than the partial MMR is requested from the node again, at most
+///   once for each read of the partial MMR. If the new proof is also for a smaller forest, the node
+///   is behind the store, and the import returns [`ClientError::ChainValidationError`] and writes
+///   nothing.
+/// - A partial MMR that is older than the block is read again at most this number of times.
 pub(crate) const MAX_STALE_WRITE_ATTEMPTS: usize = 3;
 
 /// Network information management methods.
@@ -189,7 +199,8 @@ impl<AUTH> Client<AUTH> {
     /// If the store refuses the write because another writer changed the chain data after
     /// `current_partial_mmr` was read, this call reads the partial MMR again and adjusts the proof
     /// it holds to the new forest. It requests a new proof only if the proof is for a smaller
-    /// forest. A header that the node returns must be the prefetched header.
+    /// forest. A header that the node returns must be the prefetched header. See
+    /// [`MAX_STALE_WRITE_ATTEMPTS`] for the limits.
     pub(crate) async fn get_and_store_authenticated_block(
         &self,
         block_num: BlockNumber,
@@ -198,7 +209,10 @@ impl<AUTH> Client<AUTH> {
     ) -> Result<BlockHeader, ClientError> {
         let expected_header = prefetched.as_ref().map(|(block_header, _)| block_header.clone());
         let mut held = prefetched;
-        let mut attempt = 1;
+        let mut writes = 1;
+        let mut reads = 0;
+        // Whether this call requested a proof again since it last read the partial MMR.
+        let mut requested_again = false;
         loop {
             if current_partial_mmr.is_tracked(block_num.as_usize()) {
                 warn!("Current partial MMR already contains the requested data");
@@ -218,30 +232,38 @@ impl<AUTH> Client<AUTH> {
                 return Ok(block_header);
             }
 
-            let (block_header, mmr_proof) = match held.take() {
-                Some(held) => held,
-                None => {
-                    let fetched = fetch_block_header(&self.rpc_api, block_num).await?;
-                    if expected_header.as_ref().is_some_and(|expected| *expected != fetched.0) {
-                        return Err(ClientError::ChainValidationError(format!(
-                            "the node returned two different headers for block {block_num}"
-                        )));
-                    }
-                    fetched
-                },
+            let (block_header, mmr_proof) = if let Some(held) = held.take() {
+                held
+            } else {
+                let fetched = fetch_block_header(&self.rpc_api, block_num).await?;
+                if expected_header.as_ref().is_some_and(|expected| *expected != fetched.0) {
+                    return Err(ClientError::ChainValidationError(format!(
+                        "the node returned two different headers for block {block_num}"
+                    )));
+                }
+                fetched
             };
 
             let nodes = match track_proof(current_partial_mmr, &block_header, &mmr_proof) {
                 Ok(nodes) => nodes,
-                // The proof is for a smaller forest than the partial MMR.
-                Err(MmrError::ForestOutOfBounds(..)) if attempt < MAX_STALE_WRITE_ATTEMPTS => {
-                    attempt += 1;
+                // The proof is for a smaller forest than the partial MMR. The next iteration requests
+                // a new proof from the node.
+                Err(MmrError::ForestOutOfBounds(..)) if !requested_again => {
+                    requested_again = true;
                     continue;
+                },
+                Err(MmrError::ForestOutOfBounds(mmr_leaves, proof_leaves)) => {
+                    return Err(ClientError::ChainValidationError(format!(
+                        "the node returned an MMR proof of block {block_num} at a forest of \
+                         {proof_leaves} leaves, which is smaller than the forest of {mmr_leaves} \
+                         leaves of the partial MMR: the node is behind the store"
+                    )));
                 },
                 // The block is after the forest of the partial MMR, so the partial MMR is older
                 // than the sync height that the caller read.
-                Err(MmrError::PositionNotFound(_)) if attempt < MAX_STALE_WRITE_ATTEMPTS => {
-                    attempt += 1;
+                Err(MmrError::PositionNotFound(_)) if reads < MAX_STALE_WRITE_ATTEMPTS => {
+                    reads += 1;
+                    requested_again = false;
                     *current_partial_mmr = self.read_partial_mmr_uncached().await?;
                     held = Some((block_header, mmr_proof));
                     continue;
@@ -253,10 +275,11 @@ impl<AUTH> Client<AUTH> {
             // cannot be authenticated later.
             match self.store.insert_block_header(&block_header, &nodes, true).await {
                 Err(StoreError::DatabaseTransientError(err))
-                    if attempt < MAX_STALE_WRITE_ATTEMPTS =>
+                    if writes < MAX_STALE_WRITE_ATTEMPTS =>
                 {
                     warn!(%block_num, %err, "store refused a block header; reading the MMR again");
-                    attempt += 1;
+                    writes += 1;
+                    requested_again = false;
                     *current_partial_mmr = self.read_partial_mmr_uncached().await?;
                     held = Some((block_header, mmr_proof));
                 },
