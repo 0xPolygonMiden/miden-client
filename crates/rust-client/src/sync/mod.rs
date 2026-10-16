@@ -258,7 +258,7 @@ where
             return Err(ClientError::StoreError(err));
         }
         // Cache MMR so pruning can reuse in-memory MMR.
-        self.cache_partial_mmr(partial_mmr)?;
+        self.cache_partial_mmr(partial_mmr);
 
         self.maybe_untrack_and_prune_irrelevant_blocks().await?;
 
@@ -496,7 +496,7 @@ where
             .await?;
 
         if let Some(partial_mmr) = updated_partial_mmr {
-            self.cache_partial_mmr(partial_mmr)?;
+            self.cache_partial_mmr(partial_mmr);
         }
 
         Ok(())

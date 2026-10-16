@@ -329,7 +329,7 @@ where
                 }
             }
         }
-        self.cache_partial_mmr(partial_mmr)?;
+        self.cache_partial_mmr(partial_mmr);
 
         Ok(note_records)
     }
@@ -360,7 +360,7 @@ where
             .sync_expected_notes(lowest_request_block, sync_height, &note_requests)
             .await?;
         self.insert_note_blocks(&blocks, &mut partial_mmr).await?;
-        self.cache_partial_mmr(partial_mmr)?;
+        self.cache_partial_mmr(partial_mmr);
 
         let mut note_records = vec![];
         for (previous_note, details, after_block_num, tag) in requested_notes {

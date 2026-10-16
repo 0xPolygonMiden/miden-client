@@ -2,8 +2,8 @@ use alloc::format;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use miden_protocol::Word;
 use miden_protocol::block::{BlockHeader, BlockNumber, ValidatorConfig};
-use miden_protocol::crypto::hash::rpo::Rpo256;
 use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{
     Forest,
@@ -13,7 +13,6 @@ use miden_protocol::crypto::merkle::mmr::{
     MmrProof,
     PartialMmr,
 };
-use miden_protocol::{Felt, Word};
 use tracing::warn;
 
 use super::{block_num_from_forest, mmr_heal};
@@ -22,7 +21,7 @@ use crate::rpc::domain::note::ResolvedSyncNotesBlock;
 use crate::store::{BlockRelevance, StoreError};
 #[cfg(feature = "testing")]
 use crate::test_utils::mock::MockRpcApi;
-use crate::{CachedPartialMmr, Client, ClientError};
+use crate::{Client, ClientError};
 
 /// The number of times a sync fetches and writes the chain updates, and the number of times an
 /// import writes a block header, while the write is stale because another writer changed the chain
@@ -102,8 +101,8 @@ impl<AUTH> Client<AUTH> {
         Ok(())
     }
 
-    /// Returns the cached [`PartialMmr`] if in-memory caching is enabled and its fingerprint
-    /// matches the current store state, otherwise rebuilds from the store.
+    /// Returns the cached [`PartialMmr`] if in-memory caching is enabled and the cached MMR has the
+    /// stored sync height and tracks the stored tracked blocks, otherwise rebuilds from the store.
     ///
     /// If the store cannot build the partial MMR because a tracked block does not have its full
     /// path, this call requests the missing nodes from the node and writes them to the store. It
@@ -111,13 +110,13 @@ impl<AUTH> Client<AUTH> {
     pub async fn get_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         if self.cache_partial_mmr_in_memory
             && let Some(ref cached) = self.partial_mmr
-            && cached.sync_height == self.store.get_sync_height().await?
-            && cached.tracked_blocks_hash
-                == tracked_blocks_hash(
-                    self.store.get_tracked_block_header_numbers().await?.into_iter(),
-                )
+            && block_num_from_forest(cached)? == self.store.get_sync_height().await?
+            && cached
+                .leaves()
+                .map(|(position, _)| position)
+                .eq(self.store.get_tracked_block_header_numbers().await?)
         {
-            return Ok(cached.mmr.clone());
+            return Ok(cached.clone());
         }
         self.read_partial_mmr_uncached().await
     }
@@ -136,17 +135,12 @@ impl<AUTH> Client<AUTH> {
 
     /// Stores the MMR in the cache if in-memory caching is enabled.
     ///
-    /// The fingerprint comes from `mmr` itself. If the store changed after `mmr` was computed, the
-    /// fingerprint does not match the store and the next read builds the MMR from the store again.
-    pub(crate) fn cache_partial_mmr(&mut self, mmr: PartialMmr) -> Result<(), ClientError> {
-        if !self.cache_partial_mmr_in_memory {
-            return Ok(());
+    /// If the store changed after `mmr` was computed, the next read does not use the cached MMR and
+    /// builds the MMR from the store again.
+    pub(crate) fn cache_partial_mmr(&mut self, mmr: PartialMmr) {
+        if self.cache_partial_mmr_in_memory {
+            self.partial_mmr = Some(mmr);
         }
-
-        let sync_height = block_num_from_forest(&mmr)?;
-        let tracked_blocks_hash = tracked_blocks_hash(mmr.leaves().map(|(position, _)| position));
-        self.partial_mmr = Some(CachedPartialMmr { sync_height, tracked_blocks_hash, mmr });
-        Ok(())
     }
 
     /// Stores the header and the path of each note block, and tracks each block in `partial_mmr`.
@@ -335,14 +329,6 @@ fn track_proof(
     let path_nodes =
         adjust_merkle_path_for_forest(mmr_proof.merkle_path(), block_num, partial_mmr.forest());
     Ok(authenticated_block_nodes(block_header, path_nodes))
-}
-
-/// Returns the fingerprint of a set of tracked block numbers.
-fn tracked_blocks_hash(tracked_blocks: impl Iterator<Item = usize>) -> Word {
-    let elements: Vec<Felt> = tracked_blocks
-        .map(|n| Felt::from(u32::try_from(n).expect("block number fits in u32")))
-        .collect();
-    Rpo256::hash_elements(&elements)
 }
 
 #[cfg(test)]

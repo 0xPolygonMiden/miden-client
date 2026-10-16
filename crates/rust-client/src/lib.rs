@@ -427,24 +427,14 @@ pub struct Client<AUTH> {
     cache_partial_mmr_in_memory: bool,
     /// Cached [`PartialMmr`] for the chain's MMR. Lazily built from the store and kept in sync
     /// across sync/prune operations. `None` forces a rebuild on next access.
-    partial_mmr: Option<CachedPartialMmr>,
+    ///
+    /// The cached MMR is used only while its sync height is the stored sync height and its tracked
+    /// leaves are the stored tracked blocks. Another writer can track a block without changing the
+    /// sync height, and a sync or a prune from a cached MMR that does not track such a block would
+    /// leave that block without its full path.
+    partial_mmr: Option<PartialMmr>,
     /// Observers fired by `apply_transaction`. See [`Client::with_transaction_observer`].
     transaction_observers: Vec<Arc<dyn transaction::TransactionObserver>>,
-}
-
-/// Cached [`PartialMmr`] with a two-part freshness fingerprint, which comes from the cached MMR:
-///
-/// - `sync_height`: the sync height of the MMR - guards against chain/height drift.
-/// - `tracked_blocks_hash`: hash of the tracked block numbers of the MMR - guards against drift
-///   between store-tracked and cache-tracked blocks. Required because another writer can track a
-///   block without changing the sync height; a sync or a prune from a cached MMR that is missing
-///   such a block would leave that block without its full path.
-///
-/// The cache is used only while both parts match the store.
-pub(crate) struct CachedPartialMmr {
-    pub(crate) sync_height: BlockNumber,
-    pub(crate) tracked_blocks_hash: Word,
-    pub(crate) mmr: PartialMmr,
 }
 
 /// Constructors.
