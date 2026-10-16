@@ -13,7 +13,7 @@ use core::iter;
 
 use miden_protocol::Word;
 use miden_protocol::block::{BlockHeader, BlockNumber};
-use miden_protocol::crypto::merkle::mmr::{InOrderIndex, MmrError, MmrProof, PartialMmr};
+use miden_protocol::crypto::merkle::mmr::{InOrderIndex, MmrProof, PartialMmr};
 use tracing::warn;
 
 use super::block_header::fetch_block_header;
@@ -21,106 +21,136 @@ use crate::ClientError;
 use crate::rpc::NodeRpcClient;
 use crate::store::{PartialBlockchainFilter, Store, StoreError, tracked_leaf_path_indices};
 
-/// The number of times the heal stores missing nodes and reads the partial MMR again.
-const MAX_HEAL_ROUNDS: usize = 3;
-
-/// The number of broken blocks that one round repairs.
-const MAX_BLOCKS_PER_ROUND: usize = 64;
-
 /// The nodes to store for one tracked block.
 struct Repair {
     block_header: BlockHeader,
     missing_nodes: Vec<(InOrderIndex, Word)>,
 }
 
-/// What a heal round can do.
-enum Plan {
-    /// Store these nodes.
-    Store(Vec<Repair>),
-    /// The heal cannot repair the store now, for the given reason. The heal writes nothing.
-    Stop(String),
+/// Why the heal stops before it stores every missing node.
+enum Stop {
+    /// Another writer can have changed the store after the failed read, so a new read can succeed.
+    StoreChanged(String),
+    /// The node or its proof cannot repair the store. The heal writes nothing.
+    Unrepairable(String),
+    /// A store call failed.
+    Store(StoreError),
 }
 
-/// Stores the nodes that tracked blocks need, then returns the partial MMR of `store`.
+impl From<StoreError> for Stop {
+    fn from(err: StoreError) -> Self {
+        Self::Store(err)
+    }
+}
+
+/// Stores the nodes that tracked blocks need, then reads the partial MMR of `store` once and
+/// returns the result of that read.
 ///
 /// `error` is the error that the store returned when it built the partial MMR. For each tracked
 /// block that does not have its full path, the heal requests the block proof from the node. It
-/// checks the proof against the stored header, the stored peaks and the stored nodes, and it stores
-/// only the nodes that are missing. It never marks a block as tracked.
+/// checks every proof against the stored header, the stored peaks and the stored nodes before it
+/// writes, and it stores only the nodes that are missing. It never marks a block as tracked.
 ///
-/// If the node is not reachable, if its proof is for a smaller forest or for a different chain, or
-/// if a stored node is different from the proof, the heal writes nothing and returns `error`.
+/// If another writer changed the store after the failed read, for example if it repaired the store,
+/// moved the sync height, untracked a block or caused the store to refuse a write, the heal stops
+/// and returns the result of a new read. A later read repairs the store again if it is still
+/// broken. If the node is not reachable, if its proof is for a smaller forest or for a different
+/// chain, or if a stored node is different from the proof, the heal writes nothing and returns
+/// `error`.
 pub(crate) async fn heal(
     store: &Arc<dyn Store>,
     rpc_api: &Arc<dyn NodeRpcClient>,
     error: StoreError,
 ) -> Result<PartialMmr, ClientError> {
-    let mut proofs = BTreeMap::new();
     let mut repaired_blocks = BTreeSet::new();
+    match repair_blocks(store, rpc_api, &mut repaired_blocks).await {
+        Ok(()) => {
+            let result = store.get_current_partial_mmr().await;
+            match &result {
+                Ok(_) => warn!(
+                    blocks = ?repaired_blocks,
+                    "stored the missing MMR nodes of tracked blocks"
+                ),
+                Err(err) => warn!(
+                    blocks = ?repaired_blocks,
+                    %err,
+                    "the partial MMR is not readable after the repair of tracked blocks"
+                ),
+            }
+            result.map_err(Into::into)
+        },
+        Err(Stop::StoreChanged(reason)) => {
+            warn!(
+                blocks = ?repaired_blocks,
+                %reason,
+                "the store changed during the repair of tracked blocks; reading the MMR again"
+            );
+            store.get_current_partial_mmr().await.map_err(Into::into)
+        },
+        Err(Stop::Unrepairable(reason)) => {
+            warn!(
+                blocks = ?repaired_blocks,
+                %reason,
+                "cannot store the missing MMR nodes of tracked blocks"
+            );
+            Err(error.into())
+        },
+        Err(Stop::Store(err)) => {
+            warn!(
+                blocks = ?repaired_blocks,
+                %err,
+                "cannot store the missing MMR nodes of tracked blocks"
+            );
+            Err(err.into())
+        },
+    }
+}
 
-    for round in 0..=MAX_HEAL_ROUNDS {
-        match store.get_current_partial_mmr().await {
-            Ok(partial_mmr) => {
-                if !repaired_blocks.is_empty() {
-                    warn!(blocks = ?repaired_blocks, "stored the missing MMR nodes of tracked blocks");
-                }
-                return Ok(partial_mmr);
+/// Plans the repair of every broken tracked block, then stores the missing nodes. Adds each block
+/// that it repairs to `repaired_blocks`.
+async fn repair_blocks(
+    store: &Arc<dyn Store>,
+    rpc_api: &Arc<dyn NodeRpcClient>,
+    repaired_blocks: &mut BTreeSet<BlockNumber>,
+) -> Result<(), Stop> {
+    for repair in plan_repairs(store, rpc_api).await? {
+        let block_num = repair.block_header.block_num();
+        // `false` never marks the block as tracked. If another writer untracked the block, it stays
+        // untracked.
+        match store
+            .insert_block_header(&repair.block_header, &repair.missing_nodes, false)
+            .await
+        {
+            Ok(()) => {
+                repaired_blocks.insert(block_num);
             },
-            Err(StoreError::MmrError(MmrError::InconsistentPartialMmr(_))) => {},
+            Err(StoreError::DatabaseTransientError(reason)) => {
+                return Err(Stop::StoreChanged(reason));
+            },
             Err(err) => return Err(err.into()),
         }
-        if round == MAX_HEAL_ROUNDS {
-            break;
-        }
-
-        let repairs = match plan_repairs(store, rpc_api, &mut proofs).await? {
-            Plan::Store(repairs) => repairs,
-            Plan::Stop(reason) => {
-                warn!(%reason, "cannot store the missing MMR nodes of tracked blocks");
-                return Err(error.into());
-            },
-        };
-
-        for repair in repairs {
-            let block_num = repair.block_header.block_num();
-            // `false` never marks the block as tracked. If another writer untracked the block, it
-            // stays untracked.
-            match store
-                .insert_block_header(&repair.block_header, &repair.missing_nodes, false)
-                .await
-            {
-                Ok(()) => {
-                    repaired_blocks.insert(block_num);
-                },
-                // Another writer changed the chain data. The next round reads it again.
-                Err(StoreError::DatabaseTransientError(_)) => break,
-                Err(err) => return Err(err.into()),
-            }
-        }
     }
-
-    Err(error.into())
+    Ok(())
 }
 
 /// Finds the tracked blocks that do not have their full path, and returns the nodes to store for
-/// each of them.
-///
-/// `proofs` keeps the block proofs from earlier rounds, so that each block needs one request.
+/// each of them. Each block needs one proof request.
 async fn plan_repairs(
     store: &Arc<dyn Store>,
     rpc_api: &Arc<dyn NodeRpcClient>,
-    proofs: &mut BTreeMap<BlockNumber, (BlockHeader, MmrProof)>,
-) -> Result<Plan, StoreError> {
+) -> Result<Vec<Repair>, Stop> {
     let peaks = store.get_current_blockchain_peaks().await?;
     let sync_height = block_number(peaks.num_leaves())?;
-    let (sync_header, _) = store
-        .get_block_header_by_num(sync_height)
-        .await?
-        .ok_or(StoreError::BlockHeaderNotFound(sync_height))?;
+    // A sync of another writer can prune the header of the sync height that the peaks are for.
+    let Some((sync_header, _)) = store.get_block_header_by_num(sync_height).await? else {
+        return Err(Stop::StoreChanged(format!(
+            "the header of the sync height {sync_height} is not stored"
+        )));
+    };
 
     // Each path is checked against this partial MMR, which has only the stored peaks.
     let mut peaks_mmr = PartialMmr::from_peaks(peaks);
-    peaks_mmr.add(sync_header.commitment(), false)?;
+    peaks_mmr.add(sync_header.commitment(), false).map_err(StoreError::MmrError)?;
     let forest = peaks_mmr.forest();
 
     let tracked_blocks = store.get_tracked_block_header_numbers().await?;
@@ -131,7 +161,7 @@ async fn plan_repairs(
     let mut broken_blocks = Vec::new();
     for block in tracked_blocks {
         let Some(indices) = tracked_leaf_path_indices(forest, block) else {
-            return Ok(Plan::Stop(format!(
+            return Err(Stop::StoreChanged(format!(
                 "tracked block {block} is after the sync height {sync_height}"
             )));
         };
@@ -140,47 +170,38 @@ async fn plan_repairs(
         }
     }
     if broken_blocks.is_empty() {
-        return Ok(Plan::Stop("every tracked block has its full path".to_string()));
+        return Err(Stop::StoreChanged("every tracked block has its full path".to_string()));
     }
 
-    let mut repairs = Vec::new();
-    for (block_num, indices) in broken_blocks.into_iter().take(MAX_BLOCKS_PER_ROUND) {
-        let (block_header, mmr_proof) = match proofs.get(&block_num) {
-            Some(fetched) => fetched.clone(),
-            None => match fetch_block_header(rpc_api, block_num).await {
-                Ok(fetched) => {
-                    proofs.insert(block_num, fetched.clone());
-                    fetched
-                },
-                Err(err) => {
-                    return Ok(Plan::Stop(format!(
-                        "cannot get the proof of block {block_num}: {err}"
-                    )));
-                },
-            },
-        };
+    let mut repairs = Vec::with_capacity(broken_blocks.len());
+    for (block_num, indices) in broken_blocks {
+        let (block_header, mmr_proof) =
+            fetch_block_header(rpc_api, block_num).await.map_err(|err| {
+                Stop::Unrepairable(format!("cannot get the proof of block {block_num}: {err}"))
+            })?;
 
         // Another writer can untrack the block while the request runs.
         let Some((stored_header, relevance)) = store.get_block_header_by_num(block_num).await?
         else {
-            continue;
+            return Err(Stop::StoreChanged(format!(
+                "the header of block {block_num} is not stored"
+            )));
         };
         if !bool::from(relevance) {
-            continue;
+            return Err(Stop::StoreChanged(format!("block {block_num} is not tracked")));
         }
         if stored_header != block_header {
-            return Ok(Plan::Stop(format!(
+            return Err(Stop::Unrepairable(format!(
                 "the stored header of block {block_num} is not the header from the node"
             )));
         }
 
-        match missing_nodes(&peaks_mmr, &nodes, &block_header, &mmr_proof, indices) {
-            Ok(missing_nodes) => repairs.push(Repair { block_header, missing_nodes }),
-            Err(reason) => return Ok(Plan::Stop(reason)),
-        }
+        let missing_nodes = missing_nodes(&peaks_mmr, &nodes, &block_header, &mmr_proof, indices)
+            .map_err(Stop::Unrepairable)?;
+        repairs.push(Repair { block_header, missing_nodes });
     }
 
-    Ok(Plan::Store(repairs))
+    Ok(repairs)
 }
 
 /// Returns the nodes at `indices` that are not in `nodes`, with their values from `mmr_proof`.

@@ -122,8 +122,8 @@ impl<AUTH> Client<AUTH> {
         self.read_partial_mmr_uncached().await
     }
 
-    /// Builds the [`PartialMmr`] from the store without the cache, and repairs the store if a
-    /// tracked block does not have its full path.
+    /// Builds the [`PartialMmr`] from the store without the cache. If a tracked block does not have
+    /// its full path, this call repairs the store and returns the result of a new read.
     pub(crate) async fn read_partial_mmr_uncached(&self) -> Result<PartialMmr, ClientError> {
         match self.store.get_current_partial_mmr().await {
             Ok(partial_mmr) => Ok(partial_mmr),
