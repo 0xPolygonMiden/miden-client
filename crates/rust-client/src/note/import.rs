@@ -29,7 +29,7 @@ use crate::rpc::domain::note::{FetchedNote, ResolvedSyncNotesBlock};
 use crate::rpc::{NoteContentFetch, RpcError};
 use crate::store::input_note_states::ExpectedNoteState;
 use crate::store::{InputNoteRecord, InputNoteState, NoteFilter};
-use crate::sync::NoteTagRecord;
+use crate::sync::{NoteTagRecord, block_num_from_forest};
 use crate::{Client, ClientError};
 
 /// Note importing methods.
@@ -310,7 +310,7 @@ where
                     // A note committed in the past needs its block header fetched and authenticated
                     // to verify the inclusion proof.
                     let block_header = self
-                        .get_and_store_authenticated_block(block_height, &mut partial_mmr)
+                        .get_and_store_authenticated_block(block_height, &mut partial_mmr, None)
                         .await?;
                     note_changed |= note_record.block_header_received(&block_header)?;
                 } else {
@@ -350,14 +350,16 @@ where
             note_requests.push((details.commitment(), *tag));
             lowest_request_block = lowest_request_block.min(*after_block_num);
         }
-        let (blocks, block_to) =
-            self.sync_expected_notes(lowest_request_block, &note_requests).await?;
-
-        // The blocks arrive with the notes, so a committed note needs no further block lookup. They
-        // are stored first, so a record is never persisted as committed before the header that
-        // proves its inclusion is tracked and stored.
+        // The note sync stops at the sync height of the partial MMR, so the paths of its blocks are
+        // at the forest of the partial MMR. The blocks arrive with the notes, so a committed note
+        // needs no further block lookup. They are stored first, so a record is never persisted as
+        // committed before the header that proves its inclusion is tracked and stored.
         let mut partial_mmr = self.get_current_partial_mmr().await?;
-        self.insert_note_blocks(&blocks, block_to, &mut partial_mmr).await?;
+        let sync_height = block_num_from_forest(&partial_mmr)?;
+        let blocks = self
+            .sync_expected_notes(lowest_request_block, sync_height, &note_requests)
+            .await?;
+        self.insert_note_blocks(&blocks, &mut partial_mmr).await?;
         self.cache_partial_mmr(partial_mmr)?;
 
         let mut note_records = vec![];
@@ -469,26 +471,25 @@ where
         Ok(())
     }
 
-    /// Fetches every block between `request_block_num` and the client's sync height that holds a
-    /// note under one of `sync_tags`, and returns the blocks with the sync height that the request
-    /// used.
+    /// Fetches every block between `request_block_num` and `current_block_num` that holds a note
+    /// under the tag of one of `expected_notes`.
     ///
-    /// Each block carries its header and the MMR path proving its inclusion at that sync height, so
-    /// a note found here needs no further block lookup. Deciding which of the returned notes answer
-    /// a request is the caller's.
+    /// Each block carries its header and the MMR path proving its inclusion at the forest that
+    /// includes the `current_block_num` block, so a note found here needs no further block lookup.
+    /// Deciding which of the returned notes answer a request is the caller's.
     async fn sync_expected_notes(
         &self,
         request_block_num: BlockNumber,
+        current_block_num: BlockNumber,
         // Expected notes' details commitments with their tags.
         expected_notes: &[(NoteDetailsCommitment, NoteTag)],
-    ) -> Result<(Vec<ResolvedSyncNotesBlock>, BlockNumber), ClientError> {
+    ) -> Result<Vec<ResolvedSyncNotesBlock>, ClientError> {
         let sync_tags: BTreeSet<NoteTag> = expected_notes.iter().map(|(_, tag)| *tag).collect();
-        let current_block_num = self.get_sync_height().await?;
 
         // Notes expected only after a block we have not reached can't be committed within our
         // synced view yet: skip the lookup and let them stay expected until a future sync.
         if request_block_num > current_block_num {
-            return Ok((Vec::new(), current_block_num));
+            return Ok(Vec::new());
         }
 
         let blocks = self
@@ -532,7 +533,7 @@ where
             }
         }
 
-        Ok((matched_blocks, current_block_num))
+        Ok(matched_blocks)
     }
 }
 

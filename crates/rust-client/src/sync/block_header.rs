@@ -1,4 +1,3 @@
-use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -6,7 +5,14 @@ use alloc::vec::Vec;
 use miden_protocol::block::{BlockHeader, BlockNumber, ValidatorConfig};
 use miden_protocol::crypto::hash::rpo::Rpo256;
 use miden_protocol::crypto::merkle::MerklePath;
-use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, MmrError, MmrProof, PartialMmr};
+use miden_protocol::crypto::merkle::mmr::{
+    Forest,
+    InOrderIndex,
+    MmrError,
+    MmrPath,
+    MmrProof,
+    PartialMmr,
+};
 use miden_protocol::{Felt, Word};
 use tracing::warn;
 
@@ -143,62 +149,27 @@ impl<AUTH> Client<AUTH> {
         Ok(())
     }
 
-    /// Stores the header and the path of each note block that a note sync up to `block_to`
-    /// returned, and tracks each block in `partial_mmr`.
+    /// Stores the header and the path of each note block, and tracks each block in `partial_mmr`.
     ///
-    /// The paths in `blocks` are valid only at the forest of `block_to`. If `partial_mmr` is at a
-    /// different forest, or if the store refuses a write because another writer changed the chain
-    /// data, the remaining blocks are authenticated with a block proof from the node.
+    /// `blocks` come from a note sync up to the sync height of `partial_mmr`, so each path is at
+    /// the forest of `partial_mmr`.
     pub(crate) async fn insert_note_blocks(
         &self,
         blocks: &[ResolvedSyncNotesBlock],
-        block_to: BlockNumber,
         partial_mmr: &mut PartialMmr,
     ) -> Result<(), ClientError> {
-        let mut by_proof = partial_mmr.forest().num_leaves() != block_to.as_usize() + 1;
-
-        let mut path_nodes = BTreeMap::new();
+        let forest = partial_mmr.forest();
         for block in blocks {
-            let block_num = block.block_header.block_num();
-            // Also skips a block the loop itself just tracked, so one returned twice is stored
-            // once.
-            if by_proof || partial_mmr.is_tracked(block_num.as_usize()) {
-                continue;
-            }
-
-            let block_path_nodes = track_block_in_mmr(
-                partial_mmr,
+            let block_header = block.block_header.clone();
+            let block_num = block_header.block_num();
+            let path = MmrPath::new(forest, block_num.as_usize(), block.mmr_path.clone());
+            let mmr_proof = MmrProof::new(path, block_header.commitment());
+            self.get_and_store_authenticated_block(
                 block_num,
-                block.block_header.commitment(),
-                &block.mmr_path,
-            )?;
-            path_nodes.insert(block_num, block_path_nodes);
-        }
-
-        for block in blocks {
-            let block_num = block.block_header.block_num();
-            if !by_proof && let Some(block_path_nodes) = path_nodes.remove(&block_num) {
-                let nodes = authenticated_block_nodes(&block.block_header, block_path_nodes);
-                match self.store.insert_block_header(&block.block_header, &nodes, true).await {
-                    Ok(()) => continue,
-                    Err(StoreError::DatabaseTransientError(err)) => {
-                        warn!(%block_num, %err, "store refused a note block; using block proofs");
-                        *partial_mmr = self.read_partial_mmr_uncached().await?;
-                        by_proof = true;
-                    },
-                    Err(err) => return Err(err.into()),
-                }
-            }
-
-            if by_proof {
-                let header = self.get_and_store_authenticated_block(block_num, partial_mmr).await?;
-                if header != block.block_header {
-                    return Err(ClientError::ChainValidationError(format!(
-                        "the note sync and the block proof return different headers for block \
-                         {block_num}"
-                    )));
-                }
-            }
+                partial_mmr,
+                Some((block_header, mmr_proof)),
+            )
+            .await?;
         }
 
         Ok(())
@@ -207,23 +178,27 @@ impl<AUTH> Client<AUTH> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Retrieves and stores a [`BlockHeader`] by number, and stores its authentication data as
-    /// well.
+    /// Stores the [`BlockHeader`] of `block_num` with its authentication data, tracks the block in
+    /// `current_partial_mmr`, and returns the header.
     ///
-    /// If the store already contains MMR data for the requested block number, the request isn't
-    /// done and the stored block header is returned.
+    /// `prefetched` is a header and an MMR proof of the block that the caller already has, for
+    /// example from a note sync. Without it, this call requests both from the node. If the store
+    /// already contains MMR data for the block, this call makes no request and returns the stored
+    /// header.
     ///
     /// If the store refuses the write because another writer changed the chain data after
     /// `current_partial_mmr` was read, this call reads the partial MMR again and adjusts the proof
     /// it holds to the new forest. It requests a new proof only if the proof is for a smaller
-    /// forest.
+    /// forest. A header that the node returns must be the prefetched header.
     pub(crate) async fn get_and_store_authenticated_block(
         &self,
         block_num: BlockNumber,
         current_partial_mmr: &mut PartialMmr,
+        prefetched: Option<(BlockHeader, MmrProof)>,
     ) -> Result<BlockHeader, ClientError> {
+        let expected_header = prefetched.as_ref().map(|(block_header, _)| block_header.clone());
+        let mut held = prefetched;
         let mut attempt = 1;
-        let mut fetched = None;
         loop {
             if current_partial_mmr.is_tracked(block_num.as_usize()) {
                 warn!("Current partial MMR already contains the requested data");
@@ -235,9 +210,17 @@ impl<AUTH> Client<AUTH> {
                 return Ok(block_header);
             }
 
-            let (block_header, mmr_proof) = match fetched.take() {
-                Some(fetched) => fetched,
-                None => fetch_block_header(&self.rpc_api, block_num).await?,
+            let (block_header, mmr_proof) = match held.take() {
+                Some(held) => held,
+                None => {
+                    let fetched = fetch_block_header(&self.rpc_api, block_num).await?;
+                    if expected_header.as_ref().is_some_and(|expected| *expected != fetched.0) {
+                        return Err(ClientError::ChainValidationError(format!(
+                            "the node returned two different headers for block {block_num}"
+                        )));
+                    }
+                    fetched
+                },
             };
 
             let nodes = match track_proof(current_partial_mmr, &block_header, &mmr_proof) {
@@ -252,7 +235,7 @@ impl<AUTH> Client<AUTH> {
                 Err(MmrError::PositionNotFound(_)) if attempt < MAX_STALE_WRITE_ATTEMPTS => {
                     attempt += 1;
                     *current_partial_mmr = self.read_partial_mmr_uncached().await?;
-                    fetched = Some((block_header, mmr_proof));
+                    held = Some((block_header, mmr_proof));
                     continue;
                 },
                 Err(err) => return Err(StoreError::MmrError(err).into()),
@@ -267,7 +250,7 @@ impl<AUTH> Client<AUTH> {
                     warn!(%block_num, %err, "store refused a block header; reading the MMR again");
                     attempt += 1;
                     *current_partial_mmr = self.read_partial_mmr_uncached().await?;
-                    fetched = Some((block_header, mmr_proof));
+                    held = Some((block_header, mmr_proof));
                 },
                 result => return result.map(|()| block_header).map_err(Into::into),
             }
@@ -303,24 +286,6 @@ pub(crate) fn adjust_merkle_path_for_forest(
     }
 
     path_nodes
-}
-
-/// Adjusts a Merkle path for the given forest, then calls [`PartialMmr::track`] to verify and
-/// register the block. Returns the forest-adjusted authentication path nodes for the tracked block.
-pub(crate) fn track_block_in_mmr(
-    partial_mmr: &mut PartialMmr,
-    block_num: BlockNumber,
-    block_commitment: Word,
-    mmr_path: &MerklePath,
-) -> Result<Vec<(InOrderIndex, Word)>, ClientError> {
-    let path_nodes = adjust_merkle_path_for_forest(mmr_path, block_num, partial_mmr.forest());
-    let adjusted_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
-
-    partial_mmr
-        .track(block_num.as_usize(), block_commitment, &adjusted_path)
-        .map_err(StoreError::MmrError)?;
-
-    Ok(path_nodes)
 }
 
 fn authenticated_block_nodes(
