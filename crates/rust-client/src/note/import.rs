@@ -195,14 +195,20 @@ where
     /// the write, so these refusals occur only when another writer syncs or prunes after the import
     /// read the store.
     ///
-    /// After a refused write, this call reads the partial MMR again, stores and authenticates the
-    /// header and the path of that block, and applies the header to the note. A sync does not check
-    /// a nullifier at or below the sync height, so this call then marks the note consumed if its
-    /// nullifier is at or below the sync height. Then it reads the stored record. If another writer
-    /// has processed or consumed the note, or has committed the note and this call found no spend,
-    /// this call returns the stored record and does not write the note. Otherwise it writes the
-    /// note again, at most [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import
-    /// stays written, because a write of a note record replaces the stored record.
+    /// The store also returns [`StoreError::DatabaseTransientError`] when the database is locked.
+    /// The store refuses a write as stale only for a block at or below the sync height. So after a
+    /// refused write of a note without an inclusion proof, or of a note whose block is after the
+    /// sync height, this call writes the same record again.
+    ///
+    /// After a refused write of a note whose block is at or below the sync height, this call reads
+    /// the partial MMR again, stores and authenticates the header and the path of that block, and
+    /// applies the header to the note. A sync does not check a nullifier at or below the sync
+    /// height, so this call then marks the note consumed if its nullifier is at or below the sync
+    /// height. Then it reads the stored record. If another writer has processed or consumed the
+    /// note, or has committed the note and this call found no spend, this call returns the stored
+    /// record and does not write the note. Otherwise it writes the note again, at most
+    /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
+    /// because a write of a note record replaces the stored record.
     ///
     /// This call does these checks only after a refused write. A write that the store accepts
     /// replaces the stored record, also when another writer changed the record after the import
@@ -217,12 +223,18 @@ where
                 Err(StoreError::DatabaseTransientError(err))
                     if attempt < MAX_STALE_WRITE_ATTEMPTS =>
                 {
-                    let Some(inclusion_proof) = note.inclusion_proof() else {
-                        return Err(StoreError::DatabaseTransientError(err).into());
-                    };
-                    let block_num = inclusion_proof.location().block_num();
-                    warn!(%block_num, %err, "store refused a note record; storing its block again");
                     attempt += 1;
+                    let block_num =
+                        note.inclusion_proof().map(|proof| proof.location().block_num());
+                    let block_num = match block_num {
+                        Some(block_num) if block_num <= self.get_sync_height().await? => block_num,
+                        // The refusal is not stale, for example because the database is locked.
+                        _ => {
+                            warn!(%err, "store refused a note record; writing it again");
+                            continue;
+                        },
+                    };
+                    warn!(%block_num, %err, "store refused a note record; storing its block again");
                     let mut partial_mmr = self.read_partial_mmr_uncached().await?;
                     let block_header = self
                         .get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
