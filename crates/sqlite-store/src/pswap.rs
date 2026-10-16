@@ -6,12 +6,12 @@
 
 use std::vec::Vec;
 
-use miden_client::note::NoteId;
-use miden_client::pswap::{PswapLineageFilter, PswapLineageRecord};
-use miden_client::store::StoreError;
-use miden_client::utils::Serializable;
+use miden_client_core::errors::StoreError;
+use miden_client_core::pswap::{PswapLineageFilter, PswapLineageRecord};
 use miden_client_proto as proto;
 use miden_protocol::Felt;
+use miden_protocol::note::NoteId;
+use miden_protocol::utils::serde::Serializable;
 use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 

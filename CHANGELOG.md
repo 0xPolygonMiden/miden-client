@@ -2,20 +2,31 @@
 
 ## Unreleased
 
+### Enhancements
+
+* [rust] `miden-client` no longer pulls the `tonic` runtime dependencies into builds unless the `tonic` feature enables them ([#2520](https://github.com/0xMiden/rust-sdk/pull/2520)).
+* [rust] `TestClient` in `miden_client::testing::common` emits `tracing` events with the account ID, transaction ID and note IDs when it executes and submits transactions. The integration tests log through `tracing` instead of printing to stdout and stderr ([#2691](https://github.com/0xMiden/rust-sdk/pull/2691)).
+
 ### Features
 
+* [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
 
 ### Breaking Changes
 
+* [BREAKING][removal][rust] Removed authentication keys, signature schemes, and signatures from `miden_client::account::component`; use `miden_client::auth` instead. Removed built-in account components and their configuration types from `miden_client::account::component` and `miden_client::auth`; use the matching module under `miden_client::account::standards`, such as `auth::AuthSingleSig`, `wallets::BasicWallet`, or `faucets::FungibleFaucet` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [BREAKING][removal][rust] Removed `miden_client::rng::{draw_felt, draw_word}` helpers, `Felt` or `Word` can be generated with `rng.random::<Felt>()` and `rng.random::<Word>()` (via `rand::RngExt`) ([#2665](https://github.com/0xMiden/rust-sdk/pull/2665)).
 * [BREAKING][behavior][rust,store] Account note tags are derived from the addresses of native accounts instead of being stored. `Store::get_note_tags` returns only the stored tags, the new provided `Store::get_account_note_tags` returns the account tags, and `get_unique_note_tags` returns both sets. `add_note_tag` and `apply_transaction` reject account-source tags with the new `StoreError::AccountNoteTagNotStorable`. A SQLite migration removes the stored account tags ([#2653](https://github.com/0xMiden/rust-sdk/pull/2653)).
 * [BREAKING][param][rust] `Client::remove_address` no longer takes an `AccountId` ([#2653](https://github.com/0xMiden/rust-sdk/pull/2653)).
 * [BREAKING][type][rust] Added `TransactionFilter::Query`, which takes a `TransactionFilterQuery` to select transactions by account and status, newest first, up to a limit. `TransactionFilter` is now `#[non_exhaustive]` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [BREAKING][removal][rust] Removed `miden_client::store::AccountUpdates`, an unused duplicate of `miden_client::sync::AccountUpdates` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
 * [BREAKING][type][rust] `TransactionResult::new` returns `Self` instead of `Result<Self, ClientError>` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
-* [BREAKING][param][rust] The `Store` trait has typed methods for the client settings: `get_pswap_lineage`, `get_pswap_order_id_by_tip`, `get_pswap_lineages`, `upsert_pswap_lineage`, `get_note_transport_cursors`, `set_note_transport_cursors`, `get_protocol_config` and `insert_protocol_config`. `PswapLineageFilter` is public. Added `PswapLineageRecord::from_parts`, `TransactionEncryptionKey::from_parts`, `TransactionEncryptionKey::scheme` and `TransactionEncryptionKey::genesis_commitment` ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
+* [BREAKING][param][rust] The `Store` trait has typed methods for the client settings: `get_pswap_lineage`, `get_pswap_order_id_by_tip`, `get_pswap_lineages`, `upsert_pswap_lineage`, `get_note_transport_cursors`, `set_note_transport_cursors`, `get_protocol_config` and `insert_protocol_config`. `PswapLineageFilter` is public. Added `PswapLineageRecord::from_parts` and `TransactionEncryptionKey::from_parts` ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
+* [BREAKING][arch][rust] Moved `PswapLineageRecord`, `PswapLineageState`, `PswapLineageFilter` and `NOTE_TRANSPORT_CURSORS_KEY` to `miden-client-core`. `miden_client::pswap` and `miden_client::note_transport` re-export them. Removed `PswapLineageRecord::new_depth_zero` and `PswapLineageError::UnknownState`. `PswapLineageState::try_from_u8` returns `DeserializationError` ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
 * [BREAKING][arch][store] The SQLite store writes the client settings as protobuf messages: the note transport cursors, the RPC limits, the transaction encryption key, the protocol configurations and the PSWAP lineages. Requires a new client database ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
+* [BREAKING][arch][rust,store] Moved the `Store` trait and the types in its signatures (note and account records, filters, settings, sync and transaction updates, and their errors) to the new `miden-client-core` crate. `miden-client` re-exports the types that its API uses, so their paths keep working. Types that only a store uses are no longer re-exported and must be imported from `miden_client_core`: `AccountRecord`, `AccountRecordData`, `AccountRecordError`, `AccountSmtForest`, `AccountStorageFilter`, `AccountUpdate`, `ClientAccountType`, `InputNoteCursor`, `PartialBlockchainFilter`, `SettingMutation`, `SettingScope`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSOR_STORE_SETTING` ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
+* [BREAKING][removal][rust,store] Removed `ClientBuilderSqliteExt` and `ClientBuilder::sqlite_store`. Build a `SqliteStore` and pass it with `ClientBuilder::store` ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
+* [BREAKING][type][rust] `Account::try_from(AccountRecord)` and `PartialAccount::try_from(AccountRecord)` return the new `AccountRecordError` instead of `ClientError`, and `AttestedTransactionEncryptionKey::verify` returns the new `TransactionEncryptionError` instead of `RpcError`. `ClientError` and `RpcError` implement `From` for them ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
 * [BREAKING][param][rust] The `Store` methods for the client settings have no default bodies, so every out-of-tree implementation must provide them. These are the PSWAP lineage, note transport cursor and protocol configuration methods, and also `get_rpc_limits`, `set_rpc_limits`, `get_transaction_encryption_key`, `set_transaction_encryption_key` and `remove_transaction_encryption_key`. `Store::apply_state_sync` and `Store::insert_protocol_config` must store a protocol configuration with the same encoding ([#2700](https://github.com/0xMiden/rust-sdk/pull/2700)).
 * [BREAKING][behavior][store] The SQLite store keeps the PSWAP lineages in the new `pswap_lineages` table, with an index on the creator and a unique index on the tip of each active lineage ([#2701](https://github.com/0xMiden/rust-sdk/pull/2701)).
 
@@ -25,11 +36,14 @@
 * [FEATURE][rust] Added the `SendNotesTransactionScript` re-export to `miden_client::transaction` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] The CLI caches faucet metadata lookups for the lifetime of a command, so several assets from the same faucet cause at most one metadata RPC fetch. The cache also holds misses ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] `account --show` no longer fetches storage map entries for an account that the client does not track ([#2680](https://github.com/0xMiden/rust-sdk/pull/2680)).
+* [FEATURE][rust] The note record state transitions (`InputNoteRecord::consumed_locally`, `consumed_externally`, `transaction_committed`, etc., and `OutputNoteRecord::inclusion_proof_received` and `nullifier_received`) and the `NoteUpdateTracker` getters and update methods are public ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
 
 ### Fixes
 
+* [FIX][rust] Implemented `TryFrom` for the `InputNoteRecord` conversions to `Note`, `InputNote`, and `NoteTagRecord`. Existing `.try_into()` calls remain supported ([#2618](https://github.com/0xMiden/rust-sdk/pull/2618)).
 * [FIX][rust] `TransactionRequestBuilder::expected_output_recipients` adds to the expected recipients instead of replacing them, so own output notes added before it keep their recipients and `execute_transaction` no longer panics ([#2670](https://github.com/0xMiden/rust-sdk/pull/2670)).
 * [FIX][rust] `IdPrefixFetchError::NoMatch` names the kind of entry that was looked up, instead of always saying "notes" ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
+* [FIX][rust] Released input notes when their local transaction was discarded. Notes retain inclusion proofs received while processing. Authenticated notes return to `Committed`. Unauthenticated notes return to `Expected`. Notes consumed on chain remain consumed ([#2585](https://github.com/0xMiden/rust-sdk/pull/2585)).
 
 ### Fixes
 

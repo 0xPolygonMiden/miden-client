@@ -4,14 +4,15 @@
 //! full scan.
 
 use alloc::sync::Arc;
-use alloc::{format, vec};
+use alloc::vec;
 
 use miden_protocol::Word;
 use miden_protocol::note::{Note, NoteDetails, NoteId, NoteInclusionProof};
 use miden_standards::note::PswapNote;
 
+use super::PswapLineageState;
 use super::errors::PswapLineageError;
-use super::lineage::{PswapLineageRoundUpdate, PswapLineageState};
+use super::lineage::{PswapLineageRoundUpdate, PswapLineageRounds};
 use crate::store::input_note_states::{CommittedNoteState, UnverifiedNoteState};
 use crate::store::{InputNoteRecord, NoteFilter, Store, StoreError};
 use crate::sync::{NoteTagRecord, NoteTagSource};
