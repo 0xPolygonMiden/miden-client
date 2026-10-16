@@ -194,7 +194,7 @@ async fn unavailable_attachments_do_not_fail_sync() {
     // the note advertises attachment content the node cannot serve, and the sync succeeds by
     // skipping the note.
     let (mut client, private_note, mock_transport_node) =
-        committed_private_note_recipient(0, true).await;
+        Box::pin(committed_private_note_recipient(0, true)).await;
     assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Receiving the same note over the NTL imports it, but it stays expected rather than being
@@ -212,7 +212,7 @@ async fn unavailable_attachments_do_not_fail_sync() {
 /// Repeated transport deliveries can repair unverified and invalid records.
 #[tokio::test]
 async fn transport_repeated_delivery_repairs_incomplete_records() {
-    let (mut client, note, transport) = committed_private_note_recipient(0, false).await;
+    let (mut client, note, transport) = Box::pin(committed_private_note_recipient(0, false)).await;
     transport
         .write()
         .add_note(*note.header(), NoteDetails::from(note.clone()).to_bytes());
@@ -1177,7 +1177,7 @@ async fn fetch_private_notes_uses_sender_provided_after_block_num() {
     // Commit the note at block 1, then advance far enough that the 20-block fallback window
     // (sync_height - 20) starts well above block 1 and would miss it.
     let (mut client, private_note, mock_transport_node) =
-        committed_private_note_recipient(30, false).await;
+        Box::pin(committed_private_note_recipient(30, false)).await;
 
     let sync_height = client.get_sync_height().await.unwrap();
     assert!(
@@ -1209,7 +1209,7 @@ async fn fetch_private_notes_uses_sender_provided_after_block_num() {
 #[tokio::test]
 async fn fetch_private_notes_without_floor_falls_back_to_lookback_window() {
     let (mut client, private_note, mock_transport_node) =
-        committed_private_note_recipient(30, false).await;
+        Box::pin(committed_private_note_recipient(30, false)).await;
 
     // Deliver the note WITHOUT a floor: the recipient must rely on the lookback heuristic.
     let details_bytes = NoteDetails::from(private_note.clone()).to_bytes();
