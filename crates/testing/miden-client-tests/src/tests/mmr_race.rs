@@ -1419,8 +1419,6 @@ async fn import_by_details_counts_only_writes_against_the_stale_write_budget() {
     importer.sync_state().await.unwrap();
 
     store.hold_insert_of(BlockNumber::from(NOTE_BLOCK));
-    store.inserts.refuse_next(STALE_WRITE_ATTEMPTS - 1);
-    let inserts_before = store.inserts.calls();
     let note_files: Vec<NoteFile> = notes
         .iter()
         .map(|note| NoteFile::ExpectedNote {
@@ -1428,14 +1426,16 @@ async fn import_by_details_counts_only_writes_against_the_stale_write_budget() {
             sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, note.metadata().tag()),
         })
         .collect();
-    let (import, height) =
+    let (import, held) =
         Box::pin(while_held(&store.insert_gate, importer.import_notes(&note_files), async {
             node.advance_blocks(40);
             syncer.sync_state().await.unwrap();
-            syncer.get_sync_height().await.unwrap()
+            // The held insert counts its call after the gate, so the refusals start with it.
+            store.inserts.refuse_next(STALE_WRITE_ATTEMPTS - 1);
+            (syncer.get_sync_height().await.unwrap(), store.inserts.calls())
         }))
         .await;
-    let height = height.expect("the import must store the note block");
+    let (height, inserts_before) = held.expect("the import must store the note block");
 
     import.expect("the import must write the note block a third time and succeed");
     assert_eq!(
@@ -1462,19 +1462,21 @@ async fn import_by_proof_returns_the_stale_write_when_its_writes_run_out() {
 
     store.read_gate.arm();
     store.hold_insert_of(late_block);
-    store.inserts.refuse_next(STALE_WRITE_ATTEMPTS);
-    let inserts_before = store.inserts.calls();
     let note_files = [NoteFile::NoteId(late_note.note.id())];
     let import = while_held(&store.insert_gate, importer.import_notes(&note_files), async {
         node.advance_blocks(40);
         later_syncer.sync_chain().await.unwrap();
+        // The held insert counts its call after the gate, so the refusals start with it.
+        store.inserts.refuse_next(STALE_WRITE_ATTEMPTS);
+        store.inserts.calls()
     });
-    let ((import, grown), synced) = Box::pin(while_held(&store.read_gate, import, async {
-        syncer.sync_chain().await.unwrap();
-    }))
-    .await;
+    let ((import, inserts_before), synced) =
+        Box::pin(while_held(&store.read_gate, import, async {
+            syncer.sync_chain().await.unwrap();
+        }))
+        .await;
     synced.expect("the import must read the partial MMR");
-    grown.expect("the import must store the note block");
+    let inserts_before = inserts_before.expect("the import must store the note block");
 
     assert!(
         is_stale_write(&import),
@@ -1495,13 +1497,13 @@ async fn import_by_proof_from_a_node_behind_the_store_writes_nothing() {
     let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
     node.advance_blocks(HEAL_HEIGHT - node.get_chain_tip_block_num().as_u32());
     let rpc = GatedRpc::new(node.clone());
-    let (mut importer, store, store_path) = refusing_client(rpc.clone(), |builder| builder).await;
+    let store_path = create_test_store_path();
+    let mut importer = client_on(&store_path, rpc.clone(), false).await;
     importer.sync_state().await.unwrap();
     let nodes_before = stored_nodes(&store_path).await;
 
     *rpc.proof_forest.lock().unwrap() = Some(Forest::new(40).unwrap());
     let requests_before = rpc.proof_requests();
-    let inserts_before = store.inserts.calls();
     let result = importer.import_notes(&[NoteFile::NoteId(notes[0].id())]).await;
 
     assert!(
@@ -1509,7 +1511,8 @@ async fn import_by_proof_from_a_node_behind_the_store_writes_nothing() {
         "the import must return that the node is behind, got {result:?}"
     );
     assert_eq!(rpc.proof_requests(), requests_before + 2);
-    assert_eq!(store.inserts.calls(), inserts_before, "the import must not write");
+    let header = importer.get_block_header_by_num(NOTE_BLOCK.into()).await.unwrap();
+    assert!(header.is_none(), "the import must not store the note block");
     assert_eq!(stored_nodes(&store_path).await, nodes_before);
 }
 
