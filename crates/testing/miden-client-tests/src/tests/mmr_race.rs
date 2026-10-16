@@ -689,6 +689,13 @@ async fn track_with_full_path(
         .unwrap();
 }
 
+/// Deletes the header of `block`, as a prune of another client does.
+fn delete_header_with_sql(store_path: &Path, block: u32) {
+    let conn = rusqlite::Connection::open(store_path).unwrap();
+    let deleted = conn.execute("DELETE FROM block_headers WHERE block_num = ?1", [block]).unwrap();
+    assert_eq!(deleted, 1);
+}
+
 /// Returns the leaf of `block` and its siblings at `height`.
 fn leaf_and_path_indices(block: u32, height: BlockNumber) -> Vec<InOrderIndex> {
     let mut indices = vec![InOrderIndex::from_leaf_pos(block as usize)];
@@ -1196,6 +1203,38 @@ async fn import_writes_a_note_again_after_the_store_refuses_its_block() {
         upserts_before + 2,
         "the store must refuse the first write of the record"
     );
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the import must commit the note, got {:?}",
+        record.state()
+    );
+}
+
+/// An import by proof whose partial MMR tracks the note block, which another client prunes after
+/// the import read the partial MMR, reads the partial MMR again and stores the block.
+#[tokio::test]
+async fn import_by_proof_stores_a_block_pruned_after_its_read() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let height = importer.get_sync_height().await.unwrap();
+    track_with_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+
+    store.read_gate.arm();
+    let note_files = [NoteFile::NoteId(notes[0].id())];
+    let (import, pruned) =
+        Box::pin(while_held(&store.read_gate, importer.import_notes(&note_files), async {
+            untrack_with_sql(&store_path, NOTE_BLOCK);
+            delete_nodes(&store_path, &leaf_and_path_indices(NOTE_BLOCK, height));
+            delete_header_with_sql(&store_path, NOTE_BLOCK);
+        }))
+        .await;
+    pruned.expect("the import must read the partial MMR");
+
+    import.expect("the import must read the partial MMR again and succeed");
     assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
     let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
     assert!(
