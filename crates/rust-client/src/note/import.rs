@@ -195,14 +195,18 @@ where
     /// the write, so these refusals occur only when another writer syncs or prunes after the import
     /// read the store.
     ///
-    /// This call then reads the partial MMR again, stores and authenticates the header and the path
-    /// of that block, applies the header to the note, and writes the note again, at most
-    /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
-    /// because a write of a note record replaces the stored record.
+    /// After a refused write, this call reads the partial MMR again, stores and authenticates the
+    /// header and the path of that block, and applies the header to the note. A sync does not check
+    /// a nullifier at or below the sync height, so this call then marks the note consumed if its
+    /// nullifier is at or below the sync height. Then it reads the stored record. If another writer
+    /// has processed or consumed the note, or has committed the note and this call found no spend,
+    /// this call returns the stored record and does not write the note. Otherwise it writes the
+    /// note again, at most [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import
+    /// stays written, because a write of a note record replaces the stored record.
     ///
-    /// When the header verifies an unverified note, this call also marks the note consumed if its
-    /// nullifier is at or below the sync height. If another writer has committed, processed or
-    /// consumed the note, this call returns the stored record and does not write the note.
+    /// This call does these checks only after a refused write. A write that the store accepts
+    /// replaces the stored record, also when another writer changed the record after the import
+    /// read the store.
     async fn upsert_imported_note(
         &mut self,
         mut note: InputNoteRecord,
@@ -219,34 +223,31 @@ where
                     let block_num = inclusion_proof.location().block_num();
                     warn!(%block_num, %err, "store refused a note record; storing its block again");
                     attempt += 1;
-                    let unverified = matches!(note.state(), InputNoteState::Unverified(_));
                     let mut partial_mmr = self.read_partial_mmr_uncached().await?;
                     let block_header = self
                         .get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
                         .await?;
                     self.cache_partial_mmr(partial_mmr);
-                    // The header verifies an unverified note. A later sync does not do it, because
-                    // the block is at or below the sync height.
+                    // A later sync does not verify the note or check its nullifier, because the
+                    // block is at or below the sync height.
                     note.block_header_received(&block_header)?;
-                    if unverified {
-                        // A later sync also does not check a nullifier at or below the sync height.
-                        self.mark_externally_consumed(core::slice::from_mut(&mut note)).await?;
-                        // Another writer can commit, process or consume the note during the import.
-                        // The write must not replace that record.
-                        let stored = self
-                            .store
-                            .get_input_notes(NoteFilter::DetailsCommitments(vec![
-                                note.details_commitment(),
-                            ]))
-                            .await?
-                            .pop();
-                        if let Some(stored) = stored
-                            && (stored.is_committed()
-                                || stored.is_processing()
-                                || stored.is_consumed())
-                        {
-                            return Ok(stored);
-                        }
+                    self.mark_externally_consumed(core::slice::from_mut(&mut note)).await?;
+                    // Another writer can commit, process or consume the note during the import. The
+                    // write must not replace that record, but a spend that this call found replaces
+                    // a committed record.
+                    let stored = self
+                        .store
+                        .get_input_notes(NoteFilter::DetailsCommitments(vec![
+                            note.details_commitment(),
+                        ]))
+                        .await?
+                        .pop();
+                    if let Some(stored) = stored
+                        && (stored.is_processing()
+                            || stored.is_consumed()
+                            || (stored.is_committed() && !note.is_consumed()))
+                    {
+                        return Ok(stored);
                     }
                 },
                 result => return result.map(|()| note).map_err(Into::into),
