@@ -825,6 +825,24 @@ fn expected_note_file(expected: &Note) -> NoteFile {
     }
 }
 
+/// Spends `note` in a new block of `node`, and returns that block.
+async fn spend_note(node: &MockRpcApi, note: &Note) -> BlockNumber {
+    let chain = node.mock_chain.read().clone();
+    let transaction = Box::pin(
+        chain
+            .build_transaction(node.first_account_id())
+            .authenticated_input_note(note.id())
+            .build()
+            .unwrap()
+            .execute(),
+    )
+    .await
+    .unwrap();
+    node.add_pending_executed_transaction(&transaction);
+    node.prove_block();
+    node.get_chain_tip_block_num()
+}
+
 // RACE TESTS
 // ================================================================================================
 
@@ -1849,17 +1867,49 @@ async fn import_by_id_of_a_stored_expected_note_writes_it_committed_once() {
     );
 }
 
-/// A re-import by note ID of a stored expected note in a block after the sync height keeps the note
-/// unverified with its note tag, so the next sync verifies the note.
+/// A re-import by note ID of a stored expected note that is committed and spent at or below the
+/// sync height writes the note consumed and removes its note tag.
 #[tokio::test]
-async fn import_by_id_of_a_stored_expected_note_after_the_sync_height_keeps_its_tag() {
+async fn import_by_id_of_a_stored_expected_note_spent_at_or_below_the_sync_height_consumes_it() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    let spend_block = spend_note(&node, &notes[0]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, _) = refusing_client(node.clone(), |builder| builder).await;
+    Box::pin(importer.sync_state()).await.unwrap();
+    let tag = store_expected_note(&store, &notes[0]).await;
+
+    Box::pin(importer.import_notes(&[NoteFile::NoteId(notes[0].id())]))
+        .await
+        .unwrap();
+
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        matches!(record.state(), InputNoteState::ConsumedExternal(_)),
+        "the import must write the spent note consumed, got {:?}",
+        record.state()
+    );
+    assert_eq!(record.state().consumed_block_height(), Some(spend_block));
+    assert!(
+        !has_note_tag(&importer, tag).await,
+        "the import must remove the note tag of the consumed note"
+    );
+}
+
+/// A re-import by note ID of a stored expected note in a block after the sync height, whose note
+/// tag the store does not have, stores the note unverified and adds its note tag. The next sync of
+/// the client finds the note through that tag and verifies it.
+#[tokio::test]
+async fn import_by_id_of_a_stored_expected_note_after_the_sync_height_adds_its_tag() {
     let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
     let (mut importer, store, _) = refusing_client(node.clone(), |builder| builder).await;
     importer.sync_state().await.unwrap();
     let tag = store_expected_note(&store, &late_note.note).await;
+    assert_eq!(store.remove_note_tag(tag).await.unwrap(), 1);
     let late_block = late_note.commit(&node);
 
-    importer.import_notes(&[NoteFile::NoteId(late_note.note.id())]).await.unwrap();
+    Box::pin(importer.import_notes(&[NoteFile::NoteId(late_note.note.id())]))
+        .await
+        .unwrap();
 
     let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
     assert!(
@@ -1869,10 +1919,94 @@ async fn import_by_id_of_a_stored_expected_note_after_the_sync_height_keeps_its_
     );
     assert!(
         has_note_tag(&importer, tag).await,
-        "the import must keep the note tag of the unverified note"
+        "the import must add the note tag of the unverified note"
     );
 
-    importer.sync_state().await.unwrap();
+    Box::pin(importer.sync_state()).await.unwrap();
+    assert_eq!(importer.get_sync_height().await.unwrap(), late_block);
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the next sync must verify the note, got {:?}",
+        record.state()
+    );
+}
+
+/// A re-import by note ID of a stored expected note in a block after the sync height, whose block
+/// and spend another client syncs past before the import writes the record, writes the note
+/// consumed.
+#[tokio::test]
+async fn import_by_id_of_a_note_spent_before_a_sync_past_its_block_consumes_it() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    Box::pin(importer.sync_state()).await.unwrap();
+    let tag = store_expected_note(&store, &late_note.note).await;
+    late_note.commit(&node);
+    let spend_block = spend_note(&node, &late_note.note).await;
+
+    store.upsert_gate.arm();
+    let upserts_before = store.upserts.calls();
+    let note_files = [NoteFile::NoteId(late_note.note.id())];
+    let (import, height) =
+        Box::pin(while_held(&store.upsert_gate, importer.import_notes(&note_files), async {
+            syncer.sync_chain().await.unwrap();
+            syncer.get_sync_height().await.unwrap()
+        }))
+        .await;
+    assert_eq!(height.expect("the import must write the note record"), spend_block);
+
+    import.expect("the import must succeed");
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 2,
+        "the store must refuse the first write of the record"
+    );
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        matches!(record.state(), InputNoteState::ConsumedExternal(_)),
+        "the import must write the spent note consumed, got {:?}",
+        record.state()
+    );
+    assert_eq!(record.state().consumed_block_height(), Some(spend_block));
+    assert!(
+        !has_note_tag(&importer, tag).await,
+        "the import must remove the note tag of the consumed note"
+    );
+}
+
+/// An import by proof of a new note in a block after the sync height stores the note unverified and
+/// adds its note tag. The next sync of the client finds the note through that tag and verifies it.
+#[tokio::test]
+async fn import_by_proof_of_a_note_after_the_sync_height_adds_its_tag() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, ..) = refusing_client(node.clone(), |builder| builder).await;
+    Box::pin(importer.sync_state()).await.unwrap();
+    let late_block = late_note.commit(&node);
+    let Some(FetchedNote::Public(note, proof)) =
+        node.get_notes_by_id(&[late_note.note.id()]).await.unwrap().pop()
+    else {
+        panic!("the node must return the public note");
+    };
+    let tag = NoteTagRecord::with_note_source(note.metadata().tag(), note.details_commitment());
+    assert!(!has_note_tag(&importer, tag).await);
+
+    Box::pin(importer.import_notes(&[NoteFile::Committed { note, proof }]))
+        .await
+        .unwrap();
+
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        matches!(record.state(), InputNoteState::Unverified(_)),
+        "the import must store the note unverified, got {:?}",
+        record.state()
+    );
+    assert!(
+        has_note_tag(&importer, tag).await,
+        "the import must add the note tag of the unverified note"
+    );
+
+    Box::pin(importer.sync_state()).await.unwrap();
     assert_eq!(importer.get_sync_height().await.unwrap(), late_block);
     let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
     assert!(
