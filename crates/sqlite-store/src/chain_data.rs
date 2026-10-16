@@ -11,6 +11,7 @@ use miden_client::crypto::{Forest, InOrderIndex, MmrPeaks, PartialMmr};
 use miden_client::note::BlockNumber;
 use miden_client::store::{
     BlockRelevance,
+    NoteFilter,
     PartialBlockchainFilter,
     StoreError,
     build_partial_mmr,
@@ -203,12 +204,23 @@ impl SqliteStore {
     /// 2. Sets `has_client_notes = false` for `blocks_to_untrack`.
     /// 3. Deletes block headers with `has_client_notes = false` that are not the genesis or
     ///    sync-height block.
+    ///
+    /// Refuses the prune as a stale chain write if an unspent input note has an inclusion proof for
+    /// a block in `blocks_to_untrack`.
     pub(crate) fn untrack_and_prune_irrelevant_blocks(
         conn: &mut Connection,
         blocks_to_untrack: &[BlockNumber],
         node_indices_to_remove: &[InOrderIndex],
     ) -> Result<(), StoreError> {
         with_write_tx(conn, |tx| {
+            // The caller chose the blocks from its own read of the unspent notes. Another writer
+            // can store an unspent note in one of these blocks after that read.
+            if let Some(block) = first_block_with_unspent_note(tx, blocks_to_untrack)? {
+                return Err(stale_chain_write(format_args!(
+                    "block {block} has an unspent input note and must stay tracked"
+                )));
+            }
+
             // 1. Delete stale MMR authentication nodes.
             let mut deleted_nodes = 0;
             if !node_indices_to_remove.is_empty() {
@@ -344,6 +356,22 @@ fn stale_chain_write(reason: impl Display) -> StoreError {
     StoreError::DatabaseTransientError(format!("stale chain write: {reason}"))
 }
 
+/// Returns the first block of `blocks` for which an unspent input note has an inclusion proof.
+fn first_block_with_unspent_note(
+    conn: &Connection,
+    blocks: &[BlockNumber],
+) -> Result<Option<BlockNumber>, StoreError> {
+    if blocks.is_empty() {
+        return Ok(None);
+    }
+    let note_blocks: BTreeSet<BlockNumber> =
+        SqliteStore::get_input_notes(conn, &NoteFilter::Unspent)?
+            .iter()
+            .filter_map(|note| note.inclusion_proof().map(|proof| proof.location().block_num()))
+            .collect();
+    Ok(blocks.iter().copied().find(|block| note_blocks.contains(block)))
+}
+
 // HELPERS
 // ================================================================================================
 
@@ -393,18 +421,22 @@ fn parse_block_header(
     Ok((proto::decode_unchecked(&header)?, has_client_notes.into()))
 }
 
+/// Marks the stored header of `block_num` as tracked if `has_client_notes` is `true`.
+///
+/// Returns whether the update moved the block from untracked to tracked. The update changes nothing
+/// if the header is not stored.
 pub(crate) fn set_block_header_has_client_notes(
     tx: &Transaction<'_>,
     block_num: u64,
     has_client_notes: bool,
-) -> Result<(), StoreError> {
+) -> Result<bool, StoreError> {
     // Only update to change has_client_notes to true if it was false previously
     const QUERY: &str = "\
         UPDATE block_headers
         SET has_client_notes=?
         WHERE block_num=? AND has_client_notes=0;";
-    tx.execute(QUERY, params![has_client_notes, block_num]).into_store_error()?;
-    Ok(())
+    let updated = tx.execute(QUERY, params![has_client_notes, block_num]).into_store_error()?;
+    Ok(has_client_notes && updated > 0)
 }
 
 #[cfg(test)]

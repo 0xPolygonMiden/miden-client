@@ -24,12 +24,13 @@ use miden_protocol::note::{
     NoteTag,
 };
 use miden_tx::auth::TransactionAuthenticator;
+use tracing::warn;
 
 use crate::rpc::domain::note::{FetchedNote, ResolvedSyncNotesBlock};
 use crate::rpc::{NoteContentFetch, RpcError};
 use crate::store::input_note_states::ExpectedNoteState;
-use crate::store::{InputNoteRecord, InputNoteState, NoteFilter};
-use crate::sync::{NoteTagRecord, block_num_from_forest};
+use crate::store::{InputNoteRecord, InputNoteState, NoteFilter, StoreError};
+use crate::sync::{MAX_STALE_WRITE_ATTEMPTS, NoteTagRecord, block_num_from_forest};
 use crate::{Client, ClientError};
 
 /// Note importing methods.
@@ -165,11 +166,42 @@ where
                     .add_note_tag(NoteTagRecord::with_note_source(*tag, details_commitment))
                     .await?;
             }
-            self.store.upsert_input_notes(&[note]).await?;
+            self.upsert_imported_note(&note).await?;
             imported_commitments.push(details_commitment);
         }
 
         Ok(imported_commitments)
+    }
+
+    /// Writes `note` to the store.
+    ///
+    /// The store refuses the write as stale when the write makes the block of the inclusion proof
+    /// of the note tracked without its full path. Another writer changed the chain data after the
+    /// import stored the block. This call then reads the partial MMR again, stores the header and
+    /// the path of that block, and writes the note again, at most [`MAX_STALE_WRITE_ATTEMPTS`]
+    /// times. An earlier note of the same import stays written, because a write of a note record
+    /// replaces the stored record.
+    async fn upsert_imported_note(&mut self, note: &InputNoteRecord) -> Result<(), ClientError> {
+        let mut attempt = 1;
+        loop {
+            match self.store.upsert_input_notes(core::slice::from_ref(note)).await {
+                Err(StoreError::DatabaseTransientError(err))
+                    if attempt < MAX_STALE_WRITE_ATTEMPTS =>
+                {
+                    let Some(inclusion_proof) = note.inclusion_proof() else {
+                        return Err(StoreError::DatabaseTransientError(err).into());
+                    };
+                    let block_num = inclusion_proof.location().block_num();
+                    warn!(%block_num, %err, "store refused a note record; storing its block again");
+                    attempt += 1;
+                    let mut partial_mmr = self.read_partial_mmr_uncached().await?;
+                    self.get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
+                        .await?;
+                    self.cache_partial_mmr(partial_mmr);
+                },
+                result => return result.map_err(Into::into),
+            }
+        }
     }
 
     // HELPERS

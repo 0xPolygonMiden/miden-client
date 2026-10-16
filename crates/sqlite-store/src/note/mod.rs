@@ -1,6 +1,6 @@
 #![allow(clippy::items_after_statements)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::vec::Vec;
 
 use miden_client::Word;
@@ -26,7 +26,7 @@ use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, Transaction, params, params_from_iter};
 
 use super::SqliteStore;
-use crate::chain_data::set_block_header_has_client_notes;
+use crate::chain_data::{TrackedPaths, check_tracked_paths_tx, set_block_header_has_client_notes};
 use crate::note::filters::{
     note_filter_input_notes_condition,
     note_filter_to_query_input_notes,
@@ -121,7 +121,7 @@ struct SerializedOutputNoteStateUpdate {
 
 impl SqliteStore {
     pub(crate) fn get_input_notes(
-        conn: &mut Connection,
+        conn: &Connection,
         filter: &NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let (query, params) = note_filter_to_query_input_notes(filter);
@@ -184,15 +184,15 @@ impl SqliteStore {
         with_write_tx(conn, |tx| {
             let mut scripts: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
             let mut serialized = Vec::with_capacity(notes.len());
+            let mut tracked_blocks = BTreeSet::new();
 
             for note in notes {
                 // A note that carries an inclusion proof makes its block relevant to the client.
                 if let Some(inclusion_proof) = note.inclusion_proof() {
-                    set_block_header_has_client_notes(
-                        tx,
-                        inclusion_proof.location().block_num().as_u64(),
-                        true,
-                    )?;
+                    let block_num = inclusion_proof.location().block_num();
+                    if set_block_header_has_client_notes(tx, block_num.as_u64(), true)? {
+                        tracked_blocks.insert(block_num);
+                    }
                 }
 
                 let note_data = serialize_input_note(note);
@@ -202,7 +202,14 @@ impl SqliteStore {
 
             // Scripts must be written before the notes that reference them by foreign key.
             batch_upsert_scripts(tx, &scripts)?;
-            batch_insert_input_notes(tx, &serialized)
+            batch_insert_input_notes(tx, &serialized)?;
+
+            // Another writer can remove the path of a block after the client read it. A block that
+            // this write makes tracked must have its full path, as for a block header insert.
+            for block_num in tracked_blocks {
+                check_tracked_paths_tx(tx, TrackedPaths::Block(block_num))?;
+            }
+            Ok(())
         })
     }
 

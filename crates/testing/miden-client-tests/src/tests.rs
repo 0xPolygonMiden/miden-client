@@ -2309,8 +2309,9 @@ async fn note_screening_reports_only_the_account_bound_by_the_note() {
     let script = client.code_builder().compile_note_script(TARGET_BOUND_NOTE_SCRIPT).unwrap();
 
     // Screening an unauthenticated note does not verify the inclusion proof, so a dummy proof and
-    // an empty block note root are enough to make the records committed.
-    let block_num = client.get_sync_height().await.unwrap();
+    // an empty block note root are enough to make the records committed. The proof names a block
+    // after the sync height, whose header the store does not have, so the records track no block.
+    let block_num = client.get_sync_height().await.unwrap() + 1;
     let dummy_proof = NoteInclusionProof::new(block_num, 0, SparseMerklePath::default()).unwrap();
 
     let mut records = Vec::with_capacity(NOTE_COUNT);

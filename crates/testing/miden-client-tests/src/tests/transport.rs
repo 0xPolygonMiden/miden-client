@@ -218,6 +218,11 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
     client.fetch_private_notes().await.unwrap();
     let committed = client.get_input_note(note.id()).await.unwrap().unwrap();
     assert!(committed.is_committed());
+    // A proof that does not verify, for the block of the note. The store tracks that block with its
+    // path, so the record does not make a block tracked without its path.
+    let note_block = committed.inclusion_proof().unwrap().location().block_num();
+    let invalid_inclusion_proof =
+        NoteInclusionProof::new(note_block, 0, SparseMerklePath::default()).unwrap();
 
     for state in [
         UnverifiedNoteState {
@@ -227,7 +232,7 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
         .into(),
         InvalidNoteState {
             metadata: *note.metadata(),
-            invalid_inclusion_proof: genesis_inclusion_proof(),
+            invalid_inclusion_proof,
             block_note_root: Word::default(),
         }
         .into(),

@@ -288,6 +288,9 @@ async fn upsert_round_note(
         .into(),
     };
 
+    // The sync runs this observer before it stores the block headers of its update, so the store
+    // does not have the header of the note block. The write then marks no block as tracked, and the
+    // store does not refuse it for a missing MMR path.
     store
         .upsert_input_notes(&[InputNoteRecord::new(details, attachments, None, state)])
         .await

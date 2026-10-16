@@ -36,7 +36,8 @@ use crate::{Client, ClientError};
 ///   once for each read of the partial MMR. If the new proof is also for a smaller forest, the node
 ///   is behind the store, and the import returns [`ClientError::ChainValidationError`] and writes
 ///   nothing.
-/// - A partial MMR that is older than the block is read again at most this number of times.
+/// - A partial MMR that is older than the block, or that tracks a block that the store no longer
+///   tracks, is read again at most this number of times.
 pub(crate) const MAX_STALE_WRITE_ATTEMPTS: usize = 3;
 
 /// Network information management methods.
@@ -216,20 +217,35 @@ impl<AUTH> Client<AUTH> {
         loop {
             if current_partial_mmr.is_tracked(block_num.as_usize()) {
                 warn!("Current partial MMR already contains the requested data");
-                let (block_header, _) = self
-                    .store
-                    .get_block_header_by_num(block_num)
-                    .await?
-                    .ok_or(StoreError::BlockHeaderNotFound(block_num))?;
-                // The partial MMR authenticated the stored header. A prefetched header that differs
-                // is not in the chain.
-                if expected_header.as_ref().is_some_and(|expected| *expected != block_header) {
-                    return Err(ClientError::ChainValidationError(format!(
-                        "the node returned a header for block {block_num} that differs from the \
-                         stored header"
-                    )));
+                match self.store.get_block_header_by_num(block_num).await? {
+                    Some((block_header, BlockRelevance::HasNotes)) => {
+                        // The partial MMR authenticated the stored header. A prefetched header that
+                        // differs is not in the chain.
+                        if expected_header
+                            .as_ref()
+                            .is_some_and(|expected| *expected != block_header)
+                        {
+                            return Err(ClientError::ChainValidationError(format!(
+                                "the node returned a header for block {block_num} that differs \
+                                 from the stored header"
+                            )));
+                        }
+                        return Ok(block_header);
+                    },
+                    // Another writer untracked or pruned the block after the partial MMR was read.
+                    _ if reads < MAX_STALE_WRITE_ATTEMPTS => {
+                        reads += 1;
+                        requested_again = false;
+                        *current_partial_mmr = self.read_partial_mmr_uncached().await?;
+                        continue;
+                    },
+                    _ => {
+                        return Err(StoreError::DatabaseTransientError(format!(
+                            "stale chain write: the store no longer tracks block {block_num}"
+                        ))
+                        .into());
+                    },
                 }
-                return Ok(block_header);
             }
 
             let (block_header, mmr_proof) = if let Some(held) = held.take() {

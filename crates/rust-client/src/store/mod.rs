@@ -291,6 +291,14 @@ pub trait Store: Send + Sync {
 
     /// Inserts the provided input notes into the database. If a note with the same ID already
     /// exists, it will be replaced.
+    ///
+    /// A note that carries an inclusion proof makes the stored header of its block tracked. If the
+    /// write moves a block from untracked to tracked, an implementation should refuse the write
+    /// with [`StoreError::DatabaseTransientError`] and write nothing when the store does not then
+    /// hold the leaf and the full path of the block at the forest that includes the sync-height
+    /// block (see [`tracked_leaf_path_indices`]). The client then stores the block with its path
+    /// and writes the notes again. A note whose block header is not stored makes no block tracked,
+    /// so the write is not refused for it.
     async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError>;
 
     /// Returns the note script associated with the given root.
@@ -386,7 +394,10 @@ pub trait Store: Send + Sync {
     /// An implementation should refuse the prune with [`StoreError::DatabaseTransientError`] and
     /// write nothing when a block that stays tracked does not then have its leaf and its full path
     /// at the forest that includes the sync-height block, which has the stored sync height plus one
-    /// leaves (see [`tracked_leaf_path_indices`]).
+    /// leaves (see [`tracked_leaf_path_indices`]). It should also refuse the prune when an unspent
+    /// input note in the store at the time of the write has an inclusion proof for a block in
+    /// `blocks_to_untrack`. The caller reads the unspent notes before the prune, and another writer
+    /// can store such a note before the prune writes.
     async fn untrack_and_prune_irrelevant_blocks(
         &self,
         blocks_to_untrack: &[BlockNumber],

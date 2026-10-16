@@ -79,7 +79,7 @@ use crate::rpc::domain::account::GetAccountRequest;
 use crate::store::{NoteFilter, StoreError, TransactionFilter};
 use crate::{Client, ClientError};
 mod block_header;
-use block_header::MAX_STALE_WRITE_ATTEMPTS;
+pub(crate) use block_header::MAX_STALE_WRITE_ATTEMPTS;
 
 mod mmr_heal;
 
@@ -455,6 +455,10 @@ where
     /// [`Store::untrack_and_prune_irrelevant_blocks`] to atomically remove the stale nodes, mark
     /// the blocks as irrelevant, and delete irrelevant block headers. Any caller of this function
     /// should've cached the `PartialMmr` beforehand.
+    ///
+    /// Another writer can commit an unspent note in one of these blocks after this call reads the
+    /// unspent notes. The store then refuses the prune as a stale chain write, and the next sync
+    /// prunes again.
     async fn untrack_and_prune_irrelevant_blocks(&mut self) -> Result<(), ClientError> {
         let tracked_blocks = self.store.get_tracked_block_header_numbers().await?;
         let to_untrack: Vec<usize> = if tracked_blocks.is_empty() {
