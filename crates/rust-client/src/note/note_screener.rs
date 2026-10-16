@@ -260,6 +260,8 @@ impl NoteScreener {
         // A multisig component requires a declared salt. The trial is never submitted, so any salt
         // works. With auth args, the trial reaches the signature check, and the checker reports the
         // note as consumable with authorization.
+        //
+        // TODO: find a way to screen notes for multisig accounts without placeholder auth args.
         let salt = multisig.then_some(NATIVE_FEE_CONVERSION_SALT);
         let Ok(Some((auth_arg, preimage))) =
             layout.default_auth_args(salt, &header, &protocol_config)
