@@ -1933,10 +1933,10 @@ async fn import_by_id_of_a_stored_expected_note_after_the_sync_height_adds_its_t
 }
 
 /// A re-import by note ID of a stored expected note in a block after the sync height, whose block
-/// and spend another client syncs past before the import writes the record, writes the note
-/// consumed.
+/// and spend another client syncs past while the import holds its note write, keeps the consumed
+/// record that the sync writes.
 #[tokio::test]
-async fn import_by_id_of_a_note_spent_before_a_sync_past_its_block_consumes_it() {
+async fn import_by_id_keeps_the_record_of_a_note_that_a_sync_consumes_during_the_import() {
     let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
     let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
     let mut syncer = client_on(&store_path, node.clone(), false).await;
@@ -1957,11 +1957,57 @@ async fn import_by_id_of_a_note_spent_before_a_sync_past_its_block_consumes_it()
     assert_eq!(height.expect("the import must write the note record"), spend_block);
 
     import.expect("the import must succeed");
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        matches!(record.state(), InputNoteState::ConsumedExternal(_)),
+        "the import must keep the consumed record, got {:?}",
+        record.state()
+    );
+    assert_eq!(record.state().consumed_block_height(), Some(spend_block));
     assert_eq!(
         store.upserts.calls(),
-        upserts_before + 2,
-        "the store must refuse the first write of the record"
+        upserts_before + 1,
+        "the import must not write the note again after the sync consumes it"
     );
+    assert!(
+        !has_note_tag(&importer, tag).await,
+        "the import must remove the note tag of the consumed note"
+    );
+}
+
+/// A re-import by note ID of a stored expected note in a block after the sync height, whose block
+/// and spend a sync of another client moves the sync height past while the import holds its note
+/// write, writes the note consumed. The sync fetched its updates before the note was stored, so the
+/// sync does not change the note.
+#[tokio::test]
+async fn import_by_id_of_a_note_spent_before_a_sync_past_its_block_consumes_it() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut syncer = client_on(&store_path, node.clone(), false).await;
+    Box::pin(importer.sync_state()).await.unwrap();
+    late_note.commit(&node);
+    let spend_block = spend_note(&node, &late_note.note).await;
+    let state_sync = gated_state_sync(&syncer, node.clone(), Arc::new(Gate::default())).await;
+    let mut chain_sync_data = Box::pin(syncer.fetch_chain_updates(&state_sync)).await.unwrap();
+    state_sync.derive_state_updates(&mut chain_sync_data).await.unwrap();
+    state_sync.fetch_nullifiers(&mut chain_sync_data).await.unwrap();
+    let tag = store_expected_note(&store, &late_note.note).await;
+
+    store.upsert_gate.arm();
+    let upserts_before = store.upserts.calls();
+    let note_files = [NoteFile::NoteId(late_note.note.id())];
+    let (import, apply) = Box::pin(while_held(
+        &store.upsert_gate,
+        importer.import_notes(&note_files),
+        syncer.apply_chain_updates(&state_sync, chain_sync_data),
+    ))
+    .await;
+    apply
+        .expect("the import must write the note record")
+        .expect("the sync must succeed");
+    assert_eq!(importer.get_sync_height().await.unwrap(), spend_block);
+
+    import.expect("the import must succeed");
     let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
     assert!(
         matches!(record.state(), InputNoteState::ConsumedExternal(_)),
@@ -1969,6 +2015,11 @@ async fn import_by_id_of_a_note_spent_before_a_sync_past_its_block_consumes_it()
         record.state()
     );
     assert_eq!(record.state().consumed_block_height(), Some(spend_block));
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 2,
+        "the store must refuse the first write of the record"
+    );
     assert!(
         !has_note_tag(&importer, tag).await,
         "the import must remove the note tag of the consumed note"
