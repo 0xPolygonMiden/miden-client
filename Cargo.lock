@@ -2949,6 +2949,7 @@ name = "miden-client-unit-tests"
 version = "0.17.4"
 dependencies = [
  "anyhow",
+ "async-trait",
  "miden-client",
  "miden-client-sqlite-store",
  "miden-debug",
@@ -2958,6 +2959,7 @@ dependencies = [
  "rand 0.10.3",
  "rand_chacha 0.10.0",
  "rstest",
+ "rusqlite",
  "tempfile",
  "tokio",
 ]

@@ -15,7 +15,7 @@ use crate::ClientError;
 use crate::pswap::discovery::discover_pswap_rounds;
 use crate::pswap::lineage::ObservedPswapNote;
 use crate::rpc::domain::note::SyncedNote;
-use crate::store::Store;
+use crate::store::{Store, StoreError};
 use crate::sync::NoteObserver;
 use crate::utils::RwLock;
 
@@ -72,7 +72,8 @@ impl NoteObserver for PswapChainObserver {
     }
 
     /// Drains the collector, runs the correlator, applies round updates. Per-round failures are
-    /// logged, not propagated.
+    /// logged, not propagated, except a stale chain write. The sync then fetches the chain updates
+    /// again and runs this hook on them.
     async fn apply(&self, sync_update: &crate::sync::StateSyncUpdate) -> Result<(), ClientError> {
         let chain_note_updates = core::mem::take(&mut *self.chain_note_updates.write());
 
@@ -87,13 +88,15 @@ impl NoteObserver for PswapChainObserver {
             discover_pswap_rounds(self.store.clone(), sync_update, &chain_note_updates).await?;
 
         for round_update in round_updates {
-            if let Err(err) = crate::pswap::store::apply_round(&self.store, &round_update).await {
-                warn!(
+            match crate::pswap::store::apply_round(&self.store, &round_update).await {
+                Ok(()) => {},
+                Err(err @ StoreError::DatabaseTransientError(_)) => return Err(err.into()),
+                Err(err) => warn!(
                     order_id = round_update.order_id.as_canonical_u64(),
                     round_depth = round_update.round_depth,
                     error = ?err,
                     "apply_round failed; lineage left at previous tip",
-                );
+                ),
             }
         }
         Ok(())

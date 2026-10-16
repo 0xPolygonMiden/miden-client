@@ -76,9 +76,12 @@ use tracing::{info, warn};
 use crate::pswap::PswapChainObserver;
 use crate::rpc::AccountStateAt;
 use crate::rpc::domain::account::GetAccountRequest;
-use crate::store::{NoteFilter, TransactionFilter};
+use crate::store::{NoteFilter, StoreError, TransactionFilter};
 use crate::{Client, ClientError};
 mod block_header;
+pub(crate) use block_header::MAX_STALE_WRITE_ATTEMPTS;
+
+mod mmr_heal;
 
 mod tag;
 pub use tag::{NoteTagRecord, NoteTagSource};
@@ -102,6 +105,12 @@ pub use state_sync_update::{
     StateSyncUpdate,
     TransactionUpdateTracker,
 };
+
+/// Returns whether `err` is the error of a stale chain write: another writer changed the chain data
+/// after the client read it. The write can succeed with a new view of the store.
+fn is_stale_write(err: &ClientError) -> bool {
+    matches!(err, ClientError::StoreError(StoreError::DatabaseTransientError(_)))
+}
 
 /// Untracks the given block leaves from `partial_mmr`, returning the authentication-node indices
 /// that are no longer needed by any remaining tracked leaf.
@@ -142,16 +151,28 @@ where
     /// [`StateSync::fetch_nullifiers`]), then applies the result with
     /// [`Client::apply_chain_updates`], which also caches the partial MMR and prunes irrelevant
     /// blocks according to the configured cadence.
+    ///
+    /// If another writer changes the chain data in the store while the sync runs, the write is
+    /// stale. The sync then fetches the chain updates again, a limited number of times.
     pub async fn sync_chain(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
         self.ensure_rpc_limits_in_place().await?;
 
-        let state_sync = self.state_sync().await?;
-        let mut chain_sync_data = self.fetch_chain_updates(&state_sync).await?;
-        state_sync.derive_state_updates(&mut chain_sync_data).await?;
-        state_sync.fetch_nullifiers(&mut chain_sync_data).await?;
+        let mut attempt = 1;
+        loop {
+            let state_sync = self.state_sync().await?;
+            let mut chain_sync_data = self.fetch_chain_updates(&state_sync).await?;
+            state_sync.derive_state_updates(&mut chain_sync_data).await?;
+            state_sync.fetch_nullifiers(&mut chain_sync_data).await?;
 
-        self.apply_chain_updates(&state_sync, chain_sync_data).await
+            match self.apply_chain_updates(&state_sync, chain_sync_data).await {
+                Err(err) if attempt < MAX_STALE_WRITE_ATTEMPTS && is_stale_write(&err) => {
+                    warn!(attempt, %err, "store refused the chain sync; syncing again");
+                    attempt += 1;
+                },
+                result => return result,
+            }
+        }
     }
 
     /// Fetches the node's view of everything that changed since the client's chain tip, without
@@ -199,8 +220,10 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an error if the client no longer starts where the data was fetched from, which means
-    /// another sync advanced the store in between and the data is stale.
+    /// Returns [`StoreError::DatabaseTransientError`] if the chain updates are stale: the stored
+    /// sync height is not the block that the chain updates start from, or another writer changed
+    /// the sync height or the tracked paths before the store applied the update. In both cases,
+    /// fetch the chain updates again. [`Client::sync_chain`] and [`Client::sync_state`] do this.
     pub async fn apply_chain_updates(
         &mut self,
         state_sync: &StateSync,
@@ -208,30 +231,34 @@ where
     ) -> Result<SyncSummary, ClientError> {
         let mut partial_mmr = self.get_current_partial_mmr().await?;
 
+        // Another sync can advance the store after the fetch. The store returns the same error for
+        // a stale update, so that the callers fetch again.
         let block_from = block_num_from_forest(&partial_mmr)?;
         if block_from != chain_sync_data.block_from {
-            return Err(ClientError::ChainValidationError(format!(
-                "chain sync chain_sync_data starts at block {} but the client is at block {block_from}",
+            return Err(ClientError::StoreError(StoreError::DatabaseTransientError(format!(
+                "stale chain write: the chain updates start at block {} but the store is at block \
+                 {block_from}",
                 chain_sync_data.block_from
-            )));
+            ))));
         }
 
         let state_sync_update = StateSync::build_update(chain_sync_data, &mut partial_mmr)?;
 
         let sync_summary: SyncSummary = (&state_sync_update).into();
-        // Post-sync observer hooks; run before persisting. Per-observer errors are logged, not
-        // propagated.
+        // Post-sync observer hooks run before the store write. A stale chain write of a hook fails
+        // this call, and the other hook errors are only logged.
         state_sync.run_apply_hooks(&state_sync_update).await?;
 
         info!("Applying changes to the store.");
 
         // Apply received and computed updates to the store
-        self.store
-            .apply_state_sync(state_sync_update)
-            .await
-            .map_err(ClientError::StoreError)?;
+        if let Err(err) = self.store.apply_state_sync(state_sync_update).await {
+            // The cached MMR can be the stale view that the store refused.
+            self.partial_mmr = None;
+            return Err(ClientError::StoreError(err));
+        }
         // Cache MMR so pruning can reuse in-memory MMR.
-        self.cache_partial_mmr(partial_mmr).await?;
+        self.cache_partial_mmr(partial_mmr);
 
         self.maybe_untrack_and_prune_irrelevant_blocks().await?;
 
@@ -286,7 +313,7 @@ where
         self.ensure_genesis_in_place().await?;
         self.ensure_rpc_limits_in_place().await?;
 
-        let state_sync = self.state_sync().await?;
+        let mut state_sync = self.state_sync().await?;
         let (note_transport_update, chain_sync_data) = futures::join!(
             self.fetch_note_transport_updates(),
             self.fetch_chain_updates(&state_sync),
@@ -305,19 +332,36 @@ where
 
         let mut chain_sync_data = chain_sync_data?;
 
-        // The chain sync built its note updates from a store snapshot taken before the import, so
-        // the imported records are added here. Without them this sync has no record to apply its
-        // verdicts to, and a note committed within this sync's own block range stays expected.
-        let imported_notes =
-            self.get_input_notes(NoteFilter::DetailsCommitments(imported_notes)).await?;
-        chain_sync_data.note_updates.track_existing_input_notes(imported_notes);
+        // A stale chain write is retried with new chain data. The transport notes are already
+        // stored, so they are not fetched again.
+        let mut attempt = 1;
+        loop {
+            // The chain sync built its note updates from a store snapshot taken before the import,
+            // so the imported records are added here. Without them this sync has no record to apply
+            // its verdicts to, and a note committed within this sync's own block range stays
+            // expected.
+            let imported_records = self
+                .get_input_notes(NoteFilter::DetailsCommitments(imported_notes.clone()))
+                .await?;
+            chain_sync_data.note_updates.track_existing_input_notes(imported_records);
 
-        state_sync.derive_state_updates(&mut chain_sync_data).await?;
-        state_sync.fetch_nullifiers(&mut chain_sync_data).await?;
+            state_sync.derive_state_updates(&mut chain_sync_data).await?;
+            state_sync.fetch_nullifiers(&mut chain_sync_data).await?;
 
-        let mut summary = self.apply_chain_updates(&state_sync, chain_sync_data).await?;
-        summary.new_private_notes = new_private_notes;
-        Ok(summary)
+            match self.apply_chain_updates(&state_sync, chain_sync_data).await {
+                Err(err) if attempt < MAX_STALE_WRITE_ATTEMPTS && is_stale_write(&err) => {
+                    warn!(attempt, %err, "store refused the chain sync; syncing again");
+                    attempt += 1;
+                    state_sync = self.state_sync().await?;
+                    chain_sync_data = self.fetch_chain_updates(&state_sync).await?;
+                },
+                result => {
+                    let mut summary = result?;
+                    summary.new_private_notes = new_private_notes;
+                    return Ok(summary);
+                },
+            }
+        }
     }
 
     /// Builds a default [`StateSyncInput`] from the current client state.
@@ -354,8 +398,19 @@ where
     /// configured cadence.
     ///
     /// See [`crate::Store::apply_state_sync()`] for what the update implies.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::DatabaseTransientError`] if the store refuses the update because the
+    /// stored sync height is not [`StateSyncUpdate::block_from`], or because a tracked block would
+    /// not have its full path. Another writer changed the store after the update was built, so
+    /// fetch the chain updates again.
     pub async fn apply_state_sync(&mut self, update: StateSyncUpdate) -> Result<(), ClientError> {
-        self.store.apply_state_sync(update).await?;
+        if let Err(err) = self.store.apply_state_sync(update).await {
+            // The cached MMR can be the stale view that the store refused.
+            self.partial_mmr = None;
+            return Err(ClientError::StoreError(err));
+        }
 
         self.maybe_untrack_and_prune_irrelevant_blocks().await?;
 
@@ -377,10 +432,20 @@ where
             return Ok(());
         }
 
-        self.untrack_and_prune_irrelevant_blocks().await?;
-        self.last_irrelevant_block_prune_sync_height = Some(sync_height);
-
-        Ok(())
+        match self.untrack_and_prune_irrelevant_blocks().await {
+            Ok(()) => {
+                self.last_irrelevant_block_prune_sync_height = Some(sync_height);
+                Ok(())
+            },
+            // Another writer changed the chain data after the prune read it. The prune height does
+            // not change, so the next sync prunes again.
+            Err(err) if is_stale_write(&err) => {
+                self.partial_mmr = None;
+                warn!(%err, "store refused the prune; the next sync prunes again");
+                Ok(())
+            },
+            Err(err) => Err(err),
+        }
     }
 
     /// Prunes irrelevant block data from the store.
@@ -390,6 +455,10 @@ where
     /// [`Store::untrack_and_prune_irrelevant_blocks`] to atomically remove the stale nodes, mark
     /// the blocks as irrelevant, and delete irrelevant block headers. Any caller of this function
     /// should've cached the `PartialMmr` beforehand.
+    ///
+    /// Another writer can commit an unspent note in one of these blocks after this call reads the
+    /// unspent notes. The store then refuses the prune as a stale chain write, and the next sync
+    /// prunes again.
     async fn untrack_and_prune_irrelevant_blocks(&mut self) -> Result<(), ClientError> {
         let tracked_blocks = self.store.get_tracked_block_header_numbers().await?;
         let to_untrack: Vec<usize> = if tracked_blocks.is_empty() {
@@ -431,7 +500,7 @@ where
             .await?;
 
         if let Some(partial_mmr) = updated_partial_mmr {
-            self.cache_partial_mmr(partial_mmr).await?;
+            self.cache_partial_mmr(partial_mmr);
         }
 
         Ok(())

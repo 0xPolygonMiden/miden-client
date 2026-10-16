@@ -52,6 +52,8 @@ pub struct StateSyncUpdate {
     /// The protocol configuration active at `block_num`. The node sends it when the sync starts at
     /// genesis, or when the starting block and `block_num` commit to different configurations.
     protocol_config: Option<ProtocolConfig>,
+    /// The sync height that the update starts from, if known.
+    block_from: Option<BlockNumber>,
 }
 
 impl StateSyncUpdate {
@@ -73,7 +75,23 @@ impl StateSyncUpdate {
             transaction_updates,
             account_updates,
             protocol_config,
+            block_from: None,
         }
+    }
+
+    /// Records the sync height that the update starts from.
+    ///
+    /// A store refuses the update if its sync height is not `block_from` when it applies the update
+    /// (see [`Store::apply_state_sync`](crate::store::Store::apply_state_sync)).
+    #[must_use]
+    pub fn with_block_from(mut self, block_from: BlockNumber) -> Self {
+        self.block_from = Some(block_from);
+        self
+    }
+
+    /// Returns the sync height that the update starts from, if it is recorded.
+    pub fn block_from(&self) -> Option<BlockNumber> {
+        self.block_from
     }
 
     /// Returns the block number of the last synced block.

@@ -288,6 +288,10 @@ async fn upsert_round_note(
         .into(),
     };
 
+    // The sync runs this observer before it stores its update, so the note block is after the
+    // stored sync height and the store does not have its header. The store accepts such a note. If
+    // another writer moved the sync height past the block, the store refuses the write as stale,
+    // and the sync fetches the chain updates again.
     store
         .upsert_input_notes(&[InputNoteRecord::new(details, attachments, None, state)])
         .await

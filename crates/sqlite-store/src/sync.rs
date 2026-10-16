@@ -13,6 +13,7 @@ use miden_client::utils::{Deserializable, Serializable};
 use rusqlite::{Connection, Transaction, params};
 
 use super::SqliteStore;
+use crate::chain_data::{TrackedPaths, check_tracked_paths_tx};
 use crate::forest::{ScopedAccountForest, SqliteForestBackend};
 use crate::note::apply_note_updates_tx;
 use crate::sql_error::SqlResultExt;
@@ -77,6 +78,7 @@ impl SqliteStore {
         conn: &mut Connection,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let block_from = state_sync_update.block_from();
         let (
             block_num,
             partial_blockchain_updates,
@@ -87,6 +89,18 @@ impl SqliteStore {
         ) = state_sync_update.into_parts();
 
         with_write_tx(conn, |db_tx| {
+            // The update was computed from the chain data at `block_from`. If another writer moved
+            // the sync height since then, the update is stale.
+            if let Some(block_from) = block_from {
+                let sync_height = query_sync_height(db_tx)?;
+                if sync_height != block_from {
+                    return Err(StoreError::DatabaseTransientError(format!(
+                        "stale chain write: the sync update starts at block {block_from} but the \
+                         sync height is {sync_height}"
+                    )));
+                }
+            }
+
             let mut smt_forest = ScopedAccountForest::new(SqliteForestBackend::new(db_tx))?;
             // Update blockchain checkpoint (block number and peaks) only if moving forward.
             let new_peaks_bytes = proto::encode_mmr_peaks(&partial_blockchain_updates.new_peaks);
@@ -94,14 +108,17 @@ impl SqliteStore {
                 UPDATE blockchain_checkpoint \
                 SET block_num = ?1, partial_blockchain_peaks = ?2 \
                 WHERE block_num < ?1";
-            db_tx
+            let checkpoint_moved = db_tx
                 .execute(BLOCKCHAIN_CHECKPOINT_QUERY, params![block_num.as_u32(), new_peaks_bytes])
-                .into_store_error()?;
+                .into_store_error()?
+                > 0;
 
+            let mut tracks_block = false;
             for (block_header, is_relevant) in
                 partial_blockchain_updates.block_headers_to_store(block_num)
             {
                 Self::insert_block_header_tx(db_tx, block_header, *is_relevant)?;
+                tracks_block |= *is_relevant;
             }
 
             // Insert new authentication nodes (inner nodes of the PartialBlockchain)
@@ -109,6 +126,14 @@ impl SqliteStore {
                 db_tx,
                 partial_blockchain_updates.new_authentication_nodes(),
             )?;
+
+            // A tree merge at the new sync height adds levels to the paths of tracked blocks. The
+            // update has the new nodes only for the blocks in the view that it was computed from. A
+            // block that the update tracks must also have its full path when the sync height does
+            // not move, as in a stale update with no recorded start.
+            if checkpoint_moved || tracks_block {
+                check_tracked_paths_tx(db_tx, TrackedPaths::All)?;
+            }
 
             // Update notes
             apply_note_updates_tx(db_tx, &note_updates)?;
@@ -226,10 +251,121 @@ pub(crate) fn query_sync_height(conn: &Connection) -> Result<BlockNumber, StoreE
 
 #[cfg(test)]
 mod tests {
+    use miden_client::crypto::{Forest, PartialMmr};
+    use miden_client::note::{BlockNumber, NoteUpdateTracker};
+    use miden_client::store::{Store, StoreError};
+    use miden_client::sync::{
+        AccountUpdates,
+        PartialBlockchainUpdates,
+        StateSyncUpdate,
+        TransactionUpdateTracker,
+    };
     use rusqlite::Connection;
 
     use crate::SqliteStore;
+    use crate::chain_data::test::{mock_chain, path_nodes, set_sync_height};
     use crate::db_management::migration::SqliteMigrator;
+    use crate::tests::create_test_store;
+
+    /// Tests that the store refuses a sync update after which a tracked block lacks the siblings
+    /// that a tree merge in the update adds to its path.
+    #[tokio::test]
+    async fn apply_state_sync_rejects_update_that_drops_tracked_siblings() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(42);
+        set_sync_height(&store, &mmr, &headers, 1).await;
+
+        // At forest 2, leaf 0 has 1 sibling. At forest 42 it is in the tree of 32 leaves and has 5.
+        let tracked_block = 0;
+        Store::insert_block_header(
+            &store,
+            &headers[tracked_block],
+            &path_nodes(&mmr, &headers, tracked_block, Forest::new(2).unwrap()),
+            true,
+        )
+        .await
+        .unwrap();
+
+        // The update comes from a view that does not track the block, so it has none of the new
+        // siblings.
+        let new_height = 41;
+        let mut view = PartialMmr::from_peaks(mmr.peaks_at(Forest::new(1).unwrap()).unwrap());
+        view.add(headers[1].commitment(), false).unwrap();
+        let mut new_nodes = view
+            .apply(
+                mmr.get_delta(Forest::new(2).unwrap(), Forest::new(new_height).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+        partial_blockchain_updates.new_peaks = view.peaks();
+        new_nodes.extend(view.add(headers[new_height].commitment(), false).unwrap());
+        partial_blockchain_updates.insert(headers[new_height].clone(), false);
+        partial_blockchain_updates.extend_authentication_nodes(new_nodes);
+
+        let update = StateSyncUpdate::from_parts(
+            BlockNumber::from(u32::try_from(new_height).unwrap()),
+            partial_blockchain_updates,
+            NoteUpdateTracker::default(),
+            TransactionUpdateTracker::default(),
+            AccountUpdates::default(),
+            None,
+        );
+        let result = store.apply_state_sync(update).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "an update that leaves a tracked path short must be refused, got {result:?}"
+        );
+
+        assert_eq!(store.get_sync_height().await.unwrap(), BlockNumber::from(1u32));
+        let partial_mmr = store.get_current_partial_mmr().await.unwrap();
+        assert!(partial_mmr.open(tracked_block).unwrap().is_some());
+    }
+
+    /// Tests that the store refuses a sync update that does not move the sync height but tracks a
+    /// block without its full path. A stale update with no recorded start does that.
+    #[tokio::test]
+    async fn apply_state_sync_rejects_a_tracked_block_without_its_path_below_the_sync_height() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(42);
+        set_sync_height(&store, &mmr, &headers, 41).await;
+
+        // At forest 2, leaf 1 has 1 sibling. At forest 42 it is in the tree of 32 leaves and has 5.
+        let tracked_block = 1;
+        let stale_height = 40;
+        let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+        partial_blockchain_updates.new_peaks =
+            mmr.peaks_at(Forest::new(stale_height).unwrap()).unwrap();
+        partial_blockchain_updates.insert(headers[tracked_block].clone(), true);
+        partial_blockchain_updates.extend_authentication_nodes(path_nodes(
+            &mmr,
+            &headers,
+            tracked_block,
+            Forest::new(2).unwrap(),
+        ));
+
+        let update = StateSyncUpdate::from_parts(
+            BlockNumber::from(u32::try_from(stale_height).unwrap()),
+            partial_blockchain_updates,
+            NoteUpdateTracker::default(),
+            TransactionUpdateTracker::default(),
+            AccountUpdates::default(),
+            None,
+        );
+        assert!(update.block_from().is_none());
+        let result = store.apply_state_sync(update).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "an update that tracks a block without its full path must be refused, got {result:?}"
+        );
+
+        assert_eq!(store.get_sync_height().await.unwrap(), BlockNumber::from(41u32));
+        assert!(
+            store.get_tracked_block_header_numbers().await.unwrap().is_empty(),
+            "a refused update must track no block"
+        );
+        store.get_current_partial_mmr().await.expect("the store must stay readable");
+    }
 
     /// A missing checkpoint row is only reachable through corruption (the initial migration seeds
     /// it); it must surface as an error, not a panic.

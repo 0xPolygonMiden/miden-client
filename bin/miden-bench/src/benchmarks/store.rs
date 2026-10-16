@@ -14,7 +14,8 @@ use std::time::Instant;
 use anyhow::Context;
 use miden_client::ONE;
 use miden_client::account::{Account, AccountId, Address};
-use miden_client::block::BlockNumber;
+use miden_client::block::BlockHeader;
+use miden_client::crypto::{MmrPeaks, PartialMmr};
 use miden_client::note::{InputNoteReader, NoteUpdateTracker};
 use miden_client::store::{ClientAccountType, InputNoteCursor, NoteFilter, Store};
 use miden_client::sync::{
@@ -86,12 +87,10 @@ async fn bench_note_methods(
 
     store.upsert_input_notes(&seed.consumed).await?;
     store.upsert_input_notes(&seed.unspent).await?;
-    for (header, has_client_notes) in &seed.block_headers {
-        store.insert_block_header(header, &[], *has_client_notes).await?;
-    }
+    let sync_peaks = seed_chain(&store, &seed.block_headers).await?;
 
     let mut results = note_read_measurements(&store, &seed, consumer, iterations).await?;
-    let inserts = note_write_measurements(&store, &seed, consumer, iterations).await?;
+    let inserts = note_write_measurements(&store, &sync_peaks, consumer, iterations).await?;
 
     // The walk runs last, over the seeded notes plus whatever the inserts added, so its per-note
     // cost is divided by the notes actually returned.
@@ -188,13 +187,15 @@ async fn note_read_measurements(
 
 /// Measures the write paths against the seeded database. Every iteration writes notes of its own,
 /// so each one is an insert into an already-full table and never a replace.
+///
+/// The sync updates stay at the seeded sync height, so they do not change the chain data.
 async fn note_write_measurements(
     store: &SqliteStore,
-    seed: &store_data::NoteSeed,
+    sync_peaks: &MmrPeaks,
     consumer: AccountId,
     iterations: usize,
 ) -> anyhow::Result<Vec<BenchmarkResult>> {
-    let sync_block = BlockNumber::from(u32::try_from(seed.block_headers.len()).unwrap_or(u32::MAX));
+    let sync_block = store.get_sync_height().await?;
 
     Ok(vec![
         measure(
@@ -214,9 +215,11 @@ async fn note_write_measurements(
                 // Offset past the batches the measurement above wrote, so this one inserts too.
                 let notes =
                     store_data::insert_batch(consumer, INSERT_BATCH_SIZE, i + iterations + 1);
+                let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+                partial_blockchain_updates.new_peaks = sync_peaks.clone();
                 let update = StateSyncUpdate::from_parts(
                     sync_block,
-                    PartialBlockchainUpdates::default(),
+                    partial_blockchain_updates,
                     NoteUpdateTracker::for_transaction_updates(notes, [], []),
                     TransactionUpdateTracker::default(),
                     AccountUpdates::default(),
@@ -228,6 +231,54 @@ async fn note_write_measurements(
         )
         .await?,
     ])
+}
+
+/// Stores `block_headers` as a chain whose last block is the sync height, and returns the peaks at
+/// the sync height.
+///
+/// The store refuses a tracked header without its MMR path, so the tracked headers are stored with
+/// the paths of an MMR over the header commitments.
+async fn seed_chain(
+    store: &SqliteStore,
+    block_headers: &[(BlockHeader, bool)],
+) -> anyhow::Result<MmrPeaks> {
+    let Some(((sync_header, sync_header_tracked), earlier_headers)) = block_headers.split_last()
+    else {
+        return Ok(MmrPeaks::default());
+    };
+
+    let mut partial_mmr = PartialMmr::default();
+    for (header, has_client_notes) in earlier_headers {
+        partial_mmr.add(header.commitment(), *has_client_notes)?;
+    }
+    let sync_peaks = partial_mmr.peaks();
+    partial_mmr.add(sync_header.commitment(), *sync_header_tracked)?;
+
+    let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+    partial_blockchain_updates.new_peaks = sync_peaks.clone();
+    partial_blockchain_updates.insert(sync_header.clone(), *sync_header_tracked);
+    for (header, _) in earlier_headers.iter().filter(|(_, tracked)| *tracked) {
+        partial_blockchain_updates.insert(header.clone(), true);
+    }
+    partial_blockchain_updates
+        .extend_authentication_nodes(partial_mmr.nodes().map(|(index, node)| (*index, *node)));
+    store
+        .apply_state_sync(StateSyncUpdate::from_parts(
+            sync_header.block_num(),
+            partial_blockchain_updates,
+            NoteUpdateTracker::default(),
+            TransactionUpdateTracker::default(),
+            AccountUpdates::default(),
+            None,
+        ))
+        .await?;
+
+    // A sync update stores only the tracked headers, so the other headers are stored here.
+    for (header, _) in earlier_headers.iter().filter(|(_, tracked)| !*tracked) {
+        store.insert_block_header(header, &[], false).await?;
+    }
+
+    Ok(sync_peaks)
 }
 
 /// Returns the per-note cost of a walk over `walked` notes.

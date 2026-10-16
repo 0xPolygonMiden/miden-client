@@ -1,6 +1,6 @@
 #![allow(clippy::items_after_statements)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::vec::Vec;
 
 use miden_client::Word;
@@ -17,6 +17,7 @@ use miden_client::note::{
 use miden_client::store::{
     InputNoteCursor,
     InputNoteRecord,
+    InputNoteState,
     NoteFilter,
     OutputNoteRecord,
     StoreError,
@@ -26,13 +27,19 @@ use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, Transaction, params, params_from_iter};
 
 use super::SqliteStore;
-use crate::chain_data::set_block_header_has_client_notes;
+use crate::chain_data::{
+    TrackedPaths,
+    check_tracked_paths_tx,
+    set_block_header_has_client_notes,
+    stale_chain_write,
+};
 use crate::note::filters::{
     note_filter_input_notes_condition,
     note_filter_to_query_input_notes,
     note_filter_to_query_output_notes,
 };
 use crate::sql_error::SqlResultExt;
+use crate::sync::query_sync_height;
 use crate::{column_value_as_u64, proto, u64_to_value, with_write_tx};
 
 mod filters;
@@ -121,7 +128,7 @@ struct SerializedOutputNoteStateUpdate {
 
 impl SqliteStore {
     pub(crate) fn get_input_notes(
-        conn: &mut Connection,
+        conn: &Connection,
         filter: &NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let (query, params) = note_filter_to_query_input_notes(filter);
@@ -182,17 +189,21 @@ impl SqliteStore {
         notes: &[InputNoteRecord],
     ) -> Result<(), StoreError> {
         with_write_tx(conn, |tx| {
+            let sync_height = query_sync_height(tx)?;
             let mut scripts: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
             let mut serialized = Vec::with_capacity(notes.len());
+            let mut tracked_blocks = BTreeSet::new();
 
             for note in notes {
                 // A note that carries an inclusion proof makes its block relevant to the client.
                 if let Some(inclusion_proof) = note.inclusion_proof() {
-                    set_block_header_has_client_notes(
-                        tx,
-                        inclusion_proof.location().block_num().as_u64(),
-                        true,
-                    )?;
+                    let block_num = inclusion_proof.location().block_num();
+                    if block_num <= sync_height {
+                        check_note_at_sync_height_tx(tx, note, block_num, sync_height)?;
+                    }
+                    if set_block_header_has_client_notes(tx, block_num.as_u64(), true)? {
+                        tracked_blocks.insert(block_num);
+                    }
                 }
 
                 let note_data = serialize_input_note(note);
@@ -202,7 +213,14 @@ impl SqliteStore {
 
             // Scripts must be written before the notes that reference them by foreign key.
             batch_upsert_scripts(tx, &scripts)?;
-            batch_insert_input_notes(tx, &serialized)
+            batch_insert_input_notes(tx, &serialized)?;
+
+            // Another writer can remove the path of a block after the client read it. A block that
+            // this write makes tracked must have its full path, as for a block header insert.
+            for block_num in tracked_blocks {
+                check_tracked_paths_tx(tx, TrackedPaths::Block(block_num))?;
+            }
+            Ok(())
         })
     }
 
@@ -282,6 +300,41 @@ fn parse_input_note(row: &rusqlite::Row<'_>) -> Result<InputNoteRecord, StoreErr
     let state = proto::decode_unchecked(&state)?;
 
     Ok(InputNoteRecord::new(details, attachments, Some(created_at), state))
+}
+
+/// Refuses a note record for a block at or below the sync height that no sync completes.
+///
+/// A sync starts after the sync height, so it does not store or verify such a block. An unverified
+/// record stays unverified. An unspent record whose block header is not stored leaves its block
+/// untracked, so the block has no stored path. The client stores and authenticates the block, and
+/// then writes the record again.
+fn check_note_at_sync_height_tx(
+    tx: &Transaction<'_>,
+    note: &InputNoteRecord,
+    block_num: BlockNumber,
+    sync_height: BlockNumber,
+) -> Result<(), StoreError> {
+    if matches!(note.state(), InputNoteState::Unverified(_)) {
+        return Err(stale_chain_write(format_args!(
+            "an unverified input note has a proof for block {block_num}, which is not after the \
+             sync height {sync_height}"
+        )));
+    }
+    if note.is_unspent() {
+        const QUERY: &str = "SELECT 1 FROM block_headers WHERE block_num = ?";
+        let header_stored = tx
+            .prepare_cached(QUERY)
+            .into_store_error()?
+            .exists(params![block_num.as_u32()])
+            .into_store_error()?;
+        if !header_stored {
+            return Err(stale_chain_write(format_args!(
+                "an unspent input note has a proof for block {block_num}, which is not after the \
+                 sync height {sync_height} and has no stored header"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Serialize the provided input note into database compatible types.
