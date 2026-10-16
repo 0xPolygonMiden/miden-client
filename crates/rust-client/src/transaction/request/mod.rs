@@ -6,10 +6,10 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::num::NonZeroU16;
 
-use miden_protocol::Word;
 use miden_protocol::account::{AccountCodeInterface, AccountCodeUpgrade, AccountId};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::BlockNumber;
+use miden_protocol::crypto::SequentialCommit;
 use miden_protocol::crypto::merkle::MerkleError;
 use miden_protocol::crypto::merkle::store::MerkleStore;
 use miden_protocol::errors::{
@@ -37,7 +37,7 @@ use miden_protocol::transaction::{
     TransactionScript,
 };
 use miden_protocol::vm::AdviceMap;
-use miden_standards::account::auth::{FeeConversionInfo, commit_fee_conversion_info};
+use miden_protocol::{Felt, Word};
 use miden_standards::errors::CodeBuilderError;
 use miden_standards::tx_script::{
     ExpirationTransactionScript,
@@ -294,15 +294,22 @@ impl TransactionRequest {
         self.input_notes.push(note);
     }
 
-    /// Commits fee conversion info paying the fee in `fee_faucet_id`'s asset at rate 1/1 under
-    /// `salt`, through the auth args.
-    pub(crate) fn commit_native_fee_conversion_info(
-        &mut self,
-        fee_faucet_id: AccountId,
-        salt: Word,
-    ) {
-        let (auth_arg, preimage) =
-            commit_fee_conversion_info(FeeConversionInfo::one_to_one(fee_faucet_id), salt);
+    /// Returns this request with the auth arg set to the commitment of `auth_args`, and with their
+    /// preimage added to the advice map.
+    ///
+    /// The executing party can use this method to set auth args that only it can choose, for
+    /// example [`MultisigAuthArgs`](miden_standards::account::auth::MultisigAuthArgs) with a salt
+    /// and a bound block of its choice. The new auth args replace the previous auth args and the
+    /// declared fee conversion salt. The client tracks the bound block of multisig auth args.
+    #[must_use]
+    pub fn with_auth_args<A: SequentialCommit<Commitment = Word>>(mut self, auth_args: &A) -> Self {
+        self.commit_auth_args(auth_args.to_commitment(), auth_args.to_elements());
+        self.fee_conversion_salt = None;
+        self
+    }
+
+    /// Sets `auth_arg` and adds its `preimage` to the advice map.
+    pub(crate) fn commit_auth_args(&mut self, auth_arg: Word, preimage: Vec<Felt>) {
         self.advice_map.insert(auth_arg, preimage);
         self.auth_arg = Some(auth_arg);
     }
@@ -714,6 +721,7 @@ mod tests {
     };
     use miden_protocol::asset::FungibleAsset;
     use miden_protocol::block::account_tree::AccountTree;
+    use miden_protocol::crypto::SequentialCommit;
     use miden_protocol::note::{NoteTag, NoteType};
     use miden_protocol::testing::account_id::{
         ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
@@ -722,7 +730,7 @@ mod tests {
     };
     use miden_protocol::transaction::{AccountInputs, InputNote};
     use miden_protocol::{EMPTY_WORD, Felt, Word};
-    use miden_standards::account::auth::{Approver, AuthSingleSig};
+    use miden_standards::account::auth::{Approver, AuthSingleSig, MultisigAuthArgs};
     use miden_standards::note::P2idNote;
     use miden_standards::testing::account_component::MockAccountComponent;
     use miden_tx::utils::serde::{Deserializable, Serializable};
@@ -761,6 +769,22 @@ mod tests {
             ))
             .into()
         });
+    }
+
+    #[test]
+    fn auth_args_set_the_commitment_and_its_preimage() {
+        let auth_args = MultisigAuthArgs::new(BlockNumber::from(7u32), Word::from([1u32, 2, 3, 4]));
+
+        let request = TransactionRequestBuilder::new()
+            .fee_conversion_salt(Word::from([5u32, 6, 7, 8]))
+            .auth_args(&auth_args)
+            .build()
+            .unwrap();
+
+        let auth_arg = auth_args.to_commitment();
+        assert_eq!(request.auth_arg(), &Some(auth_arg));
+        assert_eq!(request.fee_conversion_salt(), None);
+        assert_eq!(request.advice_map().get(&auth_arg).unwrap().as_ref(), auth_args.to_elements());
     }
 
     #[test]
@@ -819,6 +843,7 @@ mod tests {
         assert!(TransactionRequest::read_from_bytes(&tx_request.to_bytes()).is_err());
     }
 
+    #[allow(deprecated)]
     fn assert_transaction_request_serialization_with<F>(auth_component: F)
     where
         F: FnOnce() -> AccountComponent,
