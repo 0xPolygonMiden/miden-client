@@ -1,6 +1,7 @@
 #![allow(clippy::items_after_statements)]
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Display;
 use std::num::NonZeroUsize;
 use std::vec::Vec;
 
@@ -313,7 +314,7 @@ pub(crate) fn check_tracked_paths_tx(
     let mut required = Vec::new();
     for block in tracked_blocks {
         let Some(indices) = tracked_leaf_path_indices(sync_height, block) else {
-            return Err(stale_chain_write(format!(
+            return Err(stale_chain_write(format_args!(
                 "tracked block {block} is after the sync height {sync_height}"
             )));
         };
@@ -331,7 +332,7 @@ pub(crate) fn check_tracked_paths_tx(
         .into_store_error()?;
 
     match required.into_iter().find(|(_, index)| !stored.contains(&index.inner())) {
-        Some((block, index)) => Err(stale_chain_write(format!(
+        Some((block, index)) => Err(stale_chain_write(format_args!(
             "tracked block {block} has no node at index {} for the sync height {sync_height}",
             index.inner()
         ))),
@@ -339,7 +340,7 @@ pub(crate) fn check_tracked_paths_tx(
     }
 }
 
-fn stale_chain_write(reason: String) -> StoreError {
+fn stale_chain_write(reason: impl Display) -> StoreError {
     StoreError::DatabaseTransientError(format!("stale chain write: {reason}"))
 }
 
