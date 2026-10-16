@@ -2567,33 +2567,52 @@ async fn partial_mmr_heal_reads_again_after_a_sync_tracks_a_later_block() {
     assert_full_path(&store_path, &node, NOTE_BLOCK, late_block).await;
 }
 
-/// A heal whose plan read the stored peaks before another writer deleted the header of the sync
-/// height stops before it requests a proof, and returns the result of a new read.
+/// A heal whose plan read the stored peaks before a sync of another client moved the sync height
+/// and pruned the header of the old sync height stops before it requests a proof, and returns the
+/// result of a new read at the new sync height.
 #[tokio::test]
 async fn partial_mmr_heal_reads_again_after_the_sync_height_header_is_deleted() {
-    let HealSetup { client, rpc, store, store_path, .. } = heal_setup(&[NOTE_BLOCK]).await;
+    let HealSetup { client, rpc, node, store, store_path } = heal_setup(&[NOTE_BLOCK]).await;
+    // The other client has its own store and node client, so its heal and its sync do not change
+    // the counts of the held client. It prunes after each sync.
+    let mut other = client_on(&store_path, node.clone(), false).await;
     delete_upper_siblings(&store_path, NOTE_BLOCK);
-    let nodes_before = stored_nodes(&store_path).await;
+    node.advance_blocks(1);
 
     store.peaks_gate.arm();
     let requests_before = rpc.proof_requests();
-    let (result, deleted) =
+    let inserts_before = store.inserts.calls();
+    let reads_before = store.partial_mmr_reads();
+    let (result, height) =
         Box::pin(while_held(&store.peaks_gate, client.get_current_partial_mmr(), async {
-            delete_header_with_sql(&store_path, HEAL_HEIGHT);
+            // The sync repairs block 1, then prunes the header of the old sync height.
+            other.sync_chain().await.unwrap();
+            other.get_sync_height().await.unwrap()
         }))
         .await;
-    deleted.expect("the heal must read the stored peaks");
-
+    let height = height.expect("the heal must read the stored peaks");
     assert!(
-        matches!(
-            &result,
-            Err(ClientError::StoreError(StoreError::BlockHeaderNotFound(block)))
-                if *block == BlockNumber::from(HEAL_HEIGHT)
-        ),
-        "the read must return the result of a new read, got {result:?}"
+        height > BlockNumber::from(HEAL_HEIGHT),
+        "the other client must sync past the heal"
     );
+    assert!(
+        store
+            .get_block_header_by_num(BlockNumber::from(HEAL_HEIGHT))
+            .await
+            .unwrap()
+            .is_none(),
+        "the sync of the other client must prune the header of the old sync height"
+    );
+
+    assert_eq!(store.partial_mmr_reads(), reads_before + 2, "the heal must read again");
     assert_eq!(rpc.proof_requests(), requests_before, "the heal must not request a proof");
-    assert_eq!(stored_nodes(&store_path).await, nodes_before, "the heal must store no node");
+    assert_eq!(store.inserts.calls(), inserts_before, "the heal must store no node");
+    let partial_mmr = result.expect("the read must return the result of a new read");
+    assert_eq!(
+        partial_mmr.forest().num_leaves(),
+        height.as_usize() + 1,
+        "the new read must be at the new sync height"
+    );
 }
 
 /// A heal whose insert the store refuses returns the result of a new read, which still fails. The
