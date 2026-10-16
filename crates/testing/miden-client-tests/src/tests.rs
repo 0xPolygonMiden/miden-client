@@ -548,14 +548,21 @@ async fn sync_state_mmr_with_in_memory_cache() {
 }
 
 /// Verifies the `get_current_partial_mmr` rebuild path: when the cache fingerprint diverges from
-/// the store (here, by untracking a block directly via the store and bypassing
-/// `cache_partial_mmr`), the next read must detect the divergence and return the rebuilt
-/// store-backed MMR rather than the stale cache.
+/// the store (here, by untracking a block with SQL, which bypasses `cache_partial_mmr`), the next
+/// read must detect the divergence and return the rebuilt store-backed MMR rather than the stale
+/// cache.
 #[tokio::test]
 async fn stale_cached_partial_mmr_is_rebuilt_from_store() {
     let (builder, rpc_api) = Box::pin(create_test_client_builder()).await;
-    let mut client =
-        TestClient::from(builder.cache_partial_mmr_in_memory(true).build().await.unwrap());
+    let store_path = create_test_store_path();
+    let mut client = TestClient::from(
+        builder
+            .sqlite_store(store_path.clone())
+            .cache_partial_mmr_in_memory(true)
+            .build()
+            .await
+            .unwrap(),
+    );
     client.ensure_genesis_in_place().await.unwrap();
     seed_mock_transaction_encryption_key(&mut client).await;
     client.insert_wallet(AccountType::Private).await.unwrap();
@@ -593,13 +600,16 @@ async fn stale_cached_partial_mmr_is_rebuilt_from_store() {
     let cached_before = client.get_current_partial_mmr().await.unwrap();
     assert!(cached_before.open(to_untrack.as_usize()).unwrap().is_some());
 
-    // Mutate the store directly to untrack the block. This bypasses `cache_partial_mmr`, so the
-    // cached fingerprint stays stale.
-    client
-        .test_store()
-        .untrack_and_prune_irrelevant_blocks(&[to_untrack], &[])
-        .await
+    // Untrack the block with SQL. This bypasses `cache_partial_mmr`, so the cached fingerprint
+    // stays stale. A prune does not untrack the block, because the block has an unspent note.
+    let updated = rusqlite::Connection::open(&store_path)
+        .unwrap()
+        .execute(
+            "UPDATE block_headers SET has_client_notes = 0 WHERE block_num = ?1",
+            [to_untrack.as_u32()],
+        )
         .unwrap();
+    assert_eq!(updated, 1);
 
     // The freshness check must detect the tracked-set divergence and rebuild from the store. A
     // blind cache hit would still report the leaf as tracked.
