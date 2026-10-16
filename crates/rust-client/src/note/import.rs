@@ -166,27 +166,43 @@ where
                     .add_note_tag(NoteTagRecord::with_note_source(*tag, details_commitment))
                     .await?;
             }
-            self.upsert_imported_note(note).await?;
+            let note = self.upsert_imported_note(note).await?;
+            // A note that is neither expected nor unverified does not need its note tag. The tag
+            // is removed only after the write, so an import that fails keeps the tag of each note.
+            if !note.is_inclusion_pending()
+                && let Some(metadata) = note.metadata()
+            {
+                self.store
+                    .remove_note_tag(NoteTagRecord::with_note_source(
+                        metadata.tag(),
+                        details_commitment,
+                    ))
+                    .await?;
+            }
             imported_commitments.push(details_commitment);
         }
 
         Ok(imported_commitments)
     }
 
-    /// Writes `note` to the store.
+    /// Writes `note` to the store and returns the record that the store accepted.
     ///
     /// The store refuses the write as stale when the write makes the block of the inclusion proof
     /// of the note tracked without its full path. It also refuses the write when that block is at
     /// or below the sync height and the note is unverified, or the note is unspent and the store
-    /// does not have the header of the block, because no sync stores or verifies that block. These
-    /// refusals occur when another writer syncs or prunes after the import read the store, and when
-    /// the import gives a stored expected note an inclusion proof without a header.
+    /// does not have the header of the block, because no sync stores or verifies that block. The
+    /// import stores and authenticates the block of each note at or below the sync height before
+    /// the write, so these refusals occur only when another writer syncs or prunes after the import
+    /// read the store.
     ///
     /// This call then reads the partial MMR again, stores and authenticates the header and the path
     /// of that block, applies the header to the note, and writes the note again, at most
     /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
     /// because a write of a note record replaces the stored record.
-    async fn upsert_imported_note(&mut self, mut note: InputNoteRecord) -> Result<(), ClientError> {
+    async fn upsert_imported_note(
+        &mut self,
+        mut note: InputNoteRecord,
+    ) -> Result<InputNoteRecord, ClientError> {
         let mut attempt = 1;
         loop {
             match self.store.upsert_input_notes(core::slice::from_ref(&note)).await {
@@ -208,7 +224,7 @@ where
                     // the block is at or below the sync height.
                     note.block_header_received(&block_header)?;
                 },
-                result => return result.map_err(Into::into),
+                result => return result.map(|()| note).map_err(Into::into),
             }
         }
     }
@@ -221,6 +237,10 @@ where
     /// node and stored in the client's store.
     ///
     /// Only records that changed as a result of the import are returned.
+    ///
+    /// A stored note whose inclusion proof names a block at or below the sync height is verified
+    /// against the authenticated header of that block. A stored note whose block is after the sync
+    /// height stays unverified and keeps its note tag, so the next sync verifies it.
     ///
     /// # Errors:
     /// - If a note doesn't exist on the node.
@@ -241,22 +261,43 @@ where
             return Err(ClientError::NoteImportError("No notes fetched from node".to_string()));
         }
 
+        let sync_height = self.get_sync_height().await?;
+        // Read only when a stored note needs the header of its block.
+        let mut partial_mmr = None;
         let mut note_records = Vec::new();
         let mut notes_to_request = vec![];
         for fetched_note in fetched_notes {
             let note_id = fetched_note.id();
             let inclusion_proof = fetched_note.inclusion_proof().clone();
+            let block_num = inclusion_proof.location().block_num();
+            let metadata = *fetched_note.metadata();
 
             let previous_note =
                 notes.get(&note_id).cloned().ok_or(ClientError::NoteImportError(format!(
                     "Failed to retrieve note with id {note_id} from node"
                 )))?;
             if let Some(mut previous_note) = previous_note {
-                if previous_note
-                    .inclusion_proof_received(inclusion_proof, *fetched_note.metadata())?
-                {
-                    self.store.remove_note_tag((&previous_note).try_into()?).await?;
-
+                if previous_note.inclusion_proof_received(inclusion_proof, metadata)? {
+                    if block_num <= sync_height {
+                        // No sync verifies a note at or below the sync height.
+                        let mut mmr = match partial_mmr.take() {
+                            Some(mmr) => mmr,
+                            None => self.get_current_partial_mmr().await?,
+                        };
+                        let block_header = self
+                            .get_and_store_authenticated_block(block_num, &mut mmr, None)
+                            .await?;
+                        partial_mmr = Some(mmr);
+                        previous_note.block_header_received(&block_header)?;
+                    } else {
+                        // The next sync finds the note only through its note tag.
+                        self.store
+                            .add_note_tag(NoteTagRecord::with_note_source(
+                                metadata.tag(),
+                                previous_note.details_commitment(),
+                            ))
+                            .await?;
+                    }
                     note_records.push(previous_note);
                 }
             } else {
@@ -272,6 +313,10 @@ where
                 let note_request = (previous_note, fetched_note, inclusion_proof);
                 notes_to_request.push(note_request);
             }
+        }
+
+        if let Some(partial_mmr) = partial_mmr {
+            self.cache_partial_mmr(partial_mmr);
         }
 
         if !notes_to_request.is_empty() {
@@ -449,16 +494,6 @@ where
 
             // `block_header_received` transitions the record's state, so it must always run.
             note_changed |= note_record.block_header_received(block_header)?;
-
-            // Once committed, the note no longer needs its expected-note tag.
-            if note_changed {
-                self.store
-                    .remove_note_tag(NoteTagRecord::with_note_source(
-                        metadata.tag(),
-                        note_record.details_commitment(),
-                    ))
-                    .await?;
-            }
 
             if note_changed {
                 note_records.push(note_record);
