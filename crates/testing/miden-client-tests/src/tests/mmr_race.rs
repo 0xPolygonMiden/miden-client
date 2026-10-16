@@ -24,7 +24,7 @@ use miden_client::rpc::domain::sync::{ChainMmrInfo, SyncTarget};
 use miden_client::rpc::domain::transaction::TransactionRecord;
 use miden_client::rpc::encryption::{AttestedTransactionEncryptionKey, SealedTransactionInputs};
 use miden_client::rpc::{NetworkNoteStatusInfo, NodeRpcClient, RpcError, RpcLimits, RpcStatusInfo};
-use miden_client::store::input_note_states::CommittedNoteState;
+use miden_client::store::input_note_states::{CommittedNoteState, ExpectedNoteState};
 use miden_client::store::{
     InputNoteRecord,
     InputNoteState,
@@ -33,7 +33,7 @@ use miden_client::store::{
     Store,
     StoreError,
 };
-use miden_client::sync::{NoteObserver, StateSync, StateSyncUpdate};
+use miden_client::sync::{NoteObserver, NoteTagRecord, StateSync, StateSyncUpdate};
 use miden_client::testing::common::{TestClient, create_test_store_path};
 use miden_client::testing::mock::{MockClient, MockRpcApi};
 use miden_client::testing::note_transport::{MockNoteTransportApi, MockNoteTransportNode};
@@ -789,6 +789,39 @@ async fn heal_setup_on(node: Arc<MockRpcApi>, notes: &[Note], note_blocks: &[u32
     }
 
     HealSetup { client, rpc, node, store, store_path }
+}
+
+/// Stores `expected` as an expected note with its metadata and tracks its note tag, as a client
+/// does for a note that its own transaction creates. Returns the note tag.
+async fn store_expected_note(store: &RefusingStore, expected: &Note) -> NoteTagRecord {
+    let metadata = *expected.metadata();
+    let state = ExpectedNoteState {
+        metadata: Some(metadata),
+        after_block_num: BlockNumber::GENESIS,
+        tag: Some(metadata.tag()),
+    };
+    let record = InputNoteRecord::new(
+        NoteDetails::from(expected.clone()),
+        expected.attachments().clone(),
+        None,
+        state.into(),
+    );
+    store.upsert_input_notes(&[record]).await.unwrap();
+    let tag = NoteTagRecord::with_note_source(metadata.tag(), expected.details_commitment());
+    store.add_note_tag(tag).await.unwrap();
+    tag
+}
+
+async fn has_note_tag(client: &Client, tag: NoteTagRecord) -> bool {
+    client.get_note_tags().await.unwrap().contains(&tag)
+}
+
+/// Returns the file that imports `expected` by its details, with a sync hint from the genesis block.
+fn expected_note_file(expected: &Note) -> NoteFile {
+    NoteFile::ExpectedNote {
+        details: expected.clone().into(),
+        sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, expected.metadata().tag()),
+    }
 }
 
 // RACE TESTS
@@ -1777,6 +1810,127 @@ async fn import_by_details_refuses_a_requested_header_that_differs_from_the_note
         "the import must refuse the requested header, got {import:?}"
     );
     assert_eq!(rpc.proof_requests(), 1);
+}
+
+// NOTE RE-IMPORT TESTS
+// ================================================================================================
+
+/// A re-import by note ID of a stored expected note in a block at or below the sync height stores
+/// and authenticates the block before the write, so the store accepts the first write of the
+/// committed record.
+#[tokio::test]
+async fn import_by_id_of_a_stored_expected_note_writes_it_committed_once() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let height = importer.get_sync_height().await.unwrap();
+    let tag = store_expected_note(&store, &notes[0]).await;
+
+    let upserts_before = store.upserts.calls();
+    importer.import_notes(&[NoteFile::NoteId(notes[0].id())]).await.unwrap();
+
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the import must commit the note, got {:?}",
+        record.state()
+    );
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 1,
+        "the store must accept the first write of the record"
+    );
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    assert!(
+        !has_note_tag(&importer, tag).await,
+        "the import must remove the note tag of the committed note"
+    );
+}
+
+/// A re-import by note ID of a stored expected note in a block after the sync height keeps the note
+/// unverified with its note tag, so the next sync verifies the note.
+#[tokio::test]
+async fn import_by_id_of_a_stored_expected_note_after_the_sync_height_keeps_its_tag() {
+    let (node, _notes, late_note) = node_with_a_late_note(&[NOTE_BLOCK]).await;
+    let (mut importer, store, _) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let tag = store_expected_note(&store, &late_note.note).await;
+    let late_block = late_note.commit(&node);
+
+    importer.import_notes(&[NoteFile::NoteId(late_note.note.id())]).await.unwrap();
+
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        matches!(record.state(), InputNoteState::Unverified(_)),
+        "the import must keep the note unverified, got {:?}",
+        record.state()
+    );
+    assert!(
+        has_note_tag(&importer, tag).await,
+        "the import must keep the note tag of the unverified note"
+    );
+
+    importer.sync_state().await.unwrap();
+    assert_eq!(importer.get_sync_height().await.unwrap(), late_block);
+    let record = importer.get_input_note(late_note.note.id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the next sync must verify the note, got {:?}",
+        record.state()
+    );
+}
+
+/// A re-import by details of a stored expected note whose writes the store refuses on every attempt
+/// returns the error of a stale chain write and keeps the note tag.
+#[tokio::test]
+async fn import_by_details_whose_writes_run_out_keeps_the_note_tag() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, _) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let tag = store_expected_note(&store, &notes[0]).await;
+
+    store.upserts.refuse_next(STALE_WRITE_ATTEMPTS);
+    let result = importer.import_notes(&[expected_note_file(&notes[0])]).await;
+
+    assert!(
+        is_stale_write(&result),
+        "the import must return the stale write, got {result:?}"
+    );
+    assert!(
+        has_note_tag(&importer, tag).await,
+        "an import that fails must keep the note tag"
+    );
+}
+
+/// An import of a note by ID and a note by details, whose first note write the store refuses on
+/// every attempt, keeps the note tag of each note.
+#[tokio::test]
+async fn import_whose_first_note_write_runs_out_keeps_the_tag_of_each_note() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK, 2]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, _) = refusing_client(node.clone(), |builder| builder).await;
+    importer.sync_state().await.unwrap();
+    let id_tag = store_expected_note(&store, &notes[0]).await;
+    let details_tag = store_expected_note(&store, &notes[1]).await;
+
+    store.upserts.refuse_next(STALE_WRITE_ATTEMPTS);
+    let note_files = [NoteFile::NoteId(notes[0].id()), expected_note_file(&notes[1])];
+    let result = importer.import_notes(&note_files).await;
+
+    assert!(
+        is_stale_write(&result),
+        "the import must return the stale write, got {result:?}"
+    );
+    assert!(
+        has_note_tag(&importer, details_tag).await,
+        "the import must keep the note tag of the note that it did not write"
+    );
+    assert!(
+        has_note_tag(&importer, id_tag).await,
+        "the import must keep the note tag of the note whose write failed"
+    );
 }
 
 // HEAL TESTS
