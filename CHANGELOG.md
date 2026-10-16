@@ -9,7 +9,7 @@
 
 ### Fixes
 
-* [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
+* [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt. Note screening finds notes that multisig accounts can consume ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
 
 ### Changes
 

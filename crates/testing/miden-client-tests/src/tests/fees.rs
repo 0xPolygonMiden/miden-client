@@ -369,6 +369,33 @@ async fn note_screening_finds_a_custom_script_note_consumable_on_a_fee_charging_
     );
 }
 
+/// A multisig auth component always loads its auth args preimage, so screening gives it auth args
+/// with a placeholder salt. The trial then reaches the signature check, and the note is consumable
+/// once the account authorizes it.
+#[tokio::test]
+async fn note_screening_finds_a_custom_script_note_consumable_by_a_multisig_account() {
+    let (client, _, account) = Box::pin(fee_charging_multisig_client()).await;
+
+    let script = client
+        .code_builder()
+        .compile_note_script(super::TARGET_BOUND_NOTE_SCRIPT)
+        .unwrap();
+    let note = NoteBuilder::new(account.id(), ChaCha20Rng::seed_from_u64(8))
+        .script(script)
+        .note_storage([account.id().suffix(), account.id().prefix().as_felt()])
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let consumability = client.note_screener().get_consumability(&note).await.unwrap();
+
+    assert_eq!(
+        consumability.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+        vec![account.id()],
+        "the multisig account should be able to consume the note it is bound to"
+    );
+}
+
 /// `check_notes_consumability` trial-executes the notes it is given the same way screening does, so
 /// it needs conversion info of its own on a fee-charging chain. This covers the second injection
 /// call site, which the screening test above does not reach.

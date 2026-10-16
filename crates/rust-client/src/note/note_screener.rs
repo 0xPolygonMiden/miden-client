@@ -23,7 +23,13 @@ use crate::rpc::domain::note::CommittedNote;
 use crate::store::data_store::ClientDataStore;
 use crate::store::{InputNoteRecord, NoteFilter, Store, StoreError};
 use crate::sync::{NoteUpdateAction, OnNoteReceived};
-use crate::transaction::{AdviceMap, AuthArgsLayout, InputNote, TransactionArgs};
+use crate::transaction::{
+    AdviceMap,
+    AuthArgsLayout,
+    InputNote,
+    NATIVE_FEE_CONVERSION_SALT,
+    TransactionArgs,
+};
 
 /// Represents the consumability of a note by a specific account.
 ///
@@ -236,9 +242,12 @@ impl NoteScreener {
             return Ok(tx_args);
         };
 
-        // Without a fee, only multisig components need auth args, and the trial cannot supply them.
-        // Returning here also skips loading the protocol configuration.
-        if header.fee_parameters().verification_base_fee() == 0 {
+        let layout = AuthArgsLayout::of(&account_code.interface(account_id));
+        let multisig = matches!(layout, AuthArgsLayout::Multisig(_));
+
+        // Without a fee, only multisig components read auth args. Returning here also skips loading
+        // the protocol configuration.
+        if header.fee_parameters().verification_base_fee() == 0 && !multisig {
             return Ok(tx_args);
         }
 
@@ -248,13 +257,13 @@ impl NoteScreener {
         )
         .await?;
 
-        // Only the single-sig layout works without a caller-declared salt. Where the salt is the
-        // replay guard of the account, the caller must choose it, so the trial runs without auth
-        // args.
-        let Ok(Some((auth_arg, preimage))) = AuthArgsLayout::of(
-            &account_code.interface(account_id),
-        )
-        .default_auth_args(None, &header, &protocol_config) else {
+        // A multisig component requires a declared salt. The trial is never submitted, so any salt
+        // works. With auth args, the trial reaches the signature check, and the checker reports the
+        // note as consumable with authorization.
+        let salt = multisig.then_some(NATIVE_FEE_CONVERSION_SALT);
+        let Ok(Some((auth_arg, preimage))) =
+            layout.default_auth_args(salt, &header, &protocol_config)
+        else {
             return Ok(tx_args);
         };
 
