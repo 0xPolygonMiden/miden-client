@@ -226,10 +226,76 @@ pub(crate) fn query_sync_height(conn: &Connection) -> Result<BlockNumber, StoreE
 
 #[cfg(test)]
 mod tests {
+    use miden_client::crypto::{Forest, PartialMmr};
+    use miden_client::note::{BlockNumber, NoteUpdateTracker};
+    use miden_client::store::{Store, StoreError};
+    use miden_client::sync::{
+        AccountUpdates,
+        PartialBlockchainUpdates,
+        StateSyncUpdate,
+        TransactionUpdateTracker,
+    };
     use rusqlite::Connection;
 
     use crate::SqliteStore;
+    use crate::chain_data::test::{mock_chain, path_nodes, set_sync_height};
     use crate::db_management::migration::SqliteMigrator;
+    use crate::tests::create_test_store;
+
+    /// Tests that the store refuses a sync update after which a tracked block lacks the siblings
+    /// that a tree merge in the update adds to its path.
+    #[tokio::test]
+    async fn apply_state_sync_rejects_update_that_drops_tracked_siblings() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(42);
+        set_sync_height(&store, &mmr, &headers, 1).await;
+
+        // At forest 2, leaf 0 has 1 sibling. At forest 42 it is in the tree of 32 leaves and has 5.
+        let tracked_block = 0;
+        Store::insert_block_header(
+            &store,
+            &headers[tracked_block],
+            &path_nodes(&mmr, &headers, tracked_block, Forest::new(2).unwrap()),
+            true,
+        )
+        .await
+        .unwrap();
+
+        // The update comes from a view that does not track the block, so it has none of the new
+        // siblings.
+        let new_height = 41;
+        let mut view = PartialMmr::from_peaks(mmr.peaks_at(Forest::new(1).unwrap()).unwrap());
+        view.add(headers[1].commitment(), false).unwrap();
+        let mut new_nodes = view
+            .apply(
+                mmr.get_delta(Forest::new(2).unwrap(), Forest::new(new_height).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+        partial_blockchain_updates.new_peaks = view.peaks();
+        new_nodes.extend(view.add(headers[new_height].commitment(), false).unwrap());
+        partial_blockchain_updates.insert(headers[new_height].clone(), false);
+        partial_blockchain_updates.extend_authentication_nodes(new_nodes);
+
+        let update = StateSyncUpdate::from_parts(
+            BlockNumber::from(u32::try_from(new_height).unwrap()),
+            partial_blockchain_updates,
+            NoteUpdateTracker::default(),
+            TransactionUpdateTracker::default(),
+            AccountUpdates::default(),
+            None,
+        );
+        let result = store.apply_state_sync(update).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "an update that leaves a tracked path short must be refused, got {result:?}"
+        );
+
+        assert_eq!(store.get_sync_height().await.unwrap(), BlockNumber::from(1u32));
+        let partial_mmr = store.get_current_partial_mmr().await.unwrap();
+        assert!(partial_mmr.open(tracked_block).unwrap().is_some());
+    }
 
     /// A missing checkpoint row is only reachable through corruption (the initial migration seeds
     /// it); it must surface as an error, not a panic.

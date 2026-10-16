@@ -285,7 +285,7 @@ pub(crate) fn set_block_header_has_client_notes(
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use std::collections::{BTreeMap, BTreeSet};
     use std::vec::Vec;
 
@@ -293,12 +293,66 @@ mod test {
     use miden_client::block::BlockHeader;
     use miden_client::crypto::{Forest, InOrderIndex, MmrPeaks};
     use miden_client::note::BlockNumber;
-    use miden_client::store::{PartialBlockchainFilter, Store};
+    use miden_client::store::{PartialBlockchainFilter, Store, StoreError};
     use miden_protocol::crypto::merkle::mmr::Mmr;
     use rusqlite::params;
 
     use crate::tests::create_test_store;
     use crate::{SqliteStore, proto};
+
+    /// Returns `count` mock block headers and the chain MMR over their commitments.
+    pub(crate) fn mock_chain(count: usize) -> (Vec<BlockHeader>, Mmr) {
+        let headers: Vec<BlockHeader> = (0..count)
+            .map(|n| BlockHeader::mock(u32::try_from(n).unwrap(), None, None, &[]))
+            .collect();
+        let mut mmr = Mmr::default();
+        for header in &headers {
+            mmr.add(header.commitment()).expect("valid MMR append");
+        }
+        (headers, mmr)
+    }
+
+    /// Moves the stored sync height to `height`: stores its header untracked and stores the peaks
+    /// over the blocks below it.
+    pub(crate) async fn set_sync_height(
+        store: &SqliteStore,
+        mmr: &Mmr,
+        headers: &[BlockHeader],
+        height: usize,
+    ) {
+        Store::insert_block_header(store, &headers[height], &[], false).await.unwrap();
+        let peaks_bytes =
+            proto::encode_mmr_peaks(&mmr.peaks_at(Forest::new(height).unwrap()).unwrap());
+        let height = i64::try_from(height).unwrap();
+        store
+            .interact_with_connection(move |conn| {
+                conn.execute(
+                    "UPDATE blockchain_checkpoint SET block_num = ?, partial_blockchain_peaks = ?",
+                    params![height, peaks_bytes],
+                )
+                .unwrap();
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    /// Returns the leaf of `block` followed by its authentication path at `forest`, in path order.
+    pub(crate) fn path_nodes(
+        mmr: &Mmr,
+        headers: &[BlockHeader],
+        block: usize,
+        forest: Forest,
+    ) -> Vec<(InOrderIndex, Word)> {
+        let proof = mmr.open_at(block, forest).unwrap();
+        let mut index = InOrderIndex::from_leaf_pos(block);
+        let mut nodes = vec![(index, headers[block].commitment())];
+        for node in proof.merkle_path().nodes() {
+            nodes.push((index.sibling(), *node));
+            index = index.parent();
+        }
+        nodes
+    }
 
     async fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> =
@@ -626,5 +680,96 @@ mod test {
 
         let proof_3 = rebuilt.open(3).expect("open succeeds");
         assert!(proof_3.is_none(), "block 3 should no longer be provable");
+    }
+
+    /// Tests that the store refuses a tracked header whose path is too short for the forest at the
+    /// stored sync height, and that it accepts a path whose missing levels are already stored.
+    #[tokio::test]
+    async fn insert_block_header_rejects_path_short_for_sync_height() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(40);
+        set_sync_height(&store, &mmr, &headers, 39).await;
+
+        // At forest 40, leaf 0 is in the tree of 32 leaves, so its path has 5 siblings.
+        let forest = Forest::new(40).unwrap();
+        let full_path = path_nodes(&mmr, &headers, 0, forest);
+        assert_eq!(full_path.len(), 6);
+
+        let result = Store::insert_block_header(&store, &headers[0], &full_path[..2], true).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "a path with 1 of 5 siblings must be refused, got {result:?}"
+        );
+        let stored = Store::get_block_headers(&store, &[0.into()].into_iter().collect())
+            .await
+            .unwrap();
+        assert!(stored.is_empty(), "the refused header must not be stored");
+        let nodes = Store::get_partial_blockchain_nodes(&store, PartialBlockchainFilter::All)
+            .await
+            .unwrap();
+        assert!(nodes.is_empty(), "the refused nodes must not be stored");
+
+        Store::insert_block_header(&store, &headers[0], &full_path, true).await.unwrap();
+
+        // Blocks 0 and 1 share every sibling above level 0, so block 1 needs only its leaf and its
+        // first sibling.
+        let block_1_path = path_nodes(&mmr, &headers, 1, forest);
+        Store::insert_block_header(&store, &headers[1], &block_1_path[..2], true)
+            .await
+            .unwrap();
+
+        let partial_mmr = Store::get_current_partial_mmr(&store).await.unwrap();
+        for block in [0, 1] {
+            let proof = partial_mmr.open(block).unwrap().expect("block is tracked");
+            assert_eq!(proof.merkle_path(), mmr.open_at(block, forest).unwrap().merkle_path());
+        }
+    }
+
+    /// Tests that a prune computed from a view that predates a tracked insert is refused when it
+    /// deletes nodes the inserted block needs.
+    #[tokio::test]
+    async fn prune_with_stale_nodes_is_rejected() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(16);
+        set_sync_height(&store, &mmr, &headers, 15).await;
+        let forest = Forest::new(16).unwrap();
+
+        let stale_block = 4;
+        let sibling_block = 5;
+        Store::insert_block_header(
+            &store,
+            &headers[stale_block],
+            &path_nodes(&mmr, &headers, stale_block, forest),
+            true,
+        )
+        .await
+        .unwrap();
+
+        // The prune view sees only the stale block, so untracking it frees its whole path.
+        let mut view = Store::get_current_partial_mmr(&store).await.unwrap();
+        let stale_nodes: Vec<InOrderIndex> =
+            view.untrack(stale_block).into_iter().map(|(index, _)| index).collect();
+
+        // The sibling block shares that whole path.
+        Store::insert_block_header(
+            &store,
+            &headers[sibling_block],
+            &path_nodes(&mmr, &headers, sibling_block, forest),
+            true,
+        )
+        .await
+        .unwrap();
+
+        let result = store
+            .untrack_and_prune_irrelevant_blocks(&[BlockNumber::from(4u32)], &stale_nodes)
+            .await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "a prune that deletes a tracked path must be refused, got {result:?}"
+        );
+
+        let partial_mmr = Store::get_current_partial_mmr(&store).await.unwrap();
+        assert!(partial_mmr.open(sibling_block).unwrap().is_some());
+        assert!(partial_mmr.is_tracked(stale_block), "the refused prune must not untrack");
     }
 }
