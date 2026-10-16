@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use miden_client::crypto::Forest;
 use miden_client::note::{
     InputNoteReader,
     NoteAssets,
@@ -13,10 +14,13 @@ use miden_client::note::{
     PartialNoteMetadata,
 };
 use miden_client::store::input_note_states::{
+    CommittedNoteState,
+    ConsumedAuthenticatedLocalNoteState,
     ConsumedExternalNoteState,
     ConsumedUnauthenticatedLocalNoteState,
     ExpectedNoteState,
     NoteSubmissionData,
+    UnverifiedNoteState,
 };
 use miden_client::store::{
     InputNoteCursor,
@@ -39,7 +43,14 @@ use miden_client::{Felt, ZERO};
 use miden_protocol::Word;
 use miden_protocol::account::AccountId;
 use miden_protocol::block::BlockNumber;
-use miden_protocol::note::{NoteAttachment, NoteAttachmentScheme, NoteDetails, NoteScript};
+use miden_protocol::crypto::merkle::SparseMerklePath;
+use miden_protocol::note::{
+    NoteAttachment,
+    NoteAttachmentScheme,
+    NoteDetails,
+    NoteInclusionProof,
+    NoteScript,
+};
 use miden_protocol::testing::account_id::{
     ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET,
     ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE,
@@ -47,6 +58,7 @@ use miden_protocol::testing::account_id::{
 use miden_protocol::transaction::TransactionId;
 use miden_standards::note::StandardNote;
 
+use crate::chain_data::test::{mock_chain, path_nodes, set_sync_height};
 use crate::tests::create_test_store;
 
 // HELPERS
@@ -1056,4 +1068,136 @@ async fn input_note_state_update_persists_attachments() {
         &attachments,
         "a state update must persist the attachments resolved for the note"
     );
+}
+
+// NOTE BLOCKS AT OR BELOW THE SYNC HEIGHT
+// ================================================================================================
+
+/// The sync height of the note block tests. Block 7 is after it.
+const NOTE_SYNC_HEIGHT: usize = 6;
+
+/// Returns an input note record whose state `state` builds from the note metadata and an inclusion
+/// proof for `block`.
+fn input_note_with_proof(
+    index: u32,
+    block: u32,
+    state: fn(NoteMetadata, NoteInclusionProof) -> InputNoteState,
+) -> InputNoteRecord {
+    let serial_number: Word =
+        [Felt::new_unchecked(u64::from(index) + 7000), ZERO, ZERO, ZERO].into();
+    let recipient = NoteRecipient::new(
+        serial_number,
+        StandardNote::SWAP.script(),
+        NoteStorage::new(vec![]).unwrap(),
+    );
+    let details = NoteDetails::new(NoteAssets::new(vec![]).unwrap(), recipient);
+    let sender = AccountId::try_from(ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE).unwrap();
+    let proof =
+        NoteInclusionProof::new(BlockNumber::from(block), 0, SparseMerklePath::default()).unwrap();
+
+    InputNoteRecord::new(
+        details,
+        NoteAttachments::empty(),
+        Some(0),
+        state(create_note_metadata(sender, index), proof),
+    )
+}
+
+fn committed_state(metadata: NoteMetadata, inclusion_proof: NoteInclusionProof) -> InputNoteState {
+    CommittedNoteState {
+        metadata,
+        inclusion_proof,
+        block_note_root: Word::default(),
+    }
+    .into()
+}
+
+fn unverified_state(metadata: NoteMetadata, inclusion_proof: NoteInclusionProof) -> InputNoteState {
+    UnverifiedNoteState { metadata, inclusion_proof }.into()
+}
+
+fn consumed_state(metadata: NoteMetadata, inclusion_proof: NoteInclusionProof) -> InputNoteState {
+    ConsumedAuthenticatedLocalNoteState {
+        metadata,
+        inclusion_proof,
+        block_note_root: Word::default(),
+        nullifier_block_height: BlockNumber::from(5u32),
+        submission_data: NoteSubmissionData {
+            submitted_at: Some(0),
+            consumer_account: metadata.sender(),
+            consumer_transaction: TransactionId::from_raw(Word::default()),
+        },
+        consumed_tx_order: None,
+    }
+    .into()
+}
+
+/// A sync starts after the sync height, so no sync stores the header of a note block at or below
+/// it. The store refuses an unspent note of such a block when it does not have the header of the
+/// block, and writes no note of the batch.
+#[tokio::test]
+async fn upsert_refuses_an_unspent_note_of_a_block_without_a_header_at_the_sync_height() {
+    let store = create_test_store().await;
+    let (headers, mmr) = mock_chain(NOTE_SYNC_HEIGHT + 2);
+    set_sync_height(&store, &mmr, &headers, NOTE_SYNC_HEIGHT).await;
+
+    let result = store
+        .upsert_input_notes(&[
+            input_note_with_proof(0, 7, committed_state),
+            input_note_with_proof(1, 3, committed_state),
+        ])
+        .await;
+    assert!(
+        matches!(result, Err(StoreError::DatabaseTransientError(_))),
+        "an unspent note of a block without a header must be refused, got {result:?}"
+    );
+    assert!(store.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    // A consumed note of a pruned block, and an unspent note after the sync height, need no header.
+    store
+        .upsert_input_notes(&[
+            input_note_with_proof(2, 3, consumed_state),
+            input_note_with_proof(3, 7, committed_state),
+        ])
+        .await
+        .unwrap();
+    assert_eq!(store.get_input_notes(NoteFilter::All).await.unwrap().len(), 2);
+}
+
+/// The store refuses an unverified note of a block at or below the sync height, because no sync
+/// verifies it. The block is tracked with its full path, so only the state of the note can cause
+/// the refusal.
+#[tokio::test]
+async fn upsert_refuses_an_unverified_note_at_the_sync_height() {
+    let store = create_test_store().await;
+    let (headers, mmr) = mock_chain(NOTE_SYNC_HEIGHT + 2);
+    set_sync_height(&store, &mmr, &headers, NOTE_SYNC_HEIGHT).await;
+    let block = 3;
+    let forest = Forest::new(NOTE_SYNC_HEIGHT + 1).unwrap();
+    Store::insert_block_header(
+        &store,
+        &headers[block],
+        &path_nodes(&mmr, &headers, block, forest),
+        true,
+    )
+    .await
+    .unwrap();
+
+    let result = store.upsert_input_notes(&[input_note_with_proof(0, 3, unverified_state)]).await;
+    assert!(
+        matches!(result, Err(StoreError::DatabaseTransientError(_))),
+        "an unverified note at the sync height must be refused, got {result:?}"
+    );
+    assert!(store.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
+
+    // A committed note of the same block, and an unverified note after the sync height, are
+    // accepted.
+    store
+        .upsert_input_notes(&[
+            input_note_with_proof(1, 3, committed_state),
+            input_note_with_proof(2, 7, unverified_state),
+        ])
+        .await
+        .unwrap();
+    assert_eq!(store.get_input_notes(NoteFilter::All).await.unwrap().len(), 2);
 }

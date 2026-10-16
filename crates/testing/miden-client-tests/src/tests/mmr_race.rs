@@ -34,14 +34,16 @@ use miden_client::store::{
     StoreError,
 };
 use miden_client::sync::{NoteObserver, StateSync, StateSyncUpdate};
-use miden_client::testing::common::create_test_store_path;
+use miden_client::testing::common::{TestClient, create_test_store_path};
 use miden_client::testing::mock::{MockClient, MockRpcApi};
 use miden_client::testing::note_transport::{MockNoteTransportApi, MockNoteTransportNode};
+use miden_client::transaction::{PswapTransactionData, TransactionRequestBuilder};
 use miden_client::utils::{RwLock, Serializable};
 use miden_client::{ClientError, Word};
 use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
-use miden_protocol::account::AccountId;
+use miden_protocol::account::{AccountId, AccountType};
 use miden_protocol::address::NetworkId;
+use miden_protocol::asset::{AssetAmount, FungibleAsset};
 use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::{BlockHeader, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::{MmrError, MmrProof};
@@ -50,13 +52,18 @@ use miden_protocol::note::{Note, NoteId, NoteInclusionProof, NoteScript, NoteTag
 use miden_protocol::transaction::{ExecutedTransaction, ProvenTransaction, RawOutputNote};
 use miden_protocol::vm::ExecutionProof;
 use miden_protocol::{BLOCK_NOTE_TREE_DEPTH, Felt};
+use miden_standards::note::{PswapNote, PswapNoteAttachment};
 use miden_standards::testing::note::NoteBuilder;
 use miden_testing::MockChainBuilder;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use refusing_store::RefusingStore;
 
-use crate::tests::seed_mock_transaction_encryption_key;
+use crate::tests::{
+    create_prebuilt_mock_chain,
+    create_pswap_test_client,
+    seed_mock_transaction_encryption_key,
+};
 
 mod refusing_store;
 
@@ -1244,6 +1251,58 @@ async fn import_by_proof_stores_a_block_pruned_after_its_read() {
     );
 }
 
+/// An import whose note record waits while another client syncs and prunes the note block, which
+/// deletes the header of the block, stores the block again with its full path and commits the note.
+#[tokio::test]
+async fn import_stores_a_note_block_that_a_prune_deletes_before_the_note_write() {
+    let (node, notes) = node_with_notes(&[NOTE_BLOCK]).await;
+    node.advance_blocks(10);
+    let (mut importer, store, store_path) = refusing_client(node.clone(), |builder| builder).await;
+    let mut pruner = build_client(
+        ClientBuilder::new()
+            .rpc(node.clone())
+            .sqlite_store(store_path.clone())
+            .irrelevant_block_prune_interval(Some(1)),
+    )
+    .await;
+    importer.sync_state().await.unwrap();
+    node.advance_blocks(1);
+
+    store.upsert_gate.arm();
+    let upserts_before = store.upserts.calls();
+    let note_files = [NoteFile::NoteId(notes[0].id())];
+    let (import, header_after_prune) =
+        Box::pin(while_held(&store.upsert_gate, importer.import_notes(&note_files), async {
+            pruner.sync_chain().await.unwrap();
+            SqliteStore::new(store_path.clone())
+                .await
+                .unwrap()
+                .get_block_header_by_num(BlockNumber::from(NOTE_BLOCK))
+                .await
+                .unwrap()
+        }))
+        .await;
+    assert!(
+        header_after_prune.expect("the import must write the note record").is_none(),
+        "the sync must prune the header of the note block"
+    );
+
+    import.expect("the import must store the block again and succeed");
+    let height = importer.get_sync_height().await.unwrap();
+    assert_full_path(&store_path, &node, NOTE_BLOCK, height).await;
+    let record = importer.get_input_note(notes[0].id()).await.unwrap().unwrap();
+    assert!(
+        record.is_committed(),
+        "the import must commit the note, got {:?}",
+        record.state()
+    );
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 2,
+        "the store must refuse the first write of the record"
+    );
+}
+
 /// An import by proof of a note in a block after the sync height, whose block another client syncs
 /// to before the import writes the record, succeeds and stores the full path of that block.
 #[tokio::test]
@@ -1270,7 +1329,11 @@ async fn import_by_proof_of_a_future_note_survives_a_sync_to_its_block() {
         .await
         .unwrap()
         .expect("the note must be stored");
-    assert!(record.inclusion_proof().is_some());
+    assert!(
+        record.is_committed(),
+        "the import must verify the note against its block, got {:?}",
+        record.state()
+    );
     assert_full_path(&store_path, &node, late_block.as_u32(), late_block).await;
 }
 
@@ -1374,6 +1437,86 @@ async fn sync_state_retries_a_refused_write_and_commits_a_transport_note() {
         .unwrap()
         .expect("the note must be stored");
     assert!(record.is_committed(), "the sync must commit the note, got {:?}", record.state());
+}
+
+/// A full sync whose PSWAP round note write the store refuses once fetches the chain again and
+/// stores the round note. The order is private, so only the round applies the payback note.
+#[tokio::test]
+async fn sync_state_fetches_again_after_a_refused_pswap_round_note_write() {
+    let node = MockRpcApi::new(Box::pin(create_prebuilt_mock_chain()).await);
+    let (creator, store, _) = refusing_client(Arc::new(node.clone()), |builder| builder).await;
+    let mut creator = TestClient::from(creator);
+    let mut filler = create_pswap_test_client(&node).await;
+
+    let (creator_wallet, offered_faucet) =
+        creator.setup_wallet_and_faucet(AccountType::Private).await.unwrap();
+    let (filler_wallet, requested_faucet) =
+        filler.setup_wallet_and_faucet(AccountType::Private).await.unwrap();
+    creator
+        .mint_and_consume(creator_wallet.id(), offered_faucet.id(), NoteType::Private)
+        .await
+        .unwrap();
+    node.prove_block();
+    creator.sync_state().await.unwrap();
+    filler
+        .mint_and_consume(filler_wallet.id(), requested_faucet.id(), NoteType::Private)
+        .await
+        .unwrap();
+    node.prove_block();
+    filler.sync_state().await.unwrap();
+
+    let pswap_data = PswapTransactionData::new(
+        creator_wallet.id(),
+        FungibleAsset::new(offered_faucet.id(), 100).unwrap(),
+        FungibleAsset::new(requested_faucet.id(), 50).unwrap(),
+    );
+    let create_request = TransactionRequestBuilder::new()
+        .build_pswap_create(&pswap_data, NoteType::Private, NoteType::Private, None, creator.rng())
+        .unwrap();
+    let pswap_note = create_request.expected_output_own_notes()[0].clone();
+    let pswap = PswapNote::try_from(&pswap_note).unwrap();
+    Box::pin(creator.submit_new_transaction(creator_wallet.id(), create_request))
+        .await
+        .unwrap();
+    node.prove_block();
+    creator.sync_state().await.unwrap();
+
+    let fill_amount = AssetAmount::new(25).unwrap();
+    let fill_request = TransactionRequestBuilder::new()
+        .build_pswap_consume(&pswap_note, filler_wallet.id(), fill_amount, AssetAmount::ZERO)
+        .unwrap();
+    Box::pin(filler.submit_new_transaction(filler_wallet.id(), fill_request))
+        .await
+        .unwrap();
+    node.prove_block();
+    filler.sync_state().await.unwrap();
+
+    store.upserts.refuse_next(1);
+    let upserts_before = store.upserts.calls();
+    creator
+        .sync_state()
+        .await
+        .expect("the sync must fetch the chain again and succeed");
+
+    let lineage = creator.pswap_lineage(pswap.order_id()).await.unwrap().unwrap();
+    assert_eq!(lineage.current_depth, 1, "the sync must apply the round");
+    let payback_attachment = PswapNoteAttachment::new(fill_amount, pswap.order_id(), 1);
+    let payback_id = pswap.payback_note(filler_wallet.id(), &payback_attachment).unwrap().id();
+    let payback = creator
+        .get_input_note(payback_id)
+        .await
+        .unwrap()
+        .expect("the sync must store the payback note");
+    assert!(
+        payback.is_committed(),
+        "the payback must be committed, got {:?}",
+        payback.state()
+    );
+    assert_eq!(
+        store.upserts.calls(),
+        upserts_before + 3,
+        "the refused payback write, then the payback and the remainder writes"
+    );
 }
 
 /// A full sync whose write the store refuses on every attempt returns the error of a stale chain

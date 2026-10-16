@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::env::temp_dir;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use miden_client::account::{Account, AccountType};
@@ -25,7 +26,7 @@ use miden_client::note_transport::{
     NoteTransportError,
 };
 use miden_client::store::input_note_states::{InvalidNoteState, UnverifiedNoteState};
-use miden_client::store::{InputNoteRecord, NoteFilter, SettingScope};
+use miden_client::store::{InputNoteRecord, NoteFilter, SettingScope, Store};
 use miden_client::sync::{NoteTagRecord, NoteTagSource};
 use miden_client::testing::common::{TestClient, create_test_store_path};
 use miden_client::testing::mock::{MockClient, MockRpcApi};
@@ -37,7 +38,7 @@ use miden_client::testing::note_transport::{
 use miden_client::transaction::TransactionRequestBuilder;
 use miden_client::utils::RwLock;
 use miden_client::{ClientError, Deserializable};
-use miden_client_sqlite_store::ClientBuilderSqliteExt;
+use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
 use miden_protocol::Word;
 use miden_protocol::account::{
     AccountId,
@@ -224,18 +225,26 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
     let invalid_inclusion_proof =
         NoteInclusionProof::new(note_block, 0, SparseMerklePath::default()).unwrap();
 
-    for state in [
-        UnverifiedNoteState {
-            metadata: *note.metadata(),
-            inclusion_proof: committed.inclusion_proof().unwrap().clone(),
-        }
-        .into(),
-        InvalidNoteState {
-            metadata: *note.metadata(),
-            invalid_inclusion_proof,
-            block_note_root: Word::default(),
-        }
-        .into(),
+    let store_path = PathBuf::from(client.test_store().identifier());
+
+    for (state, stage_with_sql) in [
+        (
+            UnverifiedNoteState {
+                metadata: *note.metadata(),
+                inclusion_proof: committed.inclusion_proof().unwrap().clone(),
+            }
+            .into(),
+            true,
+        ),
+        (
+            InvalidNoteState {
+                metadata: *note.metadata(),
+                invalid_inclusion_proof,
+                block_note_root: Word::default(),
+            }
+            .into(),
+            false,
+        ),
     ] {
         let record = InputNoteRecord::new(
             committed.details().clone(),
@@ -243,7 +252,13 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
             committed.created_at(),
             state,
         );
-        client.test_store().upsert_input_notes(&[record]).await.unwrap();
+        if stage_with_sql {
+            // The store refuses an unverified record for a block at or below the sync height. A
+            // store that an older client wrote can hold one.
+            replace_state_with_sql(&store_path, &record).await;
+        } else {
+            client.test_store().upsert_input_notes(&[record]).await.unwrap();
+        }
         client
             .test_store()
             .remove_setting(SettingScope::Client, NOTE_TRANSPORT_CURSORS_KEY.into())
@@ -253,6 +268,36 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
         client.fetch_private_notes().await.unwrap();
         assert!(client.get_input_note(note.id()).await.unwrap().unwrap().is_committed());
     }
+}
+
+/// Replaces the stored state of the note of `record` with the state of `record`, through SQL.
+///
+/// The state column holds the encoding of the store, so the record is first written to an empty
+/// store, whose sync height is the genesis block.
+async fn replace_state_with_sql(store_path: &Path, record: &InputNoteRecord) {
+    let scratch_path = create_test_store_path();
+    SqliteStore::new(scratch_path.clone())
+        .await
+        .unwrap()
+        .upsert_input_notes(std::slice::from_ref(record))
+        .await
+        .unwrap();
+    let (discriminant, state): (u8, Vec<u8>) = rusqlite::Connection::open(&scratch_path)
+        .unwrap()
+        .query_row("SELECT state_discriminant, state FROM input_notes", [], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })
+        .unwrap();
+
+    let updated = rusqlite::Connection::open(store_path)
+        .unwrap()
+        .execute(
+            "UPDATE input_notes SET state_discriminant = ?1, state = ?2 \
+             WHERE details_commitment = ?3",
+            rusqlite::params![discriminant, state, record.details_commitment().to_bytes()],
+        )
+        .unwrap();
+    assert_eq!(updated, 1, "the store must hold the note");
 }
 
 /// Verifies that cursor-based pagination works: a second sync only receives newly sent notes.

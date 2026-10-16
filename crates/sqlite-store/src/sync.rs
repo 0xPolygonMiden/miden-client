@@ -320,6 +320,51 @@ mod tests {
         assert!(partial_mmr.open(tracked_block).unwrap().is_some());
     }
 
+    /// Tests that the store refuses a sync update that does not move the sync height but tracks a
+    /// block without its full path. A stale update with no recorded start does that.
+    #[tokio::test]
+    async fn apply_state_sync_rejects_a_tracked_block_without_its_path_below_the_sync_height() {
+        let store = create_test_store().await;
+        let (headers, mmr) = mock_chain(42);
+        set_sync_height(&store, &mmr, &headers, 41).await;
+
+        // At forest 2, leaf 1 has 1 sibling. At forest 42 it is in the tree of 32 leaves and has 5.
+        let tracked_block = 1;
+        let stale_height = 40;
+        let mut partial_blockchain_updates = PartialBlockchainUpdates::default();
+        partial_blockchain_updates.new_peaks =
+            mmr.peaks_at(Forest::new(stale_height).unwrap()).unwrap();
+        partial_blockchain_updates.insert(headers[tracked_block].clone(), true);
+        partial_blockchain_updates.extend_authentication_nodes(path_nodes(
+            &mmr,
+            &headers,
+            tracked_block,
+            Forest::new(2).unwrap(),
+        ));
+
+        let update = StateSyncUpdate::from_parts(
+            BlockNumber::from(u32::try_from(stale_height).unwrap()),
+            partial_blockchain_updates,
+            NoteUpdateTracker::default(),
+            TransactionUpdateTracker::default(),
+            AccountUpdates::default(),
+            None,
+        );
+        assert!(update.block_from().is_none());
+        let result = store.apply_state_sync(update).await;
+        assert!(
+            matches!(result, Err(StoreError::DatabaseTransientError(_))),
+            "an update that tracks a block without its full path must be refused, got {result:?}"
+        );
+
+        assert_eq!(store.get_sync_height().await.unwrap(), BlockNumber::from(41u32));
+        assert!(
+            store.get_tracked_block_header_numbers().await.unwrap().is_empty(),
+            "a refused update must track no block"
+        );
+        store.get_current_partial_mmr().await.expect("the store must stay readable");
+    }
+
     /// A missing checkpoint row is only reachable through corruption (the initial migration seeds
     /// it); it must surface as an error, not a panic.
     #[test]
