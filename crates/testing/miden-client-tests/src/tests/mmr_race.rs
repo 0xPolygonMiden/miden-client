@@ -577,11 +577,11 @@ async fn import_by_proof_across_a_sync_stores_the_full_path() {
     rpc.proof_gate.arm();
     let note_files = [NoteFile::NoteId(notes[0].id())];
     let (import, height_after) =
-        while_held(&rpc.proof_gate, importer.import_notes(&note_files), async {
+        Box::pin(while_held(&rpc.proof_gate, importer.import_notes(&note_files), async {
             node.advance_blocks(40);
             syncer.sync_state().await.unwrap();
             syncer.get_sync_height().await.unwrap()
-        })
+        }))
         .await;
     let height_after = height_after.expect("the import must request the block proof");
     assert!(path_depth(height_after, NOTE_BLOCK) > path_depth(height_before, NOTE_BLOCK));
@@ -614,11 +614,11 @@ async fn import_by_details_across_a_sync_stores_the_full_path() {
         sync_hint: NoteSyncHint::new(BlockNumber::GENESIS, notes[0].metadata().tag()),
     }];
     let (import, height_after) =
-        while_held(&rpc.sync_notes_gate, importer.import_notes(&note_files), async {
+        Box::pin(while_held(&rpc.sync_notes_gate, importer.import_notes(&note_files), async {
             node.advance_blocks(40);
             syncer.sync_state().await.unwrap();
             syncer.get_sync_height().await.unwrap()
-        })
+        }))
         .await;
     let height_after = height_after.expect("the import must sync the notes");
     assert!(path_depth(height_after, NOTE_BLOCK) > path_depth(height_before, NOTE_BLOCK));
@@ -648,11 +648,11 @@ async fn sync_across_an_import_is_refused_then_retried() {
     state_sync.fetch_nullifiers(&mut chain_sync_data).await.unwrap();
 
     let note_files = [NoteFile::NoteId(notes[0].id())];
-    let (apply, import) = while_held(
+    let (apply, import) = Box::pin(while_held(
         &gate,
         syncer.apply_chain_updates(&state_sync, chain_sync_data),
         importer.import_notes(&note_files),
-    )
+    ))
     .await;
     import.expect("the sync must reach its hook").expect("the import must succeed");
     assert!(is_stale_write(&apply), "the stale sync must be refused, got {apply:?}");
@@ -687,15 +687,18 @@ async fn sync_from_a_stale_sync_height_is_refused() {
     state_sync.fetch_nullifiers(&mut chain_sync_data).await.unwrap();
 
     let store = SqliteStore::new(store_path.clone()).await.unwrap();
-    let (apply, checkpoint) =
-        while_held(&gate, stale.apply_chain_updates(&state_sync, chain_sync_data), async {
+    let (apply, checkpoint) = Box::pin(while_held(
+        &gate,
+        stale.apply_chain_updates(&state_sync, chain_sync_data),
+        async {
             other.sync_chain().await.unwrap();
             (
                 store.get_sync_height().await.unwrap(),
                 store.get_current_blockchain_peaks().await.unwrap(),
             )
-        })
-        .await;
+        },
+    ))
+    .await;
     let (height, peaks) = checkpoint.expect("the sync must reach its hook");
 
     assert!(is_stale_write(&apply), "the stale sync must be refused, got {apply:?}");
@@ -727,11 +730,11 @@ async fn cached_partial_mmr_sees_a_block_tracked_during_a_sync() {
     state_sync.fetch_nullifiers(&mut chain_sync_data).await.unwrap();
 
     let note_files = [NoteFile::NoteId(notes[0].id())];
-    let (apply, import) = while_held(
+    let (apply, import) = Box::pin(while_held(
         &gate,
         cached.apply_chain_updates(&state_sync, chain_sync_data),
         importer.import_notes(&note_files),
-    )
+    ))
     .await;
     import.expect("the sync must reach its hook").expect("the import must succeed");
     apply.expect("a sync that keeps the tracked path complete must succeed");
