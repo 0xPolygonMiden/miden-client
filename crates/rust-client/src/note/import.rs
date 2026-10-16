@@ -166,7 +166,7 @@ where
                     .add_note_tag(NoteTagRecord::with_note_source(*tag, details_commitment))
                     .await?;
             }
-            self.upsert_imported_note(&note).await?;
+            self.upsert_imported_note(note).await?;
             imported_commitments.push(details_commitment);
         }
 
@@ -176,15 +176,20 @@ where
     /// Writes `note` to the store.
     ///
     /// The store refuses the write as stale when the write makes the block of the inclusion proof
-    /// of the note tracked without its full path. Another writer changed the chain data after the
-    /// import stored the block. This call then reads the partial MMR again, stores the header and
-    /// the path of that block, and writes the note again, at most [`MAX_STALE_WRITE_ATTEMPTS`]
-    /// times. An earlier note of the same import stays written, because a write of a note record
-    /// replaces the stored record.
-    async fn upsert_imported_note(&mut self, note: &InputNoteRecord) -> Result<(), ClientError> {
+    /// of the note tracked without its full path. It also refuses the write when that block is at
+    /// or below the sync height and the note is unverified, or the note is unspent and the store
+    /// does not have the header of the block, because no sync stores or verifies that block. These
+    /// refusals occur when another writer syncs or prunes after the import read the store, and when
+    /// the import gives a stored expected note an inclusion proof without a header.
+    ///
+    /// This call then reads the partial MMR again, stores and authenticates the header and the path
+    /// of that block, applies the header to the note, and writes the note again, at most
+    /// [`MAX_STALE_WRITE_ATTEMPTS`] times. An earlier note of the same import stays written,
+    /// because a write of a note record replaces the stored record.
+    async fn upsert_imported_note(&mut self, mut note: InputNoteRecord) -> Result<(), ClientError> {
         let mut attempt = 1;
         loop {
-            match self.store.upsert_input_notes(core::slice::from_ref(note)).await {
+            match self.store.upsert_input_notes(core::slice::from_ref(&note)).await {
                 Err(StoreError::DatabaseTransientError(err))
                     if attempt < MAX_STALE_WRITE_ATTEMPTS =>
                 {
@@ -195,9 +200,13 @@ where
                     warn!(%block_num, %err, "store refused a note record; storing its block again");
                     attempt += 1;
                     let mut partial_mmr = self.read_partial_mmr_uncached().await?;
-                    self.get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
+                    let block_header = self
+                        .get_and_store_authenticated_block(block_num, &mut partial_mmr, None)
                         .await?;
                     self.cache_partial_mmr(partial_mmr);
+                    // The header verifies an unverified note. A later sync does not do it, because
+                    // the block is at or below the sync height.
+                    note.block_header_received(&block_header)?;
                 },
                 result => return result.map_err(Into::into),
             }

@@ -128,7 +128,9 @@ impl SqliteStore {
             )?;
 
             // A tree merge at the new sync height adds levels to the paths of tracked blocks. The
-            // update has the new nodes only for the blocks in the view that it was computed from.
+            // update has the new nodes only for the blocks in the view that it was computed from. A
+            // block that the update tracks must also have its full path when the sync height does
+            // not move, as in a stale update with no recorded start.
             if checkpoint_moved || tracks_block {
                 check_tracked_paths_tx(db_tx, TrackedPaths::All)?;
             }

@@ -233,7 +233,9 @@ impl StateSync {
 
     /// Attaches a [`NoteObserver`] to this sync component. Observers run in attachment order
     /// *before* the screener verdict; failures are logged (tagged with [`NoteObserver::name`]) and
-    /// never abort sync.
+    /// do not abort the sync. The exception is a [`StoreError::DatabaseTransientError`] from
+    /// [`NoteObserver::apply`], which fails the sync so that the sync fetches the chain updates
+    /// again.
     #[must_use]
     pub fn with_note_observer(mut self, observer: Arc<dyn NoteObserver>) -> Self {
         self.note_observers.push(observer);
@@ -256,17 +258,28 @@ impl StateSync {
     /// Runs each attached observer's `apply()` hook against `state_sync_update`. Called by the
     /// orchestrator after [`Self::sync_state`] returns but before the caller persists the sync
     /// update. Per-observer failures are logged (tagged with the observer's [`NoteObserver::name`])
-    /// and never abort the rest of the pass — symmetric with the per-note `observe()` dispatcher.
+    /// and do not stop the other hooks, as in the per-note `observe()` dispatcher.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first [`StoreError::DatabaseTransientError`] that a hook returns, and runs no
+    /// later hook. The store refused a stale chain write of the hook, so the caller must fetch the
+    /// chain updates again, as the sync retry does.
     pub(crate) async fn run_apply_hooks(
         &self,
         state_sync_update: &StateSyncUpdate,
     ) -> Result<(), ClientError> {
         for observer in &self.note_observers {
-            crate::errors::log_observer_failure(
-                observer.name(),
-                "NoteObserver::apply",
-                observer.apply(state_sync_update).await,
-            );
+            match observer.apply(state_sync_update).await {
+                Err(err @ ClientError::StoreError(StoreError::DatabaseTransientError(_))) => {
+                    return Err(err);
+                },
+                result => crate::errors::log_observer_failure(
+                    observer.name(),
+                    "NoteObserver::apply",
+                    result,
+                ),
+            }
         }
         Ok(())
     }

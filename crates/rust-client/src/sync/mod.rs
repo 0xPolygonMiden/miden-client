@@ -245,8 +245,8 @@ where
         let state_sync_update = StateSync::build_update(chain_sync_data, &mut partial_mmr)?;
 
         let sync_summary: SyncSummary = (&state_sync_update).into();
-        // Post-sync observer hooks; run before persisting. Per-observer errors are logged, not
-        // propagated.
+        // Post-sync observer hooks run before the store write. A stale chain write of a hook fails
+        // this call, and the other hook errors are only logged.
         state_sync.run_apply_hooks(&state_sync_update).await?;
 
         info!("Applying changes to the store.");

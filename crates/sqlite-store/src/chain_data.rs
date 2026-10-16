@@ -352,7 +352,7 @@ pub(crate) fn check_tracked_paths_tx(
     }
 }
 
-fn stale_chain_write(reason: impl Display) -> StoreError {
+pub(crate) fn stale_chain_write(reason: impl Display) -> StoreError {
     StoreError::DatabaseTransientError(format!("stale chain write: {reason}"))
 }
 
