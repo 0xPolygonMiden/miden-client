@@ -6,9 +6,9 @@
 use std::string::String;
 use std::vec::Vec;
 
-use miden_client::Word;
-use miden_client::store::StoreError;
+use miden_client_core::errors::StoreError;
 use miden_client_proto::{self as proto, ProtobufValue};
+use miden_protocol::Word;
 use rusqlite::types::FromSql;
 use rusqlite::{Connection, OptionalExtension, ToSql, params};
 
@@ -145,7 +145,7 @@ impl SqliteStore {
 
 #[cfg(test)]
 mod tests {
-    use miden_client::store::Store;
+    use miden_client_core::store::Store;
 
     use crate::tests::create_test_store;
 

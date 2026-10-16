@@ -38,6 +38,7 @@ use crate::{Client, ClientError};
 pub const NOTE_TRANSPORT_MAINNET_ENDPOINT: &str = "https://transport.mainnet.miden.io";
 pub const NOTE_TRANSPORT_TESTNET_ENDPOINT: &str = "https://transport.miden.io";
 pub const NOTE_TRANSPORT_DEVNET_ENDPOINT: &str = "https://transport.devnet.miden.io";
+pub use miden_client_core::note_transport::NoteTransportCursor;
 
 type NoteTransportCursors = BTreeMap<NoteTag, NoteTransportCursor>;
 /// Maximum number of note tags in one transport fetch request. The service rejects larger requests.
@@ -485,32 +486,6 @@ fn validate_transport_page(
     })
 }
 
-/// Note transport cursor
-///
-/// Identifies a position in the note transport service's stored-note sequence.
-///
-/// The sequence is global across tags in one service database. Compare sequences only when their
-/// nonces match.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct NoteTransportCursor(Option<(u64, u64)>);
-
-impl NoteTransportCursor {
-    /// Returns the cursor that starts from the first retained note.
-    pub fn init() -> Self {
-        Self(None)
-    }
-
-    /// Builds a cursor from the nonce and sequence returned by the transport service.
-    pub fn from_parts(nonce: u64, sequence: u64) -> Self {
-        Self(Some((nonce, sequence)))
-    }
-
-    /// Returns the nonce and sequence, or `None` for the initial cursor.
-    pub fn parts(&self) -> Option<(u64, u64)> {
-        self.0
-    }
-}
-
 /// The part of a note that the note transport network sends to a recipient.
 ///
 /// The transport sends the original header and details. It does not send note attachments. The
@@ -656,18 +631,6 @@ impl Deserializable for NoteInfo {
         let details_bytes = Vec::<u8>::read_from(source)?;
         let block_hint = Option::<BlockNumber>::read_from(source)?;
         Ok(NoteInfo { header, details_bytes, block_hint })
-    }
-}
-
-impl Serializable for NoteTransportCursor {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        self.0.write_into(target);
-    }
-}
-
-impl Deserializable for NoteTransportCursor {
-    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        Ok(Self(Option::<(u64, u64)>::read_from(source)?))
     }
 }
 

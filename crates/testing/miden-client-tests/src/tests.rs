@@ -5,13 +5,13 @@ use std::println;
 use std::sync::Arc;
 
 use miden_client::ClientError;
+use miden_client::account::standards::auth::AuthSingleSig;
 use miden_client::account::{Address, AddressInterface};
 use miden_client::address::RoutingParameters;
 use miden_client::assembly::CodeBuilder;
 use miden_client::auth::{
     AuthSchemeId,
     AuthSecretKey,
-    AuthSingleSig,
     ECDSA_K256_KECCAK_SCHEME_ID,
     PublicKeyCommitment,
 };
@@ -29,8 +29,6 @@ use miden_client::rpc::NodeRpcClient;
 use miden_client::rpc::encryption::TransactionEncryptionKey;
 use miden_client::store::input_note_states::ConsumedAuthenticatedLocalNoteState;
 use miden_client::store::{
-    AccountStorageFilter,
-    ClientAccountType,
     InputNoteRecord,
     InputNoteState,
     NoteFilter,
@@ -63,7 +61,8 @@ use miden_client::transaction::{
     TransactionStatus,
 };
 use miden_client::utils::{Deserializable, Serializable};
-use miden_client_sqlite_store::{ClientBuilderSqliteExt, SqliteStore};
+use miden_client_core::store::{AccountStorageFilter, ClientAccountType};
+use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::account::{
     Account,
     AccountBuilder,
@@ -4878,7 +4877,7 @@ async fn prepare_offline_bootstrap_inserts_mock_chain_genesis() {
 
     let mut client = ClientBuilder::new()
         .rpc(Arc::new(MockRpcApi::default()))
-        .sqlite_store(create_test_store_path())
+        .store(Arc::new(SqliteStore::new(create_test_store_path()).await.unwrap()))
         .authenticator(Arc::new(FilesystemKeyStore::new(temp_dir()).unwrap()))
         .build()
         .await

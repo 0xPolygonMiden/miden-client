@@ -2,10 +2,10 @@ use std::sync::LazyLock;
 
 use miden_client::account::AccountId;
 use miden_client::note::{NoteDetailsCommitment, NoteTag};
-use miden_client::sync::NoteTagSource;
 use miden_client::testing::common::ACCOUNT_ID_REGULAR;
 use miden_client::utils::{Deserializable, Serializable};
 use miden_client::{ONE, Word, ZERO};
+use miden_client_core::sync::NoteTagSource;
 use rusqlite::{Connection, Transaction, params};
 use rusqlite_migration::{HookError, HookResult};
 

@@ -4,12 +4,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use assert_matches::assert_matches;
-use miden_client::account::component::{
-    AccountComponent,
-    AccountComponentMetadata,
-    Approver,
-    BasicWallet,
-};
+use miden_client::account::component::{AccountComponent, AccountComponentMetadata};
+use miden_client::account::standards::auth::{Approver, AuthSingleSig};
+use miden_client::account::standards::wallets::BasicWallet;
 use miden_client::account::{
     Account,
     AccountBuilder,
@@ -23,7 +20,7 @@ use miden_client::account::{
 };
 use miden_client::assembly::CodeBuilder;
 use miden_client::asset::{Asset, AssetAmount, FungibleAsset};
-use miden_client::auth::{AuthSchemeId, AuthSecretKey, AuthSingleSig, ECDSA_K256_KECCAK_SCHEME_ID};
+use miden_client::auth::{AuthSchemeId, AuthSecretKey, ECDSA_K256_KECCAK_SCHEME_ID};
 use miden_client::builder::ClientBuilder;
 use miden_client::keystore::FilesystemKeyStore;
 use miden_client::note::{BlockNumber, NoteFile, NoteSyncHint, NoteTag, NoteType};
@@ -56,7 +53,7 @@ use miden_client::transaction::{
     TransactionStatus,
 };
 use miden_client::{ClientError, Felt, Word};
-use miden_client_sqlite_store::ClientBuilderSqliteExt;
+use miden_client_sqlite_store::SqliteStore;
 use rand::Rng;
 use tracing::info;
 
@@ -65,10 +62,11 @@ use crate::{ClientConfig, create_test_auth_path};
 pub async fn test_client_builder_initializes_client_with_endpoint(
     client_config: ClientConfig,
 ) -> Result<()> {
+    let store = SqliteStore::new(create_test_store_path()).await?;
     let mut client = ClientBuilder::<FilesystemKeyStore>::new()
         .grpc_client(&client_config.rpc_endpoint, Some(10_000))
         .filesystem_keystore(create_test_auth_path())?
-        .sqlite_store(create_test_store_path())
+        .store(Arc::new(store))
         .build()
         .await?;
 

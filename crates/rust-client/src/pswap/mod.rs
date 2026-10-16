@@ -38,7 +38,7 @@ use alloc::vec::Vec;
 
 use async_trait::async_trait;
 pub use errors::PswapLineageError;
-pub use lineage::{PswapLineageFilter, PswapLineageRecord, PswapLineageState};
+pub use miden_client_core::pswap::{PswapLineageFilter, PswapLineageRecord, PswapLineageState};
 use miden_protocol::Felt;
 use miden_protocol::account::AccountId;
 use miden_protocol::note::Note;
@@ -94,7 +94,7 @@ impl TransactionObserver for PswapTransactionObserver {
 
             // The full note lives in `output_notes`; the record keeps only its id plus the
             // immutable order facts (see `PswapLineageRecord`).
-            let record = PswapLineageRecord::new_depth_zero(note.id(), &pswap);
+            let record = lineage::new_depth_zero_record(note.id(), &pswap);
 
             self.store.upsert_pswap_lineage(&record).await?;
             self.store
