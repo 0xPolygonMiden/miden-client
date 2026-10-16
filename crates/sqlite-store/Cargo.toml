@@ -22,13 +22,13 @@ miden-protocol     = { workspace = true }
 anyhow      = { workspace = true }
 async-trait = { workspace = true }
 chrono      = { workspace = true }
+rusqlite    = { features = ["array", "bundled", "vtab"], workspace = true }
 thiserror   = { workspace = true }
 tracing     = { workspace = true }
 
 # External dependencies
 deadpool           = { default-features = false, features = ["managed", "rt_tokio_1"], version = "0.12" }
 deadpool-sync      = { version = "0.1" }
-rusqlite           = { features = ["array", "bundled", "vtab"], version = "0.37" }
 rusqlite_migration = { version = "2.1" }
 tokio              = { workspace = true }
 
