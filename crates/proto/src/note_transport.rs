@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use miden_client::note_transport::NoteTransportCursor;
+use miden_client_core::note_transport::NoteTransportCursor;
 use miden_protocol::note::NoteTag;
 
 use crate as proto;

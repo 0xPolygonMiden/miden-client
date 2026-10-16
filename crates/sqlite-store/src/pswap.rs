@@ -8,11 +8,12 @@
 use std::string::String;
 use std::vec::Vec;
 
-use miden_client::note::NoteId;
-use miden_client::pswap::{PswapLineageFilter, PswapLineageRecord, PswapLineageState};
-use miden_client::store::{SettingScope, StoreError};
+use miden_client_core::errors::StoreError;
+use miden_client_core::pswap::{PswapLineageFilter, PswapLineageRecord, PswapLineageState};
+use miden_client_core::store::SettingScope;
 use miden_client_proto as proto;
 use miden_protocol::Felt;
+use miden_protocol::note::NoteId;
 use rusqlite::{Connection, params};
 
 use super::SqliteStore;

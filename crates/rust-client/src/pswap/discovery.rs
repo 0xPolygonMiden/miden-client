@@ -16,13 +16,8 @@ use miden_standards::note::PswapNote;
 use tracing::error;
 
 use super::errors::PswapLineageError;
-use super::lineage::{
-    ObservedPswapNote,
-    PswapLineageRecord,
-    PswapLineageRoundUpdate,
-    PswapLineageState,
-};
-use super::store;
+use super::lineage::{ObservedPswapNote, PswapLineageRoundUpdate, PswapLineageRounds};
+use super::{PswapLineageRecord, PswapLineageState, store};
 use crate::store::Store;
 use crate::sync::StateSyncUpdate;
 
