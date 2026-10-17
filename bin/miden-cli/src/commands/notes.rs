@@ -21,6 +21,7 @@ use crate::note_decoding::{
     standard_attachment_name,
 };
 use crate::utils::{
+    FormattedAsset,
     configured_network_id,
     load_faucet_metadata_resolver,
     parse_account_id,
@@ -272,9 +273,9 @@ async fn show_note<AUTH: Keystore + Sync>(
     };
 
     let assets = input_note_record
-        .clone()
-        .map(|record| record.assets().clone())
-        .or(output_note_record.clone().map(|record| record.assets().clone()))
+        .as_ref()
+        .map(InputNoteRecord::assets)
+        .or_else(|| output_note_record.as_ref().map(OutputNoteRecord::assets))
         .expect("One of the two records should be Some");
 
     // print note vault
@@ -291,7 +292,8 @@ async fn show_note<AUTH: Keystore + Sync>(
     let resolver = load_faucet_metadata_resolver()?;
 
     for asset in assets.iter() {
-        let formatted = resolver.format_asset(client, asset).await?;
+        let metadata = resolver.resolve_asset(client, asset).await?;
+        let formatted = FormattedAsset::new(asset, metadata.as_ref(), resolver.network_id());
         table.add_row(vec![formatted.type_label(), &formatted.faucet, &formatted.amount]);
     }
     println!("{table}");
@@ -333,9 +335,9 @@ async fn show_note<AUTH: Keystore + Sync>(
             Cell::new("Content").add_attribute(Attribute::Bold),
         ]);
         // A PSWAP attachment amount is in units of the only fungible asset of the note.
-        let fungible_assets: Vec<_> = assets.iter().filter_map(Asset::as_fungible).collect();
-        let amount_metadata = match fungible_assets.as_slice() {
-            [asset] => resolver.resolve(client, asset.faucet_id()).await?,
+        let mut fungible_assets = assets.iter().filter_map(Asset::as_fungible);
+        let amount_metadata = match (fungible_assets.next(), fungible_assets.next()) {
+            (Some(asset), None) => resolver.resolve(client, asset.faucet_id()).await?,
             _ => None,
         };
         for attachment in attachments.iter() {

@@ -580,8 +580,8 @@ async fn token_symbol_mapping() -> Result<()> {
 /// Exercises the resolver's RPC fetch + settings-store write-back path end-to-end.
 ///
 /// Mints from a *public* faucet that is not present in the user's TOML map, then runs
-/// `notes -s <id>` to display the issued note. `notes -s` formats each fungible asset via
-/// `FaucetMetadataResolver::format_fungible_asset`, which on TOML miss falls through to
+/// `notes -s <id>` to display the issued note. `notes -s` resolves the metadata of each fungible
+/// asset via `FaucetMetadataResolver::resolve_asset`, which on TOML miss falls through to
 /// `Client::fetch_remote_token_metadata`. Asserts:
 /// 1. `notes -s` stdout contains the faucet's symbol ("BTC" — the constant baked into
 ///    `new_faucet_cli`'s init storage data).
