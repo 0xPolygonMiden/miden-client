@@ -17,16 +17,8 @@ use miden_client::transaction::{
     build_fpi_script,
 };
 use miden_client::vm::typed::TypedProcInfo;
-use miden_client::vm::{
-    ExecutionError,
-    MIN_STACK_DEPTH,
-    OperationError,
-    PackageExport,
-    PackageManifest,
-    ProcedureExport,
-    error_code_from_msg,
-};
-use miden_client::{Client, ClientError, Felt, TransactionExecutorError, Word};
+use miden_client::vm::{MIN_STACK_DEPTH, PackageExport, PackageManifest, ProcedureExport};
+use miden_client::{Client, ClientError, Felt, Word};
 
 use crate::advice_inputs::load_advice_map_from_file;
 use crate::codecs::with_cli_codecs;
@@ -35,7 +27,9 @@ use crate::config::CliConfig;
 use crate::errors::CliError;
 use crate::packages::load_packages;
 use crate::utils::{
+    is_empty_transaction_error,
     parse_account_id,
+    print_empty_transaction_report,
     print_executed_program_stack,
     print_executed_transaction,
     split_procedure_target,
@@ -43,14 +37,6 @@ use crate::utils::{
 
 // CALL COMMAND
 // ================================================================================================
-
-/// The transaction kernel's assertion message for a transaction that changes nothing.
-///
-/// The message is hashed into the error code the assertion carries, and compared against it. It
-/// only decides whether an explanatory line is printed: if the kernel ever rewords it, the line
-/// stops appearing and nothing else changes.
-const EMPTY_TRANSACTION_ASSERTION: &str =
-    "executed transaction neither changed the account state, nor consumed any notes";
 
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -495,36 +481,6 @@ fn resolve_procedure_export<'a>(
             available.join("\n")
         ))
     })
-}
-
-/// Returns true when `error` is the transaction kernel's rejection of a transaction that neither
-/// changed the account state nor consumed a note.
-pub(crate) fn is_empty_transaction_error(error: &ClientError) -> bool {
-    matches!(
-        error,
-        ClientError::TransactionExecutorError(
-            TransactionExecutorError::TransactionProgramExecutionFailed(
-                ExecutionError::OperationError {
-                    err: OperationError::FailedAssertion { err_code, .. },
-                    ..
-                },
-            ),
-        ) if *err_code == error_code_from_msg(EMPTY_TRANSACTION_ASSERTION)
-    )
-}
-
-/// Prints the report for a transaction that the kernel rejected because it had no effects.
-///
-/// The kernel rejects only when the account was left unchanged and nothing was consumed, so that is
-/// all this can report; it says nothing about created notes.
-pub(crate) fn print_empty_transaction_report() {
-    println!();
-    println!("The transaction was rejected because it had no effects:\n");
-    println!("No notes were consumed.");
-    println!();
-    println!("Account Storage was not changed.");
-    println!("Account Vault was not changed.");
-    println!("Account nonce was not changed.");
 }
 
 /// Reports a transaction that did not execute, in place of the state delta it would have shown.

@@ -12,13 +12,14 @@ use miden_client::vm::{AdviceInputs, MIN_STACK_DEPTH};
 use miden_client::{Client, Felt};
 
 use crate::advice_inputs::load_advice_map_from_file;
-use crate::commands::call::{is_empty_transaction_error, print_empty_transaction_report};
 use crate::commands::new_transactions::execute_transaction;
 use crate::config::CliConfig;
 use crate::errors::CliError;
 use crate::packages::load_packages;
 use crate::utils::{
     get_input_acc_id_by_prefix_or_default,
+    is_empty_transaction_error,
+    print_empty_transaction_report,
     print_executed_program_stack,
     print_executed_program_stack_hex_words,
 };
@@ -110,23 +111,16 @@ impl ExecCmd {
                 .map_err(|err| {
                     CliError::Transaction(err.into(), "Failed to build transaction".to_string())
                 })?;
-            return match execute_transaction(
+            let result = execute_transaction(
                 &mut client,
                 account_id,
                 tx_request,
                 self.submit_options.force,
                 self.submit_options.delegate_proving,
             )
-            .await
-            {
-                // A script that only reads leaves nothing to prove, so the rejection is reported as
-                // the outcome instead of as a failure.
-                Err(CliError::Client { error, .. }) if is_empty_transaction_error(&error) => {
-                    print_empty_transaction_report();
-                    Ok(())
-                },
-                result => result,
-            };
+            .await;
+
+            return explain_empty_transaction(result);
         }
 
         let advice_inputs = AdviceInputs::default().with_map(inputs);
@@ -245,6 +239,17 @@ fn load_tx_script_package(
     })
 }
 
+/// Prints the reason when the kernel rejected the transaction because it changed nothing. Returns
+/// the result unchanged, so the command still fails.
+fn explain_empty_transaction(result: Result<(), CliError>) -> Result<(), CliError> {
+    if let Err(CliError::Client { error, .. }) = &result
+        && is_empty_transaction_error(error)
+    {
+        print_empty_transaction_report();
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use std::env::temp_dir;
@@ -256,7 +261,21 @@ mod tests {
     use miden_client::Serializable;
     use miden_client::assembly::{Assembler, DefaultSourceManager, Module, ModuleKind, Path};
 
-    use super::{CliConfig, ExecCmd, load_tx_script_package};
+    use super::{CliConfig, ExecCmd, explain_empty_transaction, load_tx_script_package};
+    use crate::errors::CliError;
+    use crate::utils::empty_transaction_error;
+
+    #[test]
+    fn an_empty_transaction_is_still_an_error() {
+        let result = explain_empty_transaction(Err(empty_transaction_error().into()));
+
+        assert!(matches!(result, Err(CliError::Client { .. })));
+    }
+
+    #[test]
+    fn a_successful_submission_is_not_changed() {
+        assert!(explain_empty_transaction(Ok(())).is_ok());
+    }
 
     #[test]
     fn requires_a_package_and_rejects_source_arguments() {
