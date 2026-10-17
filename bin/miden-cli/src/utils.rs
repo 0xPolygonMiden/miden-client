@@ -222,8 +222,12 @@ pub async fn print_executed_transaction<AUTH>(
         for asset in patch.vault().updated_assets() {
             match asset.as_fungible() {
                 Some(fungible) => {
-                    let (faucet, amount) =
-                        resolver.format_fungible_asset(client, &fungible).await?;
+                    let metadata = resolver.resolve(client, fungible.faucet_id()).await?;
+                    let (faucet, amount) = FormattedAsset::fungible_parts(
+                        &fungible,
+                        metadata.as_ref(),
+                        resolver.network_id(),
+                    );
                     fungible_table.add_row(vec![faucet, amount]);
                 },
                 None => {
@@ -437,6 +441,15 @@ pub struct FaucetMetadataResolver {
     /// Holds the outcome of every non-fungible faucet symbol lookup, misses included, for the
     /// lifetime of the resolver.
     non_fungible_symbol_cache: Mutex<BTreeMap<AccountId, Option<String>>>,
+    network_id: NetworkId,
+}
+
+/// The faucet details found for an asset. A fungible asset has `metadata`. A non-fungible asset has
+/// `non_fungible_symbol`. A value is `None` when the lookup finds nothing.
+#[derive(Debug, Default)]
+pub struct ResolvedFaucet {
+    pub metadata: Option<FaucetMetadata>,
+    pub non_fungible_symbol: Option<String>,
 }
 
 /// An asset formatted for display in a CLI table.
@@ -455,6 +468,44 @@ pub enum FormattedAsset {
         /// The asset ID.
         asset_id: AssetId,
     },
+}
+
+impl FormattedAsset {
+    /// Formats an asset with the faucet details found for it. It does not look up anything.
+    ///
+    /// A fungible asset without `metadata` shows the bech32 faucet address and the amount in base
+    /// units.
+    pub fn new(asset: &Asset, resolved: &ResolvedFaucet, network_id: &NetworkId) -> Self {
+        match asset.as_fungible() {
+            Some(fungible) => {
+                let (faucet, amount) =
+                    Self::fungible_parts(&fungible, resolved.metadata.as_ref(), network_id);
+                Self::Fungible { faucet, amount }
+            },
+            None => Self::NonFungible {
+                address: Address::new(asset.faucet_id()).encode(network_id.clone()),
+                symbol: resolved.non_fungible_symbol.clone(),
+                asset_id: asset.id(),
+            },
+        }
+    }
+
+    /// Returns `(<faucet>, <amount>)` for a fungible asset. See [`Self::new`].
+    pub fn fungible_parts(
+        asset: &FungibleAsset,
+        metadata: Option<&FaucetMetadata>,
+        network_id: &NetworkId,
+    ) -> (String, String) {
+        match metadata {
+            Some(meta) => {
+                (meta.symbol.clone(), base_units_to_tokens(asset.amount(), meta.decimals))
+            },
+            None => (
+                Address::new(asset.faucet_id()).encode(network_id.clone()),
+                asset.amount().to_string(),
+            ),
+        }
+    }
 }
 
 /// Renders a fungible asset as its amount and faucet, and a non-fungible asset as its faucet and
@@ -530,7 +581,13 @@ impl FaucetMetadataResolver {
             toml: parsed,
             cache: Mutex::new(BTreeMap::new()),
             non_fungible_symbol_cache: Mutex::new(BTreeMap::new()),
+            network_id: network_id.clone(),
         })
+    }
+
+    /// Returns the network of the token symbol map.
+    pub fn network_id(&self) -> &NetworkId {
+        &self.network_id
     }
 
     /// Looks up `(symbol, decimals)` for a faucet using only local sources: the TOML map and the
@@ -605,25 +662,26 @@ impl FaucetMetadataResolver {
         Ok(Some(meta))
     }
 
-    /// Formats an asset for display. A fungible asset is resolved through [`Self::resolve`]. A
-    /// non-fungible asset shows its faucet address, its asset ID and, when it is known, its token
-    /// symbol (see [`Self::resolve_non_fungible_symbol`]).
-    pub async fn format_asset<AUTH>(
+    /// Looks up the faucet details of an asset. A fungible asset is resolved through
+    /// [`Self::resolve`]. A non-fungible asset is resolved through
+    /// [`Self::resolve_non_fungible_symbol`].
+    pub async fn resolve_asset<AUTH>(
         &self,
         client: &Client<AUTH>,
         asset: &Asset,
-    ) -> Result<FormattedAsset, CliError> {
-        if let Some(fungible) = asset.as_fungible() {
-            let (faucet, amount) = self.format_fungible_asset(client, &fungible).await?;
-            return Ok(FormattedAsset::Fungible { faucet, amount });
+    ) -> Result<ResolvedFaucet, CliError> {
+        match asset.as_fungible() {
+            Some(fungible) => Ok(ResolvedFaucet {
+                metadata: self.resolve(client, fungible.faucet_id()).await?,
+                non_fungible_symbol: None,
+            }),
+            None => Ok(ResolvedFaucet {
+                metadata: None,
+                non_fungible_symbol: self
+                    .resolve_non_fungible_symbol(client, asset.faucet_id())
+                    .await,
+            }),
         }
-
-        let faucet_id = asset.faucet_id();
-        Ok(FormattedAsset::NonFungible {
-            address: Address::new(faucet_id).encode(configured_network_id()?),
-            symbol: self.resolve_non_fungible_symbol(client, faucet_id).await,
-            asset_id: asset.id(),
-        })
     }
 
     /// Looks up the token symbol of a non-fungible faucet. It reads the storage of a faucet that
@@ -662,21 +720,6 @@ impl FaucetMetadataResolver {
             .expect("non-fungible symbol cache mutex is poisoned")
             .insert(faucet_id, symbol.clone());
         symbol
-    }
-
-    /// Formats a fungible asset using [`Self::resolve`]. On miss, returns `(<bech32 faucet
-    /// address>, <base-unit amount>)`.
-    pub async fn format_fungible_asset<AUTH>(
-        &self,
-        client: &Client<AUTH>,
-        asset: &FungibleAsset,
-    ) -> Result<(String, String), CliError> {
-        if let Some(meta) = self.resolve(client, asset.faucet_id()).await? {
-            return Ok((meta.symbol, base_units_to_tokens(asset.amount(), meta.decimals)));
-        }
-        let network_id = configured_network_id()?;
-        let address_str = Address::new(asset.faucet_id()).encode(network_id);
-        Ok((address_str, asset.amount().to_string()))
     }
 
     /// Parses a string representing a [`FungibleAsset`]. There are two accepted formats for the

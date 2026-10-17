@@ -23,7 +23,7 @@ use miden_client::note::{
 use miden_client::{Client, Felt, Word};
 
 use crate::errors::CliError;
-use crate::utils::{FaucetMetadataResolver, NO_VALUE, base_units_to_tokens};
+use crate::utils::{FaucetMetadataResolver, FormattedAsset, NO_VALUE, base_units_to_tokens};
 
 // NOTE STORAGE DECODING
 // ================================================================================================
@@ -53,7 +53,10 @@ async fn decode_standard_note_storage<AUTH>(
             .ok(),
         Some(StandardNote::SWAP) => match SwapNoteStorage::try_from(items) {
             Ok(storage) => {
-                let requested = resolver.format_asset(client, &storage.requested_asset()).await?;
+                let requested_asset = storage.requested_asset();
+                let resolved = resolver.resolve_asset(client, &requested_asset).await?;
+                let formatted_asset =
+                    FormattedAsset::new(&requested_asset, &resolved, resolver.network_id());
                 let payback = match storage.payback() {
                     SwapPayback::Public { payback_target_id } => {
                         ("payback target", payback_target_id.to_string())
@@ -61,7 +64,7 @@ async fn decode_standard_note_storage<AUTH>(
                     SwapPayback::Private { recipient } => ("payback recipient", recipient.to_hex()),
                 };
                 Some(vec![
-                    ("requested", requested.to_string()),
+                    ("requested", formatted_asset.to_string()),
                     ("payback note", storage.payback_note_type().to_string()),
                     ("payback tag", storage.payback_tag().to_string()),
                     payback,
@@ -71,7 +74,10 @@ async fn decode_standard_note_storage<AUTH>(
         },
         Some(StandardNote::PSWAP) => match PswapNoteStorage::try_from(items) {
             Ok(storage) => {
-                let requested = Asset::from(*storage.min_requested_asset());
+                let min_requested_asset = Asset::from(*storage.min_requested_asset());
+                let resolved = resolver.resolve_asset(client, &min_requested_asset).await?;
+                let formatted_asset =
+                    FormattedAsset::new(&min_requested_asset, &resolved, resolver.network_id());
                 let fill_step = storage.min_fill_step();
                 // A zero fill step means that the note accepts fills of any size.
                 let fill_step = if fill_step == AssetAmount::ZERO {
@@ -79,14 +85,17 @@ async fn decode_standard_note_storage<AUTH>(
                 } else {
                     match FungibleAsset::new(storage.requested_faucet_id(), fill_step.as_u64()) {
                         Ok(asset) => {
-                            resolver.format_asset(client, &Asset::from(asset)).await?.to_string()
+                            let asset = Asset::from(asset);
+                            let resolved = resolver.resolve_asset(client, &asset).await?;
+                            FormattedAsset::new(&asset, &resolved, resolver.network_id())
+                                .to_string()
                         },
                         Err(_) => fill_step.as_u64().to_string(),
                     }
                 };
                 Some(vec![
                     ("creator", storage.creator_account_id().to_string()),
-                    ("requested", resolver.format_asset(client, &requested).await?.to_string()),
+                    ("requested", formatted_asset.to_string()),
                     ("min fill step", fill_step),
                     ("payback note", storage.payback_note_type().to_string()),
                 ])

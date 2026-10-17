@@ -21,6 +21,7 @@ use crate::note_decoding::{
     standard_attachment_name,
 };
 use crate::utils::{
+    FormattedAsset,
     configured_network_id,
     load_faucet_metadata_resolver,
     parse_account_id,
@@ -300,7 +301,12 @@ async fn show_note<AUTH: Keystore + Sync>(
     for asset in assets.iter() {
         match asset.as_fungible() {
             Some(fungible) => {
-                let (faucet, amount) = resolver.format_fungible_asset(client, &fungible).await?;
+                let metadata = resolver.resolve(client, fungible.faucet_id()).await?;
+                let (faucet, amount) = FormattedAsset::fungible_parts(
+                    &fungible,
+                    metadata.as_ref(),
+                    resolver.network_id(),
+                );
                 fungible_table.add_row(vec![faucet, amount]);
             },
             None => {
