@@ -11,9 +11,9 @@
 //! follows:
 //!
 //! ```rust
-//! # use miden_client::{
-//! #   account::{Account, AccountBuilder, AccountBuilderSchemaCommitmentExt, AccountType, component::BasicWallet},
-//! #   crypto::FeltRng
+//! # use miden_client::account::{
+//! #     AccountBuilder, AccountBuilderSchemaCommitmentExt, AccountType,
+//! #     standards::wallets::BasicWallet,
 //! # };
 //! # async fn add_new_account_example<AUTH>(
 //! #     client: &mut miden_client::Client<AUTH>
@@ -32,12 +32,11 @@
 //!
 //! For more details on accounts, refer to the [Account] documentation.
 
-use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 pub use miden_objects::account_file::{AccountFile, AccountFileError};
-use miden_protocol::Felt;
+use miden_protocol::account::StorageSlotHeader;
 use miden_protocol::account::auth::PublicKey;
 pub use miden_protocol::account::{
     Account,
@@ -82,7 +81,7 @@ pub use miden_protocol::account::{
 pub use miden_protocol::address::{Address, AddressInterface, AddressType, NetworkId};
 use miden_protocol::asset::AssetVault;
 pub use miden_protocol::errors::{AccountIdError, AddressError, NetworkIdError};
-use miden_protocol::note::NoteTag;
+use miden_protocol::{Felt, Word};
 use miden_tx::utils::serde::{
     ByteReader,
     ByteWriter,
@@ -136,10 +135,13 @@ fn faucet_metadata_from_token_config(token_config: [Felt; 4]) -> Option<FaucetMe
 
 mod account_reader;
 pub use account_reader::AccountReader;
-/// Raw access to `miden-standards` account modules for items not curated by `miden-client`.
+use miden_client_core::store::{AccountStorageFilter, ClientAccountType};
+/// Provides built-in account components and their configuration types.
+///
+/// Use the [`component`] module to define custom account components.
 pub use miden_standards::account as standards;
 use miden_standards::account::auth::{Approver, AuthSingleSig, NetworkAccount};
-use miden_standards::account::faucets::FungibleFaucet;
+use miden_standards::account::faucets::{FungibleFaucet, NonFungibleFaucet};
 pub use miden_standards::account::inspection::{
     AccountBuilderSchemaCommitmentExt,
     AccountSchemaCommitment,
@@ -159,12 +161,14 @@ use crate::asset::TokenSymbol;
 use crate::errors::ClientError;
 use crate::rpc::domain::account::GetAccountRequest;
 use crate::rpc::node::{EndpointError, GetAccountError};
-use crate::store::{AccountStatus, AccountStorageFilter, ClientAccountType};
+use crate::store::AccountStatus;
 
+/// Provides types to define account components and their storage schemas.
+///
+/// Use the [`standards`] module for built-in account components.
 pub mod component {
     pub const MIDEN_PACKAGE_EXTENSION: &str = "masp";
 
-    pub use miden_protocol::account::auth::*;
     pub use miden_protocol::account::component::{
         FeltSchema,
         InitStorageData,
@@ -183,69 +187,17 @@ pub mod component {
     };
     pub use miden_protocol::account::{
         AccountComponent,
+        AccountComponentCode,
         AccountComponentMetadata,
         AccountComponentName,
         AccountProcedureRoot,
         RoleSymbol,
     };
-    pub use miden_standards::account::access::{
-        AccessControl,
-        Authority,
-        AuthorityError,
-        Ownable2Step,
-        Ownable2StepError,
-        Pausable,
-        PausableManager,
-        PausableStorage,
-        RoleBasedAccessControl,
+    pub use miden_protocol::errors::{
+        AccountComponentNameError,
+        ComponentMetadataError,
+        RoleSymbolError,
     };
-    pub use miden_standards::account::auth::*;
-    pub use miden_standards::account::components::StandardAccountComponent;
-    pub use miden_standards::account::faucets::{
-        Description,
-        ExternalLink,
-        FungibleFaucet,
-        FungibleFaucetBuilder,
-        FungibleFaucetError,
-        LogoURI,
-        NonFungibleFaucet,
-        TokenMetadata,
-        TokenMetadataError,
-        TokenName,
-        create_network_fungible_faucet,
-        create_singlesig_user_fungible_faucet,
-    };
-    pub use miden_standards::account::fees::{
-        BasicConstantFeePolicy,
-        FeePolicy,
-        FeePolicyError,
-        FeePolicyManager,
-        FeePolicyManagerBuilder,
-    };
-    pub use miden_standards::account::policies::{
-        AllowlistManager,
-        AllowlistStorage,
-        BasicAllowlist,
-        BasicBlocklist,
-        BlocklistManager,
-        BlocklistStorage,
-        BurnAllowAll,
-        BurnOwnerOnly,
-        BurnPolicy,
-        BurnPolicyError,
-        MinBurnAmount,
-        MintAllowAll,
-        MintOwnerOnly,
-        MintPolicy,
-        MintPolicyError,
-        TokenPolicyManager,
-        TokenPolicyManagerBuilder,
-        TransferAllowAll,
-        TransferPolicy,
-        TransferPolicyError,
-    };
-    pub use miden_standards::account::upgrade::UpgradeManager;
-    pub use miden_standards::account::wallets::BasicWallet;
 }
 
 // CLIENT METHODS
@@ -271,9 +223,6 @@ pub mod component {
 ///
 /// - **Data retrieval:** The module also provides methods to fetch account-related data.
 impl<AUTH> Client<AUTH> {
-    // Mirror of node MAX_TAGS_PER_FETCH_REQUEST. NTL allows up to 128 tags per request.
-    pub const MAX_ACCOUNT_TAGS: usize = 128;
-
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -382,23 +331,6 @@ impl<AUTH> Client<AUTH> {
         Ok(self.rpc_api.is_account_allowed(account_id).await?)
     }
 
-    /// Returns an error if `tag` is a new account tag and the client already tracks
-    /// [`Self::MAX_ACCOUNT_TAGS`] account tags.
-    async fn validate_can_track_more_account_tags(&self, tag: NoteTag) -> Result<(), ClientError> {
-        let tracked_tags: BTreeSet<NoteTag> = self
-            .store
-            .get_account_note_tags()
-            .await?
-            .into_iter()
-            .map(|record| record.tag)
-            .collect();
-        if !tracked_tags.contains(&tag) && tracked_tags.len() >= Self::MAX_ACCOUNT_TAGS {
-            return Err(ClientError::AccountTagLimitExceeded(tracked_tags.len()));
-        }
-
-        Ok(())
-    }
-
     /// Returns whether a transaction against `account_id` creates an account that the network
     /// allowlist gates.
     ///
@@ -453,10 +385,6 @@ impl<AUTH> Client<AUTH> {
         match tracked_account {
             None => {
                 let default_address = Address::new(account.id());
-                if matches!(client_account_type, ClientAccountType::Native) {
-                    self.validate_can_track_more_account_tags(default_address.to_note_tag())
-                        .await?;
-                }
 
                 self.store
                     .insert_account(account, default_address, client_account_type)
@@ -621,7 +549,47 @@ impl<AUTH> Client<AUTH> {
         &self,
         faucet_id: AccountId,
     ) -> Result<Option<FaucetMetadata>, ClientError> {
-        let proof = match self.rpc_api.get_account(faucet_id, GetAccountRequest::new()).await {
+        let token_config = self
+            .fetch_remote_value_slot(faucet_id, FungibleFaucet::token_config_slot())
+            .await?;
+
+        Ok(token_config.and_then(|token_config| faucet_metadata_from_token_config(*token_config)))
+    }
+
+    /// Fetches the token symbol of a public non-fungible faucet from the network.
+    ///
+    /// Uses [`get_account`](crate::rpc::NodeRpcClient::get_account) with a minimal request so that
+    /// the node does not return vault data. The faucet's symbol lives in a single value slot, which
+    /// is always present in the returned storage header.
+    ///
+    /// Returns:
+    /// - `Ok(Some(_))` — the account is public and its symbol storage slot decoded.
+    /// - `Ok(None)`    — the account is private, not on chain, or the storage slot does not parse
+    ///   as a token symbol.
+    /// - `Err(_)`      — transport-level RPC error.
+    pub async fn fetch_remote_non_fungible_faucet_symbol(
+        &self,
+        faucet_id: AccountId,
+    ) -> Result<Option<TokenSymbol>, ClientError> {
+        let symbol_word = self
+            .fetch_remote_value_slot(faucet_id, NonFungibleFaucet::symbol_slot())
+            .await?;
+
+        // Symbol slot word layout: `[symbol, 0, 0, 0]` (see
+        // `NonFungibleFaucet::symbol_slot_value`).
+        Ok(symbol_word.and_then(|symbol_word| TokenSymbol::try_from(symbol_word[0]).ok()))
+    }
+
+    /// Fetches the value of a value storage slot of a public account from the network.
+    ///
+    /// Returns `Ok(None)` when the account is private, is not on chain, or has no slot with
+    /// `slot_name`. Returns an error for a transport-level RPC error.
+    async fn fetch_remote_value_slot(
+        &self,
+        account_id: AccountId,
+        slot_name: &StorageSlotName,
+    ) -> Result<Option<Word>, ClientError> {
+        let proof = match self.rpc_api.get_account(account_id, GetAccountRequest::new()).await {
             Ok((_, proof)) => proof,
             Err(err) => match err.endpoint_error() {
                 Some(EndpointError::GetAccount(
@@ -635,19 +603,13 @@ impl<AUTH> Client<AUTH> {
             return Ok(None);
         };
 
-        let Some(slot_header) =
-            storage_header.find_slot_header_by_name(FungibleFaucet::token_config_slot())
-        else {
-            return Ok(None);
-        };
-
-        Ok(faucet_metadata_from_token_config(*slot_header.value()))
+        Ok(storage_header.find_slot_header_by_name(slot_name).map(StorageSlotHeader::value))
     }
 
     /// Adds an [`Address`] to the associated [`AccountId`].
     ///
-    /// If the account is native, the client tracks the [`NoteTag`] of the address. If the account
-    /// is watched, the client does not track the tag.
+    /// If the account is native, the client tracks the [`NoteTag`](crate::note::NoteTag) of the
+    /// address. If the account is watched, the client does not track the tag.
     ///
     /// # Errors
     /// - If the account is not found on the network.
@@ -663,23 +625,18 @@ impl<AUTH> Client<AUTH> {
             return Err(ClientError::AddressAlreadyTracked(address_bench32));
         }
 
-        let tracked_account = self.store.get_minimal_partial_account(account_id).await?;
-        match tracked_account {
-            None => Err(ClientError::AccountDataNotFound(account_id)),
-            Some(tracked_account) => {
-                if !tracked_account.is_watched() {
-                    self.validate_can_track_more_account_tags(address.to_note_tag()).await?;
-                }
-                self.store.insert_address(address, account_id).await?;
-                Ok(())
-            },
+        if self.store.get_minimal_partial_account(account_id).await?.is_none() {
+            return Err(ClientError::AccountDataNotFound(account_id));
         }
+
+        self.store.insert_address(address, account_id).await?;
+        Ok(())
     }
 
     /// Removes an [`Address`] from the account it belongs to.
     ///
-    /// If the account is native and no other address of the account has the same [`NoteTag`], the
-    /// client no longer tracks the tag.
+    /// If the account is native and no other address of the account has the same
+    /// [`NoteTag`](crate::note::NoteTag), the client no longer tracks the tag.
     ///
     /// Returns `true` if the address was tracked. If it was not tracked, this is a no-op.
     pub async fn remove_address(&mut self, address: Address) -> Result<bool, ClientError> {

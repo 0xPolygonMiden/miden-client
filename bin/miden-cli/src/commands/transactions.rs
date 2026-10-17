@@ -30,7 +30,6 @@ use crate::errors::CliError;
 use crate::note_decoding::format_note_storage;
 use crate::utils::{
     FaucetMetadataResolver,
-    FormattedAsset,
     NO_VALUE,
     load_faucet_metadata_resolver,
     parse_account_id,
@@ -404,9 +403,7 @@ async fn format_note_assets<AUTH: Keystore + Sync>(
 ) -> Result<String, CliError> {
     let mut formatted = Vec::with_capacity(assets.num_assets());
     for asset in assets.iter() {
-        let metadata = resolver.resolve_asset(client, asset).await?;
-        formatted
-            .push(FormattedAsset::new(asset, metadata.as_ref(), resolver.network_id()).to_string());
+        formatted.push(resolver.format_asset(client, asset).await?.to_string());
     }
 
     if formatted.is_empty() {

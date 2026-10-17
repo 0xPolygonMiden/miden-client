@@ -2,28 +2,76 @@
 
 ## Unreleased
 
+### Enhancements
+
+* `account --show`, `notes --show` and the transaction summary show non-fungible assets in a separate table with their faucet ID and asset ID. The fungible asset tables no longer have an asset type column. `tx --show` shows the asset ID of a non-fungible asset, and `account --list` and `account --show` label a non-fungible faucet as `Non-fungible faucet` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [rust] `miden-client` no longer pulls the `tonic` runtime dependencies into builds unless the `tonic` feature enables them ([#2520](https://github.com/0xMiden/rust-sdk/pull/2520)).
+* [rust] `TestClient` in `miden_client::testing::common` emits `tracing` events with the account ID, transaction ID and note IDs when it executes and submits transactions. The integration tests log through `tracing` instead of printing to stdout and stderr ([#2691](https://github.com/0xMiden/rust-sdk/pull/2691)).
+
+### Features
+
+* [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
+* [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
+
 ### Breaking Changes
 
+* [BREAKING][removal][rust] Removed authentication keys, signature schemes, and signatures from `miden_client::account::component`; use `miden_client::auth` instead. Removed built-in account components and their configuration types from `miden_client::account::component` and `miden_client::auth`; use the matching module under `miden_client::account::standards`, such as `auth::AuthSingleSig`, `wallets::BasicWallet`, or `faucets::FungibleFaucet` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [BREAKING][removal][rust] Removed `miden_client::rng::{draw_felt, draw_word}` helpers, `Felt` or `Word` can be generated with `rng.random::<Felt>()` and `rng.random::<Word>()` (via `rand::RngExt`) ([#2665](https://github.com/0xMiden/rust-sdk/pull/2665)).
 * [BREAKING][behavior][rust,store] Account note tags are derived from the addresses of native accounts instead of being stored. `Store::get_note_tags` returns only the stored tags, the new provided `Store::get_account_note_tags` returns the account tags, and `get_unique_note_tags` returns both sets. `add_note_tag` and `apply_transaction` reject account-source tags with the new `StoreError::AccountNoteTagNotStorable`. A SQLite migration removes the stored account tags ([#2653](https://github.com/0xMiden/rust-sdk/pull/2653)).
 * [BREAKING][param][rust] `Client::remove_address` no longer takes an `AccountId` ([#2653](https://github.com/0xMiden/rust-sdk/pull/2653)).
 * [BREAKING][type][rust] Added `TransactionFilter::Query`, which takes a `TransactionFilterQuery` to select transactions by account and status, newest first, up to a limit. `TransactionFilter` is now `#[non_exhaustive]` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
+* [BREAKING][removal][rust] Removed `miden_client::store::AccountUpdates`, an unused duplicate of `miden_client::sync::AccountUpdates` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
+* [BREAKING][type][rust] `TransactionResult::new` returns `Self` instead of `Result<Self, ClientError>` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
+* [BREAKING][arch][rust,store] Moved the `Store` trait and the types in its signatures (note and account records, filters, settings, sync and transaction updates, and their errors) to the new `miden-client-core` crate. `miden-client` re-exports the types that its API uses, so their paths keep working. Types that only a store uses are no longer re-exported and must be imported from `miden_client_core`: `AccountRecord`, `AccountRecordData`, `AccountRecordError`, `AccountSmtForest`, `AccountStorageFilter`, `AccountUpdate`, `ClientAccountType`, `InputNoteCursor`, `PartialBlockchainFilter`, `SettingMutation`, `SettingScope`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSOR_STORE_SETTING` ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
+* [BREAKING][removal][rust,store] Removed `ClientBuilderSqliteExt` and `ClientBuilder::sqlite_store`. Build a `SqliteStore` and pass it with `ClientBuilder::store` ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
+* [BREAKING][type][rust] `Account::try_from(AccountRecord)` and `PartialAccount::try_from(AccountRecord)` return the new `AccountRecordError` instead of `ClientError`, and `AttestedTransactionEncryptionKey::verify` returns the new `TransactionEncryptionError` instead of `RpcError`. `ClientError` and `RpcError` implement `From` for them ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
 
 ### Features
 
+* [FEATURE][rust] Added `TransactionRequestBuilder::build_mint_non_fungible_asset`, which builds a request for a non-fungible faucet to mint a non-fungible asset to a target account, and `TransactionRequestBuilder::build_burn_non_fungible_asset`, which builds a request that sends a non-fungible asset to its faucet in a BURN note ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FEATURE][rust] Re-exported `BurnNote` from `miden_client::note` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FEATURE][rust] Added `Client::fetch_remote_non_fungible_faucet_symbol`, which fetches the token symbol of a public non-fungible faucet from the network ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FEATURE][cli] Added `tx --show <ID>`, which prints the transaction record and its input and output notes with their standard note name, store state and decoded P2ID, P2IDE, SWAP or PSWAP storage. Added `--account-id`, `--status` and `--limit` filters to `tx --list`, which now orders transactions by creation time ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] Extended `notes --show <ID>` to print whether the note is an input or an output note, the consuming transaction and account of an input note, and the note attachments, with the fields of network account target and PSWAP attachments. The storage of a P2ID, P2IDE, SWAP, PSWAP or FEE_SPONSORSHIP note is shown as named fields instead of raw storage items. `notes --show` and `tx --show` show every storage field of these notes, including the P2IDE reclaimer and the SWAP payback tag and payback target or recipient. For other notes, `tx --show` shows the raw storage items instead of `-` ([#2666](https://github.com/0xMiden/rust-sdk/pull/2666)).
 * [FEATURE][rust] Added the `SendNotesTransactionScript` re-export to `miden_client::transaction` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [FEATURE][cli] The CLI caches faucet metadata lookups for the lifetime of a command, so several assets from the same faucet cause at most one metadata RPC fetch. The cache also holds misses ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
+* [FEATURE][cli] `account --show` no longer fetches storage map entries for an account that the client does not track ([#2680](https://github.com/0xMiden/rust-sdk/pull/2680)).
+* [FEATURE][rust] The note record state transitions (`InputNoteRecord::consumed_locally`, `consumed_externally`, `transaction_committed`, etc., and `OutputNoteRecord::inclusion_proof_received` and `nullifier_received`) and the `NoteUpdateTracker` getters and update methods are public ([#2690](https://github.com/0xMiden/rust-sdk/pull/2690)).
 
 ### Fixes
 
+* [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FIX][rust] Note screening treats an account whose trial execution fails in the transaction prologue as unable to consume the note, instead of failing. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it, because the stored vault of the sender still held the asset ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
+* [FIX][rust] Implemented `TryFrom` for the `InputNoteRecord` conversions to `Note`, `InputNote`, and `NoteTagRecord`. Existing `.try_into()` calls remain supported ([#2618](https://github.com/0xMiden/rust-sdk/pull/2618)).
 * [FIX][rust] `TransactionRequestBuilder::expected_output_recipients` adds to the expected recipients instead of replacing them, so own output notes added before it keep their recipients and `execute_transaction` no longer panics ([#2670](https://github.com/0xMiden/rust-sdk/pull/2670)).
 * [FIX][rust] `IdPrefixFetchError::NoMatch` names the kind of entry that was looked up, instead of always saying "notes" ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
+* [FIX][rust] Sync no longer stores public notes whose tag matches a tracked account's tag without checking that a tracked account can consume them. Only tags added by the user skip the check ([#2684](https://github.com/0xMiden/rust-sdk/pull/2684)).
+* [FIX][rust] Released input notes when their local transaction was discarded. Notes retain inclusion proofs received while processing. Authenticated notes return to `Committed`. Unauthenticated notes return to `Expected`. Notes consumed on chain remain consumed ([#2585](https://github.com/0xMiden/rust-sdk/pull/2585)).
+* [FIX][rust] Reused the kernel and standard-library MAST store across `NoteScreener` calls. Each screening pass reads current account state ([#2711](https://github.com/0xMiden/rust-sdk/pull/2711)).
 
 ### Fixes
 
 * [FIX][store] `SqliteStore` now compares nonces as unsigned values when it prunes account history. Before, it deleted the wrong historical states when a nonce was above `i64::MAX` ([#2669](https://github.com/0xMiden/rust-sdk/pull/2669)).
+
+## 0.17.2 (2026-10-06)
+
+### Breaking Changes
+
+* [BREAKING][removal][rust,store] Removed the note transport relay outbox, along with `Client::flush_relay_outbox` and `NOTE_TRANSPORT_OUTBOX_KEY`. `Client::send_private_note_with_proof` now sends directly and returns the transport result, and syncs no longer re-send failed notes. Sends are idempotent by note id, so callers can retry safely. Store migration 2 drops the stale outbox row, so notes queued by earlier versions are not re-sent ([#2663](https://github.com/0xMiden/rust-sdk/pull/2663)).
+
+### Features
+
+* [FEATURE][rust] `GrpcNoteTransportClient` retries a send that fails with a transient error: `Unavailable`, `DeadlineExceeded`, a failed connection, or `ResourceExhausted` with a `retry-after` value. It retries up to three times, with a delay that starts at 250 ms and doubles. `GrpcNoteTransportClient::with_max_retries` and `GrpcNoteTransportClient::with_retry_interval_ms` configure the retries ([#2663](https://github.com/0xMiden/rust-sdk/pull/2663)).
+
+### Changes
+
+* Updated the workspace version to `0.17.2` and the locked protocol dependencies to `0.17.1`.
+
+## 0.17.1 (2026-10-05)
+
+### Fixes
+
+* [FIX][rust] Removed the account note tag limit. Note transport fetched all tracked tag sources in requests of at most 128 tags and stored a cursor for each tag. Each request started from the lowest cursor of its tags. The import dropped notes delivered again, so tags could be added and removed without losing notes. Pagination recovered retained history without a separate backfill, with at most 32 pages per request group in each sync. Longer histories continued on later syncs. Successful pages remained available when another request failed. Added `NoteTransportClient::fetch_notes_page` with a default implementation for existing transports. Deprecated `Client::MAX_ACCOUNT_TAGS`, `Client::MAX_BACKFILL_TAGS_PER_SYNC`, `ClientError::AccountTagLimitExceeded`, `NoteTransportError::PaginationDidNotTerminate`, `NOTE_TRANSPORT_COVERED_TAGS_KEY`, `NOTE_TRANSPORT_CURSOR_STORE_SETTING`, `Store::get_note_transport_cursor`, and `Store::update_note_transport_cursor`; use `Client::MAX_NOTE_TAGS_PER_TRANSPORT_REQUEST` for the request-size limit.
 
 ## 0.17.0 (2026-10-02)
 
