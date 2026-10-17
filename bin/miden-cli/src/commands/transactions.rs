@@ -404,8 +404,9 @@ async fn format_note_assets<AUTH: Keystore + Sync>(
 ) -> Result<String, CliError> {
     let mut formatted = Vec::with_capacity(assets.num_assets());
     for asset in assets.iter() {
-        let resolved = resolver.resolve_asset(client, asset).await?;
-        formatted.push(FormattedAsset::new(asset, &resolved, resolver.network_id()).to_string());
+        let resolved_faucet = resolver.resolve_asset(client, asset).await?;
+        formatted
+            .push(FormattedAsset::new(asset, &resolved_faucet, resolver.network_id()).to_string());
     }
 
     if formatted.is_empty() {

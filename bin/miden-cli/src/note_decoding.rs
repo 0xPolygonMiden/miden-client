@@ -54,9 +54,9 @@ async fn decode_standard_note_storage<AUTH>(
         Some(StandardNote::SWAP) => match SwapNoteStorage::try_from(items) {
             Ok(storage) => {
                 let requested_asset = storage.requested_asset();
-                let resolved = resolver.resolve_asset(client, &requested_asset).await?;
+                let resolved_faucet = resolver.resolve_asset(client, &requested_asset).await?;
                 let formatted_asset =
-                    FormattedAsset::new(&requested_asset, &resolved, resolver.network_id());
+                    FormattedAsset::new(&requested_asset, &resolved_faucet, resolver.network_id());
                 let payback = match storage.payback() {
                     SwapPayback::Public { payback_target_id } => {
                         ("payback target", payback_target_id.to_string())
@@ -75,9 +75,12 @@ async fn decode_standard_note_storage<AUTH>(
         Some(StandardNote::PSWAP) => match PswapNoteStorage::try_from(items) {
             Ok(storage) => {
                 let min_requested_asset = Asset::from(*storage.min_requested_asset());
-                let resolved = resolver.resolve_asset(client, &min_requested_asset).await?;
-                let formatted_asset =
-                    FormattedAsset::new(&min_requested_asset, &resolved, resolver.network_id());
+                let resolved_faucet = resolver.resolve_asset(client, &min_requested_asset).await?;
+                let formatted_asset = FormattedAsset::new(
+                    &min_requested_asset,
+                    &resolved_faucet,
+                    resolver.network_id(),
+                );
                 let fill_step = storage.min_fill_step();
                 // A zero fill step means that the note accepts fills of any size.
                 let fill_step = if fill_step == AssetAmount::ZERO {
@@ -86,8 +89,8 @@ async fn decode_standard_note_storage<AUTH>(
                     match FungibleAsset::new(storage.requested_faucet_id(), fill_step.as_u64()) {
                         Ok(asset) => {
                             let asset = Asset::from(asset);
-                            let resolved = resolver.resolve_asset(client, &asset).await?;
-                            FormattedAsset::new(&asset, &resolved, resolver.network_id())
+                            let resolved_faucet = resolver.resolve_asset(client, &asset).await?;
+                            FormattedAsset::new(&asset, &resolved_faucet, resolver.network_id())
                                 .to_string()
                         },
                         Err(_) => fill_step.as_u64().to_string(),
