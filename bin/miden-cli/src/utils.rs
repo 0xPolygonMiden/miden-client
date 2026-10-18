@@ -3,8 +3,9 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use miden_client::account::component::{AccountComponentMetadata, StorageSlotSchema};
 use miden_client::account::standards::faucets::FungibleFaucet;
-use miden_client::account::{AccountId, FaucetMetadata};
+use miden_client::account::{AccountId, FaucetMetadata, StorageSlotName};
 use miden_client::address::{Address, AddressId, NetworkId};
 use miden_client::asset::{Asset, AssetAmount, AssetId, FungibleAsset};
 use miden_client::crypto::ecdsa_k256_keccak;
@@ -12,7 +13,7 @@ use miden_client::note::standards::{PswapNoteStorage, SwapNoteStorage};
 use miden_client::note::{P2idNoteStorage, P2ideNoteStorage, StandardNote};
 use miden_client::transaction::{ExecutedTransaction, InputNote};
 use miden_client::utils::{Deserializable, hex_to_bytes};
-use miden_client::vm::MIN_STACK_DEPTH;
+use miden_client::vm::{MIN_STACK_DEPTH, Package};
 use miden_client::{AssetError, Client, Felt, WORD_SIZE, Word};
 use serde::Deserialize;
 
@@ -149,9 +150,12 @@ pub(crate) fn configured_network_id() -> Result<NetworkId, CliError> {
 
 /// Prints the effects of an executed transaction: input notes, output notes, storage value changes,
 /// storage map changes, vault changes, and the nonce change.
+///
+/// Storage values are decoded with the slot schemas of `packages`.
 pub async fn print_executed_transaction<AUTH>(
     client: &Client<AUTH>,
     executed_tx: &ExecutedTransaction,
+    packages: &[Package],
 ) -> Result<(), CliError> {
     println!("The transaction will have the following effects:\n");
 
@@ -181,12 +185,16 @@ pub async fn print_executed_transaction<AUTH>(
     }
     println!();
 
+    let schemas = SlotSchemas::from_packages(packages);
+
     // STORAGE VALUES
     if patch.storage().values().next().is_some() {
         let mut table = create_dynamic_table(&["Storage Slot", "New Value"]);
         for (slot, value_patch) in patch.storage().values() {
-            let new_value =
-                value_patch.value().map_or_else(|| "removed".to_string(), |v| v.to_hex());
+            let new_value = value_patch.value().map_or_else(
+                || "removed".to_string(),
+                |v| schemas.format_value(slot, Word::from(*v)),
+            );
             table.add_row(vec![slot.to_string(), new_value]);
         }
         println!("Storage changes:");
@@ -200,17 +208,34 @@ pub async fn print_executed_transaction<AUTH>(
         let mut table = create_dynamic_table(&["Storage Slot", "Map Key", "New Value"]);
         for (slot, map_patch) in patch.storage().maps() {
             for (key, value) in map_patch.entries().into_iter().flat_map(|e| e.as_map().iter()) {
-                table.add_row(vec![slot.to_string(), Word::from(*key).to_hex(), value.to_hex()]);
+                table.add_row(vec![
+                    slot.to_string(),
+                    schemas.format_map_key(slot, Word::from(*key)),
+                    schemas.format_map_value(slot, *value),
+                ]);
             }
         }
         println!("Storage map changes:");
         println!("{table}");
     }
 
-    // VAULT
-    //
-    // The patch carries the new absolute value of each changed asset, cleared entries are listed as
-    // removed.
+    print_vault_changes(client, executed_tx).await?;
+
+    // NONCE
+    match patch.final_nonce() {
+        Some(nonce) => println!("New account nonce: {nonce}."),
+        None => println!("Account nonce will not be changed."),
+    }
+
+    Ok(())
+}
+
+/// Prints the vault changes, and lists each cleared entry as removed.
+async fn print_vault_changes<AUTH>(
+    client: &Client<AUTH>,
+    executed_tx: &ExecutedTransaction,
+) -> Result<(), CliError> {
+    let patch = executed_tx.account_patch();
     if patch.vault().is_empty() {
         println!("Account Vault will not be changed.");
     } else {
@@ -255,12 +280,6 @@ pub async fn print_executed_transaction<AUTH>(
             println!("Non fungible asset changes:");
             println!("{non_fungible_table}");
         }
-    }
-
-    // NONCE
-    match patch.final_nonce() {
-        Some(nonce) => println!("New account nonce: {nonce}."),
-        None => println!("Account nonce will not be changed."),
     }
 
     Ok(())
@@ -759,6 +778,50 @@ fn parse_address(address_str: &str, network_id: &NetworkId) -> Result<AccountId,
     Err(format!("address `{address_str}` does not encode an account ID"))
 }
 
+// SLOT SCHEMAS
+// ================================================================================================
+
+/// Maps each slot name to its schema from a set of packages. A slot with no schema is shown as hex.
+#[derive(Default)]
+pub(crate) struct SlotSchemas(BTreeMap<StorageSlotName, StorageSlotSchema>);
+
+impl SlotSchemas {
+    /// Collects the slot schemas of `packages`, and keeps the first one when a slot appears twice.
+    pub(crate) fn from_packages<'a>(packages: impl IntoIterator<Item = &'a Package>) -> Self {
+        let mut slots = BTreeMap::new();
+        for package in packages {
+            let Ok(metadata) = AccountComponentMetadata::try_from(package) else {
+                continue;
+            };
+            for (name, schema) in metadata.storage_schema().iter() {
+                slots.entry(name.clone()).or_insert_with(|| schema.clone());
+            }
+        }
+        Self(slots)
+    }
+
+    pub(crate) fn format_value(&self, slot: &StorageSlotName, word: Word) -> String {
+        match self.0.get(slot) {
+            Some(StorageSlotSchema::Value(schema)) => schema.word().display_word(word),
+            _ => word.to_hex(),
+        }
+    }
+
+    pub(crate) fn format_map_key(&self, slot: &StorageSlotName, key: Word) -> String {
+        match self.0.get(slot) {
+            Some(StorageSlotSchema::Map(schema)) => schema.key_schema().display_word(key),
+            _ => key.to_hex(),
+        }
+    }
+
+    pub(crate) fn format_map_value(&self, slot: &StorageSlotName, value: Word) -> String {
+        match self.0.get(slot) {
+            Some(StorageSlotSchema::Map(schema)) => schema.value_schema().display_word(value),
+            _ => value.to_hex(),
+        }
+    }
+}
+
 // NOTE STORAGE DECODING
 // ================================================================================================
 
@@ -902,15 +965,24 @@ pub(crate) fn parse_ecdsa_public_key(
 mod tests {
     use std::collections::BTreeMap;
 
-    use miden_client::account::AccountId;
+    use miden_client::account::component::{
+        MapSlotSchema,
+        SchemaType,
+        StorageSlotSchema,
+        ValueSlotSchema,
+        WordSchema,
+    };
+    use miden_client::account::{AccountId, StorageSlotName};
     use miden_client::address::{Address, NetworkId};
     use miden_client::asset::AssetAmount;
     use miden_client::testing::account_id::ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET;
     use miden_client::utils::Serializable;
+    use miden_client::{Felt, Word};
 
     use super::{
         FaucetMetadataResolver,
         RawFaucetEntry,
+        SlotSchemas,
         TokenParseError,
         base_units_to_tokens,
         hex_to_bytes,
@@ -1073,5 +1145,39 @@ mod tests {
 
         parse_ecdsa_public_key(&not_on_curve)
             .expect_err("an uncompressed point off the curve should be rejected");
+    }
+
+    #[test]
+    fn slot_schemas_format_typed_values_and_fall_back_to_hex() {
+        let value_slot: StorageSlotName = "demo::counter".parse().unwrap();
+        let map_slot: StorageSlotName = "demo::balances".parse().unwrap();
+        let other_slot: StorageSlotName = "demo::other".parse().unwrap();
+        let schemas = SlotSchemas(BTreeMap::from([
+            (
+                value_slot.clone(),
+                StorageSlotSchema::Value(ValueSlotSchema::new(
+                    None,
+                    WordSchema::new_simple(SchemaType::u8()),
+                )),
+            ),
+            (
+                map_slot.clone(),
+                StorageSlotSchema::Map(MapSlotSchema::new(
+                    None,
+                    None,
+                    WordSchema::new_simple(SchemaType::u8()),
+                    WordSchema::new_simple(SchemaType::bool()),
+                )),
+            ),
+        ]));
+        let word =
+            |n: u64| Word::from([Felt::new_unchecked(n), Felt::ZERO, Felt::ZERO, Felt::ZERO]);
+
+        assert_eq!(schemas.format_value(&value_slot, word(6)), "6");
+        assert_eq!(schemas.format_map_key(&map_slot, word(7)), "7");
+        assert_eq!(schemas.format_map_value(&map_slot, word(1)), "true");
+        // A map slot has no value schema, so it stays hex.
+        assert_eq!(schemas.format_value(&map_slot, word(6)), word(6).to_hex());
+        assert_eq!(schemas.format_value(&other_slot, word(6)), word(6).to_hex());
     }
 }

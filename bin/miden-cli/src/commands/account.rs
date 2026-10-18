@@ -25,7 +25,7 @@ use miden_client::{Client, PrettyPrint, Word, ZERO};
 use crate::commands::new_account::load_packages;
 use crate::config::{CliConfig, RpcConfig};
 use crate::errors::CliError;
-use crate::utils::{base_units_to_tokens, parse_account_id, split_procedure_target};
+use crate::utils::{SlotSchemas, base_units_to_tokens, parse_account_id, split_procedure_target};
 use crate::{client_binary_name, create_dynamic_table};
 
 pub const DEFAULT_ACCOUNT_ID_KEY: &str = "default_account_id";
@@ -41,20 +41,20 @@ pub struct AccountCmd {
     #[arg(short, long, group = "action")]
     list: bool,
     /// Show details of the account for the specified ID or hex prefix.
-    #[arg(short, long, group = "action", value_name = "ID")]
+    #[arg(short, long, groups = ["action", "uses_package"], value_name = "ID")]
     show: Option<String>,
     /// List the procedures exposed by the account for the specified ID (or hex prefix), resolving
     /// each procedure's name and signature from `.masp` packages.
     ///
     /// Accepts either `<ID>` to list every procedure, or `<ID>:<PROCEDURE>` to resolve a single
     /// procedure by name.
-    #[arg(long, group = "action", value_name = "ID[:PROCEDURE]")]
+    #[arg(long, groups = ["action", "uses_package"], value_name = "ID[:PROCEDURE]")]
     inspect: Option<String>,
-    /// Additional package files (`.masp`) used to resolve procedure MAST roots to names and
-    /// signatures, on top of the packages in the configured packages directory.
+    /// Package files (`.masp`) that `--inspect` uses, together with the packages directory, to name
+    /// procedures, and that `--show` uses to decode storage values.
     ///
     /// May be passed multiple times. On a duplicate MAST root, the passed packages take precedence.
-    #[arg(short, long, value_name = "FILE", requires = "inspect")]
+    #[arg(short, long, value_name = "FILE", requires = "uses_package")]
     package: Vec<PathBuf>,
     /// When using --inspect, also print the MASM disassembly of each procedure.
     #[arg(short, long, requires = "inspect")]
@@ -89,7 +89,14 @@ impl AccountCmd {
                 ..
             } => {
                 let account_id = parse_account_id(&client, id).await?;
-                show_account(&client, account_id, &cli_config).await?;
+                let packages = load_packages(&cli_config, &self.package)?;
+                show_account(
+                    &client,
+                    account_id,
+                    &cli_config,
+                    &SlotSchemas::from_packages(&packages),
+                )
+                .await?;
             },
             AccountCmd {
                 list: false,
@@ -223,6 +230,7 @@ async fn show_account<AUTH>(
     client: &Client<AUTH>,
     account_id: AccountId,
     cli_config: &CliConfig,
+    schemas: &SlotSchemas,
 ) -> Result<(), CliError> {
     let account = load_partial_account(client, account_id, &cli_config.rpc).await?;
 
@@ -280,7 +288,11 @@ async fn show_account<AUTH>(
                 StorageSlotType::Value => "Value",
                 StorageSlotType::Map => "Map",
             };
-            table.add_row(vec![slot.name().as_str(), slot_type, &item.to_hex()]);
+            let value = match slot.slot_type() {
+                StorageSlotType::Value => schemas.format_value(slot.name(), item),
+                StorageSlotType::Map => item.to_hex(),
+            };
+            table.add_row(vec![slot.name().as_str(), slot_type, &value]);
         }
         println!("{table}\n");
     }

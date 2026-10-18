@@ -623,7 +623,7 @@ async fn execute_transaction<AUTH: Keystore + Sync + 'static>(
     let executed_transaction = transaction_result.executed_transaction().clone();
 
     // Show delta and ask for confirmation
-    print_executed_transaction(client, &executed_transaction).await?;
+    print_executed_transaction(client, &executed_transaction, &[]).await?;
     if !force {
         println!(
             "\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the network (y/N)"

@@ -21,6 +21,7 @@ use miden_client::vm::{
     ExecutionError,
     MIN_STACK_DEPTH,
     OperationError,
+    Package,
     PackageExport,
     PackageManifest,
     ProcedureExport,
@@ -101,7 +102,11 @@ impl CallCmd {
         })?;
 
         let target_id = parse_account_id(&client, account_str).await?;
-        let call_code = self.resolve_call_code(&client, &cli_config, procedure)?;
+        let package = match &self.package {
+            Some(pkg_path) => load_packages(&cli_config, slice::from_ref(pkg_path))?.pop(),
+            None => None,
+        };
+        let call_code = self.resolve_call_code(&client, package.as_ref(), procedure)?;
 
         let advice_entries = match &self.inputs_path {
             Some(path) => load_advice_map_from_file(path)?,
@@ -112,7 +117,8 @@ impl CallCmd {
 
         match call_target {
             CallTarget::Local(account_id) => {
-                run_local_call(&client, account_id, call_code, advice_entries).await
+                run_local_call(&client, account_id, call_code, advice_entries, package.as_slice())
+                    .await
             },
             CallTarget::Remote { target_id, executor_id, foreign_account } => {
                 run_remote_call(
@@ -133,11 +139,11 @@ impl CallCmd {
     fn resolve_call_code<AUTH: Keystore + Sync + 'static>(
         &self,
         client: &Client<AUTH>,
-        cli_config: &CliConfig,
+        package: Option<&Package>,
         procedure: &str,
     ) -> Result<CallCode, CliError> {
-        let call_code = match &self.package {
-            Some(pkg_path) => self.resolve_from_package(client, cli_config, pkg_path, procedure)?,
+        let call_code = match package {
+            Some(package) => self.resolve_from_package(client, package, procedure)?,
             None => self.resolve_from_digest(client, procedure)?,
         };
 
@@ -169,14 +175,9 @@ impl CallCmd {
     fn resolve_from_package<AUTH: Keystore + Sync + 'static>(
         &self,
         client: &Client<AUTH>,
-        cli_config: &CliConfig,
-        pkg_path: &PathBuf,
+        package: &Package,
         procedure: &str,
     ) -> Result<CallCode, CliError> {
-        let package = load_packages(cli_config, slice::from_ref(pkg_path))?
-            .pop()
-            .expect("load_packages returns one package per path");
-
         let export = resolve_procedure_export(&package.manifest, procedure)?;
         let digest = export.digest;
         // The signature prints under the name the package carries, not the one the user typed, so
@@ -215,7 +216,7 @@ impl CallCmd {
         // doesn't need to be embedded in the script. The assembler still needs it at compile time
         // to resolve `call.<digest>` to a known procedure — otherwise it emits a "phantom target"
         // warning. Dynamic linking provides that resolution without embedding the library bytes.
-        let builder = client.code_builder().with_dynamically_linked_package(&package)?;
+        let builder = client.code_builder().with_dynamically_linked_package(package)?;
         Ok(CallCode { builder, digest, args, typed })
     }
 
@@ -325,6 +326,7 @@ async fn run_local_call<AUTH: Keystore + Sync + 'static>(
     account_id: AccountId,
     call_code: CallCode,
     advice_entries: Vec<(Word, Vec<Felt>)>,
+    packages: &[Package],
 ) -> Result<(), CliError> {
     let CallCode { builder, digest, args, typed } = call_code;
     let tx_script = generate_tx_script(builder, &digest, &args)?;
@@ -351,7 +353,7 @@ async fn run_local_call<AUTH: Keystore + Sync + 'static>(
 
     match client.execute_transaction(account_id, tx_request).await {
         Ok(tx_result) => {
-            print_executed_transaction(client, tx_result.executed_transaction()).await?;
+            print_executed_transaction(client, tx_result.executed_transaction(), packages).await?;
         },
         Err(e) => report_failed_delta(&e),
     }
