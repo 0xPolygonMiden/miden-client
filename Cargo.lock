@@ -2707,7 +2707,7 @@ dependencies = [
  "miden-mast-package",
  "miden-package-registry",
  "miden-protocol",
- "miden-protocol-build-utils",
+ "miden-protocol-build-utils 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "miden-standards",
  "miden-utils-sync",
  "serde",
@@ -3477,8 +3477,6 @@ dependencies = [
 [[package]]
 name = "miden-protocol"
 version = "0.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9880b79313d737d8ea71290651f196eaadaaadd30e8282886a0f6ffc89901ba6"
 dependencies = [
  "bech32",
  "fs-err",
@@ -3493,7 +3491,7 @@ dependencies = [
  "miden-mast-package",
  "miden-package-registry",
  "miden-processor",
- "miden-protocol-build-utils",
+ "miden-protocol-build-utils 0.17.1",
  "miden-utils-sync",
  "miden-verifier",
  "rand 0.10.3",
@@ -3504,6 +3502,20 @@ dependencies = [
  "serde",
  "thiserror",
  "toml 1.1.6+spec-1.1.0",
+]
+
+[[package]]
+name = "miden-protocol-build-utils"
+version = "0.17.1"
+dependencies = [
+ "fs-err",
+ "miden-assembly",
+ "miden-core",
+ "miden-mast-package",
+ "miden-package-registry",
+ "miden-project",
+ "regex",
+ "walkdir",
 ]
 
 [[package]]
@@ -3571,7 +3583,7 @@ dependencies = [
  "miden-core-lib",
  "miden-package-registry",
  "miden-protocol",
- "miden-protocol-build-utils",
+ "miden-protocol-build-utils 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types 0.14.0",
  "rand 0.10.3",
  "thiserror",
