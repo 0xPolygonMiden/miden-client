@@ -57,10 +57,8 @@ pub use miden_client_core::rpc::{
     NoteContentFetch,
     RpcEndpoint,
     RpcLimits,
+    VerifyingRpcClient,
     domain,
 };
 #[cfg(feature = "tonic")]
 pub use miden_client_grpc::GrpcClient;
-
-mod verifying_client;
-pub use verifying_client::VerifyingRpcClient;

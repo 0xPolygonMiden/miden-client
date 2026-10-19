@@ -1,7 +1,7 @@
-use std::boxed::Box;
-use std::collections::BTreeSet;
-use std::string::String;
-use std::vec::Vec;
+use alloc::boxed::Box;
+use alloc::collections::BTreeSet;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 use miden_protocol::account::AccountId;
 use miden_protocol::address::NetworkId;
