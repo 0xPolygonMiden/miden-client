@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 
+use miden_protocol::account::AccountId;
 use miden_protocol::block::BlockNumber;
 use miden_protocol::errors::TransactionVerifierError;
 use miden_protocol::note::{NoteId, Nullifier};
@@ -25,6 +26,12 @@ pub enum BatchBuilderError {
         "input note with nullifier {0} is already consumed by an earlier transaction in this batch"
     )]
     DuplicateNullifier(Nullifier),
+
+    /// A push of this client is for an account that already has a transaction that another party
+    /// proved in this batch. The client does not apply that transaction to the account state, so
+    /// the two transactions start from the same state and the batch cannot chain them.
+    #[error("account {0} already has a transaction proven by another party in this batch")]
+    AccountHasProvenTransaction(AccountId),
 
     /// The proof of a transaction that another party proved does not verify.
     #[error("proof of transaction {tx_id} does not verify")]

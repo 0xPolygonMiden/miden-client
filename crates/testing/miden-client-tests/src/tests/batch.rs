@@ -1099,6 +1099,52 @@ async fn batch_builder_rejects_proven_transaction_with_consumed_nullifier() {
     assert_eq!(batch.len(), 1);
 }
 
+/// A transaction of the client cannot consume a note that a transaction proven by another party
+/// already consumes in the batch.
+#[tokio::test]
+async fn batch_builder_rejects_local_transaction_with_note_consumed_by_proven_transaction() {
+    let (client, rpc_api, local_id, other_id, note) =
+        Box::pin(setup_client_with_untracked_account()).await;
+
+    let executed = execute_on_mock_chain(&rpc_api, other_id, [note.id()]).await;
+    let proven = LocalTransactionProver::default().prove(executed.clone()).unwrap();
+    let mut batch = client.new_transaction_batch();
+    batch.push_proven_transaction(proven, executed).unwrap();
+
+    let request = TransactionRequestBuilder::new()
+        .build_consume_notes(vec![note.clone()])
+        .unwrap();
+    match Box::pin(client.push_to_batch(&mut batch, local_id, request)).await {
+        Err(ClientError::BatchBuilder(BatchBuilderError::DuplicateInputNote(note_id))) => {
+            assert_eq!(note_id, note.id());
+        },
+        other => panic!("expected DuplicateInputNote, got {other:?}"),
+    }
+    assert_eq!(batch.len(), 1);
+}
+
+/// A transaction of the client cannot be pushed for an account that already has a transaction
+/// proven by another party in the batch.
+#[tokio::test]
+async fn batch_builder_rejects_local_transaction_for_account_with_proven_transaction() {
+    let (client, rpc_api, local_id, _other_id, _note) =
+        Box::pin(setup_client_with_untracked_account()).await;
+
+    let executed = execute_on_mock_chain(&rpc_api, local_id, []).await;
+    let proven = LocalTransactionProver::default().prove(executed.clone()).unwrap();
+    let mut batch = client.new_transaction_batch();
+    batch.push_proven_transaction(proven, executed).unwrap();
+
+    let request = TransactionRequestBuilder::new().build().unwrap();
+    match Box::pin(client.push_to_batch(&mut batch, local_id, request)).await {
+        Err(ClientError::BatchBuilder(BatchBuilderError::AccountHasProvenTransaction(id))) => {
+            assert_eq!(id, local_id);
+        },
+        other => panic!("expected AccountHasProvenTransaction, got {other:?}"),
+    }
+    assert_eq!(batch.len(), 1);
+}
+
 /// A transaction whose proof does not verify is rejected at the push.
 #[tokio::test]
 async fn batch_builder_rejects_proven_transaction_with_invalid_proof() {

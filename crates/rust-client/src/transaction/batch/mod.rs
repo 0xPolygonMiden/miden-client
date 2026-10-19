@@ -28,9 +28,9 @@
 //! ## Transactions proven by other parties
 //!
 //! [`BatchBuilder::push_proven_transaction`] adds a transaction that another party executed and
-//! proved. The client does not have to track its account and does not record it locally. Do not
-//! also push a transaction of this client for the same account, because the node then rejects the
-//! batch.
+//! proved. The client does not have to track its account and does not record it locally.
+//! [`Client::push_to_batch`] rejects an account that already has such a transaction in the batch
+//! with [`BatchBuilderError::AccountHasProvenTransaction`].
 //!
 //! ## Constraints
 //!
@@ -38,8 +38,8 @@
 //!   (otherwise the first push for that account fails with
 //!   [`crate::ClientError::AccountDataNotFound`]).
 //! - Locked accounts are rejected with [`crate::ClientError::AccountLocked`].
-//! - No two transactions in a batch may consume the same input note (rejected with
-//!   [`BatchBuilderError::DuplicateInputNote`]).
+//! - No two transactions in a batch may consume the same input note (rejected at the push with
+//!   [`BatchBuilderError::DuplicateInputNote`] or [`BatchBuilderError::DuplicateNullifier`]).
 //! - A failed [`Client::push_to_batch`] leaves the batch exactly as it was, so the caller may retry
 //!   with a different request or submit the transactions accumulated so far.
 //! - The batch builds on the state each account had at its first push. If another transaction for
@@ -89,7 +89,7 @@ use miden_protocol::MIN_PROOF_SECURITY_LEVEL;
 use miden_protocol::account::AccountId;
 use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::BlockNumber;
-use miden_protocol::note::{NoteId, Nullifier};
+use miden_protocol::note::Nullifier;
 use miden_protocol::transaction::{
     InputNoteCommitment,
     ProvenTransaction,
@@ -159,7 +159,8 @@ pub struct BatchBuilder {
     pub(crate) data_store: InMemoryBatchDataStore,
     pub(crate) pushed_txs: Vec<PushedTx>,
     pub(crate) tx_results: Vec<TransactionResult>,
-    pub(crate) consumed_input_notes: BTreeSet<NoteId>,
+    pub(crate) consumed_nullifiers: BTreeSet<Nullifier>,
+    pub(crate) proven_accounts: BTreeSet<AccountId>,
 }
 
 impl BatchBuilder {
@@ -187,15 +188,10 @@ impl BatchBuilder {
         proven_tx: ProvenTransaction,
         tx_inputs: impl Into<TransactionInputs>,
     ) -> Result<(), BatchBuilderError> {
-        let consumed: BTreeSet<Nullifier> = self
-            .pushed_txs
+        if let Some(note) = proven_tx
+            .input_notes()
             .iter()
-            .flat_map(|pushed| {
-                pushed.proven_tx.input_notes().iter().map(InputNoteCommitment::nullifier)
-            })
-            .collect();
-        if let Some(note) =
-            proven_tx.input_notes().iter().find(|note| consumed.contains(&note.nullifier()))
+            .find(|note| self.consumed_nullifiers.contains(&note.nullifier()))
         {
             return Err(BatchBuilderError::DuplicateNullifier(note.nullifier()));
         }
@@ -208,6 +204,9 @@ impl BatchBuilder {
                 source,
             })?;
 
+        self.consumed_nullifiers
+            .extend(proven_tx.input_notes().iter().map(InputNoteCommitment::nullifier));
+        self.proven_accounts.insert(proven_tx.account_id());
         self.pushed_txs.push(PushedTx {
             proven_tx: Arc::new(proven_tx),
             tx_inputs: tx_inputs.into(),
@@ -229,7 +228,8 @@ where
             data_store: InMemoryBatchDataStore::new(inner_data_store),
             pushed_txs: Vec::new(),
             tx_results: Vec::new(),
-            consumed_input_notes: BTreeSet::new(),
+            consumed_nullifiers: BTreeSet::new(),
+            proven_accounts: BTreeSet::new(),
         }
     }
 
@@ -448,10 +448,16 @@ where
         account_id: AccountId,
         req: TransactionRequest,
     ) -> Result<(), ClientError> {
-        // 1. Dedup input notes globally for the batch.
-        for note_id in req.input_note_ids() {
-            if batch.consumed_input_notes.contains(&note_id) {
-                return Err(ClientError::from(BatchBuilderError::DuplicateInputNote(note_id)));
+        // 1. Reject an account that has a transaction proven by another party, and dedup input
+        //    notes globally for the batch.
+        if batch.proven_accounts.contains(&account_id) {
+            return Err(ClientError::from(BatchBuilderError::AccountHasProvenTransaction(
+                account_id,
+            )));
+        }
+        for note in req.input_notes() {
+            if batch.consumed_nullifiers.contains(&note.nullifier()) {
+                return Err(ClientError::from(BatchBuilderError::DuplicateInputNote(note.id())));
             }
         }
 
@@ -470,9 +476,9 @@ where
             .data_store
             .apply_executed_transaction(tx_result.executed_transaction())
             .await?;
-        for note in tx_result.consumed_notes().iter() {
-            batch.consumed_input_notes.insert(note.id());
-        }
+        batch
+            .consumed_nullifiers
+            .extend(proven_tx.input_notes().iter().map(InputNoteCommitment::nullifier));
         batch.pushed_txs.push(PushedTx {
             proven_tx: Arc::new(proven_tx),
             tx_inputs: tx_result.executed_transaction().tx_inputs().clone(),
