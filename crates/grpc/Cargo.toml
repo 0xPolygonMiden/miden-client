@@ -27,7 +27,6 @@ std = [
   "tonic/tls-ring",
   "tonic/transport",
 ]
-testing = []
 
 [dependencies]
 # Miden dependencies
