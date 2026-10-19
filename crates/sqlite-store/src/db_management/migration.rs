@@ -172,6 +172,34 @@ impl SqliteMigrator {
         })
     }
 
+    /// Checks that `conn` holds the latest schema version and does not change the database.
+    pub(crate) fn verify(&self, conn: &Connection) -> Result<(), SqliteStoreError> {
+        let latest = self.latest_version();
+
+        let migrations = self.verified_library_migrations(&RejectionReport::default());
+        match migrations.current_version(conn)? {
+            SchemaVersion::NoneSet => {
+                if Self::is_empty_database(conn)? {
+                    Err(SqliteStoreError::SchemaBehind { found: 0, latest })
+                } else {
+                    Err(SqliteStoreError::NotAClientStore)
+                }
+            },
+            SchemaVersion::Inside(ver) if ver.get() < latest => {
+                Err(SqliteStoreError::SchemaBehind { found: ver.get(), latest })
+            },
+            SchemaVersion::Inside(ver) => match self.schema_mismatch_at(conn, ver.get())? {
+                Some((expected, actual)) => {
+                    Err(SqliteStoreError::SchemaDrift { version: ver.get(), expected, actual })
+                },
+                None => Ok(()),
+            },
+            SchemaVersion::Outside(ver) => {
+                Err(SqliteStoreError::SchemaTooNew { found: ver.get(), supported: latest })
+            },
+        }
+    }
+
     /// Applies the migrations up to `version`, to build a database that is behind the latest
     /// version.
     #[cfg(test)]

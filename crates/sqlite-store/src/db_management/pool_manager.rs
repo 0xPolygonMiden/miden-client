@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use deadpool::Runtime;
 use deadpool::managed::{Manager, Metrics, RecycleError, RecycleResult};
-use rusqlite::Connection;
 use rusqlite::vtab::array;
+use rusqlite::{Connection, OpenFlags};
 
 use super::errors::SqliteStoreError;
 
@@ -24,15 +24,29 @@ const RUNTIME: Runtime = Runtime::Tokio1;
 /// `SQLite` connection pool manager
 pub struct SqlitePoolManager {
     database_path: PathBuf,
+    read_only: bool,
 }
 
 /// `SQLite` connection pool manager
 impl SqlitePoolManager {
+    /// Returns a manager that opens read-write connections and creates the database if it does not
+    /// exist.
     pub fn new(database_path: PathBuf) -> Self {
-        Self { database_path }
+        Self { database_path, read_only: false }
+    }
+
+    /// Returns a manager that opens read-only connections to an existing database.
+    ///
+    /// `SQLite` refuses every write on these connections.
+    pub fn read_only(database_path: PathBuf) -> Self {
+        Self { database_path, read_only: true }
     }
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
+        if self.read_only {
+            return self.new_read_only_connection();
+        }
+
         let conn = Connection::open(&self.database_path)?;
 
         // Restrict database file permissions to owner-only on Unix. Also covers WAL and SHM journal
@@ -78,6 +92,21 @@ impl SqlitePoolManager {
 
         // Enable foreign key checks.
         conn.pragma_update(None, "foreign_keys", "ON")?;
+
+        Ok(conn)
+    }
+
+    /// Opens a read-only connection. The journal mode and file permissions are left as the
+    /// read-write connections set them, because a read-only connection cannot change them.
+    fn new_read_only_connection(&self) -> rusqlite::Result<Connection> {
+        let conn = Connection::open_with_flags(
+            &self.database_path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY
+                | OpenFlags::SQLITE_OPEN_URI
+                | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        array::load_module(&conn)?;
+        conn.busy_timeout(Duration::from_secs(5))?;
 
         Ok(conn)
     }
@@ -205,19 +234,25 @@ mod tests {
         Ok(())
     }
 
-    /// Two unlocked stores open on the same file must wait on each other's write locks rather than
-    /// fail with `SQLITE_BUSY`.
+    /// Concurrent writes through the connections of one store must wait on each other's write locks
+    /// rather than fail with `SQLITE_BUSY`.
     #[tokio::test]
     async fn overlapping_accessors_wait_instead_of_failing() -> anyhow::Result<()> {
-        let path = create_test_store_path();
-        let first = SqliteStore::new_unlocked(path.clone()).await?;
-        let second = SqliteStore::new_unlocked(path).await?;
+        let store = create_test_store().await;
 
-        first.set_setting("from-first".to_string(), b"1".to_vec()).await?;
-        second.set_setting("from-second".to_string(), b"2".to_vec()).await?;
+        tokio::try_join!(
+            store.set_setting("first".to_string(), b"1".to_vec()),
+            store.set_setting("second".to_string(), b"2".to_vec()),
+        )?;
 
-        assert_eq!(second.get_setting("from-first".to_string()).await?, Some(b"1".to_vec()));
-        assert_eq!(first.get_setting("from-second".to_string()).await?, Some(b"2".to_vec()));
+        assert_eq!(
+            store.get_setting("first".to_string()).await?,
+            Some(b"1".to_vec())
+        );
+        assert_eq!(
+            store.get_setting("second".to_string()).await?,
+            Some(b"2".to_vec())
+        );
 
         Ok(())
     }
