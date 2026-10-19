@@ -2,12 +2,13 @@ use std::env::temp_dir;
 use std::sync::Arc;
 
 use miden_client::account::AccountType;
-use miden_client::asset::AssetId;
+use miden_client::asset::{AssetId, FungibleAsset};
 use miden_client::builder::ClientBuilder;
 use miden_client::keystore::FilesystemKeyStore;
+use miden_client::note::NoteType;
 use miden_client::protocol_config::ProtocolConfig;
 use miden_client::store::StoreError;
-use miden_client::testing::common::create_test_store_path;
+use miden_client::testing::common::{AccountSetup, create_test_store_path};
 use miden_client::transaction::TransactionRequestBuilder;
 use miden_client::{ClientError, Serializable, Word};
 use miden_client_core::store::{SettingScope, protocol_config_setting_key};
@@ -45,6 +46,49 @@ async fn the_first_sync_stores_the_protocol_config() {
     client.sync_state().await.unwrap();
 
     assert_eq!(client.get_protocol_config(config.to_commitment()).await.unwrap(), config);
+}
+
+/// A fresh client without a stored protocol configuration keeps a public note for its account on
+/// the first sync.
+#[tokio::test]
+async fn first_sync_keeps_account_note_without_protocol_config() {
+    let (mut sender, rpc) = Box::pin(create_test_client()).await;
+
+    // The receiver uses the same chain but does not seed the protocol configuration.
+    let mut receiver = TestClient::from(
+        ClientBuilder::new()
+            .rpc(Arc::new(rpc.clone()))
+            .store(Arc::new(SqliteStore::new(create_test_store_path()).await.unwrap()))
+            .authenticator(Arc::new(FilesystemKeyStore::new(temp_dir()).unwrap()))
+            .tx_discard_delta(None)
+            .build()
+            .await
+            .unwrap(),
+    );
+    receiver.ensure_genesis_in_place().await.unwrap();
+    let (wallet, _) = receiver
+        .insert_account(AccountSetup::wallet(AccountType::Private).unfunded())
+        .await
+        .unwrap();
+
+    let faucet = sender.insert_faucet(AccountType::Private).await.unwrap();
+    rpc.prove_block();
+    sender.sync_state().await.unwrap();
+
+    let request = TransactionRequestBuilder::new()
+        .build_mint_fungible_asset(
+            FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+            wallet.id(),
+            NoteType::Public,
+            sender.rng(),
+        )
+        .unwrap();
+    let note_id = request.expected_output_own_notes().pop().unwrap().id();
+    Box::pin(sender.submit_new_transaction(faucet.id(), request)).await.unwrap();
+    rpc.prove_block();
+
+    receiver.sync_state().await.unwrap();
+    assert!(receiver.get_input_note(note_id).await.unwrap().is_some());
 }
 
 #[tokio::test]

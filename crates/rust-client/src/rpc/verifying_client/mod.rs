@@ -10,6 +10,7 @@ use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::{BlockHeader, BlockNumber, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::MmrProof;
 use miden_protocol::note::{NoteId, NoteScript, NoteTag};
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::ProvenTransaction;
 use miden_protocol::vm::ExecutionProof;
 
@@ -214,11 +215,14 @@ impl<T: NodeRpcClient> NodeRpcClient for VerifyingRpcClient<T> {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
-        let (header, mmr_proof) =
-            self.0.get_block_header_by_number(block_num, include_mmr_proof).await?;
+        include_protocol_config: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
+        let (header, mmr_proof, protocol_config) = self
+            .0
+            .get_block_header_by_number(block_num, include_mmr_proof, include_protocol_config)
+            .await?;
         verify_block_num(block_num, header.block_num())?;
-        Ok((header, mmr_proof))
+        Ok((header, mmr_proof, protocol_config))
     }
 
     async fn get_block_by_number(

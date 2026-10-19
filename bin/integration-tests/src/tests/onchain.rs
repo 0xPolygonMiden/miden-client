@@ -563,7 +563,7 @@ pub async fn test_incorrect_genesis(client_config: ClientConfig) -> Result<()> {
 
     // This request would always be valid as it requests the chain tip. But it should fail because
     // the genesis commitment in the request header does not match the one in the node.
-    let result = client.test_rpc_api().get_block_header_by_number(None, false).await;
+    let result = client.test_rpc_api().get_block_header_by_number(None, false, false).await;
 
     match result {
         Err(RpcError::AcceptHeaderError(AcceptHeaderError::NoSupportedMediaRange(_))) => Ok(()),

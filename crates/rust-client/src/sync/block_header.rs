@@ -8,8 +8,9 @@ use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
 use miden_protocol::{Felt, Word};
 use tracing::warn;
 
-use crate::rpc::NodeRpcClient;
+use crate::protocol_config::store_protocol_config;
 use crate::rpc::domain::note::ResolvedSyncNotesBlock;
+use crate::rpc::{NodeRpcClient, RpcError};
 use crate::store::{BlockRelevance, StoreError};
 #[cfg(feature = "testing")]
 use crate::test_utils::mock::MockRpcApi;
@@ -44,18 +45,25 @@ impl<AUTH> Client<AUTH> {
         Ok(self.get_latest_block_header().await?.validator_config().clone())
     }
 
-    /// Ensures that the genesis block is available. If the genesis commitment is already cached in
-    /// the RPC client, returns early. Otherwise, fetches the genesis block from the node, stores
-    /// it, and sets the commitment in the RPC client.
+    /// Ensures that the genesis block and its protocol configuration are available. If the genesis
+    /// commitment is already cached in the RPC client, returns early. Otherwise, fetches the
+    /// genesis block and its protocol configuration from the node, stores them, and sets the
+    /// commitment in the RPC client.
     pub async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         if self.rpc_api.has_genesis_commitment().is_some() {
             return Ok(());
         }
 
-        let (genesis, _) = self
+        let (genesis, _, protocol_config) = self
             .rpc_api
-            .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
+            .get_block_header_by_number(Some(BlockNumber::GENESIS), false, true)
             .await?;
+        let protocol_config =
+            protocol_config.ok_or(RpcError::ExpectedDataMissing("ProtocolConfig".into()))?;
+
+        // Note screening on the first sync executes against the genesis block, so it needs the
+        // genesis protocol configuration before the sync stores any configuration.
+        store_protocol_config(self.store.as_ref(), &protocol_config).await?;
 
         // Genesis is untracked since there are no client notes associated with it, so we fetch no
         // MMR proof and pass no nodes.
@@ -81,9 +89,7 @@ impl<AUTH> Client<AUTH> {
             return Ok(());
         }
 
-        let rpc = MockRpcApi::default();
-        self.seed_protocol_config(rpc.protocol_config()).await?;
-        *self.test_rpc_api() = Arc::new(rpc);
+        *self.test_rpc_api() = Arc::new(MockRpcApi::default());
         self.ensure_genesis_in_place().await?;
         Ok(())
     }

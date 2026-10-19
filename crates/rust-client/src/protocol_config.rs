@@ -4,9 +4,7 @@ use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_protocol::Word;
 pub use miden_protocol::errors::ProtocolConfigError;
 pub use miden_protocol::protocol_config::{NextProtocolConfig, ProtocolConfig};
-use miden_protocol::utils::serde::Deserializable;
-#[cfg(feature = "testing")]
-use miden_protocol::utils::serde::Serializable;
+use miden_protocol::utils::serde::{Deserializable, Serializable};
 
 use crate::store::{Store, StoreError};
 use crate::{Client, ClientError};
@@ -19,14 +17,7 @@ impl<AUTH> Client<AUTH> {
     /// for a client that cannot sync, such as one backed by a mock chain.
     #[cfg(feature = "testing")]
     pub async fn seed_protocol_config(&self, config: ProtocolConfig) -> Result<(), ClientError> {
-        self.store
-            .set_setting(
-                SettingScope::Client,
-                protocol_config_setting_key(config.to_commitment()),
-                config.to_bytes(),
-            )
-            .await?;
-        Ok(())
+        Ok(store_protocol_config(self.store.as_ref(), &config).await?)
     }
 
     /// Returns the stored protocol configuration for the specified commitment.
@@ -36,6 +27,20 @@ impl<AUTH> Client<AUTH> {
     ) -> Result<ProtocolConfig, ClientError> {
         Ok(load_protocol_config(self.store.as_ref(), commitment).await?)
     }
+}
+
+/// Stores the configuration under its own commitment, so it does not replace a different one.
+pub(crate) async fn store_protocol_config(
+    store: &dyn Store,
+    config: &ProtocolConfig,
+) -> Result<(), StoreError> {
+    store
+        .set_setting(
+            SettingScope::Client,
+            protocol_config_setting_key(config.to_commitment()),
+            config.to_bytes(),
+        )
+        .await
 }
 
 pub(crate) async fn load_protocol_config(

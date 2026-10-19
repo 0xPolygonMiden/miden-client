@@ -681,8 +681,8 @@ impl TestClient {
         let final_block = current_block + amount_of_blocks;
         debug!(current_block = %current_block, target_block = %final_block, "Waiting for blocks (no sync)");
         loop {
-            let (latest_block, _) =
-                self.test_rpc_api().get_block_header_by_number(None, false).await?;
+            let (latest_block, ..) =
+                self.test_rpc_api().get_block_header_by_number(None, false, false).await?;
             debug!(
                 chain_tip = %latest_block.block_num(),
                 target_block = %final_block,

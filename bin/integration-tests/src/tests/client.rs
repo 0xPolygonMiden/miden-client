@@ -1249,9 +1249,9 @@ pub async fn test_unused_rpc_api(client_config: ClientConfig) -> Result<()> {
 
     let first_block_num = client.get_sync_height().await.unwrap();
 
-    let (block_header, _) = client
+    let (block_header, ..) = client
         .test_rpc_api()
-        .get_block_header_by_number(Some(first_block_num), false)
+        .get_block_header_by_number(Some(first_block_num), false, false)
         .await?;
     let (block, _proof) =
         client.test_rpc_api().get_block_by_number(first_block_num, false).await.unwrap();
@@ -1278,9 +1278,9 @@ pub async fn test_unused_rpc_api(client_config: ClientConfig) -> Result<()> {
 
     // The witness's merkle path should resolve to the account root committed in the block header
     // for `proof_block_num`.
-    let (proof_block_header, _) = client
+    let (proof_block_header, ..) = client
         .test_rpc_api()
-        .get_block_header_by_number(Some(proof_block_num), false)
+        .get_block_header_by_number(Some(proof_block_num), false, false)
         .await?;
     let computed_account_root = account_proof.account_witness().clone().into_proof().compute_root();
     assert_eq!(computed_account_root, proof_block_header.account_root());

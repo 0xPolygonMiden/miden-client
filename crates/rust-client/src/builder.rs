@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_protocol::assembly::{DefaultSourceManager, SourceManagerSync};
 use miden_protocol::block::BlockNumber;
 use miden_protocol::{MAX_TX_EXECUTION_CYCLES, MIN_TX_EXECUTION_CYCLES};
@@ -522,8 +523,17 @@ where
         let source_manager: Arc<dyn SourceManagerSync> =
             self.source_manager.unwrap_or_else(|| Arc::new(DefaultSourceManager::default()));
 
-        // Initialize genesis commitment in RPC client
-        if let Some((genesis, _)) = store.get_block_header_by_num(BlockNumber::GENESIS).await? {
+        // Initialize genesis commitment in RPC client. A store without the genesis protocol
+        // configuration leaves it unset, so `ensure_genesis_in_place` fetches the configuration.
+        if let Some((genesis, _)) = store.get_block_header_by_num(BlockNumber::GENESIS).await?
+            && store
+                .get_setting(
+                    SettingScope::Client,
+                    protocol_config_setting_key(genesis.protocol_config_commitment()),
+                )
+                .await?
+                .is_some()
+        {
             rpc_api.set_genesis_commitment(genesis.commitment()).await?;
         }
 

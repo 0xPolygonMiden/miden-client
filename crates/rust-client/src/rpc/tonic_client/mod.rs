@@ -25,6 +25,7 @@ use miden_protocol::block::{BlockHeader, BlockNumber, SignedBlock};
 use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{Forest, MmrPath, MmrProof};
 use miden_protocol::note::{NoteId, NoteScript, NoteTag};
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::ProvenTransaction;
 use miden_protocol::vm::ExecutionProof;
 use miden_protocol::{EMPTY_WORD, Word};
@@ -501,11 +502,12 @@ impl NodeRpcClient for GrpcClient {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        include_protocol_config: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
         let request = proto::rpc::GetBlockHeaderByNumberRequest {
             block_num: block_num.as_ref().map(BlockNumber::as_u32),
             include_mmr_proof: Some(include_mmr_proof),
-            include_protocol_config: None,
+            include_protocol_config: Some(include_protocol_config),
         };
 
         info!("Calling GetBlockHeaderByNumber: {:?}", request);
@@ -522,6 +524,26 @@ impl NodeRpcClient for GrpcClient {
             .block_header
             .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
             .decode_and_build_unchecked()?;
+
+        let protocol_config = if include_protocol_config {
+            let protocol_config: ProtocolConfig = response
+                .protocol_config
+                .ok_or(RpcError::ExpectedDataMissing("ProtocolConfig".into()))?
+                .decode_and_verify()?;
+
+            // The store keys a configuration by its own commitment, so a configuration that does
+            // not match this header is unusable.
+            let returned = protocol_config.to_commitment();
+            let expected = block_header.protocol_config_commitment();
+            if returned != expected {
+                return Err(RpcError::InvalidResponse(format!(
+                    "node returned a protocol configuration with commitment {returned} for a block header that commits to {expected}"
+                )));
+            }
+            Some(protocol_config)
+        } else {
+            None
+        };
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -544,7 +566,7 @@ impl NodeRpcClient for GrpcClient {
             None
         };
 
-        Ok((block_header, mmr_proof))
+        Ok((block_header, mmr_proof, protocol_config))
     }
 
     async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<FetchedNote>, RpcError> {
@@ -1289,7 +1311,7 @@ mod tests {
     // Function that returns a `Send` future from a dynamic trait that must be `Sync`.
     async fn dyn_trait_send_fut(client: Box<dyn NodeRpcClient>) {
         // This won't compile if `get_block_header_by_number` doesn't return a `Send+Sync` future.
-        let res = client.get_block_header_by_number(None, false).await;
+        let res = client.get_block_header_by_number(None, false, false).await;
         assert!(res.is_ok());
     }
 

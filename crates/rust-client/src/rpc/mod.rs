@@ -27,7 +27,8 @@
 //! let rpc_client = VerifyingRpcClient::new(GrpcClient::new(&endpoint, 1000));
 //!
 //! // Fetch the latest block header (by passing None).
-//! let (block_header, mmr_proof) = rpc_client.get_block_header_by_number(None, true).await?;
+//! let (block_header, mmr_proof, _) =
+//!     rpc_client.get_block_header_by_number(None, true, false).await?;
 //!
 //! println!("Latest block number: {}", block_header.block_num());
 //! if let Some(proof) = mmr_proof {
@@ -77,6 +78,7 @@ use miden_protocol::note::{
     NoteType,
     Nullifier,
 };
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::ProvenTransaction;
 use miden_protocol::vm::ExecutionProof;
 
@@ -187,7 +189,9 @@ pub trait NodeRpcClient: Send + Sync {
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint. If `include_mmr_proof` is set to true and the
     /// function returns an `Ok`, the second value of the return tuple should always be
-    /// Some(MmrProof).
+    /// Some(MmrProof). If `include_protocol_config` is set to true and the function returns an
+    /// `Ok`, the third value should always be the protocol configuration that the header commits
+    /// to.
     ///
     /// When `None` is provided, returns info regarding the latest block.
     ///
@@ -197,7 +201,8 @@ pub trait NodeRpcClient: Send + Sync {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
+        include_protocol_config: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError>;
 
     /// Given a block number, fetches the block corresponding to that height from the node using the
     /// `/GetBlockByNumber` RPC endpoint.
@@ -547,7 +552,7 @@ pub trait NodeRpcClient: Send + Sync {
     ) -> Result<BTreeMap<Nullifier, Option<BlockNumber>>, RpcError> {
         let prefixes: Vec<u16> =
             requested_nullifiers.iter().map(crate::note::Nullifier::prefix).collect();
-        let (chain_tip, _) = self.get_block_header_by_number(None, false).await?;
+        let (chain_tip, ..) = self.get_block_header_by_number(None, false, false).await?;
         let retrieved_nullifiers =
             self.sync_nullifiers(&prefixes, block_from, chain_tip.block_num()).await?;
 
@@ -608,7 +613,8 @@ pub trait NodeRpcClient: Send + Sync {
         &self,
         block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
-        let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
+        let (header, proof, _) =
+            self.get_block_header_by_number(Some(block_num), true, false).await?;
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
     }
 

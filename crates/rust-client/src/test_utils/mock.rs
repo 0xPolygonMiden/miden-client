@@ -561,7 +561,8 @@ impl NodeRpcClient for MockRpcApi {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        include_protocol_config: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
         self.block_header_requests
             .write()
             .push(BlockHeaderRequest { block_num, include_mmr_proof });
@@ -578,7 +579,9 @@ impl NodeRpcClient for MockRpcApi {
             None
         };
 
-        Ok((block, mmr_proof))
+        let protocol_config = include_protocol_config.then(|| self.protocol_config());
+
+        Ok((block, mmr_proof, protocol_config))
     }
 
     /// Returns the node's tracked notes that match the provided note IDs.

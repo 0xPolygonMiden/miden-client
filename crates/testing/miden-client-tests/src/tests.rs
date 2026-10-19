@@ -473,7 +473,12 @@ async fn sync_state_mmr() {
     let latest_block = client.get_sync_height().await.unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        rpc_api.get_block_header_by_number(None, false).await.unwrap().0.commitment(),
+        rpc_api
+            .get_block_header_by_number(None, false, false)
+            .await
+            .unwrap()
+            .0
+            .commitment(),
         client
             .test_store()
             .get_block_headers(&[latest_block].into_iter().collect())
@@ -496,7 +501,8 @@ async fn sync_state_mmr() {
 
     // Ensure the proof for the remaining tracked leaf is valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
-    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1.into()), false).await.unwrap();
+    let (block_1, ..) =
+        rpc_api.get_block_header_by_number(Some(1.into()), false, false).await.unwrap();
     partial_mmr.peaks().verify(block_1.commitment(), mmr_proof).unwrap();
 
     // Automatic pruning is disabled: block 4 is absent because the sync update did not persist it.
@@ -697,7 +703,11 @@ async fn sync_persists_auth_nodes_for_skipped_blocks() {
     // Build a PartialMmr starting from an empty forest with the genesis block tracked. Tracking
     // genesis is critical: it means the MMR must produce authentication nodes for genesis whenever
     // the tree structure changes (i.e., when new blocks are added).
-    let genesis = rpc_api.get_block_header_by_number(Some(0.into()), false).await.unwrap().0;
+    let genesis = rpc_api
+        .get_block_header_by_number(Some(0.into()), false, false)
+        .await
+        .unwrap()
+        .0;
     let mut partial_mmr = PartialMmr::from_peaks(MmrPeaks::new(Forest::empty(), vec![]).unwrap());
     partial_mmr.add(genesis.commitment(), true).unwrap(); // track genesis
 
@@ -795,7 +805,11 @@ async fn sync_state_no_redundant_get_account_calls() {
         AccountHeader::new(account_id, Felt::from(0u32), EMPTY_WORD, EMPTY_WORD, EMPTY_WORD);
 
     // Build a PartialMmr starting from genesis
-    let genesis = rpc_api.get_block_header_by_number(Some(0.into()), false).await.unwrap().0;
+    let genesis = rpc_api
+        .get_block_header_by_number(Some(0.into()), false, false)
+        .await
+        .unwrap()
+        .0;
     let mut partial_mmr = PartialMmr::from_peaks(MmrPeaks::new(Forest::empty(), vec![]).unwrap());
     partial_mmr.add(genesis.commitment(), true).unwrap();
 
@@ -847,7 +861,12 @@ async fn sync_state_tags() {
     // verify that the client is synced to the latest block
     assert_eq!(
         sync_details.block_num,
-        rpc_api.get_block_header_by_number(None, false).await.unwrap().0.block_num()
+        rpc_api
+            .get_block_header_by_number(None, false, false)
+            .await
+            .unwrap()
+            .0
+            .block_num()
     );
 
     // as we are syncing with tags, the response should contain blocks for both notes
@@ -5064,8 +5083,8 @@ async fn prepare_offline_bootstrap_inserts_mock_chain_genesis() {
     use miden_protocol::crypto::merkle::smt::Smt;
 
     let reference_rpc = MockRpcApi::default();
-    let (expected_genesis, _) = reference_rpc
-        .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
+    let (expected_genesis, ..) = reference_rpc
+        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
         .await
         .unwrap();
 
@@ -5121,8 +5140,8 @@ pub async fn prebuilt_rpc_api() -> MockRpcApi {
 pub async fn mock_client_builder(rpc_api: Arc<MockRpcApi>) -> ClientBuilder<FilesystemKeyStore> {
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
 
-    let (genesis, _) = rpc_api
-        .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
+    let (genesis, ..) = rpc_api
+        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
         .await
         .unwrap();
     store.insert_block_header(&genesis, &[], false).await.unwrap();
