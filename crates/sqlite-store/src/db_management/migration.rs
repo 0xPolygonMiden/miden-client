@@ -13,21 +13,10 @@ use super::schema::SchemaHash;
 
 /// The migrations that build the store schema, in the order they are applied, each pinned to the
 /// fingerprint the schema has once it has been applied.
-pub(crate) const CLIENT_MIGRATIONS: [SqliteMigration; 3] = [
-    SqliteMigration::new(
-        include_str!("../migrations/0001_init.sql"),
-        "0x682f512c83400617c486ccd6761076fcbcbb52865e9cc0b5e36f25b0a096e234",
-    ),
-    // Deletes data only, so the schema keeps the fingerprint of version 1.
-    SqliteMigration::new(
-        include_str!("../migrations/0002_drop_note_transport_outbox.sql"),
-        "0x682f512c83400617c486ccd6761076fcbcbb52865e9cc0b5e36f25b0a096e234",
-    ),
-    SqliteMigration::new(
-        include_str!("../migrations/0003_derive_account_note_tags.sql"),
-        "0x682f512c83400617c486ccd6761076fcbcbb52865e9cc0b5e36f25b0a096e234",
-    ),
-];
+pub(crate) const CLIENT_MIGRATIONS: [SqliteMigration; 1] = [SqliteMigration::new(
+    include_str!("../migrations/0001_init.sql"),
+    "0x682f512c83400617c486ccd6761076fcbcbb52865e9cc0b5e36f25b0a096e234",
+)];
 
 /// The migrations this client ships.
 static CLIENT_MIGRATOR: LazyLock<SqliteMigrator> =
