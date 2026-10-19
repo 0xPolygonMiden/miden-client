@@ -1481,6 +1481,8 @@ async fn cli_export_import_account() -> Result<()> {
 
     assert!(client_2.get_account(AccountId::from_hex(&faucet_id)?).await.is_ok());
     assert!(client_2.get_account(AccountId::from_hex(&wallet_id)?).await.is_ok());
+    // The store holds an exclusive lock, so the CLI cannot open it while this client is alive.
+    drop(client_2);
     sync_cli(&temp_dir_2);
 
     let (_, note_id) = mint_cli(&temp_dir_2, &wallet_id, &faucet_id);

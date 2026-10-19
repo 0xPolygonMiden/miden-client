@@ -44,7 +44,9 @@ pub async fn create_client(
     let keystore_path = store_path.join("keystore");
     std::fs::create_dir_all(&keystore_path)?;
 
-    let store = SqliteStore::new(sqlite_path).await?;
+    // The benchmarks open a new client for each iteration while the main client is still open. The
+    // clients do not run at the same time, so the store opens without the exclusive lock.
+    let store = SqliteStore::new_unlocked(sqlite_path).await?;
 
     let builder = ClientBuilder::new()
         .rpc(Arc::new(VerifyingRpcClient::new(GrpcClient::new(endpoint, RPC_TIMEOUT_MS))))
