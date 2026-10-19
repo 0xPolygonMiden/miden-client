@@ -3,6 +3,7 @@
 Default gRPC implementation of the `NodeRpcClient` trait from `miden-client-core`.
 
 - `GrpcClient`, which implements `NodeRpcClient` and talks to a Miden node over gRPC
+- `Endpoint`, the address of the node, with presets for the public networks
 - The protobuf code generated from the node RPC API, and the conversions between its messages and the `miden-client-core` types
 - The parsing of the typed errors that the node returns
 
@@ -26,8 +27,8 @@ miden-client-grpc = { version = "0.17", default-features = false }
 ## Usage
 
 ```rust
-use miden_client_core::rpc::{Endpoint, NodeRpcClient};
-use miden_client_grpc::GrpcClient;
+use miden_client_core::rpc::NodeRpcClient;
+use miden_client_grpc::{Endpoint, GrpcClient};
 
 let client = GrpcClient::new(&Endpoint::testnet(), 10_000);
 let (block_header, _) = client.get_block_header_by_number(None, false).await?;

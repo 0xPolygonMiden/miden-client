@@ -166,7 +166,7 @@ mod test {
 
     use miden_protocol::address::NetworkId;
 
-    use crate::rpc::Endpoint;
+    use crate::Endpoint;
 
     #[test]
     fn network_id_of_known_endpoints() {

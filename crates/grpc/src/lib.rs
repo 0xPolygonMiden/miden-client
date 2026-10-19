@@ -9,6 +9,8 @@ extern crate alloc;
 extern crate std;
 
 mod conversions;
+mod endpoint;
+pub use endpoint::Endpoint;
 mod grpc_support;
 mod node_errors;
 

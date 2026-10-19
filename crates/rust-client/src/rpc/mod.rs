@@ -52,7 +52,6 @@ pub use miden_client_core::errors::{
 };
 pub use miden_client_core::rpc::{
     AccountStateAt,
-    Endpoint,
     NodeRpcClient,
     NoteContentFetch,
     RpcEndpoint,
@@ -61,4 +60,4 @@ pub use miden_client_core::rpc::{
     domain,
 };
 #[cfg(feature = "tonic")]
-pub use miden_client_grpc::GrpcClient;
+pub use miden_client_grpc::{Endpoint, GrpcClient};

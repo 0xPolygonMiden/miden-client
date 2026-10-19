@@ -36,7 +36,7 @@ use miden_client_core::rpc::encryption::{
     SealedTransactionInputs,
     ValidatorAttestation,
 };
-use miden_client_core::rpc::{AccountStateAt, Endpoint, NodeRpcClient, RpcEndpoint, RpcLimits};
+use miden_client_core::rpc::{AccountStateAt, NodeRpcClient, RpcEndpoint, RpcLimits};
 use miden_objects::DecodeMessageExt;
 use miden_protocol::account::{
     AccountCode,
@@ -59,6 +59,7 @@ use miden_protocol::{EMPTY_WORD, Word};
 use tonic::Status;
 use tracing::{info, warn};
 
+use crate::Endpoint;
 use crate::conversions::{storage_map_fetch_to_proto, vault_fetch_to_proto};
 use crate::generated::rpc::get_account_request::AccountDetailRequest;
 use crate::generated::rpc::{BlockRange, GetAccountRequest as ProtoGetAccountRequest};
@@ -251,8 +252,7 @@ impl GrpcClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use miden_client_core::rpc::Endpoint;
-    /// # use miden_client_grpc::GrpcClient;
+    /// # use miden_client_grpc::{Endpoint, GrpcClient};
     /// let endpoint = Endpoint::new("https".into(), "node.example".into(), Some(443));
     /// let client = GrpcClient::new(&endpoint, 10_000).with_bearer_auth("<api-key>".into());
     /// ```
@@ -1141,7 +1141,7 @@ mod tests {
     use std::vec;
 
     use miden_client_core::errors::RpcError;
-    use miden_client_core::rpc::{Endpoint, NodeRpcClient};
+    use miden_client_core::rpc::NodeRpcClient;
     use miden_protocol::Word;
     use miden_protocol::block::{BlockNumber, SignedBlock};
     use miden_testing::MockChain;
@@ -1149,6 +1149,7 @@ mod tests {
     use super::{
         BlockPagination,
         DEFAULT_MAX_RESPONSE_SIZE_BYTES,
+        Endpoint,
         GrpcClient,
         PaginationResult,
         decode_block_response,

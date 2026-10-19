@@ -60,9 +60,6 @@ use crate::store::input_note_states::UnverifiedNoteState;
 pub mod domain;
 pub mod encryption;
 
-mod endpoint;
-pub use endpoint::Endpoint;
-
 mod limits;
 pub use limits::{RPC_LIMITS_STORE_SETTING, RpcLimits};
 
