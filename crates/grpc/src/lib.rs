@@ -1,4 +1,4 @@
-//! gRPC implementation of the miden-client node RPC client.
+//! Default gRPC implementation of the `miden-client-core` `NodeRpcClient` trait.
 
 #![no_std]
 

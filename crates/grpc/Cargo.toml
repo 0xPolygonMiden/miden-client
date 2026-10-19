@@ -1,6 +1,6 @@
 [package]
 authors.workspace      = true
-description            = "gRPC implementation of the miden-client node RPC client"
+description            = "Default gRPC implementation of the miden-client-core NodeRpcClient trait"
 edition.workspace      = true
 license.workspace      = true
 name                   = "miden-client-grpc"
