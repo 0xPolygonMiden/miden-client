@@ -68,6 +68,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use miden_client_core::store::AccountRecord;
 use miden_protocol::account::{AccountCode, AccountCodeInterface, AccountId, PartialAccount};
 use miden_protocol::asset::Asset;
 use miden_protocol::block::account_tree::AccountWitness;
@@ -87,7 +88,7 @@ use miden_protocol::transaction::PartialBlockchain;
 use miden_protocol::vm::MIN_STACK_DEPTH;
 use miden_protocol::{Felt, Word};
 use miden_standards::account::auth::FeeConversionInfo;
-use miden_standards::account::faucets::FungibleFaucet;
+use miden_standards::account::faucets::{FungibleFaucet, NonFungibleFaucet};
 use miden_standards::account::interface::AccountComponentInterfaceExt;
 use miden_standards::note::TxFeeNote;
 use miden_tx::{DataStore, NoteConsumptionChecker, TransactionExecutor};
@@ -107,7 +108,6 @@ use crate::rpc::{AccountStateAt, NodeRpcClient, RpcError};
 use crate::store::data_store::{ClientDataStore, build_partial_mmr_and_headers_with_fallback};
 use crate::store::input_note_states::ExpectedNoteState;
 use crate::store::{
-    AccountRecord,
     InputNoteRecord,
     InputNoteState,
     NoteFilter,
@@ -128,19 +128,16 @@ pub use chain_anchor::{ChainAnchor, ChainAnchorError};
 #[cfg(feature = "dap")]
 mod dap_executor;
 mod prover;
-pub use prover::TransactionProver;
-
-mod record;
-pub use record::{
+pub use miden_client_core::transaction::{
+    BatchStoreUpdate,
     DiscardCause,
     TransactionDetails,
     TransactionRecord,
     TransactionStatus,
     TransactionStatusVariant,
+    TransactionStoreUpdate,
 };
-
-mod store_update;
-pub use store_update::{BatchStoreUpdate, TransactionStoreUpdate};
+pub use prover::TransactionProver;
 
 mod request;
 pub use request::{
@@ -1057,7 +1054,10 @@ where
     ) -> Result<(), ClientError> {
         validate_fee_conversion_info_support(transaction_request, account_code_interface)?;
 
-        if account_code_interface.contains([FungibleFaucet::mint_and_send_root()]) {
+        let is_faucet = account_code_interface.contains([FungibleFaucet::mint_and_send_root()])
+            || account_code_interface.contains([NonFungibleFaucet::mint_and_send_root()]);
+
+        if is_faucet {
             // TODO(#1266): Add faucet validations.
             Ok(())
         } else {

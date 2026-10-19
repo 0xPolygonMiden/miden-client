@@ -4,20 +4,20 @@ use std::boxed::Box;
 use std::string::{String, ToString};
 use std::vec::Vec;
 
-use miden_client::Word;
-use miden_client::note::{BlockNumber, ToInputNoteCommitments};
-use miden_client::store::{StoreError, TransactionFilter, TransactionFilterQuery};
-use miden_client::transaction::{
+use miden_client_core::errors::StoreError;
+use miden_client_core::store::{TransactionFilter, TransactionFilterQuery};
+use miden_client_core::transaction::{
     BatchStoreUpdate,
-    ExecutedTransaction,
     TransactionDetails,
-    TransactionId,
     TransactionRecord,
     TransactionStatus,
     TransactionStatusVariant,
     TransactionStoreUpdate,
 };
-use miden_client::utils::{Deserializable as _, Serializable as _};
+use miden_protocol::Word;
+use miden_protocol::block::BlockNumber;
+use miden_protocol::transaction::{ExecutedTransaction, ToInputNoteCommitments, TransactionId};
+use miden_protocol::utils::serde::{Deserializable as _, Serializable as _};
 use rusqlite::{Connection, ToSql, Transaction, params};
 
 use super::SqliteStore;
@@ -309,17 +309,16 @@ pub(crate) fn upsert_transaction_record(
 
 #[cfg(test)]
 mod tests {
-    use miden_client::store::{TransactionFilter, TransactionFilterQuery};
-    use miden_client::transaction::{
+    use miden_client::transaction::{RawOutputNotes, TransactionId};
+    use miden_client::{Felt, Word, ZERO};
+    use miden_client_core::store::{TransactionFilter, TransactionFilterQuery};
+    use miden_client_core::transaction::{
         DiscardCause,
-        RawOutputNotes,
         TransactionDetails,
-        TransactionId,
         TransactionRecord,
         TransactionStatus,
         TransactionStatusVariant,
     };
-    use miden_client::{Felt, Word, ZERO};
     use miden_protocol::account::AccountId;
     use miden_protocol::block::BlockNumber;
     use miden_protocol::testing::account_id::{

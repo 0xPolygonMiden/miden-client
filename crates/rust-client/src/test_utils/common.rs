@@ -14,16 +14,17 @@ use anyhow::{Context, Result};
 use miden_protocol::account::auth::AuthSecretKey;
 use miden_protocol::account::{Account, AccountId};
 use miden_protocol::asset::{AssetAmount, FungibleAsset, TokenSymbol};
-use miden_protocol::note::NoteType;
+use miden_protocol::note::{NoteId, NoteType};
 use miden_protocol::testing::account_id::ACCOUNT_ID_REGULAR_PRIVATE_ACCOUNT_UPDATABLE_CODE;
-use miden_protocol::transaction::TransactionId;
+use miden_protocol::transaction::{RawOutputNote, TransactionId};
 use miden_standards::account::auth::{Approver, AuthSingleSig};
 use miden_standards::account::faucets::TokenName;
 use rand::Rng;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::account::standards::faucets::FungibleFaucet;
+use crate::account::standards::access::{Authority, Pausable, PausableManager};
+use crate::account::standards::faucets::{FungibleFaucet, NonFungibleFaucet};
 use crate::account::standards::policies::{BurnPolicy, MintPolicy, TokenPolicyManager};
 use crate::account::standards::wallets::BasicWallet;
 use crate::account::{AccountBuilder, AccountBuilderSchemaCommitmentExt, AccountFile, AccountType};
@@ -118,6 +119,11 @@ impl TestClient {
         }
 
         let transaction_request = self.fund_request(account_id, transaction_request);
+        info!(
+            %account_id,
+            input_note_ids = %format_note_ids(transaction_request.input_note_ids()),
+            "Submitting transaction"
+        );
 
         let tx_result =
             Box::pin(self.client.execute_transaction(account_id, transaction_request)).await?;
@@ -125,6 +131,14 @@ impl TestClient {
         let submission_height =
             self.submit_proven_transaction_retrying(proven_transaction, &tx_result).await?;
         self.client.apply_transaction(&tx_result, submission_height).await?;
+        info!(
+            tx_id = %tx_result.id(),
+            %account_id,
+            output_note_ids = %format_note_ids(
+                tx_result.created_notes().iter().map(RawOutputNote::id)
+            ),
+            "Transaction submitted"
+        );
 
         Ok(tx_result.id())
     }
@@ -142,8 +156,24 @@ impl TestClient {
         self.sync_state().await?;
 
         let transaction_request = self.fund_request(account_id, transaction_request);
+        info!(
+            %account_id,
+            input_note_ids = %format_note_ids(transaction_request.input_note_ids()),
+            "Executing transaction"
+        );
 
-        Box::pin(self.client.execute_transaction(account_id, transaction_request)).await
+        let transaction_result =
+            Box::pin(self.client.execute_transaction(account_id, transaction_request)).await?;
+        info!(
+            tx_id = %transaction_result.id(),
+            %account_id,
+            output_note_ids = %format_note_ids(
+                transaction_result.created_notes().iter().map(RawOutputNote::id)
+            ),
+            "Transaction executed"
+        );
+
+        Ok(transaction_result)
     }
 
     /// Returns `transaction_request` with `account_id`'s funding note folded in.
@@ -416,6 +446,43 @@ impl TestClient {
         Ok(account)
     }
 
+    /// Inserts a new funded non-fungible faucet account, signing with the default auth scheme. The
+    /// account has the components of `create_user_non_fungible_faucet`, plus a [`BasicWallet`] that
+    /// lets the faucet receive the note that funds its fees.
+    pub async fn insert_non_fungible_faucet(
+        &mut self,
+        account_type: AccountType,
+    ) -> Result<Account> {
+        let (auth, key) = auth_component(ECDSA_K256_KECCAK_SCHEME_ID)?;
+
+        let symbol = TokenSymbol::new("NFT")?;
+        let faucet = NonFungibleFaucet::builder()
+            .name(TokenName::new(&symbol.to_string())?)
+            .symbol(symbol)
+            .build();
+        let policy_manager = TokenPolicyManager::builder()
+            .active_mint_policy(MintPolicy::allow_all())
+            .active_burn_policy(BurnPolicy::allow_all())
+            .build();
+
+        let mut init_seed = [0u8; 32];
+        self.rng().fill_bytes(&mut init_seed);
+
+        let account = AccountBuilder::new(init_seed)
+            .account_type(account_type)
+            .with_component(auth)
+            .with_component(faucet)
+            .with_component(BasicWallet)
+            .with_component(Authority::AuthControlled)
+            .with_components(policy_manager)
+            .with_component(Pausable::unpaused())
+            .with_component(PausableManager)
+            .build_with_schema_commitment()?;
+
+        let (account, _) = self.insert_account(AccountSetup::prebuilt(account, key)).await?;
+        Ok(account)
+    }
+
     /// Sets up a wallet account and a faucet account (in that order).
     pub async fn setup_wallet_and_faucet(
         &mut self,
@@ -530,7 +597,6 @@ impl TestClient {
         tx_request: TransactionRequest,
     ) -> Result<()> {
         let transaction_id = self.submit_new_transaction(account_id, tx_request).await?;
-        info!(tx_id = %transaction_id, account_id = %account_id, "Transaction submitted, waiting for commit");
         self.wait_for_tx(transaction_id).await?;
         Ok(())
     }
@@ -604,7 +670,7 @@ impl TestClient {
                 return Ok(summary);
             }
 
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
@@ -627,7 +693,7 @@ impl TestClient {
                 return Ok(());
             }
 
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
@@ -680,7 +746,7 @@ impl TestClient {
                 %deadline_block,
                 "No consumable notes yet, waiting..."
             );
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
 
@@ -709,7 +775,6 @@ impl TestClient {
             .expected_output_own_notes()
             .pop()
             .context("the mint request should produce one output note")?;
-        info!(tx_id = %tx_id, note_id = %note.id(), "Mint transaction submitted");
         Ok((tx_id, note))
     }
 
@@ -720,13 +785,14 @@ impl TestClient {
         account_id: AccountId,
         input_notes: &[Note],
     ) -> Result<TransactionId> {
-        let note_ids: Vec<_> = input_notes.iter().map(|n| n.id().to_string()).collect();
-        info!(account_id = %account_id, note_ids = %note_ids.join(", "), "Consuming notes");
+        info!(
+            account_id = %account_id,
+            note_ids = %format_note_ids(input_notes.iter().map(Note::id)),
+            "Consuming notes"
+        );
         let tx_request =
             TransactionRequestBuilder::new().build_consume_notes(input_notes.to_vec())?;
-        let tx_id = self.submit_new_transaction(account_id, tx_request).await?;
-        info!(tx_id = %tx_id, "Consume transaction submitted");
-        Ok(tx_id)
+        Ok(self.submit_new_transaction(account_id, tx_request).await?)
     }
 
     /// Consumes `input_notes` with `account_id` and waits for the transaction to commit.
@@ -785,11 +851,8 @@ impl TestClient {
             self.rng(),
         )?;
 
-        let tx_id = self
-            .execute_tx_and_consume_output_notes(tx_request, faucet_account_id, basic_account_id)
-            .await?;
-        info!(tx_id = %tx_id, "Mint-and-consume transaction submitted");
-        Ok(tx_id)
+        self.execute_tx_and_consume_output_notes(tx_request, faucet_account_id, basic_account_id)
+            .await
     }
 
     /// Creates a transaction request that mints assets for each `target_id` account.
@@ -883,4 +946,13 @@ pub fn create_test_store_path() -> PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
+}
+
+/// Returns the note IDs as one comma-separated string for a trace field.
+fn format_note_ids(note_ids: impl IntoIterator<Item = NoteId>) -> String {
+    note_ids
+        .into_iter()
+        .map(|note_id| note_id.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
