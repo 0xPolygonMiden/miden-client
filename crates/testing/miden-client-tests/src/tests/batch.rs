@@ -8,7 +8,7 @@ use miden_client::assembly::CodeBuilder;
 use miden_client::asset::{Asset, AssetAmount, FungibleAsset};
 use miden_client::auth::{AuthSchemeId, AuthSecretKey};
 use miden_client::keystore::Keystore;
-use miden_client::note::{NoteType, NoteUpdateTracker};
+use miden_client::note::{NoteType, NoteUpdates};
 use miden_client::rpc::{GrpcError, NodeRpcClient, RpcEndpoint, RpcError};
 use miden_client::store::{StoreError, TransactionFilter};
 use miden_client::sync::NoteTagRecord;
@@ -161,20 +161,10 @@ async fn apply_transaction_batch_rolls_back_on_mid_batch_failure() {
     let executed_b = Box::pin(tx_ctx_b.execute()).await.unwrap();
 
     let chain_tip = rpc_api.get_chain_tip_block_num();
-    let update_a = TransactionStoreUpdate::new(
-        executed_a,
-        chain_tip,
-        NoteUpdateTracker::default(),
-        vec![],
-        vec![],
-    );
-    let update_b = TransactionStoreUpdate::new(
-        executed_b,
-        chain_tip,
-        NoteUpdateTracker::default(),
-        vec![],
-        vec![],
-    );
+    let update_a =
+        TransactionStoreUpdate::new(executed_a, chain_tip, NoteUpdates::default(), vec![], vec![]);
+    let update_b =
+        TransactionStoreUpdate::new(executed_b, chain_tip, NoteUpdates::default(), vec![], vec![]);
 
     // Snapshot A's stored state pre-batch so we can assert it didn't move.
     let a_before = client.get_account(a_id).await.unwrap().expect("A was registered");
@@ -239,7 +229,7 @@ async fn apply_transaction_rejects_account_note_tag() {
     let update = TransactionStoreUpdate::new(
         executed_tx,
         rpc_api.get_chain_tip_block_num(),
-        NoteUpdateTracker::default(),
+        NoteUpdates::default(),
         vec![],
         vec![NoteTagRecord::with_account_source(account_tag, account_id)],
     );

@@ -78,8 +78,8 @@ mod note_update_tracker;
 
 pub use miden_client_core::store::{
     InputNoteUpdate,
-    NoteUpdateTracker,
     NoteUpdateType,
+    NoteUpdates,
     OutputNoteUpdate,
 };
 pub use miden_objects::note_file::{NoteFile, NoteFileError, NoteSyncHint};
@@ -140,6 +140,7 @@ pub use note_reader::InputNoteReader;
 pub use note_screener::{NoteConsumability, NoteScreener, NoteScreenerError};
 pub use note_update_tracker::NoteConsumption;
 pub(crate) use note_update_tracker::{
+    NoteUpdateTracker,
     apply_committed_note_state_transitions,
     apply_new_public_note,
     apply_note_consumption,
