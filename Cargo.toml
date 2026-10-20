@@ -32,7 +32,7 @@ edition      = "2024"
 license      = "MIT"
 repository   = "https://github.com/0xMiden/rust-sdk"
 rust-version = "1.98.1"
-version      = "0.17.2"
+version      = "0.17.4"
 
 [profile.dev]
 codegen-units = 16
@@ -57,9 +57,10 @@ miden-standards = { default-features = false, version = "0.17" }
 miden-testing   = { default-features = false, version = "0.17" }
 miden-tx        = { default-features = false, version = "0.17" }
 miden-tx-batch  = { default-features = false, version = "0.17" }
+miden-usdcx     = { default-features = false, version = "0.17" }
 
 # Miden node dependencies
-miden-node-proto-build = { default-features = false, version = "0.17" }
+miden-node-proto-build = { default-features = false, version = "0.17.3" }
 
 # Miden VM dependencies
 miden-assembly-syntax = { default-features = false, version = "0.35" }
