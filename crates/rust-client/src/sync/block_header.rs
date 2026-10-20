@@ -6,10 +6,10 @@ use miden_protocol::block::{BlockHeader, BlockNumber, ValidatorConfig};
 use miden_protocol::crypto::hash::rpo::Rpo256;
 use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
+use miden_protocol::utils::serde::Serializable;
 use miden_protocol::{Felt, Word};
 use tracing::warn;
 
-use crate::protocol_config::store_protocol_config;
 use crate::rpc::domain::note::ResolvedSyncNotesBlock;
 use crate::rpc::{NodeRpcClient, RpcError};
 use crate::store::{BlockRelevance, StoreError};
@@ -75,7 +75,13 @@ impl<AUTH> Client<AUTH> {
 
         // Note screening on the first sync executes against the genesis block, so it needs the
         // genesis protocol configuration before the sync stores any configuration.
-        store_protocol_config(self.store.as_ref(), &protocol_config).await?;
+        self.store
+            .set_setting(
+                SettingScope::Client,
+                protocol_config_setting_key(protocol_config.to_commitment()),
+                protocol_config.to_bytes(),
+            )
+            .await?;
 
         // Genesis is untracked since there are no client notes associated with it, so we fetch no
         // MMR proof and pass no nodes.
