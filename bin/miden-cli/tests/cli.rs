@@ -30,6 +30,7 @@ use miden_client::note_transport::{
     NOTE_TRANSPORT_TESTNET_ENDPOINT,
 };
 use miden_client::rpc::Endpoint;
+use miden_client::store::{NoteFilter, Store};
 use miden_client::testing::account_id::{
     ACCOUNT_ID_PRIVATE_FUNGIBLE_FAUCET,
     ACCOUNT_ID_PRIVATE_SENDER,
@@ -944,15 +945,18 @@ async fn notes_show_prints_decoded_storage_and_consumer_transaction() -> Result<
         .unwrap_or_else(|| panic!("the transfer should report an output note ID:\n{stdout}"))
         .to_string();
 
-    // Get the consuming transaction from the store.
-    let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
-    let consumer_tx = client
-        .get_input_note(NoteId::try_from_hex(&minted_note_id)?)
-        .await?
-        .expect("the mint note should be stored")
-        .consumer_transaction_id()
-        .expect("the consumed mint note should record its consuming transaction")
-        .to_hex();
+    // Get the consuming transaction from the store. The client is dropped before the CLI runs,
+    // because the store holds an exclusive lock.
+    let consumer_tx = {
+        let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
+        client
+            .get_input_note(NoteId::try_from_hex(&minted_note_id)?)
+            .await?
+            .expect("the mint note should be stored")
+            .consumer_transaction_id()
+            .expect("the consumed mint note should record its consuming transaction")
+            .to_hex()
+    };
 
     let labels =
         |rows: &[Vec<String>]| -> Vec<String> { rows.iter().map(|row| row[0].clone()).collect() };
@@ -1034,7 +1038,9 @@ async fn notes_show_decodes_swap_note_storage() -> Result<()> {
     sync_until_committed_note(&temp_dir);
     consume_note_cli(&temp_dir, &sender_account_id, &[&minted_note_id]);
 
-    let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
+    // The CLI holds the exclusive lock while it runs, so the notes are read through a read-only
+    // store.
+    let store = SqliteStore::open_read_only(store_path.clone()).await?;
     // Runs `swap` and returns the ID and serial number of the SWAP note.
     let swap_note = async |payback_note_type: &str| -> Result<(String, Word)> {
         let mut swap_cmd = cargo_bin_cmd!("miden-client");
@@ -1058,9 +1064,10 @@ async fn notes_show_decodes_swap_note_storage() -> Result<()> {
 
         // On a chain that charges fees, the transaction also creates a TX_FEE note.
         for note_id in stdout.lines().filter_map(|line| line.trim().strip_prefix("- ")) {
-            let record = client
-                .get_output_note(NoteId::try_from_hex(note_id)?)
+            let record = store
+                .get_output_notes(NoteFilter::Unique(NoteId::try_from_hex(note_id)?))
                 .await?
+                .pop()
                 .expect("the swap should store its output notes");
             let recipient = record.recipient().expect("a local output note has a recipient");
             if recipient.script().root() == SwapNote::script_root() {
