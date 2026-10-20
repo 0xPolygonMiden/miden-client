@@ -10,25 +10,21 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use miden_client::account::component::{
     AccountComponentMetadata,
     FeltSchema,
-    FungibleFaucet,
     StorageSchema,
     StorageSlotSchema,
     ValueSlotSchema,
     WordSchema,
 };
+use miden_client::account::standards::auth::AuthSingleSig;
+use miden_client::account::standards::faucets::FungibleFaucet;
 use miden_client::account::{AccountFile, AccountId, AccountType, FaucetMetadata, StorageSlotName};
 use miden_client::address::{Address, AddressId, NetworkId};
 use miden_client::assembly::CodeBuilder;
-use miden_client::auth::{
-    AuthSchemeId,
-    AuthSecretKey,
-    AuthSingleSig,
-    PublicKey,
-    TransactionAuthenticator,
-};
+use miden_client::auth::{AuthSchemeId, AuthSecretKey, PublicKey, TransactionAuthenticator};
 use miden_client::builder::ClientBuilder;
 use miden_client::keystore::Keystore;
-use miden_client::note::{NoteId, NoteTag};
+use miden_client::note::standards::payback_serial_from_swap;
+use miden_client::note::{NoteId, NoteTag, P2idNoteStorage, SwapNote};
 use miden_client::note_transport::{
     NOTE_TRANSPORT_MAINNET_ENDPOINT,
     NOTE_TRANSPORT_TESTNET_ENDPOINT,
@@ -579,8 +575,8 @@ async fn token_symbol_mapping() -> Result<()> {
 /// Exercises the resolver's RPC fetch + settings-store write-back path end-to-end.
 ///
 /// Mints from a *public* faucet that is not present in the user's TOML map, then runs
-/// `notes -s <id>` to display the issued note. `notes -s` formats each fungible asset via
-/// `FaucetMetadataResolver::format_fungible_asset`, which on TOML miss falls through to
+/// `notes -s <id>` to display the issued note. `notes -s` resolves each fungible asset via
+/// `FaucetMetadataResolver::resolve`, which on TOML miss falls through to
 /// `Client::fetch_remote_token_metadata`. Asserts:
 /// 1. `notes -s` stdout contains the faucet's symbol ("BTC" — the constant baked into
 ///    `new_faucet_cli`'s init storage data).
@@ -826,8 +822,8 @@ async fn tx_show_decodes_p2ide_note_storage() -> Result<()> {
         "Expected Full".to_string(),
         record.expected_height().to_string(),
         format!(
-            "target: {target_account_id}\nreclaim height: {RECLAIM_HEIGHT}\n\
-             timelock height: {TIMELOCK_HEIGHT}"
+            "target: {target_account_id}\nreclaimer: {sender_account_id}\n\
+             reclaim height: {RECLAIM_HEIGHT}\ntimelock height: {TIMELOCK_HEIGHT}"
         ),
         "0.0000000025 BTC".to_string(),
     ];
@@ -898,6 +894,219 @@ fn show_note_with_unknown_id_reports_an_input_error() {
         .stderr(contains("did not match any note"))
         .stderr(contains("import error").not())
         .stderr(contains("Check the file name").not());
+}
+
+/// Checks `notes --show` for a P2IDE output note and for a consumed P2ID mint note.
+#[tokio::test]
+async fn notes_show_prints_decoded_storage_and_consumer_transaction() -> Result<()> {
+    const RECLAIM_HEIGHT: &str = "100000";
+    const TIMELOCK_HEIGHT: &str = "50000";
+
+    let (store_path, temp_dir, endpoint) = init_cli();
+
+    let sender_account_id = new_wallet_cli(&temp_dir, AccountType::Private);
+    let target_account_id = new_wallet_cli(&temp_dir, AccountType::Private);
+    let fungible_faucet_account_id = new_faucet_cli(&temp_dir, AccountType::Public);
+    fund_cli_account(&temp_dir, &store_path, &endpoint, &fungible_faucet_account_id).await?;
+    fund_cli_account(&temp_dir, &store_path, &endpoint, &sender_account_id).await?;
+
+    sync_cli(&temp_dir);
+    let (_, minted_note_id) = mint_cli(&temp_dir, &sender_account_id, &fungible_faucet_account_id);
+    sync_until_committed_note(&temp_dir);
+    consume_note_cli(&temp_dir, &sender_account_id, &[&minted_note_id]);
+
+    let mut transfer_cmd = cargo_bin_cmd!("miden-client");
+    transfer_cmd.args([
+        "transfer",
+        "--sender",
+        &sender_account_id,
+        "--target",
+        &target_account_id,
+        "--asset",
+        &format!("25::{fungible_faucet_account_id}"),
+        "-n",
+        "private",
+        "--recall-height",
+        RECLAIM_HEIGHT,
+        "--timelock-height",
+        TIMELOCK_HEIGHT,
+        "--force",
+    ]);
+    let output = transfer_cmd.current_dir(&temp_dir).output()?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8(output.stdout)?;
+    let note_id = stdout
+        .split_whitespace()
+        .skip_while(|&word| word != "Output")
+        .find(|word| word.starts_with("0x"))
+        .unwrap_or_else(|| panic!("the transfer should report an output note ID:\n{stdout}"))
+        .to_string();
+
+    // Get the consuming transaction from the store.
+    let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
+    let consumer_tx = client
+        .get_input_note(NoteId::try_from_hex(&minted_note_id)?)
+        .await?
+        .expect("the mint note should be stored")
+        .consumer_transaction_id()
+        .expect("the consumed mint note should record its consuming transaction")
+        .to_hex();
+
+    let labels =
+        |rows: &[Vec<String>]| -> Vec<String> { rows.iter().map(|row| row[0].clone()).collect() };
+    let info_labels = [
+        "ID",
+        "Record",
+        "Standard Note",
+        "Script Root",
+        "Assets Commitment",
+        "Inputs Commitment",
+        "Serial Number",
+        "Type",
+        "State",
+        "Tag",
+        "Sender",
+        "Exportable",
+    ];
+
+    // The target and the reclaimer are local accounts. Thus the client also stores the P2IDE note
+    // as an expected input note when it applies the transfer.
+    let stdout = notes_show_stdout(&temp_dir, &note_id)?;
+    let information = horizontal_table_rows(&stdout, "Note Information");
+    assert_eq!(labels(&information), info_labels, "{stdout}");
+    assert_eq!(information[0], ["ID", note_id.as_str()], "{stdout}");
+    assert_eq!(information[1], ["Record", "Input, Output"], "{stdout}");
+    assert_eq!(information[2], ["Standard Note", "P2IDE"], "{stdout}");
+    assert_eq!(information[10], ["Sender", sender_account_id.as_str()], "{stdout}");
+
+    // `transfer --recall-height` makes the sender the reclaimer.
+    assert_eq!(
+        horizontal_table_rows(&stdout, "Note Storage"),
+        string_rows(&[
+            &["Field", "Value"],
+            &["target", &target_account_id],
+            &["reclaimer", &sender_account_id],
+            &["reclaim height", RECLAIM_HEIGHT],
+            &["timelock height", TIMELOCK_HEIGHT],
+        ]),
+        "{stdout}"
+    );
+
+    // The mint note is a P2ID note to the sender, which also consumed it. The local faucet created
+    // it, so the client stores it as an output note too.
+    let stdout = notes_show_stdout(&temp_dir, &minted_note_id)?;
+    let information = horizontal_table_rows(&stdout, "Note Information");
+    let mut mint_labels = info_labels.to_vec();
+    mint_labels.extend(["Consumer Transaction", "Consumer Account"]);
+    assert_eq!(labels(&information), mint_labels, "{stdout}");
+    assert_eq!(information[0], ["ID", minted_note_id.as_str()], "{stdout}");
+    assert_eq!(information[1], ["Record", "Input, Output"], "{stdout}");
+    assert_eq!(information[2], ["Standard Note", "P2ID"], "{stdout}");
+    assert_eq!(information[10], ["Sender", fungible_faucet_account_id.as_str()], "{stdout}");
+    assert_eq!(information[12], ["Consumer Transaction", consumer_tx.as_str()], "{stdout}");
+    assert_eq!(information[13], ["Consumer Account", sender_account_id.as_str()], "{stdout}");
+    assert_eq!(
+        horizontal_table_rows(&stdout, "Note Storage"),
+        string_rows(&[&["Field", "Value"], &["target", &sender_account_id]]),
+        "{stdout}"
+    );
+
+    Ok(())
+}
+
+/// Checks `notes --show` for SWAP notes with a public and a private payback.
+#[tokio::test]
+async fn notes_show_decodes_swap_note_storage() -> Result<()> {
+    let (store_path, temp_dir, endpoint) = init_cli();
+
+    let sender_account_id = new_wallet_cli(&temp_dir, AccountType::Private);
+    let offered_faucet_id = new_faucet_cli(&temp_dir, AccountType::Public);
+    // Deploy the requested faucet, so `notes --show` can fetch its metadata.
+    let requested_faucet_id = new_faucet_cli(&temp_dir, AccountType::Public);
+    fund_cli_account(&temp_dir, &store_path, &endpoint, &offered_faucet_id).await?;
+    fund_cli_account(&temp_dir, &store_path, &endpoint, &requested_faucet_id).await?;
+    fund_cli_account(&temp_dir, &store_path, &endpoint, &sender_account_id).await?;
+
+    sync_cli(&temp_dir);
+    let (_, minted_note_id) = mint_cli(&temp_dir, &sender_account_id, &offered_faucet_id);
+    sync_until_committed_note(&temp_dir);
+    consume_note_cli(&temp_dir, &sender_account_id, &[&minted_note_id]);
+
+    let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
+    // Runs `swap` and returns the ID and serial number of the SWAP note.
+    let swap_note = async |payback_note_type: &str| -> Result<(String, Word)> {
+        let mut swap_cmd = cargo_bin_cmd!("miden-client");
+        swap_cmd.args([
+            "swap",
+            "--source",
+            &sender_account_id,
+            "--offered-asset",
+            &format!("10::{offered_faucet_id}"),
+            "--requested-asset",
+            &format!("200::{requested_faucet_id}"),
+            "--note-type",
+            "private",
+            "--payback-note-type",
+            payback_note_type,
+            "--force",
+        ]);
+        let output = swap_cmd.current_dir(&temp_dir).output()?;
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let stdout = String::from_utf8(output.stdout)?;
+
+        // On a chain that charges fees, the transaction also creates a TX_FEE note.
+        for note_id in stdout.lines().filter_map(|line| line.trim().strip_prefix("- ")) {
+            let record = client
+                .get_output_note(NoteId::try_from_hex(note_id)?)
+                .await?
+                .expect("the swap should store its output notes");
+            let recipient = record.recipient().expect("a local output note has a recipient");
+            if recipient.script().root() == SwapNote::script_root() {
+                return Ok((note_id.to_string(), recipient.serial_num()));
+            }
+        }
+        panic!("the swap should create a SWAP note:\n{stdout}");
+    };
+
+    let sender = AccountId::from_hex(&sender_account_id)?;
+    let payback_tag = NoteTag::with_account_target(sender).to_string();
+    // `new_faucet_cli` uses the BTC symbol with 10 decimals.
+    let requested = "0.0000000200 BTC";
+
+    let (note_id, _) = swap_note("public").await?;
+    let stdout = notes_show_stdout(&temp_dir, &note_id)?;
+    assert_eq!(
+        horizontal_table_rows(&stdout, "Note Storage"),
+        string_rows(&[
+            &["Field", "Value"],
+            &["requested", requested],
+            &["payback note", "public"],
+            &["payback tag", &payback_tag],
+            &["payback target", &sender_account_id],
+        ]),
+        "{stdout}"
+    );
+
+    // Compute the expected payback recipient from the swap serial number.
+    let (note_id, serial_num) = swap_note("private").await?;
+    let payback_recipient = P2idNoteStorage::new(sender)
+        .into_recipient(payback_serial_from_swap(serial_num))
+        .digest()
+        .to_hex();
+    let stdout = notes_show_stdout(&temp_dir, &note_id)?;
+    assert_eq!(
+        horizontal_table_rows(&stdout, "Note Storage"),
+        string_rows(&[
+            &["Field", "Value"],
+            &["requested", requested],
+            &["payback note", "private"],
+            &["payback tag", &payback_tag],
+            &["payback recipient", &payback_recipient],
+        ]),
+        "{stdout}"
+    );
+
+    Ok(())
 }
 
 // INSPECT TESTS
@@ -2227,6 +2436,54 @@ fn table_rows(stdout: &str, title: &str) -> Vec<Vec<String>> {
     rows
 }
 
+/// Runs `notes --show` for `note_id` and returns its stdout.
+fn notes_show_stdout(cli_path: &Path, note_id: &str) -> Result<String> {
+    let mut show_cmd = cargo_bin_cmd!("miden-client");
+    show_cmd.args(["notes", "--show", note_id]);
+    let output = show_cmd.current_dir(cli_path).output()?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+/// Parses the rows of the `UTF8_HORIZONTAL_ONLY` table with the given title.
+///
+/// Cells are split on two or more spaces.
+fn horizontal_table_rows(stdout: &str, title: &str) -> Vec<Vec<String>> {
+    let mut lines = stdout
+        .lines()
+        .skip_while(|line| line.trim() != title)
+        .skip_while(|line| !line.starts_with('═'))
+        .skip(1)
+        .peekable();
+
+    let mut rows = Vec::new();
+    while let Some(line) = lines.next() {
+        if line.starts_with('─') {
+            // Two separator lines in a row start the next table.
+            if lines.peek().is_none_or(|next| next.starts_with('─')) {
+                break;
+            }
+            continue;
+        }
+        let cells = line
+            .trim()
+            .split("  ")
+            .map(str::trim)
+            .filter(|cell| !cell.is_empty())
+            .map(str::to_string)
+            .collect();
+        rows.push(cells);
+    }
+    rows
+}
+
+/// Converts `&str` rows to `String` rows.
+fn string_rows(rows: &[&[&str]]) -> Vec<Vec<String>> {
+    rows.iter()
+        .map(|row| row.iter().map(|cell| (*cell).to_string()).collect())
+        .collect()
+}
+
 /// Creates a new faucet account using the CLI given by `cli_path`.
 fn new_faucet_cli(cli_path: &Path, visibility: AccountType) -> String {
     const INIT_DATA_FILENAME: &str = "init_data.toml";
@@ -2689,9 +2946,35 @@ fn build_call_test_masp(out_path: &Path) {
     fs::write(out_path, package.to_bytes()).expect("failed to write call-test .masp");
 }
 
-/// Helper: creates an account with the `call-test.masp` package and returns (`temp_dir`,
+/// Helper: creates and funds an account with the `call-test.masp` package and returns (`temp_dir`,
 /// `account_id`, `masp_path`).
+///
+/// Use this fixture for a `call` that runs the procedure. The delta phase executes a transaction,
+/// which the account must be able to pay for.
 fn setup_call_test_account() -> (PathBuf, String, PathBuf) {
+    let (store_path, temp_dir, endpoint, account_id, masp_dst) = create_call_test_account();
+
+    block_on(fund_cli_account(&temp_dir, &store_path, &endpoint, &account_id))
+        .expect("failed to fund the call-test account");
+
+    (temp_dir, account_id, masp_dst)
+}
+
+/// Helper: creates an account with the `call-test.masp` package without funding it and returns
+/// (`temp_dir`, `account_id`, `masp_path`).
+///
+/// Use this fixture for a `call` that the CLI rejects while it resolves the arguments, before it
+/// executes anything. The account only has to exist in the store, and the client only has to be
+/// synced once, so the test skips the funding deploy and its block wait.
+fn setup_unfunded_call_test_account() -> (PathBuf, String, PathBuf) {
+    let (_store_path, temp_dir, _endpoint, account_id, masp_dst) = create_call_test_account();
+
+    (temp_dir, account_id, masp_dst)
+}
+
+/// Initializes a CLI, builds the `call-test.masp` package, creates a public account that holds it,
+/// and syncs once. Returns the CLI store path, temp dir, endpoint, account id and package path.
+fn create_call_test_account() -> (PathBuf, PathBuf, Endpoint, String, PathBuf) {
     let (store_path, temp_dir, endpoint) = init_cli();
 
     // Generate the call-test .masp directly in the temp dir
@@ -2739,12 +3022,10 @@ fn setup_call_test_account() -> (PathBuf, String, PathBuf) {
         .expect("Could not parse account ID from new-account output")
         .to_string();
 
+    // `call` refuses to run on a client that has never synced.
     sync_cli(&temp_dir);
 
-    block_on(fund_cli_account(&temp_dir, &store_path, &endpoint, &account_id))
-        .expect("failed to fund the call-test account");
-
-    (temp_dir, account_id, masp_dst)
+    (store_path, temp_dir, endpoint, account_id, masp_dst)
 }
 
 /// Helper: reads the hex digest of `procedure` from a `.masp`, for calling without the package.
@@ -2771,40 +3052,155 @@ fn procedure_digest_hex(masp_path: &Path, procedure: &str) -> String {
         .unwrap_or_else(|| panic!("no ComponentModel export named '{procedure}'"))
 }
 
-/// Tests calling a procedure by its hex digest with no `--package`. With no manifest to read the
-/// signature from, the stack is printed as raw felts.
-#[test]
-fn call_by_digest_without_package() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-    let digest = procedure_digest_hex(&masp_path, "add");
-
+/// Runs `call` with `args` in `cli_dir` and returns its output.
+fn run_call(cli_dir: &Path, args: &[&str]) -> std::process::Output {
     let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args(["call", &format!("{account_id}:{digest}"), "3", "7"]);
+    cmd.arg("call").args(args);
+    cmd.current_dir(cli_dir).output().unwrap()
+}
 
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
+/// Asserts that a `call` succeeded and returns its stdout. `case` names the case in the panic
+/// message, because several cases share one test.
+fn successful_call_stdout(case: &str, output: &std::process::Output) -> String {
     assert!(
         output.status.success(),
-        "Call by digest failed.\nstdout: {}\nstderr: {}",
+        "{case}: call failed.\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr),
     );
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("No `--package` provided; output will be raw felts."),
-        "Expected the raw-felts notice in output:\n{stdout}"
-    );
-    assert!(
-        stdout.contains("\nResult: 10\n"),
-        "Expected `add(3, 7)` to leave 10 on top of the stack:\n{stdout}"
-    );
+/// Tests the cases of a local `call` that run the procedure, on one funded account.
+///
+/// A local `call` executes the delta transaction and discards it, so the stored account state is
+/// the same before and after each case and the cases do not depend on their order. One funded
+/// account serves them all, which saves a funding deploy and its block wait per case.
+#[test]
+fn call_local_cases() {
+    let (temp_dir, account_id, masp_path) = setup_call_test_account();
+    let masp = masp_path.to_str().unwrap();
+
+    // By digest, without `--package`: the package is not read, so nothing describes the procedure
+    // or its types and the stack is printed as raw felts.
+    {
+        let digest = procedure_digest_hex(&masp_path, "add");
+        let output = run_call(&temp_dir, &[&format!("{account_id}:{digest}"), "3", "7"]);
+        let stdout = successful_call_stdout("by digest", &output);
+        assert!(
+            stdout.contains("No `--package` provided; output will be raw felts."),
+            "by digest: expected the raw-felts notice in output:\n{stdout}"
+        );
+        assert!(
+            stdout.contains("\nResult: 10\n"),
+            "by digest: expected `add(3, 7)` to leave 10 on top of the stack:\n{stdout}"
+        );
+    }
+
+    // By name, with the state delta shown: the execution bumps the nonce.
+    {
+        let output =
+            run_call(&temp_dir, &[&format!("{account_id}:add"), "1", "2", "--package", masp]);
+        let stdout = successful_call_stdout("nonce delta", &output);
+        assert!(
+            stdout.contains("New account nonce:"),
+            "nonce delta: expected the new account nonce in output:\n{stdout}"
+        );
+    }
+
+    // `set_value` expects [VALUE (4 felts)] on the stack and writes storage, which the delta shows.
+    {
+        let output = run_call(
+            &temp_dir,
+            &[&format!("{account_id}:set_value"), "42", "0", "0", "0", "--package", masp],
+        );
+        let stdout = successful_call_stdout("storage delta", &output);
+        assert!(
+            stdout.contains("Storage Slot"),
+            "storage delta: expected storage delta in output:\n{stdout}"
+        );
+    }
+
+    // Advice map entries supplied via `--inputs-path` reach the called procedure. `read_advice`
+    // looks up a fixed key in the advice map and returns the sum of the two mapped values (13 + 9 =
+    // 22).
+    {
+        let advice_path =
+            fs::canonicalize("tests/files/test_cli_advice_inputs_input.toml").unwrap();
+        let output = run_call(
+            &temp_dir,
+            &[
+                &format!("{account_id}:read_advice"),
+                "--package",
+                masp,
+                "-i",
+                advice_path.to_str().unwrap(),
+            ],
+        );
+        let stdout = successful_call_stdout("advice inputs", &output);
+        assert_eq!(output_line(&stdout, "Result:"), "Result: 22felt", "advice inputs");
+    }
+
+    // The typed encode/decode path: an `account-id` hex token is expanded to two felts on the way
+    // in and rendered back as `account-id(0x..)` on the way out.
+    let acct_hex = "0xaa0000000000bb110000cc000000dd";
+    {
+        let output = run_call(
+            &temp_dir,
+            &[&format!("{account_id}:take_account_id"), acct_hex, "--package", masp],
+        );
+        let stdout = successful_call_stdout("typed round trip", &output);
+        assert_eq!(
+            output_line(&stdout, "Signature:"),
+            "Signature: take_account_id(account-id) -> account-id",
+            "typed round trip"
+        );
+        assert_eq!(
+            output_line(&stdout, "Result:"),
+            format!("Result: account-id({acct_hex})"),
+            "typed round trip"
+        );
+    }
+
+    // The two felts of an `account-id` argument reach the procedure in signature order. The
+    // identity round trip above cannot show this: encoding and decoding would agree even if both
+    // had the fields the wrong way around.
+    {
+        let suffix = AccountId::from_hex(acct_hex).unwrap().suffix();
+        let output = run_call(
+            &temp_dir,
+            &[&format!("{account_id}:account_id_suffix"), acct_hex, "--package", masp],
+        );
+        let stdout = successful_call_stdout("field order", &output);
+        assert_eq!(
+            output_line(&stdout, "Signature:"),
+            "Signature: account_id_suffix(account-id) -> felt",
+            "field order"
+        );
+        assert_eq!(output_line(&stdout, "Result:"), format!("Result: {suffix}felt"), "field order");
+    }
+
+    // The untyped fallback: a procedure the package describes no WIT types for is still called,
+    // with one field element per argument and the output stack printed as-is.
+    {
+        let output =
+            run_call(&temp_dir, &[&format!("{account_id}:raw_add"), "3", "7", "--package", masp]);
+        let stdout = successful_call_stdout("untyped fallback", &output);
+        assert_eq!(
+            output_line(&stdout, "Signature:"),
+            "Signature: raw_add(...) [no type info]",
+            "untyped fallback"
+        );
+        // The dump runs to the last non-zero value, and `add` leaves nothing but the sum.
+        assert_eq!(output_line(&stdout, "Result:"), "Result: 10", "untyped fallback");
+    }
 }
 
 /// Tests that a procedure name is rejected without `--package`, as there is no manifest to resolve
 /// it against.
 #[test]
 fn call_without_package_rejects_procedure_name() {
-    let (temp_dir, account_id, _masp_path) = setup_call_test_account();
+    let (temp_dir, account_id, _masp_path) = setup_unfunded_call_test_account();
 
     let mut cmd = cargo_bin_cmd!("miden-client");
     cmd.args(["call", &format!("{account_id}:add"), "3", "7"]);
@@ -2813,113 +3209,6 @@ fn call_without_package_rejects_procedure_name() {
         .assert()
         .failure()
         .stderr(contains("'add' is not a hex digest"));
-}
-
-/// Tests calling a procedure by name (add) with felt arguments.
-#[test]
-fn call_procedure_by_name() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:add"),
-        "3",
-        "7",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    cmd.current_dir(&temp_dir).assert().success();
-}
-
-/// Tests that transaction execution produces a nonce change in the state delta.
-#[test]
-fn call_shows_nonce_delta() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:add"),
-        "1",
-        "2",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("New account nonce:"),
-        "Expected the new account nonce in output:\n{stdout}"
-    );
-}
-
-/// Tests calling `set_value` and verifying storage delta is shown.
-#[test]
-fn call_set_value_shows_storage_delta() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    // set_value expects [VALUE (4 felts)] on the stack
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:set_value"),
-        "42",
-        "0",
-        "0",
-        "0",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Storage Slot"), "Expected storage delta in output:\n{stdout}");
-}
-
-/// Tests that advice map entries supplied via `--inputs-path` reach the called procedure.
-/// `read_advice` looks up a fixed key in the advice map and returns the sum of the two mapped
-/// values (13 + 9 = 22).
-#[test]
-fn call_with_advice_inputs() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let advice_path = fs::canonicalize("tests/files/test_cli_advice_inputs_input.toml").unwrap();
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:read_advice"),
-        "--package",
-        masp_path.to_str().unwrap(),
-        "-i",
-        advice_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call with advice inputs failed.\nstdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr),
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(output_line(&stdout, "Result:"), "Result: 22felt");
 }
 
 /// Returns the single line of `stdout` that starts with `prefix`, so a test can compare the whole
@@ -2936,71 +3225,11 @@ fn output_line<'a>(stdout: &'a str, prefix: &str) -> &'a str {
     line
 }
 
-/// Tests the typed encode/decode path: an `account-id` hex token is expanded to two felts on the
-/// way in and rendered back as `account-id(0x..)` on the way out.
-#[test]
-fn call_typed_account_id_roundtrip() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let acct_hex = "0xaa0000000000bb110000cc000000dd";
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:take_account_id"),
-        acct_hex,
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(
-        output_line(&stdout, "Signature:"),
-        "Signature: take_account_id(account-id) -> account-id"
-    );
-    assert_eq!(output_line(&stdout, "Result:"), format!("Result: account-id({acct_hex})"));
-}
-
-/// Tests the untyped fallback: a procedure the package describes no WIT types for is still called,
-/// with one field element per argument and the output stack printed as-is.
-#[test]
-fn call_untyped_procedure_falls_back_to_raw_felts() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:raw_add"),
-        "3",
-        "7",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(output_line(&stdout, "Signature:"), "Signature: raw_add(...) [no type info]");
-    // The dump runs to the last non-zero value, and `add` leaves nothing but the sum.
-    assert_eq!(output_line(&stdout, "Result:"), "Result: 10");
-}
-
 /// Tests that an untyped procedure takes its arguments the way a `felt` is written on the typed
 /// path, so the fallback cannot teach a syntax that stops working once the types arrive.
 #[test]
 fn call_untyped_procedure_rejects_a_hex_argument() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
+    let (temp_dir, account_id, masp_path) = setup_unfunded_call_test_account();
 
     let mut cmd = cargo_bin_cmd!("miden-client");
     cmd.args([
@@ -3022,44 +3251,10 @@ fn call_untyped_procedure_rejects_a_hex_argument() {
     );
 }
 
-/// Tests that the two felts of an `account-id` argument reach the procedure in signature order. The
-/// identity round-trip above cannot show this: encoding and decoding would agree even if both had
-/// the fields the wrong way around.
-#[test]
-fn call_typed_account_id_field_order() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
-
-    let acct_hex = "0xaa0000000000bb110000cc000000dd";
-    let suffix = AccountId::from_hex(acct_hex).unwrap().suffix();
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:account_id_suffix"),
-        acct_hex,
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    let output = cmd.current_dir(&temp_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Call failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(
-        output_line(&stdout, "Signature:"),
-        "Signature: account_id_suffix(account-id) -> felt"
-    );
-    assert_eq!(output_line(&stdout, "Result:"), format!("Result: {suffix}felt"));
-}
-
 /// Tests that calling a `add` with the wrong number of arguments fails
 #[test]
 fn call_rejects_wrong_arg_count() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
+    let (temp_dir, account_id, masp_path) = setup_unfunded_call_test_account();
 
     // Too few: 1 arg for a 2-arg procedure.
     let mut too_few = cargo_bin_cmd!("miden-client");
@@ -3095,7 +3290,7 @@ fn call_rejects_wrong_arg_count() {
 /// Tests passing more arguments than a procedure can be given.
 #[test]
 fn call_rejects_more_args_than_stack_window() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
+    let (temp_dir, account_id, masp_path) = setup_unfunded_call_test_account();
 
     // Called by digest, so that the manifest's argument check doesn't run first.
     let digest = procedure_digest_hex(&masp_path, "add");
@@ -3115,7 +3310,7 @@ fn call_rejects_more_args_than_stack_window() {
 /// holds. They could not be read back, so the call must fail.
 #[test]
 fn call_rejects_results_wider_than_stack_window() {
-    let (temp_dir, account_id, masp_path) = setup_call_test_account();
+    let (temp_dir, account_id, masp_path) = setup_unfunded_call_test_account();
 
     let mut cmd = cargo_bin_cmd!("miden-client");
     cmd.args([
@@ -3197,114 +3392,80 @@ fn setup_remote_call_test() -> (PathBuf, String, PathBuf) {
     (caller_dir, account_id, masp_path)
 }
 
-/// Tests calling a procedure on a public account that is not in the caller's local store. The call
-/// is routed through FPI using the caller's local wallet as the executor.
+/// Tests the cases of a `call` on an account the caller does not track, on one deployed target.
+///
+/// A call through FPI reads the target and cannot change it, so the cases do not depend on their
+/// order and one deployed target serves them all.
 #[test]
-fn call_remote_account_via_fpi() {
+fn call_remote_cases() {
     let (caller_dir, account_id, masp_path) = setup_remote_call_test();
+    let masp = masp_path.to_str().unwrap();
 
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:add"),
-        "3",
-        "7",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
+    // A public account that is not in the caller's local store is called through FPI, with the
+    // caller's local wallet as the executor.
+    {
+        let output =
+            run_call(&caller_dir, &[&format!("{account_id}:add"), "3", "7", "--package", masp]);
+        let stdout = successful_call_stdout("via FPI", &output);
+        assert!(
+            stdout.contains("reading its state from the network"),
+            "via FPI: expected the network-read message in output:\n{stdout}"
+        );
+        assert!(
+            stdout.contains("Result: 10"),
+            "via FPI: expected `add(3, 7)` result in output:\n{stdout}"
+        );
+    }
 
-    let output = cmd.current_dir(&caller_dir).output().unwrap();
-    assert!(
-        output.status.success(),
-        "Remote call failed.\nstdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr),
-    );
+    // A procedure that writes to storage on an account read from the network must fail, because the
+    // kernel only allows writes to the account running the transaction. The kernel rejects this
+    // with ERR_ACCOUNT_IS_NOT_NATIVE. Its text is matched instead of the constant name, which is
+    // printed only when the kernel source is rendered.
+    {
+        let mut cmd = cargo_bin_cmd!("miden-client");
+        cmd.args([
+            "call",
+            &format!("{account_id}:set_value"),
+            "42",
+            "0",
+            "0",
+            "0",
+            "--package",
+            masp,
+        ]);
+        cmd.current_dir(&caller_dir)
+            .assert()
+            .failure()
+            .stderr(contains("the active account is not"));
+    }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("reading its state from the network"),
-        "Expected the network-read message in output:\n{stdout}"
-    );
-    assert!(
-        stdout.contains("Result: 10"),
-        "Expected `add(3, 7)` result in output:\n{stdout}"
-    );
-}
+    // A client with no accounts of its own has nothing to run the call from, so it must fail.
+    {
+        let empty_dir = init_cli().1;
+        sync_cli(&empty_dir);
 
-/// Tests calling a procedure that writes to storage on an account read from the network. The kernel
-/// only allows writes to the account running the transaction, so the call must fail.
-#[test]
-fn call_remote_account_rejects_state_change() {
-    let (caller_dir, account_id, masp_path) = setup_remote_call_test();
+        let mut cmd = cargo_bin_cmd!("miden-client");
+        cmd.args(["call", &format!("{account_id}:add"), "3", "7", "--package", masp]);
+        cmd.current_dir(&empty_dir)
+            .assert()
+            .failure()
+            .stderr(contains("of your own accounts to run the call from"));
+    }
 
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:set_value"),
-        "42",
-        "0",
-        "0",
-        "0",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
+    // A private account the caller does not track cannot be served by the node, so the call must
+    // fail. The digest is only parsed, never resolved, because the call fails on the account first.
+    {
+        let owner_dir = init_cli().1;
+        let target_id = new_wallet_cli(&owner_dir, AccountType::Private);
 
-    // The kernel rejects this with ERR_ACCOUNT_IS_NOT_NATIVE. Its text is matched instead of the
-    // constant name, which is printed only when the kernel source is rendered.
-    cmd.current_dir(&caller_dir)
-        .assert()
-        .failure()
-        .stderr(contains("the active account is not"));
-}
-
-/// Tests calling a private account that isn't tracked locally. The node cannot serve its state, so
-/// the call must fail.
-#[test]
-fn call_rejects_untracked_private_account() {
-    let owner_dir = init_cli().1;
-    let target_id = new_wallet_cli(&owner_dir, AccountType::Private);
-
-    // A second client that never saw that account.
-    let caller_dir = init_cli().1;
-    new_wallet_cli(&caller_dir, AccountType::Private);
-    sync_cli(&caller_dir);
-
-    // The digest is only parsed, never resolved, because the call fails on the account first.
-    let digest = format!("0x{}", "0".repeat(64));
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args(["call", &format!("{target_id}:{digest}")]);
-
-    cmd.current_dir(&caller_dir)
-        .assert()
-        .failure()
-        .stderr(contains("its state isn't public"));
-}
-
-/// Tests calling an account that isn't tracked locally from a client with no accounts of its own.
-/// There is nothing to run the call from, so it must fail.
-#[test]
-fn call_remote_account_requires_local_executor() {
-    let (_caller_dir, account_id, masp_path) = setup_remote_call_test();
-
-    // A client with no accounts at all.
-    let empty_dir = init_cli().1;
-    sync_cli(&empty_dir);
-
-    let mut cmd = cargo_bin_cmd!("miden-client");
-    cmd.args([
-        "call",
-        &format!("{account_id}:add"),
-        "3",
-        "7",
-        "--package",
-        masp_path.to_str().unwrap(),
-    ]);
-
-    cmd.current_dir(&empty_dir)
-        .assert()
-        .failure()
-        .stderr(contains("of your own accounts to run the call from"));
+        let digest = format!("0x{}", "0".repeat(64));
+        let mut cmd = cargo_bin_cmd!("miden-client");
+        cmd.args(["call", &format!("{target_id}:{digest}")]);
+        cmd.current_dir(&caller_dir)
+            .assert()
+            .failure()
+            .stderr(contains("its state isn't public"));
+    }
 }
 
 // AUTH COMPONENT TESTS

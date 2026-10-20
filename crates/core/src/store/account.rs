@@ -17,7 +17,7 @@ use miden_protocol::asset::Asset;
 use miden_protocol::block::account_tree::AccountWitness;
 use miden_protocol::{Felt, Word};
 
-use crate::ClientError;
+use crate::errors::AccountRecordError;
 
 // ACCOUNT RECORD DATA
 // ================================================================================================
@@ -117,23 +117,23 @@ impl AccountRecord {
 }
 
 impl TryFrom<AccountRecord> for Account {
-    type Error = ClientError;
+    type Error = AccountRecordError;
 
     fn try_from(value: AccountRecord) -> Result<Self, Self::Error> {
         match value.account_data {
             AccountRecordData::Full(acc) => Ok(acc),
-            AccountRecordData::Partial(acc) => Err(ClientError::AccountRecordNotFull(acc.id())),
+            AccountRecordData::Partial(acc) => Err(AccountRecordError::NotFull(acc.id())),
         }
     }
 }
 
 impl TryFrom<AccountRecord> for PartialAccount {
-    type Error = ClientError;
+    type Error = AccountRecordError;
 
     fn try_from(value: AccountRecord) -> Result<Self, Self::Error> {
         match value.account_data {
             AccountRecordData::Partial(acc) => Ok(acc),
-            AccountRecordData::Full(acc) => Err(ClientError::AccountRecordNotPartial(acc.id())),
+            AccountRecordData::Full(acc) => Err(AccountRecordError::NotPartial(acc.id())),
         }
     }
 }

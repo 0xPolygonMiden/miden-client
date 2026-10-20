@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 use std::string::ToString;
 use std::vec::Vec;
 
-use miden_client::account::{
+use miden_client_core::errors::StoreError;
+use miden_protocol::account::{
     AccountId,
     AccountStorage,
     AccountStoragePatch,
@@ -16,8 +17,8 @@ use miden_client::account::{
     StorageSlotType,
     StorageValuePatch,
 };
-use miden_client::store::StoreError;
-use miden_client::{Deserializable, EMPTY_WORD, Serializable, Word};
+use miden_protocol::utils::serde::{Deserializable, Serializable};
+use miden_protocol::{EMPTY_WORD, Word};
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use crate::account::rows::query_storage_values;
