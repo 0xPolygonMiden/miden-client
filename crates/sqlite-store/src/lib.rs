@@ -373,6 +373,11 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn remove_account(&self, account_id: AccountId) -> Result<bool, StoreError> {
+        self.interact_with_connection(move |conn| Self::remove_account(conn, account_id))
+            .await
+    }
+
     async fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.interact_with_connection(SqliteStore::get_account_ids).await
     }

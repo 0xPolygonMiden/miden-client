@@ -58,6 +58,9 @@ use crate::forest::{ScopedAccountForest, SqliteForestBackend, allocate_forest_re
 use crate::sql_error::SqlResultExt;
 use crate::tests::create_test_store;
 
+#[path = "removal_tests.rs"]
+mod removal;
+
 #[tokio::test]
 async fn account_code_insertion_no_duplicates() -> anyhow::Result<()> {
     let store = create_test_store().await;
