@@ -177,10 +177,6 @@ impl<T: NodeRpcClient> NodeRpcClient for VerifyingRpcClient<T> {
         self.0.set_genesis_commitment(commitment).await
     }
 
-    fn has_genesis_commitment(&self) -> Option<Word> {
-        self.0.has_genesis_commitment()
-    }
-
     async fn get_transaction_encryption_key(
         &self,
     ) -> Result<AttestedTransactionEncryptionKey, RpcError> {

@@ -142,9 +142,6 @@ pub trait NodeRpcClient: Send + Sync {
     /// does nothing.
     async fn set_genesis_commitment(&self, commitment: Word) -> Result<(), RpcError>;
 
-    /// Returns the genesis commitment if it has been set, without fetching from the node.
-    fn has_genesis_commitment(&self) -> Option<Word>;
-
     /// Fetches the validator set's transaction encryption key using the
     /// `/GetTransactionEncryptionKey` endpoint.
     ///

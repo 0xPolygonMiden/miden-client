@@ -223,10 +223,6 @@ impl NodeRpcClient for CannedTransport {
         unimplemented!("not used in these tests")
     }
 
-    fn has_genesis_commitment(&self) -> Option<Word> {
-        unimplemented!("not used in these tests")
-    }
-
     async fn get_transaction_encryption_key(
         &self,
     ) -> Result<AttestedTransactionEncryptionKey, RpcError> {

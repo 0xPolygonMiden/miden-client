@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_protocol::block::{BlockHeader, BlockNumber, ValidatorConfig};
 use miden_protocol::crypto::hash::rpo::Rpo256;
 use miden_protocol::crypto::merkle::MerklePath;
@@ -45,12 +46,23 @@ impl<AUTH> Client<AUTH> {
         Ok(self.get_latest_block_header().await?.validator_config().clone())
     }
 
-    /// Ensures that the genesis block and its protocol configuration are available. If the genesis
-    /// commitment is already cached in the RPC client, returns early. Otherwise, fetches the
-    /// genesis block and its protocol configuration from the node, stores them, and sets the
-    /// commitment in the RPC client.
+    /// Ensures that the genesis block header and the protocol configuration it commits to are in
+    /// the store, and sets the genesis commitment in the RPC client.
+    ///
+    /// Fetches the genesis block header and its protocol configuration from the node when the store
+    /// does not have both.
     pub async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        if self.rpc_api.has_genesis_commitment().is_some() {
+        if let Some((genesis, _)) = self.store.get_block_header_by_num(BlockNumber::GENESIS).await?
+            && self
+                .store
+                .get_setting(
+                    SettingScope::Client,
+                    protocol_config_setting_key(genesis.protocol_config_commitment()),
+                )
+                .await?
+                .is_some()
+        {
+            self.rpc_api.set_genesis_commitment(genesis.commitment()).await?;
             return Ok(());
         }
 

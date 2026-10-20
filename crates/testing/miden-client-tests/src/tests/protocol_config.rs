@@ -5,9 +5,10 @@ use miden_client::account::AccountType;
 use miden_client::asset::{AssetId, FungibleAsset};
 use miden_client::builder::ClientBuilder;
 use miden_client::keystore::FilesystemKeyStore;
-use miden_client::note::NoteType;
+use miden_client::note::{BlockNumber, NoteType};
 use miden_client::protocol_config::ProtocolConfig;
-use miden_client::store::StoreError;
+use miden_client::rpc::NodeRpcClient;
+use miden_client::store::{Store, StoreError};
 use miden_client::testing::common::{AccountSetup, create_test_store_path};
 use miden_client::transaction::TransactionRequestBuilder;
 use miden_client::{ClientError, Serializable, Word};
@@ -23,7 +24,7 @@ fn protocol_config_for(faucet: u128) -> ProtocolConfig {
 }
 
 #[tokio::test]
-async fn the_first_sync_stores_the_protocol_config() {
+async fn the_first_sync_stores_the_genesis_protocol_config() {
     let rpc = prebuilt_rpc_api().await;
     // Nothing is seeded into this client's store.
     let mut client = TestClient::from(
@@ -46,6 +47,38 @@ async fn the_first_sync_stores_the_protocol_config() {
     client.sync_state().await.unwrap();
 
     assert_eq!(client.get_protocol_config(config.to_commitment()).await.unwrap(), config);
+}
+
+/// A store that has the genesis block header but not its protocol configuration gets the
+/// configuration when it ensures genesis.
+#[tokio::test]
+async fn ensure_genesis_fetches_a_missing_genesis_protocol_config() {
+    let rpc = prebuilt_rpc_api().await;
+    let store = SqliteStore::new(create_test_store_path()).await.unwrap();
+    let (genesis, ..) = rpc
+        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
+        .await
+        .unwrap();
+    store.insert_block_header(&genesis, &[], false).await.unwrap();
+
+    let mut client = TestClient::from(
+        ClientBuilder::new()
+            .rpc(Arc::new(rpc.clone()))
+            .store(Arc::new(store))
+            .authenticator(Arc::new(FilesystemKeyStore::new(temp_dir()).unwrap()))
+            .build()
+            .await
+            .unwrap(),
+    );
+    let commitment = genesis.protocol_config_commitment();
+    assert!(matches!(
+        client.get_protocol_config(commitment).await,
+        Err(ClientError::StoreError(StoreError::ProtocolConfigNotFound(_)))
+    ));
+
+    client.ensure_genesis_in_place().await.unwrap();
+
+    assert_eq!(client.get_protocol_config(commitment).await.unwrap(), rpc.protocol_config());
 }
 
 /// A fresh client without a stored protocol configuration keeps a public note for its account on
