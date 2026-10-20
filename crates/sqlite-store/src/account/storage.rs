@@ -7,16 +7,21 @@ use std::vec::Vec;
 use miden_client_core::errors::StoreError;
 use miden_protocol::account::{
     AccountId,
+    AccountStorage,
     AccountStoragePatch,
     StorageMapPatch,
     StorageSlot,
     StorageSlotContent,
+    StorageSlotName,
+    StorageSlotPatch,
     StorageSlotType,
+    StorageValuePatch,
 };
 use miden_protocol::utils::serde::{Deserializable, Serializable};
 use miden_protocol::{EMPTY_WORD, Word};
 use rusqlite::{OptionalExtension, Transaction, params};
 
+use crate::account::rows::query_storage_values;
 use crate::forest::ScopedAccountForest;
 use crate::sql_error::SqlResultExt;
 use crate::{SqliteStore, insert_sql, subst, u64_to_value};
@@ -27,6 +32,36 @@ impl SqliteStore {
 
     // MUTATOR/WRITER METHODS
     // --------------------------------------------------------------------------------------------
+
+    /// Builds the storage patch that takes the stored storage of an account to `storage`.
+    ///
+    /// Every slot of `storage` becomes a `Create` patch, which the patch writer applies as a
+    /// replacement of the slot. Stored slots that `storage` does not have become `Remove` patches.
+    pub(crate) fn full_storage_patch(
+        tx: &Transaction<'_>,
+        account_id: AccountId,
+        storage: &AccountStorage,
+    ) -> Result<AccountStoragePatch, StoreError> {
+        let mut slot_patches: BTreeMap<StorageSlotName, StorageSlotPatch> =
+            query_storage_values(tx, account_id)?
+                .into_iter()
+                .map(|(slot_name, (slot_type, _))| {
+                    let removal = match slot_type {
+                        StorageSlotType::Value => {
+                            StorageSlotPatch::Value(StorageValuePatch::Remove)
+                        },
+                        StorageSlotType::Map => StorageSlotPatch::Map(StorageMapPatch::Remove),
+                    };
+                    (slot_name, removal)
+                })
+                .collect();
+        for slot in storage.slots() {
+            slot_patches
+                .insert(slot.name().clone(), StorageSlotPatch::from(slot.content().clone()));
+        }
+
+        AccountStoragePatch::from_raw(slot_patches).map_err(StoreError::AccountPatchError)
+    }
 
     /// Inserts storage slots into the latest tables only.
     ///
