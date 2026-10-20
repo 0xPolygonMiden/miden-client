@@ -53,6 +53,27 @@
 
 * [FIX][store] `SqliteStore` now compares nonces as unsigned values when it prunes account history. Before, it deleted the wrong historical states when a nonce was above `i64::MAX` ([#2669](https://github.com/0xMiden/rust-sdk/pull/2669)).
 
+## 0.17.4 (2026-10-16)
+
+### Features
+
+* [FEATURE][rust] Added `TransactionRequestBuilder::auth_args` and `TransactionRequest::with_auth_args`, which set the auth arg to the commitment of the given auth args and add their preimage to the advice map. The client tracks the bound block of multisig auth args ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
+* [FEATURE][rust] Added the `miden_client::usdcx` module, which re-exports `miden-usdcx`. It provides the USDCx (Circle xReserve) burn note `XReserveBurnNote`, the `XReserveBurnItems` payload codec, and the `AccountId` to `bytes32` encoding ([#2695](https://github.com/0xMiden/rust-sdk/pull/2695)).
+
+### Fixes
+
+* [FIX][rust] Constructed three-word auth args for basic, guarded, and smart multisig requests that declare a fee conversion salt. The auth args bind the transaction's reference block and preserve the declared salt. Note screening finds notes that multisig accounts can consume ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
+
+### Changes
+
+* [DEPRECATION][rust] Deprecated `TransactionRequestBuilder::auth_arg`. Use `TransactionRequestBuilder::auth_args` to set the auth args commitment and its advice-map preimage together ([#2708](https://github.com/0xMiden/rust-sdk/pull/2708)).
+
+## 0.17.3 (2026-10-08)
+
+### Features
+
+* [FEATURE][rust,cli] Integrated node 0.17.3 RPC specs. Added `Client::is_invitation_code_valid` and the `account --check-invitation-code` flag, backed by the node's `IsInvitationCodeValid` endpoint ([#2686](https://github.com/0xMiden/rust-sdk/pull/2686)).
+
 ## 0.17.2 (2026-10-06)
 
 ### Breaking Changes
