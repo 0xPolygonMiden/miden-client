@@ -617,7 +617,7 @@ impl SqliteStore {
         tx: &Transaction<'_>,
         smt_forest: &mut ScopedAccountForest<'_, '_>,
         account_id: AccountId,
-        extra_map_slots: &[StorageSlotName],
+        extra_map_slots: &BTreeSet<StorageSlotName>,
     ) -> Result<(), StoreError> {
         let assets = query_vault_assets(tx, account_id)?;
         let slots = query_storage_slots(tx, account_id, &AccountStorageFilter::All)?;
@@ -706,9 +706,9 @@ impl SqliteStore {
     }
 
     /// Undoes discarded account states by restoring old values from historical.
-    pub(crate) fn undo_account_state(
-        tx: &Transaction<'_>,
-        smt_forest: &mut ScopedAccountForest<'_, '_>,
+    pub(crate) fn undo_account_state<'a, 'conn>(
+        tx: &'a Transaction<'conn>,
+        smt_forest: &mut ScopedAccountForest<'a, 'conn>,
         discarded_states: &[(AccountId, Word)],
     ) -> Result<(), StoreError> {
         if discarded_states.is_empty() {
@@ -741,11 +741,11 @@ impl SqliteStore {
             }
         }
 
-        // Undo one account at a time. Read the account's map slot names before the undo rewrites
-        // the latest tables, then reconcile its forest lineages to the restored state.
+        // Capture map names before undo removes their last stored reference.
+        let mut removed_lineages = false;
         for (account_id_bytes, nonces) in &nonces_by_account {
             let account_id = AccountId::read_from_bytes(account_id_bytes)?;
-            let stale_map_slots = Self::query_map_slot_names(tx, account_id)?;
+            let stale_map_slots = Self::query_retained_map_slot_names(tx, account_id)?;
             Self::undo_account_nonces(tx, account_id_bytes, nonces)?;
             Self::reconcile_account_forest_from_tables(
                 tx,
@@ -753,6 +753,13 @@ impl SqliteStore {
                 account_id,
                 &stale_map_slots,
             )?;
+            removed_lineages |=
+                Self::remove_unreferenced_map_lineages(tx, account_id, &stale_map_slots)? > 0;
+        }
+
+        if removed_lineages {
+            // Later updates must not use cached metadata for deleted lineages.
+            *smt_forest = ScopedAccountForest::new(SqliteForestBackend::new(tx))?;
         }
 
         Ok(())
@@ -1293,16 +1300,26 @@ impl SqliteStore {
             total_deleted +=
                 Self::remove_unreferenced_account_code(tx, &candidate_code_commitments)?;
 
-            let retained_map_slots = Self::query_retained_map_slot_names(tx, account_id)?;
-            let removed_map_slots = candidate_map_slots.difference(&retained_map_slots);
-            // The first lineage is the vault. History pruning must preserve it.
-            total_deleted += Self::remove_forest_lineages(
-                tx,
-                ScopedAccountForest::account_lineages(account_id, removed_map_slots).skip(1),
-            )?;
+            total_deleted +=
+                Self::remove_unreferenced_map_lineages(tx, account_id, &candidate_map_slots)?;
 
             Ok(total_deleted)
         })
+    }
+
+    /// Removes candidate map lineages that no current or historical account state references.
+    fn remove_unreferenced_map_lineages(
+        tx: &Transaction<'_>,
+        account_id: AccountId,
+        candidates: &BTreeSet<StorageSlotName>,
+    ) -> Result<usize, StoreError> {
+        let retained_map_slots = Self::query_retained_map_slot_names(tx, account_id)?;
+        let removed_map_slots = candidates.difference(&retained_map_slots);
+        // The first lineage is the vault. Map cleanup must preserve it.
+        Self::remove_forest_lineages(
+            tx,
+            ScopedAccountForest::account_lineages(account_id, removed_map_slots).skip(1),
+        )
     }
 
     /// Returns map slot names referenced by current or historical account state.

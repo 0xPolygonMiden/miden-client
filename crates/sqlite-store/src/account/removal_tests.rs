@@ -15,14 +15,24 @@ use crate::transaction::upsert_transaction_record;
 
 #[tokio::test]
 async fn remove_account_clears_persisted_state_and_allows_reinsertion() -> anyhow::Result<()> {
-    for (prune_history, empty_current_map) in [(false, false), (true, false), (true, true)] {
-        check_account_removal(prune_history, empty_current_map).await?;
+    for (prune_history, empty_current_map, discard_update) in [
+        (false, false, false),
+        (true, false, false),
+        (true, true, false),
+        (false, false, true),
+        (false, true, true),
+    ] {
+        check_account_removal(prune_history, empty_current_map, discard_update).await?;
     }
     Ok(())
 }
 
 #[allow(clippy::too_many_lines)]
-async fn check_account_removal(prune_history: bool, empty_current_map: bool) -> anyhow::Result<()> {
+async fn check_account_removal(
+    prune_history: bool,
+    empty_current_map: bool,
+    discard_update: bool,
+) -> anyhow::Result<()> {
     let store = create_test_store().await;
     let old_slot = StorageSlotName::new("test::removal::old_map")?;
     let new_slot = StorageSlotName::new("test::removal::new_map")?;
@@ -31,6 +41,7 @@ async fn check_account_removal(prune_history: bool, empty_current_map: bool) -> 
     let initial_commitment = account.to_commitment();
     let account_id = account.id();
     apply_single_entry_update(&store, &mut account, &old_slot, 2).await?;
+    let restored_account = account.clone();
 
     let map_key = StorageMapKey::new([ONE; 4].into());
     let mut entries = StorageMapPatchEntries::new();
@@ -56,11 +67,44 @@ async fn check_account_removal(prune_history: bool, empty_current_map: bool) -> 
         AccountCodePatch::default(),
         Some(Felt::from(3u32)),
     )?;
-    let previous_header = (&account).into();
+    let previous_header = AccountHeader::from(&account);
     account.apply_patch(&patch)?;
-    apply_patch_in_store(&store, previous_header, (&account).into(), patch).await?;
+    apply_patch_in_store(&store, previous_header.clone(), (&account).into(), patch.clone()).await?;
     let account_trees = read_forest_trees(&store).await?;
     assert_eq!(account_trees.len(), 3, "the fixture must contain the vault and both maps");
+
+    if discard_update {
+        let discarded_commitment = account.to_commitment();
+        let discarded_header = (&account).into();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().into_store_error()?;
+                let mut smt_forest = ScopedAccountForest::new(SqliteForestBackend::new(&tx))?;
+                let discarded_states = [(account_id, discarded_commitment)];
+                SqliteStore::undo_account_state(&tx, &mut smt_forest, &discarded_states)?;
+                SqliteStore::apply_account_patch(
+                    &tx,
+                    &mut smt_forest,
+                    &previous_header,
+                    &discarded_header,
+                    &patch,
+                )?;
+                SqliteStore::undo_account_state(&tx, &mut smt_forest, &discarded_states)?;
+                drop(smt_forest);
+                tx.commit().into_store_error()
+            })
+            .await?;
+        assert_eq!(
+            read_forest_trees(&store).await?.len(),
+            2,
+            "discard must remove the map lineage that no state references",
+        );
+        account = restored_account;
+        assert_eq!(
+            Account::try_from(store.get_account(account_id).await?.unwrap())?.to_bytes(),
+            account.to_bytes(),
+        );
+    }
 
     let (other, _) = account_with_upgraded_code()?;
     let other_tag = Address::new(other.id()).to_note_tag();
