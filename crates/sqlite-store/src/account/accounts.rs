@@ -110,29 +110,31 @@ impl SqliteStore {
         .map(|(header, _)| header))
     }
 
-    /// Retrieves a complete account record with full vault and storage data.
+    /// Retrieves a complete account record from one database snapshot.
     pub(crate) fn get_account(
         conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<Option<AccountRecord>, StoreError> {
+        let tx = conn.transaction().into_store_error()?;
         let Some((header, status, client_account_type)) =
-            query_latest_account_headers(conn, "id = ?", params![account_id.to_bytes()])?.pop()
+            query_latest_account_headers(&tx, "id = ?", params![account_id.to_bytes()])?.pop()
         else {
             return Ok(None);
         };
 
-        let assets = query_vault_assets(conn, account_id)?;
+        let assets = query_vault_assets(&tx, account_id)?;
         let vault = AssetVault::new(&assets)?;
 
-        let slots = query_storage_slots(conn, account_id, &AccountStorageFilter::All)?
+        let slots = query_storage_slots(&tx, account_id, &AccountStorageFilter::All)?
             .into_values()
             .collect();
 
         let storage = AccountStorage::new(slots)?;
 
-        let Some(account_code) = query_account_code(conn, header.code_commitment())? else {
+        let Some(account_code) = query_account_code(&tx, header.code_commitment())? else {
             return Ok(None);
         };
+        tx.commit().into_store_error()?;
 
         let account = Account::new_unchecked(
             header.id(),
