@@ -157,7 +157,7 @@ impl SqliteStore {
             }
 
             if let Some(config) = &protocol_config {
-                Self::set_client_setting(
+                Self::set_client_config(
                     db_tx,
                     &protocol_config_key(config.to_commitment()),
                     config,

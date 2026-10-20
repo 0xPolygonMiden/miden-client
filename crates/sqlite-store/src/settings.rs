@@ -9,11 +9,11 @@ use std::vec::Vec;
 use miden_client_core::errors::StoreError;
 use miden_client_proto::{self as proto, ProtobufValue};
 use miden_protocol::Word;
-use rusqlite::types::FromSql;
-use rusqlite::{Connection, OptionalExtension, ToSql, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::SqliteStore;
 use crate::sql_error::SqlResultExt;
+use crate::{insert_sql, subst};
 
 // CLIENT CONFIG KEYS
 // ================================================================================================
@@ -27,59 +27,36 @@ pub(crate) fn protocol_config_key(commitment: Word) -> String {
     format!("protocol_config:{commitment}")
 }
 
-// SETTINGS TABLE
+// KEY-VALUE TABLES
 // ================================================================================================
 
-/// A key-value table of the store.
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum SettingsTable {
-    /// The `user_settings` table.
-    User,
-    /// The `client_config` table.
-    Client,
-}
-
-impl SettingsTable {
-    fn name(self) -> &'static str {
-        match self {
-            Self::User => "user_settings",
-            Self::Client => "client_config",
-        }
-    }
-}
-
 impl SqliteStore {
-    pub(crate) fn get_setting<T: FromSql>(
+    // USER SETTINGS
+    // --------------------------------------------------------------------------------------------
+
+    pub(crate) fn get_user_setting(
         conn: &Connection,
-        table: SettingsTable,
         name: &str,
-    ) -> Result<Option<T>, StoreError> {
-        conn.query_row(
-            &format!("SELECT value FROM {} WHERE name = $1", table.name()),
-            params![name],
-            |row| row.get(0),
-        )
+    ) -> Result<Option<Vec<u8>>, StoreError> {
+        conn.query_row("SELECT value FROM user_settings WHERE name = $1", params![name], |row| {
+            row.get(0)
+        })
         .optional()
         .into_store_error()
     }
 
-    pub(crate) fn set_setting<T: ToSql>(
+    pub(crate) fn set_user_setting(
         conn: &Connection,
-        table: SettingsTable,
         name: &str,
-        value: &T,
+        value: &[u8],
     ) -> Result<(), StoreError> {
         let count = conn
-            .execute(
-                &format!("INSERT OR REPLACE INTO {} (name, value) VALUES ($1, $2)", table.name()),
-                params![name, value],
-            )
+            .execute(insert_sql!(user_settings { name, value } | REPLACE), params![name, value])
             .into_store_error()?;
 
         if count != 1 {
             return Err(StoreError::DatabaseError(format!(
-                "writing setting {name:?} in {} affected {count} rows, expected 1",
-                table.name()
+                "writing user setting {name:?} affected {count} rows, expected 1"
             )));
         }
 
@@ -87,31 +64,22 @@ impl SqliteStore {
     }
 
     /// Returns `true` if a row was deleted, `false` if `name` wasn't present.
-    pub(crate) fn remove_setting(
-        conn: &Connection,
-        table: SettingsTable,
-        name: &str,
-    ) -> Result<bool, StoreError> {
+    pub(crate) fn remove_user_setting(conn: &Connection, name: &str) -> Result<bool, StoreError> {
         let count = conn
-            .execute(&format!("DELETE FROM {} WHERE name = $1", table.name()), params![name])
+            .execute("DELETE FROM user_settings WHERE name = $1", params![name])
             .into_store_error()?;
 
         if count > 1 {
             return Err(StoreError::DatabaseError(format!(
-                "removing setting {name:?} in {} affected {count} rows, expected at most 1",
-                table.name()
+                "removing user setting {name:?} affected {count} rows, expected at most 1"
             )));
         }
 
         Ok(count == 1)
     }
 
-    pub(crate) fn list_setting_keys(
-        conn: &Connection,
-        table: SettingsTable,
-    ) -> Result<Vec<String>, StoreError> {
-        let mut stmt =
-            conn.prepare(&format!("SELECT name FROM {}", table.name())).into_store_error()?;
+    pub(crate) fn list_user_setting_keys(conn: &Connection) -> Result<Vec<String>, StoreError> {
+        let mut stmt = conn.prepare("SELECT name FROM user_settings").into_store_error()?;
 
         stmt.query_map([], |row| row.get::<_, String>(0))
             .into_store_error()?
@@ -119,24 +87,44 @@ impl SqliteStore {
             .into_store_error()
     }
 
-    /// Reads a client setting that this store wrote as a protobuf message.
-    pub(crate) fn get_client_setting<T: ProtobufValue>(
+    // CLIENT CONFIG
+    // --------------------------------------------------------------------------------------------
+
+    /// Reads a client config value that this store wrote as a protobuf message.
+    pub(crate) fn get_client_config<T: ProtobufValue>(
         conn: &Connection,
         name: &str,
     ) -> Result<Option<T>, StoreError> {
-        let Some(bytes) = Self::get_setting::<Vec<u8>>(conn, SettingsTable::Client, name)? else {
+        let Some(bytes) = conn
+            .query_row("SELECT value FROM client_config WHERE name = $1", params![name], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .optional()
+            .into_store_error()?
+        else {
             return Ok(None);
         };
         Ok(Some(proto::decode_unchecked(&bytes)?))
     }
 
-    /// Writes a client setting as a protobuf message.
-    pub(crate) fn set_client_setting<T: ProtobufValue>(
+    /// Writes a client config value as a protobuf message.
+    pub(crate) fn set_client_config<T: ProtobufValue>(
         conn: &Connection,
         name: &str,
         value: &T,
     ) -> Result<(), StoreError> {
-        Self::set_setting(conn, SettingsTable::Client, name, &proto::encode(value))
+        conn.execute(
+            insert_sql!(client_config { name, value } | REPLACE),
+            params![name, proto::encode(value)],
+        )
+        .into_store_error()?;
+        Ok(())
+    }
+
+    pub(crate) fn remove_client_config(conn: &Connection, name: &str) -> Result<(), StoreError> {
+        conn.execute("DELETE FROM client_config WHERE name = $1", params![name])
+            .into_store_error()?;
+        Ok(())
     }
 }
 
