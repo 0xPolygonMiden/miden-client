@@ -4,7 +4,7 @@
 
 ### Fixes
 
-* [FIX][rust,cli] Updated `rustls-webpki` to 0.103.16, which rejects certificate chains through the eight compromised eMudhra intermediate CAs. Projects that depend on `miden-client` should run `cargo update -p rustls-webpki`.
+* [FIX][rust,cli] Updated `rustls-webpki` to 0.103.16, which rejects certificate chains through the eight compromised eMudhra intermediate CAs. Projects that depend on `miden-client` should run `cargo update -p rustls-webpki` ([#2730](https://github.com/0xMiden/rust-sdk/pull/2730)).
 
 ## 0.17.4 (2026-10-16)
 
