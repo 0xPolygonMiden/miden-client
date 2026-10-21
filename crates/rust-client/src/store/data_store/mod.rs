@@ -431,6 +431,16 @@ impl DataStore for ClientDataStore {
                 .await
                 .map_err(store_to_data_store_error)?;
 
+            // The store holds only the peaks at the sync height. A different reference block
+            // requires an anchor.
+            let sync_height = current_peaks.num_leaves();
+            if ref_block.as_usize() != sync_height {
+                return Err(DataStoreError::other(format!(
+                    "reference block {ref_block} is not the sync height {sync_height}; execute \
+                     against a different reference block with a chain anchor"
+                )));
+            }
+
             let (block_header, _had_notes) = self
                 .store
                 .get_block_header_by_num(ref_block)
@@ -438,9 +448,6 @@ impl DataStore for ClientDataStore {
                 .map_err(store_to_data_store_error)?
                 .ok_or(DataStoreError::BlockNotFound(ref_block))?;
 
-            // TODO: the client stores only the peaks of the MMR at the current sync height, so we
-            // are not actually following the block_ref here. If the block_ref !=
-            // current_sync_height, this would return an invalid partial blockchain.
             let (partial_mmr, block_headers) = build_partial_mmr_and_headers_with_fallback(
                 &self.store,
                 &self.rpc_api,
