@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.5 (2026-10-21)
+
+### Fixes
+
+* [FIX][rust,cli] Updated `rustls-webpki` to `0.103.16` to reject certificate chains that contain the compromised eMudhra intermediate public keys ([RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382.html)). Native applications must update their own lockfiles and rebuild. CI jobs use CA bundles that distrust the affected certificate authorities before running network actions.
+
 ## 0.17.4 (2026-10-16)
 
 ### Features
