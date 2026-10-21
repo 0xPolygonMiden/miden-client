@@ -4462,6 +4462,55 @@ async fn import_watched_account_by_id_ignores_tag_limit() {
     client.import_watched_account_by_id(account.id()).await.unwrap();
 }
 
+/// Builds a client on a mock chain with one public account, plus a second chain that holds the same
+/// account under a different account root. Swapping the second chain into the RPC afterwards
+/// simulates a node serving a witness that does not open under the header the client synced.
+async fn client_with_forgeable_account_root() -> (TestClient, MockRpcApi, MockChain, Account) {
+    let mut honest_builder = MockChainBuilder::new();
+    let account = honest_builder
+        .add_existing_mock_account(miden_testing::Auth::IncrNonce)
+        .unwrap();
+    let honest_chain = honest_builder.build().unwrap();
+
+    // The builder derives its accounts deterministically, so the first account of this chain is the
+    // honest chain's account, and the second one changes the account root.
+    let mut forged_builder = MockChainBuilder::new();
+    let same_account = forged_builder
+        .add_existing_mock_account(miden_testing::Auth::IncrNonce)
+        .unwrap();
+    assert_eq!(same_account.to_commitment(), account.to_commitment());
+    forged_builder
+        .add_existing_mock_account(miden_testing::Auth::IncrNonce)
+        .unwrap();
+    let forged_chain = forged_builder.build().unwrap();
+    assert_ne!(
+        honest_chain.latest_block_header().account_root(),
+        forged_chain.latest_block_header().account_root(),
+    );
+
+    let rpc_api = MockRpcApi::new(honest_chain);
+    let client = mock_client_builder(Arc::new(rpc_api.clone())).await.build().await.unwrap();
+    let client = TestClient::from(client);
+
+    (client, rpc_api, forged_chain, account)
+}
+
+#[tokio::test]
+async fn import_account_by_id_rejects_witness_not_under_the_synced_header() {
+    let (mut client, rpc_api, forged_chain, account) = client_with_forgeable_account_root().await;
+
+    // The node now answers from a chain whose account root is not the one the client synced. The
+    // account is the same, so only the witness gives the forgery away.
+    *rpc_api.mock_chain.write() = forged_chain;
+
+    let err = client
+        .import_account_by_id(account.id())
+        .await
+        .expect_err("a witness that does not open under the synced header must be rejected");
+    assert!(matches!(err, ClientError::ChainValidationError(_)), "unexpected error: {err:?}");
+    assert!(client.get_account(account.id()).await.unwrap().is_none());
+}
+
 #[tokio::test]
 async fn import_watched_account_by_id_rejects_already_tracked_native_account() {
     let mut mock_chain_builder = MockChainBuilder::new();

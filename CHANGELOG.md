@@ -12,6 +12,7 @@
 
 * [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
+* [FEATURE][rust] Added `NodeRpcClient::get_account_details_at`, which fetches a public account at a given block and also returns the witness that commits to it ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
 
 ### Breaking Changes
 
@@ -22,6 +23,9 @@
 * [BREAKING][type][rust] Added `TransactionFilter::Query`, which takes a `TransactionFilterQuery` to select transactions by account and status, newest first, up to a limit. `TransactionFilter` is now `#[non_exhaustive]` ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
 * [BREAKING][removal][rust] Removed `miden_client::store::AccountUpdates`, an unused duplicate of `miden_client::sync::AccountUpdates` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
 * [BREAKING][type][rust] `TransactionResult::new` returns `Self` instead of `Result<Self, ClientError>` ([#2681](https://github.com/0xMiden/rust-sdk/pull/2681)).
+* [BREAKING][type][rust] `ClientError` is now `#[non_exhaustive]`, so matches on it outside `miden-client` need a wildcard arm. Added the `ClientError::AccountNotFoundAtSyncHeight` variant ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
+* [BREAKING][type][rust] Added the `AccountProofError::InconsistentStorageCommitment` variant, so exhaustive matches on `AccountProofError` must handle it ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
+* [BREAKING][behavior][rust] `Client::import_account_by_id`, `Client::import_watched_account_by_id`, `Client::fetch_remote_token_metadata` and the locked-account check of `Client::add_account` read the account at the sync height and require its witness to open under the sync height header's account root, failing with `ClientError::ChainValidationError` otherwise. An account created after the last sync is not found until the client syncs: the import then fails with the new `ClientError::AccountNotFoundAtSyncHeight`, whose hint tells the user to sync ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
 * [BREAKING][param][rust] The `Store` trait has typed methods for the client settings: `get_pswap_lineage`, `get_pswap_order_id_by_tip`, `get_pswap_lineages`, `upsert_pswap_lineage`, `get_note_transport_cursors`, `set_note_transport_cursors`, `get_protocol_config` and `insert_protocol_config`. `PswapLineageFilter` is public. Added `PswapLineageRecord::from_parts` and `TransactionEncryptionKey::from_parts` ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
 * [BREAKING][arch][rust] Moved `PswapLineageRecord`, `PswapLineageState`, `PswapLineageFilter` and `NOTE_TRANSPORT_CURSORS_KEY` to `miden-client-core`. `miden_client::pswap` and `miden_client::note_transport` re-export them. Removed `PswapLineageRecord::new_depth_zero` and `PswapLineageError::UnknownState`. `PswapLineageState::try_from_u8` returns `DeserializationError` ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
 * [BREAKING][arch][store] The SQLite store writes the client settings as protobuf messages: the note transport cursors, the RPC limits, the transaction encryption key, the protocol configurations and the PSWAP lineages. Requires a new client database ([#2668](https://github.com/0xMiden/rust-sdk/pull/2668)).
@@ -48,6 +52,7 @@
 
 ### Fixes
 
+* [FIX][rust] `GetAccount` responses are now checked against the authenticated account header: the account rebuilt from the returned details must match the header's commitment, and the storage header must match its storage commitment ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
 * [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FIX][rust] Note screening treats an account whose trial execution fails in the transaction prologue as unable to consume the note, instead of failing. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it, because the stored vault of the sender still held the asset ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FIX][rust] Implemented `TryFrom` for the `InputNoteRecord` conversions to `Note`, `InputNote`, and `NoteTagRecord`. Existing `.try_into()` calls remain supported ([#2618](https://github.com/0xMiden/rust-sdk/pull/2618)).
