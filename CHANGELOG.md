@@ -33,8 +33,8 @@
 * [BREAKING][param][rust] `Store::set_setting`, `Store::get_setting`, `Store::remove_setting` and `Store::list_setting_keys` no longer take a scope and reach the user settings only. The client data is available only through the typed `Store` methods ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][removal][rust] Removed `SettingScope`, `SettingMutation`, `Store::apply_settings_mutations`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSORS_KEY`, and the deprecated `Store::get_note_transport_cursor`, `Store::update_note_transport_cursor`, `NOTE_TRANSPORT_CURSOR_STORE_SETTING` and `NOTE_TRANSPORT_COVERED_TAGS_KEY` ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][arch][store] The SQLite store keeps the client data in the new `client_config` table and the user settings in the new `user_settings` table. They replace the `settings` table ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
-* [BREAKING][behavior][rust] `Client::get_transaction_store_update` fails with `NoteScreenerError::InitialAccountStateNotStored` when the store no longer holds the account state that the transaction starts from ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
-* [BREAKING][type][rust] Added the `NoteScreenerError::InitialAccountStateNotStored` and `NoteScreenerError::FinalAccountState` variants ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
+* [BREAKING][behavior][rust] `Client::get_transaction_store_update` fails with `NoteScreenerError::InitialAccountStateNotStored` when the store no longer holds the account state that the transaction starts from ([#2735](https://github.com/0xMiden/rust-sdk/pull/2735)).
+* [BREAKING][type][rust] Added the `NoteScreenerError::InitialAccountStateNotStored` and `NoteScreenerError::FinalAccountState` variants ([#2735](https://github.com/0xMiden/rust-sdk/pull/2735)).
 
 ### Features
 
@@ -51,7 +51,7 @@
 ### Fixes
 
 * [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
-* [FIX][rust] The output notes of a submitted transaction or batch are screened against the account state after it, instead of the state in the store. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it ([#XXXX](https://github.com/0xMiden/rust-sdk/pull/XXXX)).
+* [FIX][rust] The output notes of a submitted transaction or batch are screened against the account state after it, instead of the state in the store. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it ([#2735](https://github.com/0xMiden/rust-sdk/pull/2735)).
 * [FIX][rust] Implemented `TryFrom` for the `InputNoteRecord` conversions to `Note`, `InputNote`, and `NoteTagRecord`. Existing `.try_into()` calls remain supported ([#2618](https://github.com/0xMiden/rust-sdk/pull/2618)).
 * [FIX][rust] `TransactionRequestBuilder::expected_output_recipients` adds to the expected recipients instead of replacing them, so own output notes added before it keep their recipients and `execute_transaction` no longer panics ([#2670](https://github.com/0xMiden/rust-sdk/pull/2670)).
 * [FIX][rust] `IdPrefixFetchError::NoMatch` names the kind of entry that was looked up, instead of always saying "notes" ([#2589](https://github.com/0xMiden/rust-sdk/pull/2589)).
