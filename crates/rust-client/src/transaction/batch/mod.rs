@@ -27,10 +27,8 @@
 //!
 //! ## Transactions proven by other parties
 //!
-//! [`BatchBuilder::push_proven_transaction`] adds a transaction that another party executed and
-//! proved. The client does not have to track its account and does not record it locally.
-//! [`Client::push_to_batch`] rejects an account that already has such a transaction in the batch
-//! with [`BatchBuilderError::AccountHasProvenTransaction`].
+//! [`Client::push_proven_transaction`] adds a transaction that another party executed and proved.
+//! The client must not track its account, and it does not record the transaction locally.
 //!
 //! ## Constraints
 //!
@@ -160,7 +158,6 @@ pub struct BatchBuilder {
     pub(crate) pushed_txs: Vec<PushedTx>,
     pub(crate) tx_results: Vec<TransactionResult>,
     pub(crate) consumed_nullifiers: BTreeSet<Nullifier>,
-    pub(crate) proven_accounts: BTreeSet<AccountId>,
 }
 
 impl BatchBuilder {
@@ -172,46 +169,6 @@ impl BatchBuilder {
     /// True if no transaction has been pushed yet.
     pub fn is_empty(&self) -> bool {
         self.pushed_txs.is_empty()
-    }
-
-    /// Appends a transaction that another party executed and proved. The node needs `tx_inputs`,
-    /// the inputs that the transaction executed with, and the proven transaction does not carry
-    /// them. A failed push leaves the batch exactly as it was.
-    ///
-    /// # Errors
-    ///
-    /// - Returns [`BatchBuilderError::DuplicateNullifier`] if an earlier transaction in the batch
-    ///   consumes one of the input notes.
-    /// - Returns [`BatchBuilderError::InvalidTransactionProof`] if the proof does not verify.
-    pub fn push_proven_transaction(
-        &mut self,
-        proven_tx: ProvenTransaction,
-        tx_inputs: impl Into<TransactionInputs>,
-    ) -> Result<(), BatchBuilderError> {
-        if let Some(note) = proven_tx
-            .input_notes()
-            .iter()
-            .find(|note| self.consumed_nullifiers.contains(&note.nullifier()))
-        {
-            return Err(BatchBuilderError::DuplicateNullifier(note.nullifier()));
-        }
-
-        // The batch prover settles any precompile obligation that the outcome carries.
-        let _outcome = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL)
-            .verify(&proven_tx)
-            .map_err(|source| BatchBuilderError::InvalidTransactionProof {
-                tx_id: proven_tx.id(),
-                source,
-            })?;
-
-        self.consumed_nullifiers
-            .extend(proven_tx.input_notes().iter().map(InputNoteCommitment::nullifier));
-        self.proven_accounts.insert(proven_tx.account_id());
-        self.pushed_txs.push(PushedTx {
-            proven_tx: Arc::new(proven_tx),
-            tx_inputs: tx_inputs.into(),
-        });
-        Ok(())
     }
 }
 
@@ -229,7 +186,6 @@ where
             pushed_txs: Vec::new(),
             tx_results: Vec::new(),
             consumed_nullifiers: BTreeSet::new(),
-            proven_accounts: BTreeSet::new(),
         }
     }
 
@@ -448,13 +404,7 @@ where
         account_id: AccountId,
         req: TransactionRequest,
     ) -> Result<(), ClientError> {
-        // 1. Reject an account that has a transaction proven by another party, and dedup input
-        //    notes globally for the batch.
-        if batch.proven_accounts.contains(&account_id) {
-            return Err(ClientError::from(BatchBuilderError::AccountHasProvenTransaction(
-                account_id,
-            )));
-        }
+        // 1. Dedup input notes globally for the batch.
         for note in req.input_notes() {
             if batch.consumed_nullifiers.contains(&note.nullifier()) {
                 return Err(ClientError::from(BatchBuilderError::DuplicateInputNote(note.id())));
@@ -484,6 +434,53 @@ where
             tx_inputs: tx_result.executed_transaction().tx_inputs().clone(),
         });
         batch.tx_results.push(tx_result);
+        Ok(())
+    }
+
+    /// Appends a transaction that another party executed and proved to `batch`. The node needs
+    /// `tx_inputs`, the inputs that the transaction executed with, and the proven transaction does
+    /// not carry them. A failed push leaves the batch exactly as it was.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`BatchBuilderError::ProvenTransactionOfTrackedAccount`] if the client tracks the
+    ///   account of the transaction.
+    /// - Returns [`BatchBuilderError::DuplicateNullifier`] if an earlier transaction in the batch
+    ///   consumes one of the input notes.
+    /// - Returns [`BatchBuilderError::InvalidTransactionProof`] if the proof does not verify.
+    pub async fn push_proven_transaction(
+        &self,
+        batch: &mut BatchBuilder,
+        proven_tx: ProvenTransaction,
+        tx_inputs: impl Into<TransactionInputs>,
+    ) -> Result<(), ClientError> {
+        let account_id = proven_tx.account_id();
+        if self.store.get_account_header(account_id).await?.is_some() {
+            return Err(BatchBuilderError::ProvenTransactionOfTrackedAccount(account_id).into());
+        }
+        if let Some(note) = proven_tx
+            .input_notes()
+            .iter()
+            .find(|note| batch.consumed_nullifiers.contains(&note.nullifier()))
+        {
+            return Err(BatchBuilderError::DuplicateNullifier(note.nullifier()).into());
+        }
+
+        // The batch prover settles any precompile obligation that the outcome carries.
+        let _outcome = TransactionVerifier::new(MIN_PROOF_SECURITY_LEVEL)
+            .verify(&proven_tx)
+            .map_err(|source| BatchBuilderError::InvalidTransactionProof {
+                tx_id: proven_tx.id(),
+                source,
+            })?;
+
+        batch
+            .consumed_nullifiers
+            .extend(proven_tx.input_notes().iter().map(InputNoteCommitment::nullifier));
+        batch.pushed_txs.push(PushedTx {
+            proven_tx: Arc::new(proven_tx),
+            tx_inputs: tx_inputs.into(),
+        });
         Ok(())
     }
 }

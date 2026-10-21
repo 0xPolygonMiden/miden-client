@@ -440,7 +440,9 @@ pub async fn test_batch_builder_pushes_transaction_of_another_party(
     client_a.sync_state().await?;
     let mut batch = client_a.new_transaction_batch();
     client_a.push_to_batch(&mut batch, wallet_a_id, req_send).await?;
-    batch.push_proven_transaction(proven_b, tx_result_b.clone())?;
+    client_a
+        .push_proven_transaction(&mut batch, proven_b, tx_result_b.clone())
+        .await?;
     let block_num = client_a.submit_transaction_batch(batch).await?;
     info!(
         block_num = block_num.as_u32(),

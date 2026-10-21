@@ -1042,7 +1042,7 @@ async fn batch_builder_submits_proven_transaction_of_untracked_account() {
         client
             .push_to_batch(&mut batch, local_id, TransactionRequestBuilder::new().build().unwrap())
             .await?;
-        batch.push_proven_transaction(proven, executed)?;
+        client.push_proven_transaction(&mut batch, proven, executed).await?;
         assert_eq!(batch.len(), 2);
 
         rpc_api.prove_block();
@@ -1090,8 +1090,8 @@ async fn batch_builder_rejects_proven_transaction_with_consumed_nullifier() {
 
     let executed = execute_on_mock_chain(&rpc_api, other_id, [note.id()]).await;
     let proven = LocalTransactionProver::default().prove_dummy(executed.clone()).unwrap();
-    match batch.push_proven_transaction(proven, executed) {
-        Err(BatchBuilderError::DuplicateNullifier(nullifier)) => {
+    match client.push_proven_transaction(&mut batch, proven, executed).await {
+        Err(ClientError::BatchBuilder(BatchBuilderError::DuplicateNullifier(nullifier))) => {
             assert_eq!(nullifier, note.nullifier());
         },
         other => panic!("expected DuplicateNullifier, got {other:?}"),
@@ -1109,7 +1109,7 @@ async fn batch_builder_rejects_local_transaction_with_note_consumed_by_proven_tr
     let executed = execute_on_mock_chain(&rpc_api, other_id, [note.id()]).await;
     let proven = LocalTransactionProver::default().prove(executed.clone()).unwrap();
     let mut batch = client.new_transaction_batch();
-    batch.push_proven_transaction(proven, executed).unwrap();
+    client.push_proven_transaction(&mut batch, proven, executed).await.unwrap();
 
     let request = TransactionRequestBuilder::new()
         .build_consume_notes(vec![note.clone()])
@@ -1123,26 +1123,24 @@ async fn batch_builder_rejects_local_transaction_with_note_consumed_by_proven_tr
     assert_eq!(batch.len(), 1);
 }
 
-/// A transaction of the client cannot be pushed for an account that already has a transaction
-/// proven by another party in the batch.
+/// A transaction that another party proved cannot be pushed for an account that the client tracks.
 #[tokio::test]
-async fn batch_builder_rejects_local_transaction_for_account_with_proven_transaction() {
+async fn batch_builder_rejects_proven_transaction_of_tracked_account() {
     let (client, rpc_api, local_id, _other_id, _note) =
         Box::pin(setup_client_with_untracked_account()).await;
 
     let executed = execute_on_mock_chain(&rpc_api, local_id, []).await;
     let proven = LocalTransactionProver::default().prove(executed.clone()).unwrap();
     let mut batch = client.new_transaction_batch();
-    batch.push_proven_transaction(proven, executed).unwrap();
-
-    let request = TransactionRequestBuilder::new().build().unwrap();
-    match Box::pin(client.push_to_batch(&mut batch, local_id, request)).await {
-        Err(ClientError::BatchBuilder(BatchBuilderError::AccountHasProvenTransaction(id))) => {
+    match client.push_proven_transaction(&mut batch, proven, executed).await {
+        Err(ClientError::BatchBuilder(BatchBuilderError::ProvenTransactionOfTrackedAccount(
+            id,
+        ))) => {
             assert_eq!(id, local_id);
         },
-        other => panic!("expected AccountHasProvenTransaction, got {other:?}"),
+        other => panic!("expected ProvenTransactionOfTrackedAccount, got {other:?}"),
     }
-    assert_eq!(batch.len(), 1);
+    assert!(batch.is_empty());
 }
 
 /// A transaction whose proof does not verify is rejected at the push.
@@ -1156,8 +1154,11 @@ async fn batch_builder_rejects_proven_transaction_with_invalid_proof() {
     let tx_id = proven.id();
 
     let mut batch = client.new_transaction_batch();
-    match batch.push_proven_transaction(proven, executed) {
-        Err(BatchBuilderError::InvalidTransactionProof { tx_id: id, .. }) => assert_eq!(id, tx_id),
+    match client.push_proven_transaction(&mut batch, proven, executed).await {
+        Err(ClientError::BatchBuilder(BatchBuilderError::InvalidTransactionProof {
+            tx_id: id,
+            ..
+        })) => assert_eq!(id, tx_id),
         other => panic!("expected InvalidTransactionProof({tx_id}), got {other:?}"),
     }
     assert!(batch.is_empty());
@@ -1176,7 +1177,7 @@ async fn batch_builder_rejects_transaction_ahead_of_sync_height() {
     let ref_block = proven.ref_block_num();
 
     let mut batch = client.new_transaction_batch();
-    batch.push_proven_transaction(proven, executed).unwrap();
+    client.push_proven_transaction(&mut batch, proven, executed).await.unwrap();
     match Box::pin(client.submit_transaction_batch(batch)).await {
         Err(ClientError::StoreError(StoreError::BlockHeaderNotFound(block_num))) => {
             assert_eq!(block_num, ref_block);

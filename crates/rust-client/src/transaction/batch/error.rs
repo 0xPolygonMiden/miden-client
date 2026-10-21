@@ -27,11 +27,12 @@ pub enum BatchBuilderError {
     )]
     DuplicateNullifier(Nullifier),
 
-    /// A push of this client is for an account that already has a transaction that another party
-    /// proved in this batch. The client does not apply that transaction to the account state, so
-    /// the two transactions start from the same state and the batch cannot chain them.
-    #[error("account {0} already has a transaction proven by another party in this batch")]
-    AccountHasProvenTransaction(AccountId),
+    /// A transaction that another party proved is for an account that the client tracks. The client
+    /// does not update its local state from such a transaction.
+    #[error(
+        "account {0} is tracked by the client, so it cannot push a transaction proven elsewhere"
+    )]
+    ProvenTransactionOfTrackedAccount(AccountId),
 
     /// The proof of a transaction that another party proved does not verify.
     #[error("proof of transaction {tx_id} does not verify")]
