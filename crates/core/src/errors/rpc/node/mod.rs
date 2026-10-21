@@ -20,7 +20,8 @@ pub use transaction::AddTransactionError;
 
 /// Application-level error returned by the node for a specific RPC endpoint.
 ///
-/// Each variant wraps a typed error parsed from the error code in the node's gRPC response.
+/// Each variant wraps a typed error decoded from the error code byte in the details of the node's
+/// gRPC status.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointError {
     /// Error from the `SubmitProvenTransaction` or `SubmitProvenBatch` endpoint
