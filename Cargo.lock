@@ -2799,7 +2799,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2819,6 +2819,7 @@ dependencies = [
  "miden-testing",
  "miden-tx",
  "miden-tx-batch",
+ "miden-usdcx",
  "miette",
  "prost",
  "prost-types",
@@ -2840,7 +2841,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-bench"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2858,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-cli"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2888,7 +2889,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-core"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2905,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-grpc"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "async-trait",
  "gloo-timers",
@@ -2927,7 +2928,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-integration-tests"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "assert_matches",
@@ -2952,7 +2953,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-proto"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "miden-client-core",
  "miden-objects",
@@ -2966,7 +2967,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-sqlite-store"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2987,7 +2988,7 @@ dependencies = [
 
 [[package]]
 name = "miden-client-unit-tests"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "miden-client",
  "miden-client-core",
@@ -2999,6 +3000,7 @@ dependencies = [
  "rand 0.10.3",
  "rand_chacha 0.10.0",
  "rstest",
+ "rusqlite",
  "tempfile",
  "tokio",
 ]
@@ -3323,9 +3325,9 @@ dependencies = [
 
 [[package]]
 name = "miden-node-proto-build"
-version = "0.17.0"
+version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dff2108180c527d2257bbf75601c8753d9b35ee06238e8ff7048d9d8dc2fc06e"
+checksum = "c9c8e64c1dae7548d86aa455e96544265bc522e70c4f09b2193c406e4226e2d3"
 dependencies = [
  "build-rs",
  "codegen",
@@ -3673,6 +3675,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "miden-usdcx"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf4aa588e0224fd03ed6cc9837f7c4f0384eba222416816f53892d4f535ae72e"
+dependencies = [
+ "bon",
+ "miden-assembly",
+ "miden-core-lib",
+ "miden-package-registry",
+ "miden-protocol",
+ "miden-protocol-build-utils",
+ "miden-standards",
+ "miden-tx",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "miden-utils-core-derive"
 version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3736,7 +3756,7 @@ dependencies = [
 
 [[package]]
 name = "miden-web3signer-authenticator"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "hex",
  "k256",
@@ -5862,7 +5882,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "test-node-genesis"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "miden-agglayer",
@@ -6986,7 +7006,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.17.2"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "clap",

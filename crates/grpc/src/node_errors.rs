@@ -70,7 +70,8 @@ pub(crate) fn parse_node_error(
         | RpcEndpoint::GetNetworkNoteStatus
         | RpcEndpoint::GetTransactionEncryptionKey
         | RpcEndpoint::RegisterAccount
-        | RpcEndpoint::IsAccountAllowed => None,
+        | RpcEndpoint::IsAccountAllowed
+        | RpcEndpoint::IsInvitationCodeValid => None,
     }
 }
 
@@ -102,6 +103,7 @@ pub(crate) fn parse_status_error(
         | RpcEndpoint::GetNetworkNoteStatus
         | RpcEndpoint::GetTransactionEncryptionKey
         | RpcEndpoint::IsAccountAllowed
+        | RpcEndpoint::IsInvitationCodeValid
         | RpcEndpoint::SubmitProvenBatch => None,
     }
 }
