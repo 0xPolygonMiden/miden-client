@@ -245,14 +245,8 @@ mod tests {
             store.set_setting("second".to_string(), b"2".to_vec()),
         )?;
 
-        assert_eq!(
-            store.get_setting("first".to_string()).await?,
-            Some(b"1".to_vec())
-        );
-        assert_eq!(
-            store.get_setting("second".to_string()).await?,
-            Some(b"2".to_vec())
-        );
+        assert_eq!(store.get_setting("first".to_string()).await?, Some(b"1".to_vec()));
+        assert_eq!(store.get_setting("second".to_string()).await?, Some(b"2".to_vec()));
 
         Ok(())
     }

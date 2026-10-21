@@ -176,27 +176,21 @@ impl SqliteMigrator {
     pub(crate) fn verify(&self, conn: &Connection) -> Result<(), SqliteStoreError> {
         let latest = self.latest_version();
 
-        let migrations = self.verified_library_migrations(&RejectionReport::default());
-        match migrations.current_version(conn)? {
-            SchemaVersion::NoneSet => {
-                if Self::is_empty_database(conn)? {
-                    Err(SqliteStoreError::SchemaBehind { found: 0, latest })
-                } else {
-                    Err(SqliteStoreError::NotAClientStore)
-                }
+        let found: usize = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if found == 0 && !Self::is_empty_database(conn)? {
+            return Err(SqliteStoreError::NotAClientStore);
+        }
+        if found < latest {
+            return Err(SqliteStoreError::SchemaBehind { found, latest });
+        }
+        if found > latest {
+            return Err(SqliteStoreError::SchemaTooNew { found, supported: latest });
+        }
+        match self.schema_mismatch_at(conn, found)? {
+            Some((expected, actual)) => {
+                Err(SqliteStoreError::SchemaDrift { version: found, expected, actual })
             },
-            SchemaVersion::Inside(ver) if ver.get() < latest => {
-                Err(SqliteStoreError::SchemaBehind { found: ver.get(), latest })
-            },
-            SchemaVersion::Inside(ver) => match self.schema_mismatch_at(conn, ver.get())? {
-                Some((expected, actual)) => {
-                    Err(SqliteStoreError::SchemaDrift { version: ver.get(), expected, actual })
-                },
-                None => Ok(()),
-            },
-            SchemaVersion::Outside(ver) => {
-                Err(SqliteStoreError::SchemaTooNew { found: ver.get(), supported: latest })
-            },
+            None => Ok(()),
         }
     }
 

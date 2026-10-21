@@ -7,6 +7,8 @@
 use std::boxed::Box;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{File, TryLockError};
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::string::{String, ToString};
@@ -806,12 +808,16 @@ fn lock_store(database_filepath: &Path) -> Result<File, StoreError> {
     let mut lock_path = database_filepath.as_os_str().to_owned();
     lock_path.push(".lock");
 
-    let file = File::options()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(&lock_path)
+    let mut options = File::options();
+    options.write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    options.mode(0o600);
+
+    let file = options.open(&lock_path).map_err(database_error)?;
+    #[cfg(unix)]
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))
         .map_err(database_error)?;
+
     file.try_lock().map_err(|err| match err {
         TryLockError::WouldBlock => {
             StoreError::StoreLocked(database_filepath.display().to_string())
@@ -939,6 +945,23 @@ pub mod tests {
     /// rollback has to undo.
     static DAMAGING_MIGRATION: LazyLock<SqliteMigrator> = LazyLock::new(damaging_migration);
 
+    #[cfg(unix)]
+    #[test]
+    fn lock_file_permissions_are_owner_only() -> anyhow::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = create_test_store_path();
+        let lock = super::lock_store(&path)?;
+        assert_eq!(lock.metadata()?.permissions().mode() & 0o777, 0o600);
+
+        lock.set_permissions(std::fs::Permissions::from_mode(0o644))?;
+        drop(lock);
+
+        let lock = super::lock_store(&path)?;
+        assert_eq!(lock.metadata()?.permissions().mode() & 0o777, 0o600);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn failed_migration_leaves_the_store_as_it_was() {
         let database_filepath = create_test_store_path();
@@ -967,19 +990,9 @@ pub mod tests {
 
         let reader = SqliteStore::open_read_only(path.clone()).await?;
         let _second_reader = SqliteStore::open_read_only(path.clone()).await?;
-        writer
-            .set_setting("key".to_string(), b"value".to_vec())
-            .await?;
-        assert_eq!(
-            reader.get_setting("key".to_string()).await?,
-            Some(b"value".to_vec())
-        );
-        assert!(
-            reader
-                .set_setting("key".to_string(), b"other".to_vec())
-                .await
-                .is_err()
-        );
+        writer.set_setting("key".to_string(), b"value".to_vec()).await?;
+        assert_eq!(reader.get_setting("key".to_string()).await?, Some(b"value".to_vec()));
+        assert!(reader.set_setting("key".to_string(), b"other".to_vec()).await.is_err());
 
         drop(writer);
         SqliteStore::open_read_only(path.clone()).await?;
