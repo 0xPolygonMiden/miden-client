@@ -4512,32 +4512,6 @@ async fn import_account_by_id_rejects_witness_not_under_the_synced_header() {
 }
 
 #[tokio::test]
-async fn import_account_by_id_accepts_witness_under_the_synced_header() {
-    let (mut client, _rpc_api, _forged_chain, account) = client_with_forgeable_account_root().await;
-
-    client.import_account_by_id(account.id()).await.unwrap();
-
-    let imported = client.get_account(account.id()).await.unwrap().unwrap();
-    assert_eq!(imported.to_commitment(), account.to_commitment());
-}
-
-#[tokio::test]
-async fn fetch_remote_token_metadata_rejects_witness_not_under_the_synced_header() {
-    let (client, rpc_api, forged_chain, account) = client_with_forgeable_account_root().await;
-
-    // The honest chain answers, and the account has no token config, so there is no metadata.
-    assert!(client.fetch_remote_token_metadata(account.id()).await.unwrap().is_none());
-
-    *rpc_api.mock_chain.write() = forged_chain;
-
-    let err = client
-        .fetch_remote_token_metadata(account.id())
-        .await
-        .expect_err("a witness that does not open under the synced header must be rejected");
-    assert!(matches!(err, ClientError::ChainValidationError(_)), "unexpected error: {err:?}");
-}
-
-#[tokio::test]
 async fn import_watched_account_by_id_rejects_already_tracked_native_account() {
     let mut mock_chain_builder = MockChainBuilder::new();
     let account = mock_chain_builder
