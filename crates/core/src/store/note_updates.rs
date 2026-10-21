@@ -1,6 +1,7 @@
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
-use miden_protocol::note::NoteId;
+use miden_protocol::note::{NoteDetailsCommitment, NoteId};
 use miden_protocol::utils::serde::{
     ByteReader,
     ByteWriter,
@@ -144,15 +145,27 @@ impl NoteUpdates {
         updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
         new_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
     ) -> Self {
-        let input_notes = new_input_notes
+        let updates = new_input_notes
             .into_iter()
             .map(|note| InputNoteUpdate::new(note, NoteUpdateType::Insert))
             .chain(
                 updated_input_notes
                     .into_iter()
                     .map(|note| InputNoteUpdate::new(note, NoteUpdateType::Update)),
-            )
-            .collect();
+            );
+
+        // The store keys input notes by details commitment. A record with metadata supersedes a
+        // metadata-less record for the same commitment.
+        let mut input_notes = BTreeMap::<NoteDetailsCommitment, InputNoteUpdate>::new();
+        for update in updates {
+            let commitment = update.inner().details_commitment();
+            if update.id().is_some()
+                || input_notes.get(&commitment).is_none_or(|u| u.id().is_none())
+            {
+                input_notes.insert(commitment, update);
+            }
+        }
+        let input_notes = input_notes.into_values().collect();
 
         let output_notes = new_output_notes
             .into_iter()
