@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.5 (TBD)
+
+### Fixes
+
+* [FIX][rust,cli] Updated `rustls-webpki` to 0.103.16, which rejects certificate chains through the eight compromised eMudhra intermediate CAs. Projects that depend on `miden-client` should run `cargo update -p rustls-webpki`.
+
 ## 0.17.4 (2026-10-16)
 
 ### Features
