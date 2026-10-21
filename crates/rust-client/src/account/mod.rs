@@ -80,7 +80,7 @@ pub use miden_protocol::account::{
 };
 pub use miden_protocol::address::{Address, AddressInterface, AddressType, NetworkId};
 use miden_protocol::asset::AssetVault;
-use miden_protocol::block::BlockHeader;
+use miden_protocol::block::{BlockHeader, BlockNumber};
 pub use miden_protocol::errors::{AccountIdError, AddressError, NetworkIdError};
 use miden_protocol::{Felt, Word};
 use miden_tx::utils::serde::{
@@ -114,6 +114,15 @@ impl Deserializable for FaucetMetadata {
         let decimals = source.read_u8()?;
         Ok(Self { symbol, decimals })
     }
+}
+
+/// Returns whether `err` is the node's answer that the account does not exist at the requested
+/// block.
+fn is_account_not_found(err: &RpcError) -> bool {
+    matches!(
+        err.endpoint_error(),
+        Some(EndpointError::GetAccount(GetAccountError::AccountNotFound))
+    )
 }
 
 /// Decodes a fungible faucet token config slot value into display metadata.
@@ -160,9 +169,9 @@ use miden_standards::account::wallets::BasicWallet;
 use super::Client;
 use crate::asset::TokenSymbol;
 use crate::errors::ClientError;
-use crate::rpc::AccountStateAt;
 use crate::rpc::domain::account::GetAccountRequest;
 use crate::rpc::node::{EndpointError, GetAccountError};
+use crate::rpc::{AccountStateAt, RpcError};
 use crate::store::AccountStatus;
 use crate::sync::validate_account_witness;
 
@@ -565,19 +574,19 @@ impl<AUTH> Client<AUTH> {
     /// Fetches a public [`Account`] from the network at the sync height, returning a typed error
     /// when the account doesn't exist on chain or is private. The account's witness must open under
     /// the sync height header's account root, and the account must commit to the witness.
+    ///
+    /// If the account is not on chain at the sync height but is on chain at the chain tip, this
+    /// returns [`ClientError::AccountNotFoundAtSyncHeight`], so the caller knows to sync first.
     async fn fetch_public_account(&self, account_id: AccountId) -> Result<Account, ClientError> {
         let (header, at) = self.sync_height_anchor().await?;
-        let (_, witness, account) = self
-            .rpc_api
-            .get_account_details_at(account_id, at)
-            .await
-            .map_err(|err| match err.endpoint_error() {
-                Some(EndpointError::GetAccount(GetAccountError::AccountNotFound)) => {
-                    ClientError::AccountNotFoundOnChain(account_id)
-                },
-                _ => ClientError::RpcError(err),
-            })?
-            .ok_or(ClientError::AccountIsPrivate(account_id))?;
+        let fetched = match self.rpc_api.get_account_details_at(account_id, at).await {
+            Ok(fetched) => fetched,
+            Err(err) if is_account_not_found(&err) => {
+                return Err(self.account_not_found_error(account_id, header.block_num()).await);
+            },
+            Err(err) => return Err(ClientError::RpcError(err)),
+        };
+        let (_, witness, account) = fetched.ok_or(ClientError::AccountIsPrivate(account_id))?;
 
         validate_account_witness(&witness, account_id, &header)?;
         if account.to_commitment() != witness.state_commitment() {
@@ -587,6 +596,22 @@ impl<AUTH> Client<AUTH> {
         }
 
         Ok(account)
+    }
+
+    /// Returns the error for an account that is not on chain at `sync_height`.
+    ///
+    /// The account can exist at the chain tip, for example when another client created it after
+    /// this client last synced. The chain tip response only selects the error. It is not trusted
+    /// for anything else.
+    async fn account_not_found_error(
+        &self,
+        account_id: AccountId,
+        sync_height: BlockNumber,
+    ) -> ClientError {
+        match self.rpc_api.get_account(account_id, GetAccountRequest::new()).await {
+            Ok(_) => ClientError::AccountNotFoundAtSyncHeight { account_id, sync_height },
+            Err(_) => ClientError::AccountNotFoundOnChain(account_id),
+        }
     }
 
     /// Fetches a public faucet's display metadata from the network.

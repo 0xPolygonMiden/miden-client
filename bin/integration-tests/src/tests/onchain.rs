@@ -376,6 +376,9 @@ pub async fn test_import_account_by_id(client_config: ClientConfig) -> Result<()
     let built_wallet_id =
         build_wallet_id(user_seed, &secret_key.public_key(), AccountType::Public)?;
     assert_eq!(built_wallet_id, first_regular_account.id());
+    // The import reads the account at the sync height, so the client must sync past the block that
+    // created the account.
+    client_2.sync_state().await?;
     client_2.import_account_by_id(built_wallet_id).await?;
     client_2.keystore().add_key(&secret_key, built_wallet_id).await?;
 
@@ -419,6 +422,10 @@ pub async fn test_sync_imported_account_with_non_fungible_asset(
     // Deploy the wallet so that the clients can import it from the node. The first client already
     // tracks the wallet, so the import replaces its local state.
     client_1.deploy_account(wallet.id()).await?;
+    // The import reads the account at the sync height, so the client must sync past the block that
+    // created the account.
+    client_1.sync_state().await?;
+    client_2.sync_state().await?;
     client_1.import_account_by_id(wallet.id()).await?;
     client_2.import_account_by_id(wallet.id()).await?;
 
@@ -471,7 +478,9 @@ pub async fn test_import_watched_account_by_id(client_config: ClientConfig) -> R
     let tx_id = client_1.mint_and_consume(wallet_id, faucet_id, NoteType::Public).await?;
     client_1.wait_for_tx(tx_id).await?;
 
-    // client_2 starts watching the wallet.
+    // client_2 starts watching the wallet. The import reads the account at the sync height, so the
+    // client must sync past the block that created the account.
+    client_2.sync_state().await?;
     client_2.import_watched_account_by_id(wallet_id).await?;
 
     let initial_source_commitment = client_1.account_reader(wallet_id).commitment().await?;
@@ -736,6 +745,9 @@ pub async fn test_watched_account_recovers_consumed_public_note(
     let bootstrap_tx = client_a.mint_and_consume(consumer_id, faucet_id, NoteType::Public).await?;
     client_a.wait_for_tx(bootstrap_tx).await?;
     client_a.sync_state().await?;
+    // The import reads the account at the sync height, so the client must sync past the block that
+    // created the account.
+    client_b.sync_state().await?;
     client_b.import_watched_account_by_id(consumer_id).await?;
     client_b.sync_state().await?;
 
