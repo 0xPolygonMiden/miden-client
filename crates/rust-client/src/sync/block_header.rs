@@ -7,15 +7,6 @@ use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
 use miden_protocol::{Felt, Word};
 use tracing::warn;
-#[cfg(feature = "std")]
-use {
-    crate::rpc::RpcError,
-    alloc::{boxed::Box, format, string::ToString},
-    miden_protocol::address::NetworkId,
-    miden_protocol::block::SignedBlock,
-    miden_protocol::protocol_config::ProtocolConfig,
-    miden_protocol::utils::serde::{ByteReader, Deserializable, SliceReader},
-};
 
 use crate::rpc::NodeRpcClient;
 use crate::rpc::domain::note::ResolvedSyncNotesBlock;
@@ -66,9 +57,8 @@ impl<AUTH> Client<AUTH> {
             .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
             .await?;
 
-        // Genesis is untracked since there are no client notes associated with it, so we fetch no
-        // MMR proof and pass no nodes.
-        self.store.insert_block_header(&genesis, &[], false).await?;
+        // The first sync from genesis stores the protocol configuration.
+        self.store.insert_genesis(&genesis, None).await?;
         self.rpc_api.set_genesis_commitment(genesis.commitment()).await?;
         Ok(())
     }
