@@ -11,12 +11,11 @@ use miden_client::rpc::NodeRpcClient;
 use miden_client::store::{Store, StoreError};
 use miden_client::testing::common::{AccountSetup, create_test_store_path};
 use miden_client::transaction::TransactionRequestBuilder;
-use miden_client::{ClientError, Serializable, Word};
-use miden_client_core::store::{SettingScope, protocol_config_setting_key};
+use miden_client::{ClientError, Word};
 use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::testing::account_id::ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2;
 
-use super::{TestClient, create_test_client, prebuilt_rpc_api};
+use super::{TestClient, create_test_client, open_store_file, prebuilt_rpc_api};
 
 /// Returns the current protocol configuration for `faucet`.
 fn protocol_config_for(faucet: u128) -> ProtocolConfig {
@@ -172,15 +171,19 @@ async fn protocol_config_rejects_a_substituted_preimage() {
     let commitment = rpc.protocol_config().to_commitment();
     let other = protocol_config_for(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2);
     assert_ne!(other.to_commitment(), commitment);
-    client
-        .test_store()
-        .set_setting(
-            SettingScope::Client,
-            protocol_config_setting_key(commitment),
-            other.to_bytes(),
+    // Copy the stored bytes of `other` under `commitment`, so the store encoding does not matter.
+    client.seed_protocol_config(other.clone()).await.unwrap();
+    let copied = open_store_file(&mut client)
+        .execute(
+            "INSERT OR REPLACE INTO client_config (name, value) \
+             SELECT ?1, value FROM client_config WHERE name = ?2",
+            [
+                format!("protocol_config:{commitment}"),
+                format!("protocol_config:{}", other.to_commitment()),
+            ],
         )
-        .await
         .unwrap();
+    assert_eq!(copied, 1);
     assert!(matches!(
         client.get_protocol_config(commitment).await,
         Err(ClientError::StoreError(StoreError::ProtocolConfigCommitmentMismatch(_)))
@@ -194,18 +197,22 @@ async fn execution_requires_the_reference_block_protocol_config() {
     let wallet = client.insert_wallet(AccountType::Private).await.unwrap();
     let config = rpc.protocol_config();
     let commitment = config.to_commitment();
-    client
-        .test_store()
-        .remove_setting(SettingScope::Client, protocol_config_setting_key(commitment))
-        .await
+    let removed = open_store_file(&mut client)
+        .execute(
+            "DELETE FROM client_config WHERE name = ?1",
+            [format!("protocol_config:{commitment}")],
+        )
         .unwrap();
+    assert_eq!(removed, 1);
     let other = protocol_config_for(ACCOUNT_ID_PUBLIC_FUNGIBLE_FAUCET_2);
     assert_ne!(other.to_commitment(), commitment);
     client.seed_protocol_config(other).await.unwrap();
 
     let request = TransactionRequestBuilder::new().build().unwrap();
+    // `TestClient::execute_transaction` syncs first, and the sync stores the genesis protocol
+    // configuration again. Genesis and the reference block commit to the same configuration here.
     assert!(matches!(
-        client.execute_transaction(wallet.id(), request.clone()).await,
+        (*client).execute_transaction(wallet.id(), request.clone()).await,
         Err(ClientError::StoreError(StoreError::ProtocolConfigNotFound(missing)))
             if missing == commitment
     ));

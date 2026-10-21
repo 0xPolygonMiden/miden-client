@@ -1,12 +1,10 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use miden_client_core::store::{SettingScope, protocol_config_setting_key};
 use miden_protocol::block::{BlockHeader, BlockNumber, ValidatorConfig};
 use miden_protocol::crypto::hash::rpo::Rpo256;
 use miden_protocol::crypto::merkle::MerklePath;
 use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
-use miden_protocol::utils::serde::Serializable;
 use miden_protocol::{Felt, Word};
 use tracing::warn;
 
@@ -55,10 +53,7 @@ impl<AUTH> Client<AUTH> {
         if let Some((genesis, _)) = self.store.get_block_header_by_num(BlockNumber::GENESIS).await?
             && self
                 .store
-                .get_setting(
-                    SettingScope::Client,
-                    protocol_config_setting_key(genesis.protocol_config_commitment()),
-                )
+                .get_protocol_config(genesis.protocol_config_commitment())
                 .await?
                 .is_some()
         {
@@ -75,13 +70,7 @@ impl<AUTH> Client<AUTH> {
 
         // Note screening on the first sync executes against the genesis block, so it needs the
         // genesis protocol configuration before the sync stores any configuration.
-        self.store
-            .set_setting(
-                SettingScope::Client,
-                protocol_config_setting_key(protocol_config.to_commitment()),
-                protocol_config.to_bytes(),
-            )
-            .await?;
+        self.store.insert_protocol_config(&protocol_config).await?;
 
         // Genesis is untracked since there are no client notes associated with it, so we fetch no
         // MMR proof and pass no nodes.

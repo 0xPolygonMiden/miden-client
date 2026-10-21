@@ -65,12 +65,7 @@ use miden_client::transaction::{
     TransactionStatus,
 };
 use miden_client::utils::{Deserializable, Serializable};
-use miden_client_core::store::{
-    AccountStorageFilter,
-    ClientAccountType,
-    SettingScope,
-    protocol_config_setting_key,
-};
+use miden_client_core::store::{AccountStorageFilter, ClientAccountType};
 use miden_client_sqlite_store::SqliteStore;
 use miden_protocol::account::{
     Account,
@@ -5126,6 +5121,14 @@ pub async fn create_test_client() -> (TestClient, MockRpcApi) {
     (TestClient::from(client), rpc_api)
 }
 
+/// Opens the SQLite file of the store of `client`.
+///
+/// The `Store` trait does not expose the `client_config` rows. Tests use this connection to remove
+/// or damage them.
+pub fn open_store_file(client: &mut TestClient) -> rusqlite::Connection {
+    rusqlite::Connection::open(client.test_store().identifier()).unwrap()
+}
+
 /// Returns a mock node over the prebuilt chain (see [`create_prebuilt_mock_chain`]).
 pub async fn prebuilt_rpc_api() -> MockRpcApi {
     MockRpcApi::new(Box::pin(create_prebuilt_mock_chain()).await)
@@ -5146,15 +5149,7 @@ pub async fn mock_client_builder(rpc_api: Arc<MockRpcApi>) -> ClientBuilder<File
         .unwrap();
     store.insert_block_header(&genesis, &[], false).await.unwrap();
 
-    let protocol_config = rpc_api.protocol_config();
-    store
-        .set_setting(
-            SettingScope::Client,
-            protocol_config_setting_key(protocol_config.to_commitment()),
-            protocol_config.to_bytes(),
-        )
-        .await
-        .unwrap();
+    store.insert_protocol_config(&rpc_api.protocol_config()).await.unwrap();
 
     store
         .set_transaction_encryption_key(&TransactionEncryptionKey::new_unattested(

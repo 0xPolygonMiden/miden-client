@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use miden_client::ClientError;
 use miden_client::account::{Account, AccountType};
 use miden_client::address::{Address, AddressInterface, RoutingParameters};
 use miden_client::keystore::FilesystemKeyStore;
@@ -16,14 +17,9 @@ use miden_client::note::{
     NoteType,
     PartialNoteMetadata,
 };
-use miden_client::note_transport::{
-    NOTE_TRANSPORT_CURSORS_KEY,
-    NoteTransportClient,
-    NoteTransportCursor,
-    NoteTransportError,
-};
+use miden_client::note_transport::{NoteTransportClient, NoteTransportCursor, NoteTransportError};
 use miden_client::store::input_note_states::{InvalidNoteState, UnverifiedNoteState};
-use miden_client::store::{InputNoteRecord, NoteFilter};
+use miden_client::store::{InputNoteRecord, NoteFilter, StoreError};
 use miden_client::sync::{NoteTagRecord, NoteTagSource};
 use miden_client::testing::common::TestClient;
 use miden_client::testing::mock::{MockClient, MockRpcApi};
@@ -34,8 +30,6 @@ use miden_client::testing::note_transport::{
 };
 use miden_client::transaction::TransactionRequestBuilder;
 use miden_client::utils::RwLock;
-use miden_client::{ClientError, Deserializable};
-use miden_client_core::store::SettingScope;
 use miden_protocol::Word;
 use miden_protocol::account::{
     AccountId,
@@ -56,7 +50,7 @@ use miden_testing::{Auth, MockChainBuilder, MockTransactionInput};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
-use crate::tests::{mock_client_builder, prebuilt_rpc_api};
+use crate::tests::{mock_client_builder, open_store_file, prebuilt_rpc_api};
 
 #[tokio::test]
 async fn transport_basic() {
@@ -231,11 +225,7 @@ async fn transport_repeated_delivery_repairs_incomplete_records() {
             state,
         );
         client.test_store().upsert_input_notes(&[record]).await.unwrap();
-        client
-            .test_store()
-            .remove_setting(SettingScope::Client, NOTE_TRANSPORT_CURSORS_KEY.into())
-            .await
-            .unwrap();
+        client.test_store().set_note_transport_cursors(&BTreeMap::new()).await.unwrap();
 
         client.fetch_private_notes().await.unwrap();
         assert!(client.get_input_note(note.id()).await.unwrap().unwrap().is_committed());
@@ -300,11 +290,20 @@ async fn transport_fetch_chunks_tracked_tags() {
     let transport = MockNoteTransportApi::new(mock_node.clone());
     let mut recipient = create_test_client_with_transport(Arc::new(transport.clone())).await;
     let (first, second) = two_transport_chunks(&mut recipient).await;
-    recipient
-        .test_store()
-        .set_setting(SettingScope::Client, NOTE_TRANSPORT_CURSORS_KEY.into(), vec![0xff])
-        .await
+    open_store_file(&mut recipient)
+        .execute(
+            "INSERT OR REPLACE INTO client_config (name, value) \
+             VALUES ('note_transport_cursors', X'FF')",
+            [],
+        )
         .unwrap();
+    assert!(
+        matches!(
+            recipient.test_store().get_note_transport_cursors().await,
+            Err(StoreError::DataDeserializationError(_))
+        ),
+        "the store should read the unreadable cursors row"
+    );
     for (index, tag) in [first[0], first[1], second[0]].into_iter().enumerate() {
         let note = seed_transport_note(&mock_node, tag, u64::try_from(index).unwrap());
         let source = match index {
@@ -457,11 +456,7 @@ async fn transport_groups_tags_by_database_nonce() {
     let restarted = NoteTransportCursor::from_parts(1, 1);
     let latest = NoteTransportCursor::from_parts(1, 2);
     let cursors = BTreeMap::from([(first, stale), (second, current)]);
-    recipient
-        .test_store()
-        .set_setting(SettingScope::Client, NOTE_TRANSPORT_CURSORS_KEY.into(), cursors.to_bytes())
-        .await
-        .unwrap();
+    recipient.test_store().set_note_transport_cursors(&cursors).await.unwrap();
     recipient.fetch_private_notes().await.unwrap();
 
     let cursors = stored_note_transport_cursors(&mut recipient).await;
@@ -1480,15 +1475,7 @@ async fn assert_invalid_delivery_is_not_imported(client: &mut TestClient) {
 async fn stored_note_transport_cursors(
     client: &mut TestClient,
 ) -> BTreeMap<NoteTag, NoteTransportCursor> {
-    let bytes = client
-        .test_store()
-        .get_setting(SettingScope::Client, String::from(NOTE_TRANSPORT_CURSORS_KEY))
-        .await
-        .unwrap();
-
-    bytes
-        .map(|bytes| BTreeMap::<NoteTag, NoteTransportCursor>::read_from_bytes(&bytes).unwrap())
-        .unwrap_or_default()
+    client.test_store().get_note_transport_cursors().await.unwrap()
 }
 
 /// Returns a client over the prebuilt chain that relays private notes through `mock_node`, plus a
