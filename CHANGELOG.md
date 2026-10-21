@@ -33,7 +33,7 @@
 * [BREAKING][param][rust] `Store::set_setting`, `Store::get_setting`, `Store::remove_setting` and `Store::list_setting_keys` no longer take a scope and reach the user settings only. The client data is available only through the typed `Store` methods ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][removal][rust] Removed `SettingScope`, `SettingMutation`, `Store::apply_settings_mutations`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSORS_KEY`, and the deprecated `Store::get_note_transport_cursor`, `Store::update_note_transport_cursor`, `NOTE_TRANSPORT_CURSOR_STORE_SETTING` and `NOTE_TRANSPORT_COVERED_TAGS_KEY` ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][arch][store] The SQLite store keeps the client data in the new `client_config` table and the user settings in the new `user_settings` table. They replace the `settings` table ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
-* [BREAKING][type][rust,store] `StateSyncUpdate` and `TransactionStoreUpdate` carry the new `NoteUpdates` type instead of `NoteUpdateTracker`. `NoteUpdates` holds only the notes to insert or update in the store. `NoteUpdateTracker` is no longer public, `NoteUpdateType::None` is removed, and `InputNoteUpdate` and `OutputNoteUpdate` are built with `new` (#TBD).
+* [BREAKING][type][rust,store] `StateSyncUpdate` and `TransactionStoreUpdate` carry the new `NoteUpdates` type instead of `NoteUpdateTracker`. `NoteUpdates` holds only the notes to insert or update in the store. `NoteUpdateTracker` is no longer public, `NoteUpdateType::None` is removed, and `InputNoteUpdate` and `OutputNoteUpdate` are built with `new` ([#2725](https://github.com/0xMiden/rust-sdk/pull/2725)).
 
 ### Features
 
