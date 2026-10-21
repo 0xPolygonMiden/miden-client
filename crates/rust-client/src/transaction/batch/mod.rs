@@ -51,7 +51,7 @@
 //! the caller receives one of two errors that both carry the accepted `block_num`:
 //!
 //! - [`BatchBuilderError::BatchSubmittedButUpdateBuildFailed`] — building one of the per-tx
-//!   [`TransactionStoreUpdate`]s failed.
+//!   [`crate::transaction::TransactionStoreUpdate`]s failed.
 //! - [`BatchBuilderError::BatchSubmittedButApplyFailed`] — applying the updates atomically to the
 //!   local store failed.
 //!
@@ -86,7 +86,6 @@ use crate::store::data_store::{ClientDataStore, build_partial_mmr_with_paths};
 use crate::transaction::{
     TransactionRequest,
     TransactionResult,
-    TransactionStoreUpdate,
     ensure_account_allowed,
     validate_executed_transaction,
 };
@@ -120,8 +119,9 @@ impl ProvenBatchSubmission {
 }
 
 /// A transaction successfully pushed into a [`BatchBuilder`]: the locally-proven transaction
-/// alongside the [`TransactionResult`] used to build the per-tx [`TransactionStoreUpdate`]. The
-/// transaction inputs the RPC submission seals are read back from the result.
+/// alongside the [`TransactionResult`] used to build the per-tx
+/// [`crate::transaction::TransactionStoreUpdate`]. The transaction inputs the RPC submission seals
+/// are read back from the result.
 pub(crate) struct PushedTx {
     pub(crate) proven_tx: Arc<ProvenTransaction>,
     pub(crate) tx_result: TransactionResult,
@@ -229,17 +229,13 @@ where
         let block_num = result.map_err(|err| promote_indeterminate_submission(err, submission))?;
 
         // The node took the batch. Record it, one update per transaction, applied atomically.
-        let mut updates: Vec<TransactionStoreUpdate> =
-            Vec::with_capacity(submission.transaction_count());
-        for tx_result in &submission.tx_results {
-            let update = self.get_transaction_store_update(tx_result, block_num).await.map_err(
-                |source| BatchBuilderError::BatchSubmittedButUpdateBuildFailed {
-                    block_num,
-                    source,
-                },
-            )?;
-            updates.push(update);
-        }
+        let updates = self
+            .get_transaction_store_updates(&submission.tx_results, block_num)
+            .await
+            .map_err(|source| BatchBuilderError::BatchSubmittedButUpdateBuildFailed {
+            block_num,
+            source,
+        })?;
 
         if let Err(source) = self.store.apply_transaction_batch(updates).await {
             return Err(ClientError::from(BatchBuilderError::BatchSubmittedButApplyFailed {
