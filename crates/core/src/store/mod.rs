@@ -302,10 +302,10 @@ pub trait Store: Send + Sync {
     /// tables (headers, storage, storage map entries, and assets).
     ///
     /// Also removes orphaned `account_code` entries that are no longer referenced by any account
-    /// header.
+    /// header. Removes map forest lineages with no remaining current or historical references.
     ///
     /// Returns the total number of rows deleted, including historical entries and orphaned account
-    /// code.
+    /// code and map forest data.
     async fn prune_account_history(
         &self,
         account_id: AccountId,
@@ -365,6 +365,22 @@ pub trait Store: Send + Sync {
         initial_address: Address,
         client_account_type: ClientAccountType,
     ) -> Result<(), StoreError>;
+
+    /// Removes an account's current state and history from local storage.
+    ///
+    /// Removes its addresses, account witness registration, and note tags whose source is this
+    /// account. Removes account code only when no other account state or foreign account cache
+    /// references it. Preserves notes, transaction records, tags from other sources, and keystore
+    /// entries.
+    ///
+    /// Returns `true` if the account was removed. Returns `false` without changes if the account is
+    /// not stored.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::AccountHasPendingTransactions`] if the account has a pending
+    /// transaction. The pending transaction check and all deletions must be atomic.
+    async fn remove_account(&self, account_id: AccountId) -> Result<bool, StoreError>;
 
     /// Upserts the account code for a foreign account. This value will be used as a cache of known
     /// script roots and added to the `GetForeignAccountCode` request.

@@ -376,6 +376,62 @@ async fn get_account_by_id() {
 }
 
 #[tokio::test]
+async fn remove_account_allows_public_reimport() {
+    let (auth, key) = auth_component(ECDSA_K256_KECCAK_SCHEME_ID).unwrap();
+    let account = AccountBuilder::new([42; 32])
+        .account_type(AccountType::Public)
+        .with_component(auth)
+        .with_component(BasicWallet)
+        .build_existing()
+        .unwrap();
+    let account_id = account.id();
+    let mut chain_builder = MockChainBuilder::new();
+    chain_builder.add_account(account.clone()).unwrap();
+    let other_account =
+        chain_builder.add_existing_mock_account(miden_testing::Auth::IncrNonce).unwrap();
+    let rpc_api = MockRpcApi::new(chain_builder.build().unwrap());
+    let keystore_dir = tempfile::tempdir().unwrap();
+    let keystore = Arc::new(FilesystemKeyStore::new(keystore_dir.path().into()).unwrap());
+    keystore.add_key(&key, account_id).await.unwrap();
+    let mut client = ClientBuilder::new()
+        .rpc(Arc::new(rpc_api))
+        .store(Arc::new(SqliteStore::new(create_test_store_path()).await.unwrap()))
+        .authenticator(keystore.clone())
+        .build()
+        .await
+        .unwrap();
+    client.ensure_genesis_in_place().await.unwrap();
+
+    client.import_account_by_id(account_id).await.unwrap();
+    client.import_account_by_id(other_account.id()).await.unwrap();
+    assert_eq!(client.get_account(account_id).await.unwrap(), Some(account.clone()));
+    let addresses = client.account_reader(account_id).addresses().await.unwrap();
+    assert!(!addresses.is_empty());
+
+    assert!(client.remove_account(account_id).await.unwrap());
+    assert!(client.get_account(account_id).await.unwrap().is_none());
+    assert!(!client.remove_account(account_id).await.unwrap());
+    assert_eq!(client.get_account(other_account.id()).await.unwrap(), Some(other_account));
+    let retained_key = keystore
+        .get_key(key.public_key().to_commitment())
+        .await
+        .unwrap()
+        .expect("account removal must retain its authentication key");
+    assert_eq!(retained_key.to_bytes(), key.to_bytes());
+    assert!(
+        keystore
+            .get_account_key_commitments(&account_id)
+            .await
+            .unwrap()
+            .contains(&key.public_key().to_commitment())
+    );
+
+    client.import_account_by_id(account_id).await.unwrap();
+    assert_eq!(client.get_account(account_id).await.unwrap(), Some(account));
+    assert_eq!(client.account_reader(account_id).addresses().await.unwrap(), addresses);
+}
+
+#[tokio::test]
 async fn sync_state() {
     // generate test client with a random store name
     let (mut client, rpc_api) = Box::pin(create_test_client()).await;
