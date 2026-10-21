@@ -84,10 +84,12 @@ NODE_BINS=(miden-validator miden-node miden-ntx-builder miden-remote-prover mide
 # Cargo.lock locks for `miden-node-proto-build`. A git pin of the node in Cargo.lock takes
 # precedence.
 #
-# Cargo.lock records the URL as Cargo.toml writes it. Both `0xMiden/node` and `0xMiden/miden-node`
-# reach the repository, so the pattern matches both spellings. A pattern that misses one spelling
-# ignores a git pin with that spelling.
-SRC_LINE="$(grep -m1 -E 'source = "git\+https://github\.com/0xMiden/(miden-)?node[?#"]' "$ROOT/Cargo.lock" || true)"
+# Read the source from the proto builder package so fork pins also select the matching node.
+SRC_LINE="$(awk '/^name = "miden-node-proto-build"$/ { package = 1; next } package && /^source = / { print; exit } package && /^\[\[package\]\]/ { exit }' "$ROOT/Cargo.lock")"
+case "$SRC_LINE" in
+    'source = "git+'*) ;;
+    *) SRC_LINE="" ;;
+esac
 if [ -n "$SRC_LINE" ]; then
     NODE_SOURCE="git"
     SRC="${SRC_LINE#*\"git+}"; SRC="${SRC%\"}"
@@ -237,17 +239,13 @@ cleanup() {
 # Best-effort teardown for SIGTERM and for interrupts the components' own SIGINT death doesn't
 # cover (e.g. `kill <script>`); Ctrl+C teardown does not depend on this trap firing.
 trap 'echo; cleanup; exit 0' INT TERM
-# The storage-key files are the node repo's checked-in insecure development fixtures
-# (scripts/testdata/insecure-golden-storage-key), vendored here because the validator requires
-# threshold storage-key material to start and ships no generator for it.
-STORAGE_KEY_DIR="$ROOT/scripts/testdata/insecure-golden-storage-key"
+# The bundle contains the node's public development key for validator 1.
+# The validator requires this threshold storage key to start.
+STORAGE_KEY_FILE="$ROOT/scripts/testdata/insecure-golden-storage-key/storage-key.bundle"
 start validator   "$BIN/miden-validator" start --listen "$VALIDATOR" --data-directory "$DATA/validator" \
     --signing-key.hex "$SIGNING_KEY" \
     --encryption-key.hex "$ENCRYPTION_KEY" \
-    --storage-key.epoch "0909090909090909090909090909090909090909090909090909090909090909" \
-    --storage-key.setup-context "$STORAGE_KEY_DIR/setup-context.wire" \
-    --storage-key.public-key-set "$STORAGE_KEY_DIR/public-key-set.wire" \
-    --storage-key.secret-share "$STORAGE_KEY_DIR/secret-share.wire"
+    --storage-key.file "$STORAGE_KEY_FILE"
 # The fee collector deployment and the sequencer both need the validator.
 echo "==> waiting for validator on $VALIDATOR"
 VALIDATOR_READY=""

@@ -34,15 +34,15 @@ use miden_protocol::block::{BlockHeader, BlockNumber};
 use miden_protocol::crypto::merkle::MerkleError;
 use miden_protocol::crypto::merkle::mmr::{InOrderIndex, MmrPeaks, PartialMmr};
 use miden_protocol::errors::AccountError;
-use miden_protocol::note::{NoteScript, NoteTag, Nullifier};
-use miden_protocol::utils::serde::{Deserializable, Serializable};
+use miden_protocol::note::{NoteId, NoteScript, NoteTag, Nullifier};
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::{Felt, Word};
 
 use crate::errors::StoreError;
-#[allow(deprecated)]
-use crate::note_transport::{NOTE_TRANSPORT_CURSOR_STORE_SETTING, NoteTransportCursor};
+use crate::note_transport::NoteTransportCursor;
+use crate::pswap::{PswapLineageFilter, PswapLineageRecord};
+use crate::rpc::RpcLimits;
 use crate::rpc::encryption::TransactionEncryptionKey;
-use crate::rpc::{RPC_LIMITS_STORE_SETTING, RpcLimits};
 use crate::sync::{NoteTagRecord, StateSyncUpdate};
 use crate::transaction::{BatchStoreUpdate, TransactionRecord, TransactionStoreUpdate};
 
@@ -80,17 +80,8 @@ pub use note_update_tracker::{
     OutputNoteUpdate,
 };
 
-mod settings;
-pub use settings::{SettingMutation, SettingScope, protocol_config_setting_key};
-
 mod smt_forest;
 pub use smt_forest::{AccountSmtForest, AccountUpdate};
-
-// CONSTANTS
-// ================================================================================================
-
-/// Key used to store the transaction encryption key in the settings table.
-const TRANSACTION_ENCRYPTION_KEY_STORE_SETTING: &str = "transaction_encryption_key";
 
 // STORE TRAIT
 // ================================================================================================
@@ -465,34 +456,44 @@ pub trait Store: Send + Sync {
     // SETTINGS
     // --------------------------------------------------------------------------------------------
 
-    /// Adds a value to `scope` in the `settings` table.
-    async fn set_setting(
+    /// Stores `value` under `key` in the user settings.
+    ///
+    /// The user settings hold the values of the user of the client only. The client data is
+    /// available through the typed methods of this trait.
+    async fn set_setting(&self, key: String, value: Vec<u8>) -> Result<(), StoreError>;
+
+    /// Returns the value of `key` in the user settings, or `None` if `key` has no value.
+    async fn get_setting(&self, key: String) -> Result<Option<Vec<u8>>, StoreError>;
+
+    /// Deletes `key` from the user settings. Returns `true` if the key was present.
+    async fn remove_setting(&self, key: String) -> Result<bool, StoreError>;
+
+    /// Returns the keys of the user settings.
+    async fn list_setting_keys(&self) -> Result<Vec<String>, StoreError>;
+
+    // PSWAP
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns the PSWAP lineage of the order with `order_id`, or `None` if the store does not
+    /// track that order.
+    async fn get_pswap_lineage(
         &self,
-        scope: SettingScope,
-        key: String,
-        value: Vec<u8>,
-    ) -> Result<(), StoreError>;
+        order_id: Felt,
+    ) -> Result<Option<PswapLineageRecord>, StoreError>;
 
-    /// Retrieves a value from `scope` in the `settings` table.
-    async fn get_setting(
+    /// Returns the `order_id` of the active PSWAP lineage whose current tip is `tip`, or `None` if
+    /// `tip` is not the tip of an active lineage.
+    async fn get_pswap_order_id_by_tip(&self, tip: NoteId) -> Result<Option<Felt>, StoreError>;
+
+    /// Returns the PSWAP lineages that match `filter`.
+    async fn get_pswap_lineages(
         &self,
-        scope: SettingScope,
-        key: String,
-    ) -> Result<Option<Vec<u8>>, StoreError>;
+        filter: PswapLineageFilter,
+    ) -> Result<Vec<PswapLineageRecord>, StoreError>;
 
-    /// Deletes a value from `scope` in the `settings` table. Returns `true` if the key was present.
-    async fn remove_setting(&self, scope: SettingScope, key: String) -> Result<bool, StoreError>;
-
-    /// Returns the keys held by `scope` in the `settings` table.
-    async fn list_setting_keys(&self, scope: SettingScope) -> Result<Vec<String>, StoreError>;
-
-    /// Applies a batch of [`SettingMutation`]s against `scope`. Use this when several `settings`
-    /// entries must stay mutually consistent (e.g. a record and its secondary index).
-    async fn apply_settings_mutations(
-        &self,
-        scope: SettingScope,
-        mutations: Vec<SettingMutation>,
-    ) -> Result<(), StoreError>;
+    /// Inserts or replaces the PSWAP lineage of `record.order_id()` and updates the tip index in
+    /// the same atomic operation. The index keeps the tip of an active lineage only.
+    async fn upsert_pswap_lineage(&self, record: &PswapLineageRecord) -> Result<(), StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------
@@ -580,60 +581,43 @@ pub trait Store: Send + Sync {
     // TRANSPORT
     // --------------------------------------------------------------------------------------------
 
-    /// Gets the unused aggregate note transport cursor.
-    ///
-    /// The client stores a cursor for each tag. If the aggregate cursor does not exist, this
-    /// returns an initial cursor.
-    #[deprecated(since = "0.17.1", note = "note transport stores a cursor for each tag")]
-    #[allow(deprecated)]
-    async fn get_note_transport_cursor(&self) -> Result<NoteTransportCursor, StoreError> {
-        let Some(cursor_bytes) = self
-            .get_setting(SettingScope::Client, NOTE_TRANSPORT_CURSOR_STORE_SETTING.into())
-            .await?
-        else {
-            return Ok(NoteTransportCursor::init());
-        };
-        NoteTransportCursor::read_from_bytes(&cursor_bytes).map_err(Into::into)
-    }
-
-    /// Updates the unused aggregate note transport cursor.
-    ///
-    /// The client stores a cursor for each tag and does not read this value.
-    #[deprecated(since = "0.17.1", note = "note transport stores a cursor for each tag")]
-    #[allow(deprecated)]
-    async fn update_note_transport_cursor(
+    /// Returns the note transport cursor of each tag. Returns an empty map if no cursors are
+    /// stored.
+    async fn get_note_transport_cursors(
         &self,
-        cursor: NoteTransportCursor,
-    ) -> Result<(), StoreError> {
-        let cursor_bytes = cursor.to_bytes();
-        self.set_setting(
-            SettingScope::Client,
-            NOTE_TRANSPORT_CURSOR_STORE_SETTING.into(),
-            cursor_bytes,
-        )
-        .await?;
-        Ok(())
-    }
+    ) -> Result<BTreeMap<NoteTag, NoteTransportCursor>, StoreError>;
+
+    /// Replaces the note transport cursor of each tag. An empty map removes the stored cursors.
+    async fn set_note_transport_cursors(
+        &self,
+        cursors: &BTreeMap<NoteTag, NoteTransportCursor>,
+    ) -> Result<(), StoreError>;
+
+    // PROTOCOL CONFIG
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns the protocol configuration stored for `commitment`, or `None` if the store does not
+    /// hold it. The store does not check that the configuration matches `commitment`.
+    async fn get_protocol_config(
+        &self,
+        commitment: Word,
+    ) -> Result<Option<ProtocolConfig>, StoreError>;
+
+    /// Stores `config` under its commitment.
+    ///
+    /// [`Store::apply_state_sync`] also stores the configuration that a sync update carries. Both
+    /// methods must use the same encoding, so that [`Store::get_protocol_config`] can read the
+    /// configurations from both sources.
+    async fn insert_protocol_config(&self, config: &ProtocolConfig) -> Result<(), StoreError>;
 
     // RPC LIMITS
     // --------------------------------------------------------------------------------------------
 
     /// Gets persisted RPC limits. Returns `None` if not stored.
-    async fn get_rpc_limits(&self) -> Result<Option<RpcLimits>, StoreError> {
-        let Some(bytes) =
-            self.get_setting(SettingScope::Client, RPC_LIMITS_STORE_SETTING.into()).await?
-        else {
-            return Ok(None);
-        };
-        let limits = RpcLimits::read_from_bytes(&bytes)?;
-        Ok(Some(limits))
-    }
+    async fn get_rpc_limits(&self) -> Result<Option<RpcLimits>, StoreError>;
 
     /// Persists RPC limits to the store.
-    async fn set_rpc_limits(&self, limits: RpcLimits) -> Result<(), StoreError> {
-        self.set_setting(SettingScope::Client, RPC_LIMITS_STORE_SETTING.into(), limits.to_bytes())
-            .await
-    }
+    async fn set_rpc_limits(&self, limits: RpcLimits) -> Result<(), StoreError>;
 
     // TRANSACTION ENCRYPTION KEY
     // --------------------------------------------------------------------------------------------
@@ -644,37 +628,17 @@ pub trait Store: Send + Sync {
     /// treated as a secret.
     async fn get_transaction_encryption_key(
         &self,
-    ) -> Result<Option<TransactionEncryptionKey>, StoreError> {
-        let Some(bytes) = self
-            .get_setting(SettingScope::Client, TRANSACTION_ENCRYPTION_KEY_STORE_SETTING.into())
-            .await?
-        else {
-            return Ok(None);
-        };
-        let key = TransactionEncryptionKey::read_from_bytes(&bytes)?;
-        Ok(Some(key))
-    }
+    ) -> Result<Option<TransactionEncryptionKey>, StoreError>;
 
     /// Caches the transaction encryption key, replacing any previously cached key.
     async fn set_transaction_encryption_key(
         &self,
         key: &TransactionEncryptionKey,
-    ) -> Result<(), StoreError> {
-        self.set_setting(
-            SettingScope::Client,
-            TRANSACTION_ENCRYPTION_KEY_STORE_SETTING.into(),
-            key.to_bytes(),
-        )
-        .await
-    }
+    ) -> Result<(), StoreError>;
 
     /// Removes the cached transaction encryption key, so the next submission fetches and verifies a
     /// fresh one. Used when the node rejects a submission sealed against a retired key.
-    async fn remove_transaction_encryption_key(&self) -> Result<(), StoreError> {
-        self.remove_setting(SettingScope::Client, TRANSACTION_ENCRYPTION_KEY_STORE_SETTING.into())
-            .await?;
-        Ok(())
-    }
+    async fn remove_transaction_encryption_key(&self) -> Result<(), StoreError>;
 
     // PARTIAL MMR
     // --------------------------------------------------------------------------------------------
