@@ -97,7 +97,6 @@ async fn first_sync_keeps_account_note_without_protocol_config() {
             .await
             .unwrap(),
     );
-    receiver.ensure_genesis_in_place().await.unwrap();
     let (wallet, _) = receiver
         .insert_account(AccountSetup::wallet(AccountType::Private).unfunded())
         .await
