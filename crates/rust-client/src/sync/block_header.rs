@@ -57,9 +57,8 @@ impl<AUTH> Client<AUTH> {
             .get_block_header_by_number(Some(BlockNumber::GENESIS), false)
             .await?;
 
-        // Genesis is untracked since there are no client notes associated with it, so we fetch no
-        // MMR proof and pass no nodes.
-        self.store.insert_block_header(&genesis, &[], false).await?;
+        // The first sync from genesis stores the protocol configuration.
+        self.store.insert_genesis(&genesis, None).await?;
         self.rpc_api.set_genesis_commitment(genesis.commitment()).await?;
         Ok(())
     }

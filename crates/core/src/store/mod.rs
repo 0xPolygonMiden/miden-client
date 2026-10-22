@@ -283,6 +283,23 @@ pub trait Store: Send + Sync {
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
 
+    /// Inserts the genesis block header and, if present, its protocol configuration.
+    ///
+    /// The header is untracked and has no MMR authentication nodes. The default implementation uses
+    /// two writes when a protocol configuration is present. Store implementations should override
+    /// this method when they can write both values atomically.
+    async fn insert_genesis(
+        &self,
+        block_header: &BlockHeader,
+        protocol_config: Option<&ProtocolConfig>,
+    ) -> Result<(), StoreError> {
+        self.insert_block_header(block_header, &[], false).await?;
+        if let Some(protocol_config) = protocol_config {
+            self.insert_protocol_config(protocol_config).await?;
+        }
+        Ok(())
+    }
+
     /// Prunes irrelevant block data from the store.
     ///
     /// This performs three operations atomically:
