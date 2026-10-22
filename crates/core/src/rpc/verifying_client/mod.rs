@@ -10,6 +10,7 @@ use miden_protocol::batch::{ProposedBatch, ProvenBatch};
 use miden_protocol::block::{BlockHeader, BlockNumber, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::MmrProof;
 use miden_protocol::note::{NoteId, NoteScript, NoteTag};
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::ProvenTransaction;
 use miden_protocol::vm::ExecutionProof;
 
@@ -176,10 +177,6 @@ impl<T: NodeRpcClient> NodeRpcClient for VerifyingRpcClient<T> {
         self.0.set_genesis_commitment(commitment).await
     }
 
-    fn has_genesis_commitment(&self) -> Option<Word> {
-        self.0.has_genesis_commitment()
-    }
-
     async fn get_transaction_encryption_key(
         &self,
     ) -> Result<AttestedTransactionEncryptionKey, RpcError> {
@@ -219,6 +216,12 @@ impl<T: NodeRpcClient> NodeRpcClient for VerifyingRpcClient<T> {
             self.0.get_block_header_by_number(block_num, include_mmr_proof).await?;
         verify_block_num(block_num, header.block_num())?;
         Ok((header, mmr_proof))
+    }
+
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
+        let (header, protocol_config) = self.0.get_genesis_block_header().await?;
+        verify_block_num(Some(BlockNumber::GENESIS), header.block_num())?;
+        Ok((header, protocol_config))
     }
 
     async fn get_block_by_number(
