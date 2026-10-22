@@ -9,6 +9,7 @@
 * [BREAKING][behavior][rust] Note transport fetches read all tags up to the `sync_to` bound that the service returns for the first request. Only tags with the same cursor share a request, and a request group that reaches the bound moves its tags to the bound, so the tag cursors converge. Adding or removing a tag no longer delivers notes again to the other tags ([#2742](https://github.com/0xMiden/rust-sdk/pull/2742)).
 * [BREAKING][param][rust] `NoteTransportClient::fetch_notes_page` and `GrpcNoteTransportClient::fetch_notes_page` take a `sync_to` bound, and the trait method has no default implementation. `NoteTransportPage` has a `sync_to` field with the bound that the service used ([#2742](https://github.com/0xMiden/rust-sdk/pull/2742)).
 * [BREAKING][removal][rust] Removed `NoteTransportClient::fetch_notes`, `GrpcNoteTransportClient::fetch_notes`, and `MockNoteTransportApi::fetch_notes`. Use `fetch_notes_page` ([#2742](https://github.com/0xMiden/rust-sdk/pull/2742)).
+* [BREAKING][type][rust] Added the `VaultFetch::Assets` variant, which requests proofs for specific vault assets from the node `0.18` `GetAccount` endpoint, and the `AccountVaultDetails::partial_vault` field, which holds these proofs. The gRPC conversion `AccountDetails::into_domain` takes the vault request as a new parameter, to check that the proofs cover the requested assets (#TBD).
 
 ## 0.17.5 (2026-10-21)
 
