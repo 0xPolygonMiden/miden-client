@@ -8,8 +8,8 @@ use miden_protocol::crypto::merkle::mmr::{Forest, InOrderIndex, PartialMmr};
 use miden_protocol::{Felt, Word};
 use tracing::warn;
 
+use crate::rpc::NodeRpcClient;
 use crate::rpc::domain::note::ResolvedSyncNotesBlock;
-use crate::rpc::{NodeRpcClient, RpcError};
 use crate::store::{BlockRelevance, StoreError};
 #[cfg(feature = "testing")]
 use crate::test_utils::mock::MockRpcApi;
@@ -61,12 +61,7 @@ impl<AUTH> Client<AUTH> {
             return Ok(());
         }
 
-        let (genesis, _, protocol_config) = self
-            .rpc_api
-            .get_block_header_by_number(Some(BlockNumber::GENESIS), false, true)
-            .await?;
-        let protocol_config =
-            protocol_config.ok_or(RpcError::ExpectedDataMissing("ProtocolConfig".into()))?;
+        let (genesis, protocol_config) = self.rpc_api.get_genesis_block_header().await?;
 
         // Note screening on the first sync executes against the genesis block, so it needs the
         // genesis protocol configuration before the sync stores any configuration.

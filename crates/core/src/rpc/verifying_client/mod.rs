@@ -211,14 +211,17 @@ impl<T: NodeRpcClient> NodeRpcClient for VerifyingRpcClient<T> {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-        include_protocol_config: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
-        let (header, mmr_proof, protocol_config) = self
-            .0
-            .get_block_header_by_number(block_num, include_mmr_proof, include_protocol_config)
-            .await?;
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        let (header, mmr_proof) =
+            self.0.get_block_header_by_number(block_num, include_mmr_proof).await?;
         verify_block_num(block_num, header.block_num())?;
-        Ok((header, mmr_proof, protocol_config))
+        Ok((header, mmr_proof))
+    }
+
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
+        let (header, protocol_config) = self.0.get_genesis_block_header().await?;
+        verify_block_num(Some(BlockNumber::GENESIS), header.block_num())?;
+        Ok((header, protocol_config))
     }
 
     async fn get_block_by_number(

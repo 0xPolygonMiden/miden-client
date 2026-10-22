@@ -186,7 +186,7 @@ enum CannedScript {
 /// what it exercises.
 #[derive(Default)]
 struct CannedTransport {
-    block_header: Option<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>)>,
+    block_header: Option<(BlockHeader, Option<MmrProof>)>,
     block: Option<SignedBlock>,
     /// Note IDs to report from `get_notes_by_id`, wrapped into notes on each call because
     /// [`FetchedNote`] is not [`Clone`].
@@ -223,6 +223,10 @@ impl NodeRpcClient for CannedTransport {
         unimplemented!("not used in these tests")
     }
 
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
+        unimplemented!("not used in these tests")
+    }
+
     async fn get_transaction_encryption_key(
         &self,
     ) -> Result<AttestedTransactionEncryptionKey, RpcError> {
@@ -250,8 +254,7 @@ impl NodeRpcClient for CannedTransport {
         &self,
         _block_num: Option<BlockNumber>,
         _include_mmr_proof: bool,
-        _include_protocol_config: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         self.canned(
             self.block_header.as_ref(),
             "test must set a canned get_block_header_by_number response",
@@ -398,23 +401,23 @@ impl NodeRpcClient for CannedTransport {
 #[tokio::test]
 async fn get_block_header_by_number_verifies_block_num() {
     let client = VerifyingRpcClient::new(CannedTransport {
-        block_header: Some((block_header(5), None, None)),
+        block_header: Some((block_header(5), None)),
         ..Default::default()
     });
 
-    let (header, ..) = client
-        .get_block_header_by_number(None, false, false)
+    let (header, _) = client
+        .get_block_header_by_number(None, false)
         .await
         .expect("a chain tip request must accept a header for any block");
     assert_eq!(header.block_num(), BlockNumber::from(5u32));
 
     client
-        .get_block_header_by_number(Some(BlockNumber::from(5u32)), false, false)
+        .get_block_header_by_number(Some(BlockNumber::from(5u32)), false)
         .await
         .expect("a header for the requested block must be accepted");
 
     let err = client
-        .get_block_header_by_number(Some(BlockNumber::from(6u32)), false, false)
+        .get_block_header_by_number(Some(BlockNumber::from(6u32)), false)
         .await
         .expect_err("a header for another block must be rejected");
     assert!(matches!(err, RpcError::InvalidResponse(_)));
@@ -729,7 +732,7 @@ async fn transport_errors_pass_through_unchanged() {
     });
 
     let err = client
-        .get_block_header_by_number(Some(BlockNumber::from(5u32)), false, false)
+        .get_block_header_by_number(Some(BlockNumber::from(5u32)), false)
         .await
         .expect_err("the transport failure must surface");
     assert!(matches!(err, RpcError::ExpectedDataMissing(_)));

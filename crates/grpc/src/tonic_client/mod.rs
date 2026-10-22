@@ -259,6 +259,39 @@ impl GrpcClient {
         self
     }
 
+    /// Calls the `/GetBlockHeaderByNumber` endpoint and decodes the block header. Returns the raw
+    /// response so that the caller can decode the optional fields that it requested.
+    async fn fetch_block_header(
+        &self,
+        block_num: Option<BlockNumber>,
+        include_mmr_proof: bool,
+        include_protocol_config: bool,
+    ) -> Result<(BlockHeader, proto::rpc::GetBlockHeaderByNumberResponse), RpcError> {
+        let request = proto::rpc::GetBlockHeaderByNumberRequest {
+            block_num: block_num.as_ref().map(BlockNumber::as_u32),
+            include_mmr_proof: Some(include_mmr_proof),
+            include_protocol_config: Some(include_protocol_config),
+        };
+
+        info!("Calling GetBlockHeaderByNumber: {:?}", request);
+
+        let api_response = self
+            .call_with_retry(RpcEndpoint::GetBlockHeaderByNumber, |mut rpc_api| {
+                Box::pin(async move { rpc_api.get_block_header_by_number(request).await })
+            })
+            .await?;
+
+        let mut response = api_response.into_inner();
+
+        let block_header: BlockHeader = response
+            .block_header
+            .take()
+            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
+            .decode_and_build_unchecked()?;
+
+        Ok((block_header, response))
+    }
+
     /// Takes care of establishing the RPC connection if not connected yet. It ensures that the
     /// `rpc_api` field is initialized and returns a write guard to it.
     async fn ensure_connected(&self) -> Result<ApiClient, RpcError> {
@@ -521,48 +554,9 @@ impl NodeRpcClient for GrpcClient {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-        include_protocol_config: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError> {
-        let request = proto::rpc::GetBlockHeaderByNumberRequest {
-            block_num: block_num.as_ref().map(BlockNumber::as_u32),
-            include_mmr_proof: Some(include_mmr_proof),
-            include_protocol_config: Some(include_protocol_config),
-        };
-
-        info!("Calling GetBlockHeaderByNumber: {:?}", request);
-
-        let api_response = self
-            .call_with_retry(RpcEndpoint::GetBlockHeaderByNumber, |mut rpc_api| {
-                Box::pin(async move { rpc_api.get_block_header_by_number(request).await })
-            })
-            .await?;
-
-        let response = api_response.into_inner();
-
-        let block_header: BlockHeader = response
-            .block_header
-            .ok_or(RpcError::ExpectedDataMissing("BlockHeader".into()))?
-            .decode_and_build_unchecked()?;
-
-        let protocol_config = if include_protocol_config {
-            let protocol_config: ProtocolConfig = response
-                .protocol_config
-                .ok_or(RpcError::ExpectedDataMissing("ProtocolConfig".into()))?
-                .decode_and_verify()?;
-
-            // The store keys a configuration by its own commitment, so a configuration that does
-            // not match this header is unusable.
-            let returned = protocol_config.to_commitment();
-            let expected = block_header.protocol_config_commitment();
-            if returned != expected {
-                return Err(RpcError::InvalidResponse(format!(
-                    "node returned a protocol configuration with commitment {returned} for a block header that commits to {expected}"
-                )));
-            }
-            Some(protocol_config)
-        } else {
-            None
-        };
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        let (block_header, response) =
+            self.fetch_block_header(block_num, include_mmr_proof, false).await?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -585,7 +579,29 @@ impl NodeRpcClient for GrpcClient {
             None
         };
 
-        Ok((block_header, mmr_proof, protocol_config))
+        Ok((block_header, mmr_proof))
+    }
+
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
+        let (block_header, response) =
+            self.fetch_block_header(Some(BlockNumber::GENESIS), false, true).await?;
+
+        let protocol_config: ProtocolConfig = response
+            .protocol_config
+            .ok_or(RpcError::ExpectedDataMissing("ProtocolConfig".into()))?
+            .decode_and_verify()?;
+
+        // The store keys a configuration by its own commitment, so a configuration that does not
+        // match this header is unusable.
+        let returned = protocol_config.to_commitment();
+        let expected = block_header.protocol_config_commitment();
+        if returned != expected {
+            return Err(RpcError::InvalidResponse(format!(
+                "node returned a protocol configuration with commitment {returned} for a block header that commits to {expected}"
+            )));
+        }
+
+        Ok((block_header, protocol_config))
     }
 
     async fn get_notes_by_id(&self, note_ids: &[NoteId]) -> Result<Vec<FetchedNote>, RpcError> {
@@ -1311,7 +1327,7 @@ mod tests {
     // Function that returns a `Send` future from a dynamic trait that must be `Sync`.
     async fn dyn_trait_send_fut(client: Box<dyn NodeRpcClient>) {
         // This won't compile if `get_block_header_by_number` doesn't return a `Send+Sync` future.
-        let res = client.get_block_header_by_number(None, false, false).await;
+        let res = client.get_block_header_by_number(None, false).await;
         assert!(res.is_ok());
     }
 

@@ -55,10 +55,8 @@ async fn the_first_sync_stores_the_genesis_protocol_config() {
 async fn ensure_genesis_fetches_a_missing_genesis_protocol_config() {
     let rpc = prebuilt_rpc_api().await;
     let store = SqliteStore::new(create_test_store_path()).await.unwrap();
-    let (genesis, ..) = rpc
-        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
-        .await
-        .unwrap();
+    let (genesis, _) =
+        rpc.get_block_header_by_number(Some(BlockNumber::GENESIS), false).await.unwrap();
     store.insert_block_header(&genesis, &[], false).await.unwrap();
 
     let mut client = TestClient::from(
@@ -126,10 +124,8 @@ async fn first_sync_keeps_account_note_without_protocol_config() {
 #[tokio::test]
 async fn seed_genesis_stores_the_genesis_header_and_protocol_config() {
     let rpc = prebuilt_rpc_api().await;
-    let (genesis, ..) = rpc
-        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
-        .await
-        .unwrap();
+    let (genesis, _) =
+        rpc.get_block_header_by_number(Some(BlockNumber::GENESIS), false).await.unwrap();
     let protocol_config = rpc.protocol_config();
 
     let client = ClientBuilder::new()
@@ -151,10 +147,8 @@ async fn seed_genesis_stores_the_genesis_header_and_protocol_config() {
 #[tokio::test]
 async fn seed_genesis_rejects_a_protocol_config_the_header_does_not_commit_to() {
     let rpc = prebuilt_rpc_api().await;
-    let (genesis, ..) = rpc
-        .get_block_header_by_number(Some(BlockNumber::GENESIS), false, false)
-        .await
-        .unwrap();
+    let (genesis, _) =
+        rpc.get_block_header_by_number(Some(BlockNumber::GENESIS), false).await.unwrap();
 
     let builder = ClientBuilder::new()
         .rpc(Arc::new(rpc.clone()))

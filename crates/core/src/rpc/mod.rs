@@ -262,9 +262,7 @@ pub trait NodeRpcClient: Send + Sync {
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint. If `include_mmr_proof` is set to true and the
     /// function returns an `Ok`, the second value of the return tuple should always be
-    /// Some(MmrProof). If `include_protocol_config` is set to true and the function returns an
-    /// `Ok`, the third value should always be the protocol configuration that the header commits
-    /// to.
+    /// Some(MmrProof).
     ///
     /// When `None` is provided, returns info regarding the latest block.
     ///
@@ -274,8 +272,14 @@ pub trait NodeRpcClient: Send + Sync {
         &self,
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
-        include_protocol_config: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>, Option<ProtocolConfig>), RpcError>;
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
+
+    /// Fetches the genesis block header and the protocol configuration that it commits to, using
+    /// the `/GetBlockHeaderByNumber` endpoint.
+    ///
+    /// The returned header is not verified to be the genesis header; [`VerifyingRpcClient`]
+    /// performs that check.
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError>;
 
     /// Given a block number, fetches the block corresponding to that height from the node using the
     /// `/GetBlockByNumber` RPC endpoint.
@@ -654,7 +658,7 @@ pub trait NodeRpcClient: Send + Sync {
         block_from: BlockNumber,
     ) -> Result<BTreeMap<Nullifier, Option<BlockNumber>>, RpcError> {
         let prefixes: Vec<u16> = requested_nullifiers.iter().map(Nullifier::prefix).collect();
-        let (chain_tip, ..) = self.get_block_header_by_number(None, false, false).await?;
+        let (chain_tip, _) = self.get_block_header_by_number(None, false).await?;
         let retrieved_nullifiers =
             self.sync_nullifiers(&prefixes, block_from, chain_tip.block_num()).await?;
 
@@ -715,8 +719,7 @@ pub trait NodeRpcClient: Send + Sync {
         &self,
         block_num: BlockNumber,
     ) -> Result<(BlockHeader, MmrProof), RpcError> {
-        let (header, proof, _) =
-            self.get_block_header_by_number(Some(block_num), true, false).await?;
+        let (header, proof) = self.get_block_header_by_number(Some(block_num), true).await?;
         Ok((header, proof.ok_or(RpcError::ExpectedDataMissing(String::from("MmrProof")))?))
     }
 
