@@ -9,7 +9,6 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use miden_client_core::store::SettingScope;
 use miden_protocol::address::Address;
 use miden_protocol::block::BlockNumber;
 use miden_protocol::note::{
@@ -33,24 +32,19 @@ use miden_tx::utils::serde::{
 
 pub use self::errors::NoteTransportError;
 use crate::note::{NoteFile, NoteSyncHint};
-use crate::store::NoteFilter;
+use crate::store::{NoteFilter, StoreError};
 use crate::{Client, ClientError};
 
 pub const NOTE_TRANSPORT_MAINNET_ENDPOINT: &str = "https://transport.mainnet.miden.io";
 pub const NOTE_TRANSPORT_TESTNET_ENDPOINT: &str = "https://transport.miden.io";
 pub const NOTE_TRANSPORT_DEVNET_ENDPOINT: &str = "https://transport.devnet.miden.io";
 pub use miden_client_core::note_transport::NoteTransportCursor;
-pub const NOTE_TRANSPORT_CURSORS_KEY: &str = "note_transport_cursors";
 
 type NoteTransportCursors = BTreeMap<NoteTag, NoteTransportCursor>;
 /// Maximum number of note tags in one transport fetch request. The service rejects larger requests.
 const MAX_NOTE_TAGS_PER_TRANSPORT_REQUEST: usize = 128;
 /// Limits the pages for each request group so other groups can progress in the same sync.
 const MAX_NOTE_TRANSPORT_PAGES_PER_GROUP: usize = 32;
-
-/// Legacy settings key for note transport backfill state.
-#[deprecated(since = "0.17.1", note = "note transport no longer keeps per-tag backfill state")]
-pub const NOTE_TRANSPORT_COVERED_TAGS_KEY: &str = "note_transport_covered_tags";
 
 /// Client note transport methods.
 impl<AUTH> Client<AUTH> {
@@ -120,36 +114,14 @@ impl<AUTH> Client<AUTH> {
     /// A missing or unreadable value resets all tags so the next fetch safely reads their retained
     /// history.
     async fn load_note_transport_cursors(&self) -> Result<NoteTransportCursors, ClientError> {
-        let bytes = self
-            .store
-            .get_setting(SettingScope::Client, String::from(NOTE_TRANSPORT_CURSORS_KEY))
-            .await
-            .map_err(ClientError::StoreError)?;
-        let Some(bytes) = bytes else {
-            return Ok(BTreeMap::new());
-        };
-
-        match NoteTransportCursors::read_from_bytes(&bytes) {
+        match self.store.get_note_transport_cursors().await {
             Ok(cursors) => Ok(cursors),
-            Err(err) => {
+            Err(StoreError::DataDeserializationError(err)) => {
                 tracing::warn!(?err, "resetting unreadable note transport cursors");
                 Ok(BTreeMap::new())
             },
+            Err(err) => Err(ClientError::StoreError(err)),
         }
-    }
-
-    /// Saves the cursor for each tag used by the transport fetch.
-    async fn save_note_transport_cursors(
-        &self,
-        cursors: &NoteTransportCursors,
-    ) -> Result<(), ClientError> {
-        let key = String::from(NOTE_TRANSPORT_CURSORS_KEY);
-        if cursors.is_empty() {
-            self.store.remove_setting(SettingScope::Client, key).await?;
-        } else {
-            self.store.set_setting(SettingScope::Client, key, cursors.to_bytes()).await?;
-        }
-        Ok(())
     }
 }
 
@@ -362,7 +334,7 @@ where
             .collect();
 
         if let Some(cursors) = cursors {
-            self.save_note_transport_cursors(&cursors).await?;
+            self.store.set_note_transport_cursors(&cursors).await?;
         }
         if let Some(error) = fetch_error {
             tracing::warn!(?error, "note transport fetch failed; saved successful pages for retry");

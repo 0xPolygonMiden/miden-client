@@ -8,10 +8,6 @@ use miden_protocol::utils::serde::{
     Serializable,
 };
 
-/// Settings key for the unused aggregate transport cursor.
-#[deprecated(since = "0.17.1", note = "note transport stores a cursor for each tag")]
-pub const NOTE_TRANSPORT_CURSOR_STORE_SETTING: &str = "note_transport_cursor";
-
 /// Note transport cursor
 ///
 /// Identifies a position in the note transport service's stored-note sequence.

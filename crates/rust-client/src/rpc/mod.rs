@@ -66,6 +66,7 @@ use miden_protocol::Word;
 use miden_protocol::account::{Account, AccountId};
 use miden_protocol::address::NetworkId;
 use miden_protocol::batch::{ProposedBatch, ProvenBatch};
+use miden_protocol::block::account_tree::AccountWitness;
 use miden_protocol::block::{BlockHeader, BlockNumber, SignedBlock};
 use miden_protocol::crypto::merkle::mmr::MmrProof;
 use miden_protocol::note::{
@@ -249,10 +250,30 @@ pub trait NodeRpcClient: Send + Sync {
     /// - `account_id` is the ID of the wanted account.
     ///
     /// Returns `Ok(None)` for accounts without public state.
+    ///
+    /// The returned account is not tied to the chain; use [`NodeRpcClient::get_account_details_at`]
+    /// to get the witness that does.
     async fn get_account_details(
         &self,
         account_id: AccountId,
     ) -> Result<Option<Account>, RpcError> {
+        Ok(self
+            .get_account_details_at(account_id, AccountStateAt::ChainTip)
+            .await?
+            .map(|(_, _, account)| account))
+    }
+
+    /// Like [`NodeRpcClient::get_account_details`], but at `at`, and also returning the block the
+    /// state was read at and the [`AccountWitness`] that commits to it.
+    ///
+    /// The account commits to the witness's state commitment, but nothing here checks that the
+    /// witness opens under a block header the caller trusts. The caller must do that, for example
+    /// with the header of its sync height.
+    async fn get_account_details_at(
+        &self,
+        account_id: AccountId,
+        at: AccountStateAt,
+    ) -> Result<Option<(BlockNumber, AccountWitness, Account)>, RpcError> {
         // Accounts without public state have no full state to fetch; only a commitment is on-chain.
         if !account_id.is_public() {
             return Ok(None);
@@ -265,7 +286,8 @@ pub trait NodeRpcClient: Send + Sync {
                 account_id,
                 GetAccountRequest::new()
                     .with_storage(StorageMapFetch::All)
-                    .with_vault(VaultFetch::Always),
+                    .with_vault(VaultFetch::Always)
+                    .at(at),
             )
             .await?;
 
@@ -274,11 +296,12 @@ pub trait NodeRpcClient: Send + Sync {
             self.resolve_oversize_storage_maps(account_id, block_number, details).await?;
         }
 
-        let details = proof.into_details().ok_or(RpcError::ExpectedDataMissing(
+        let (witness, details) = proof.into_parts();
+        let details = details.ok_or(RpcError::ExpectedDataMissing(
             "public account returned without details".into(),
         ))?;
 
-        Ok(Some(Account::try_from(&details)?))
+        Ok(Some((block_number, witness, Account::try_from(&details)?)))
     }
 
     /// Fetches notes related to the specified tags using the `/SyncNotes` RPC endpoint, paginating
@@ -416,10 +439,9 @@ pub trait NodeRpcClient: Send + Sync {
 
     /// Fetches the account from the node, using the `/GetAccount` endpoint.
     ///
-    /// The response carries an
-    /// [`AccountWitness`](miden_protocol::block::account_tree::AccountWitness) and the target
-    /// block. Public accounts additionally get [`AccountDetails`]; for private accounts the other
-    /// `request` fields are ignored.
+    /// The response carries an [`AccountWitness`] and the target block. Public accounts
+    /// additionally get [`AccountDetails`]; for private accounts the other `request` fields are
+    /// ignored.
     ///
     /// For a fully oversize-resolved account, use [`NodeRpcClient::get_account_details`].
     ///
@@ -471,6 +493,15 @@ pub trait NodeRpcClient: Send + Sync {
     /// is registered. The allowlist gates account creation only, so an account that already exists
     /// on chain is not checked.
     async fn is_account_allowed(&self, account_id: AccountId) -> Result<bool, RpcError>;
+
+    /// Returns whether the invitation code can be used, using the `/IsInvitationCodeValid`
+    /// endpoint.
+    ///
+    /// The node answers `true` when it does not enforce an account allowlist, or when the code
+    /// exists and is not registered to an account. Unknown and registered codes return `false`. An
+    /// empty code returns `INVALID_ARGUMENT` when enforcement is enabled. This query does not
+    /// consume the code or identify the account that holds it.
+    async fn is_invitation_code_valid(&self, invitation_code: &str) -> Result<bool, RpcError>;
 
     /// Fills in the asset list when the vault came back flagged `too_many_assets`, by querying
     /// [`NodeRpcClient::sync_account_vault`] over `[GENESIS, block_to]`. No-op when the flag isn't
@@ -732,6 +763,7 @@ pub enum RpcEndpoint {
     GetAccount,
     RegisterAccount,
     IsAccountAllowed,
+    IsInvitationCodeValid,
     GetBlockByNumber,
     GetBlockHeaderByNumber,
     GetNotesById,
@@ -757,6 +789,7 @@ impl RpcEndpoint {
             RpcEndpoint::GetAccount => "GetAccount",
             RpcEndpoint::RegisterAccount => "RegisterAccount",
             RpcEndpoint::IsAccountAllowed => "IsAccountAllowed",
+            RpcEndpoint::IsInvitationCodeValid => "IsInvitationCodeValid",
             RpcEndpoint::GetBlockByNumber => "GetBlockByNumber",
             RpcEndpoint::GetBlockHeaderByNumber => "GetBlockHeaderByNumber",
             RpcEndpoint::GetNotesById => "GetNotesById",
@@ -793,6 +826,7 @@ impl RpcEndpoint {
             | RpcEndpoint::SyncNullifiers
             | RpcEndpoint::GetAccount
             | RpcEndpoint::IsAccountAllowed
+            | RpcEndpoint::IsInvitationCodeValid
             | RpcEndpoint::GetBlockByNumber
             | RpcEndpoint::GetBlockHeaderByNumber
             | RpcEndpoint::GetNotesById
@@ -819,6 +853,7 @@ impl fmt::Display for RpcEndpoint {
             RpcEndpoint::GetAccount => write!(f, "get_account"),
             RpcEndpoint::RegisterAccount => write!(f, "register_account"),
             RpcEndpoint::IsAccountAllowed => write!(f, "is_account_allowed"),
+            RpcEndpoint::IsInvitationCodeValid => write!(f, "is_invitation_code_valid"),
             RpcEndpoint::GetBlockByNumber => write!(f, "get_block_by_number"),
             RpcEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")

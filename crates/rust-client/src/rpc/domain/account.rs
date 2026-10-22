@@ -38,6 +38,13 @@ impl Debug for proto::rpc::RegisterAccountRequest {
     }
 }
 
+/// Hides the invitation code, which is a secret that must not reach logs or error messages.
+impl Debug for proto::rpc::IsInvitationCodeValidRequest {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IsInvitationCodeValidRequest").finish_non_exhaustive()
+    }
+}
+
 // FROM PROTO ACCOUNT HEADERS
 // ================================================================================================
 
@@ -134,7 +141,8 @@ impl TryFrom<&AccountDetails> for Account {
     ///
     /// This conversion fails if the account details are incomplete, i.e., when the account's
     /// storage maps or vault exceed the node's size threshold, or when only specific map keys were
-    /// requested.
+    /// requested. It also fails if the rebuilt account does not commit to the same value as the
+    /// account header in the details.
     fn try_from(details: &AccountDetails) -> Result<Self, Self::Error> {
         if details.vault_details.too_many_assets {
             return Err(RpcError::ExpectedDataMissing(
@@ -205,7 +213,7 @@ impl TryFrom<&AccountDetails> for Account {
             RpcError::InvalidResponse(format!("rpc api returned non-valid storage slots: {err}"))
         })?;
 
-        Account::new(
+        let account = Account::new(
             details.header.id(),
             asset_vault,
             account_storage,
@@ -217,7 +225,20 @@ impl TryFrom<&AccountDetails> for Account {
             RpcError::InvalidResponse(format!(
                 "failed to construct account from rpc api response: {err}"
             ))
-        })
+        })?;
+
+        // Only the header is authenticated (through the account witness). The vault assets, the
+        // storage values and the map entries must be the ones it commits to.
+        let commitment = account.to_commitment();
+        if commitment != details.header.to_commitment() {
+            return Err(RpcError::InvalidResponse(format!(
+                "account contents returned by the rpc api commit to {commitment} but the account \
+                 header commits to {}",
+                details.header.to_commitment(),
+            )));
+        }
+
+        Ok(account)
     }
 }
 
@@ -556,7 +577,7 @@ impl AccountProof {
     ) -> Result<Self, AccountProofError> {
         if let Some(AccountDetails {
             header: account_header,
-            storage_details: _,
+            storage_details,
             code,
             ..
         }) = &account_details
@@ -569,6 +590,9 @@ impl AccountProof {
             }
             if code.commitment() != account_header.code_commitment() {
                 return Err(AccountProofError::InconsistentCodeCommitment);
+            }
+            if storage_details.header.to_commitment() != account_header.storage_commitment() {
+                return Err(AccountProofError::InconsistentStorageCommitment);
             }
         }
 
@@ -820,4 +844,26 @@ pub enum AccountProofError {
         "the received code commitment doesn't match the received account header's code commitment"
     )]
     InconsistentCodeCommitment,
+    #[error(
+        "the received storage header's commitment doesn't match the received account header's \
+         storage commitment"
+    )]
+    InconsistentStorageCommitment,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::proto;
+    use crate::alloc::string::ToString;
+
+    #[test]
+    fn invitation_code_validation_request_debug_hides_code() {
+        let code = "secret-invitation-code";
+        let request =
+            proto::rpc::IsInvitationCodeValidRequest { invitation_code: code.to_string() };
+
+        let debug = format!("{request:?}");
+        assert!(debug.contains("IsInvitationCodeValidRequest"));
+        assert!(!debug.contains(code));
+    }
 }
