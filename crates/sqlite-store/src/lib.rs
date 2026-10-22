@@ -128,7 +128,7 @@ pub struct SqliteStore {
     /// does not hold the lock.
     ///
     /// Database jobs share this handle so cancellation cannot release the lock before they finish.
-    _lock: Option<Arc<File>>,
+    lock: Option<Arc<File>>,
 }
 
 impl SqliteStore {
@@ -158,7 +158,7 @@ impl SqliteStore {
         Ok(SqliteStore {
             pool,
             database_filepath,
-            _lock: Some(lock),
+            lock: Some(lock),
         })
     }
 
@@ -190,7 +190,7 @@ impl SqliteStore {
             .map_err(database_error)?
             .map_err(database_error)?;
 
-        Ok(SqliteStore { pool, database_filepath, _lock: None })
+        Ok(SqliteStore { pool, database_filepath, lock: None })
     }
 
     /// Returns the path of the database file backing this store.
@@ -229,7 +229,7 @@ impl SqliteStore {
         F: FnOnce(&mut Connection) -> Result<R, StoreError> + Send + 'static,
         R: Send + 'static,
     {
-        let lock = self._lock.clone();
+        let lock = self.lock.clone();
         self.pool
             .get()
             .await
