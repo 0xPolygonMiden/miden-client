@@ -13,6 +13,7 @@
 * [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
 * [FEATURE][rust] Added `NodeRpcClient::get_account_details_at`, which fetches a public account at a given block and also returns the witness that commits to it ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
+* [FEATURE][rust] Added `Client::prune_chain_anchors`, which deletes the stored MMR peaks of the synced blocks up to a block number (#TBD).
 
 ### Breaking Changes
 
@@ -37,6 +38,8 @@
 * [BREAKING][param][rust] `Store::set_setting`, `Store::get_setting`, `Store::remove_setting` and `Store::list_setting_keys` no longer take a scope and reach the user settings only. The client data is available only through the typed `Store` methods ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][removal][rust] Removed `SettingScope`, `SettingMutation`, `Store::apply_settings_mutations`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSORS_KEY`, and the deprecated `Store::get_note_transport_cursor`, `Store::update_note_transport_cursor`, `NOTE_TRANSPORT_CURSOR_STORE_SETTING` and `NOTE_TRANSPORT_COVERED_TAGS_KEY` ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][arch][store] The SQLite store keeps the client data in the new `client_config` table and the user settings in the new `user_settings` table. They replace the `settings` table ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
+* [BREAKING][param][rust,store] Added the required `Store::get_blockchain_peaks_by_block_num` method, which returns the MMR peaks of a synced block. Added the required `Store::prune_chain_anchors` method, which deletes the peaks of the synced blocks up to a block number and keeps the genesis and sync-height peaks. Every out-of-tree `Store` implementation must provide them (#TBD).
+* [BREAKING][arch][store] The SQLite store keeps the MMR peaks of each synced block in the new `chain_anchors` table, which replaces the `blockchain_checkpoint` table. The sync height is the highest block number in the table. Requires a new client database (#TBD).
 
 ### Features
 

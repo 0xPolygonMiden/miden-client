@@ -44,6 +44,19 @@ impl<AUTH> Client<AUTH> {
         Ok(self.get_latest_block_header().await?.validator_config().clone())
     }
 
+    /// Prunes the chain MMR peaks of the synced blocks up to the given block number.
+    ///
+    /// The store keeps the peaks of each synced block. This method deletes the peaks of each block
+    /// with a number `<= up_to_block`. The genesis and sync-height peaks are always kept.
+    ///
+    /// Returns the number of deleted entries.
+    pub async fn prune_chain_anchors(
+        &self,
+        up_to_block: BlockNumber,
+    ) -> Result<usize, ClientError> {
+        Ok(self.store.prune_chain_anchors(up_to_block).await?)
+    }
+
     /// Ensures that the genesis block is available. If the genesis commitment is already cached in
     /// the RPC client, returns early. Otherwise, fetches the genesis block from the node, stores
     /// it, and sets the commitment in the RPC client.
