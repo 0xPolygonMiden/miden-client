@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::slice;
 
-use clap::{Args, Parser};
+use clap::Parser;
 use miden_client::account::AccountId;
 use miden_client::keystore::Keystore;
 use miden_client::transaction::{ForeignAccount, TransactionRequestBuilder, TransactionScript};
@@ -12,7 +12,7 @@ use miden_client::vm::{AdviceInputs, MIN_STACK_DEPTH};
 use miden_client::{Client, Felt};
 
 use crate::advice_inputs::load_advice_map_from_file;
-use crate::commands::new_transactions::execute_transaction;
+use crate::commands::new_transactions::{SubmitOptions, execute_transaction};
 use crate::config::CliConfig;
 use crate::errors::CliError;
 use crate::packages::load_packages;
@@ -27,20 +27,10 @@ use crate::utils::{
 // EXEC COMMAND
 // ================================================================================================
 
-/// Options that apply only with `--submit`.
-#[derive(Debug, Clone, Args)]
-struct SubmitOptions {
-    /// Submit the transaction without asking for confirmation.
-    #[arg(long, default_value_t = false, requires = "submit")]
-    force: bool,
-
-    /// Delegate proving to the remote prover set in the config file.
-    #[arg(long, default_value_t = false, requires = "submit")]
-    delegate_proving: bool,
-}
-
 #[derive(Debug, Clone, Parser)]
 #[command(
+    mut_arg("force", |arg| arg.requires("submit")),
+    mut_arg("delegate_proving", |arg| arg.requires("submit")),
     about = "Execute a transaction script against an account. With `--submit`, prove the \
              transaction and submit it to the network."
 )]
@@ -111,14 +101,9 @@ impl ExecCmd {
                 .map_err(|err| {
                     CliError::Transaction(err.into(), "Failed to build transaction".to_string())
                 })?;
-            let result = execute_transaction(
-                &mut client,
-                account_id,
-                tx_request,
-                self.submit_options.force,
-                self.submit_options.delegate_proving,
-            )
-            .await;
+            let result =
+                execute_transaction(&mut client, account_id, tx_request, &self.submit_options)
+                    .await;
 
             return explain_empty_transaction(result);
         }

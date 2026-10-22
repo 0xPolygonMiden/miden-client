@@ -47,7 +47,7 @@ pub(crate) fn load_packages(
                     );
                     Err(CliError::AccountComponentError(
                         Box::new(error),
-                        format!("refuesed to read {}", path.display()),
+                        format!("refused to read {}", path.display()),
                     ))
                 }
             },
