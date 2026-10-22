@@ -293,6 +293,19 @@ impl Store for SqliteStore {
         .await
     }
 
+    async fn insert_genesis(
+        &self,
+        block_header: &BlockHeader,
+        protocol_config: Option<&ProtocolConfig>,
+    ) -> Result<(), StoreError> {
+        let block_header = block_header.clone();
+        let protocol_config = protocol_config.cloned();
+        self.interact_with_connection(move |conn| {
+            SqliteStore::insert_genesis(conn, &block_header, protocol_config.as_ref())
+        })
+        .await
+    }
+
     async fn untrack_and_prune_irrelevant_blocks(
         &self,
         blocks_to_untrack: &[BlockNumber],
