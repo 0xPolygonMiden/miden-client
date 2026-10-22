@@ -17,9 +17,9 @@ use crate::alloc::string::ToString;
 use crate::keystore::FilesystemKeyStore;
 use crate::note_transport::NoteTransportClient;
 use crate::pswap::PswapTransactionObserver;
-use crate::rpc::{Endpoint, NodeRpcClient};
+use crate::rpc::NodeRpcClient;
 #[cfg(feature = "tonic")]
-use crate::rpc::{GrpcClient, VerifyingRpcClient};
+use crate::rpc::{Endpoint, GrpcClient, VerifyingRpcClient};
 use crate::store::{Store, StoreError};
 use crate::transaction::{TransactionObserver, TransactionProver};
 use crate::{Client, ClientError, ClientRng, ClientRngBox, grpc_support};
@@ -139,6 +139,7 @@ pub struct ClientBuilder<AUTH> {
     /// An optional custom transaction prover.
     tx_prover: Option<Arc<dyn TransactionProver + Send + Sync>>,
     /// The endpoint used by the builder for network configuration.
+    #[cfg(feature = "tonic")]
     endpoint: Option<Endpoint>,
     /// An optional shared source manager for MASM source information.
     source_manager: Option<Arc<dyn SourceManagerSync>>,
@@ -158,6 +159,7 @@ impl<AUTH> Default for ClientBuilder<AUTH> {
             note_transport_api: None,
             note_transport_config: None,
             tx_prover: None,
+            #[cfg(feature = "tonic")]
             endpoint: None,
             source_manager: None,
         }
@@ -476,6 +478,7 @@ where
     /// [`for_mainnet()`](Self::for_mainnet), [`for_testnet()`](Self::for_testnet),
     /// [`for_devnet()`](Self::for_devnet), or [`for_localhost()`](Self::for_localhost).
     #[must_use]
+    #[cfg(feature = "tonic")]
     pub fn endpoint(&self) -> Option<&Endpoint> {
         self.endpoint.as_ref()
     }

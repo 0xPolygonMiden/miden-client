@@ -1,6 +1,5 @@
-use alloc::string::String;
-use core::fmt::Write;
-use core::ops::{Deref, DerefMut};
+use std::fmt::Write;
+use std::ops::{Deref, DerefMut};
 
 use api_client_wrapper::{ApiClient, InnerClient};
 use miden_protocol::Word;
@@ -13,16 +12,15 @@ use tonic::service::Interceptor;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod api_client_wrapper {
-    use alloc::string::String;
-    use core::time::Duration;
+    use std::time::Duration;
 
+    use miden_client_core::errors::RpcError;
     use miden_protocol::Word;
     use tonic::service::interceptor::InterceptedService;
     use tonic_web_wasm_client::options::FetchOptions;
 
     use super::{MetadataInterceptor, accept_header_interceptor};
-    use crate::rpc::RpcError;
-    use crate::rpc::generated::rpc::node_service_client::NodeServiceClient as ProtoClient;
+    use crate::generated::rpc::node_service_client::NodeServiceClient as ProtoClient;
 
     pub type WasmClient = tonic_web_wasm_client::Client;
     pub type InnerClient = ProtoClient<InterceptedService<WasmClient, MetadataInterceptor>>;
@@ -108,17 +106,15 @@ pub(crate) mod api_client_wrapper {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod api_client_wrapper {
-    use alloc::boxed::Box;
-    use alloc::string::String;
-    use core::time::Duration;
+    use std::time::Duration;
 
+    use miden_client_core::errors::RpcError;
     use miden_protocol::Word;
     use tonic::service::interceptor::InterceptedService;
     use tonic::transport::Channel;
 
     use super::{MetadataInterceptor, accept_header_interceptor};
-    use crate::rpc::RpcError;
-    use crate::rpc::generated::rpc::node_service_client::NodeServiceClient as ProtoClient;
+    use crate::generated::rpc::node_service_client::NodeServiceClient as ProtoClient;
 
     pub type InnerClient = ProtoClient<InterceptedService<Channel, MetadataInterceptor>>;
     #[derive(Clone)]
@@ -237,7 +233,7 @@ impl DerefMut for ApiClient {
 /// Interceptor designed to inject required metadata into all [`ApiClient`] requests.
 #[derive(Default, Clone)]
 pub struct MetadataInterceptor {
-    metadata: alloc::collections::BTreeMap<&'static str, AsciiMetadataValue>,
+    metadata: std::collections::BTreeMap<&'static str, AsciiMetadataValue>,
 }
 
 impl MetadataInterceptor {
@@ -259,12 +255,12 @@ impl MetadataInterceptor {
     pub(super) fn with_bearer_token(
         self,
         bearer_token: Option<&str>,
-    ) -> Result<Self, crate::rpc::RpcError> {
+    ) -> Result<Self, miden_client_core::errors::RpcError> {
         let Some(token) = bearer_token else {
             return Ok(self);
         };
-        self.with_metadata("authorization", alloc::format!("Bearer {token}"))
-            .map_err(|err| crate::rpc::RpcError::ConnectionError(alloc::boxed::Box::new(err)))
+        self.with_metadata("authorization", format!("Bearer {token}"))
+            .map_err(|err| miden_client_core::errors::RpcError::ConnectionError(Box::new(err)))
     }
 }
 
@@ -286,7 +282,7 @@ impl Interceptor for MetadataInterceptor {
 fn accept_header_interceptor(
     genesis_digest: Option<Word>,
     bearer_token: Option<&str>,
-) -> Result<MetadataInterceptor, crate::rpc::RpcError> {
+) -> Result<MetadataInterceptor, miden_client_core::errors::RpcError> {
     let version = env!("CARGO_PKG_VERSION");
     let mut accept_value = format!("application/vnd.miden; version={version}");
     if let Some(commitment) = genesis_digest {
@@ -346,7 +342,7 @@ mod tests {
         // Control characters are not valid ASCII metadata values; the builder must reject them
         // rather than silently dropping the header.
         match MetadataInterceptor::default().with_bearer_token(Some("bad\nvalue")) {
-            Err(crate::rpc::RpcError::ConnectionError(_)) => {},
+            Err(miden_client_core::errors::RpcError::ConnectionError(_)) => {},
             Err(other) => panic!("expected ConnectionError, got {other:?}"),
             Ok(_) => panic!("expected invalid metadata value to error"),
         }

@@ -1,10 +1,10 @@
-use core::time::Duration;
+use std::time::Duration;
 
+use miden_client_core::rpc::RpcEndpoint;
 use tonic::Status;
 use tracing::warn;
 
 use crate::grpc_support::{async_sleep, extract_retry_after};
-use crate::rpc::RpcEndpoint;
 
 // CONSTS
 // ================================================================================================
@@ -102,7 +102,7 @@ fn retry_delay(status: &Status, fallback_ms: u64) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use core::time::Duration;
+    use std::time::Duration;
 
     use tonic::metadata::MetadataMap;
     use tonic::{Code, Status};

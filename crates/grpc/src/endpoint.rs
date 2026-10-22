@@ -1,5 +1,4 @@
-use alloc::string::{String, ToString};
-use core::fmt;
+use std::fmt;
 
 use miden_protocol::address::NetworkId;
 
@@ -162,11 +161,9 @@ impl TryFrom<&str> for Endpoint {
 
 #[cfg(test)]
 mod test {
-    use alloc::string::ToString;
-
     use miden_protocol::address::NetworkId;
 
-    use crate::rpc::Endpoint;
+    use crate::Endpoint;
 
     #[test]
     fn network_id_of_known_endpoints() {
