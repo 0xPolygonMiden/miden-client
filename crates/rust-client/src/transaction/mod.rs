@@ -457,7 +457,7 @@ where
     ) -> Result<ChainAnchor, ClientError> {
         let inferred_input_note_ids: Vec<NoteId> = transaction_request
             .input_note_ids()
-            .filter(|note_id| !transaction_request.explicit_input_notes.contains_key(note_id))
+            .filter(|note_id| !transaction_request.explicit_input_notes().contains_key(note_id))
             .collect();
 
         let mut tracked_blocks: BTreeSet<BlockNumber> = if inferred_input_note_ids.is_empty() {
@@ -474,7 +474,7 @@ where
         };
         tracked_blocks.extend(
             transaction_request
-                .explicit_input_notes
+                .explicit_input_notes()
                 .values()
                 .filter_map(InputNote::proof)
                 .map(|proof| proof.location().block_num()),
@@ -1568,7 +1568,7 @@ fn get_outgoing_assets(
     // Create a map of the fungible and non-fungible assets in the output notes
     let outgoing_assets = output_notes_assets.values().flat_map(|note_assets| note_assets.iter());
 
-    request::collect_assets(outgoing_assets)
+    miden_client_core::transaction::collect_assets(outgoing_assets)
 }
 
 /// Sets default auth args when the request defines none.
