@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::string::ToString;
 use std::vec::Vec;
 
-use miden_client_core::rpc::AccountStorageRequirements;
+use miden_client_core::rpc::domain::account::AccountStorageRequirements;
 use miden_client_core::transaction::{
     DiscardCause,
     ForeignAccount,

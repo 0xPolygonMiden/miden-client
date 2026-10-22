@@ -17,7 +17,7 @@ use miden_protocol::{Felt, Word};
 use miden_standards::code_builder::CodeBuilder;
 
 use super::TransactionRequestError;
-use crate::rpc::AccountStorageRequirements;
+use crate::rpc::domain::account::AccountStorageRequirements;
 
 // FPI SCRIPT
 // ================================================================================================

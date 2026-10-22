@@ -763,7 +763,7 @@ mod tests {
         TransactionRequestBuilder,
         TransactionScript,
     };
-    use crate::rpc::AccountStorageRequirements;
+    use crate::rpc::domain::account::AccountStorageRequirements;
     use crate::transaction::ForeignAccount;
 
     #[test]
