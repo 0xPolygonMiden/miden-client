@@ -13,7 +13,7 @@
 * [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
 * [FEATURE][rust] Added `NodeRpcClient::get_account_details_at`, which fetches a public account at a given block and also returns the witness that commits to it ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
-* [FEATURE][rust] Added `Client::prune_chain_anchors`, which deletes the stored MMR peaks of the synced blocks up to a block number (#TBD).
+* [FEATURE][rust] Added `Client::prune_chain_anchors`, which deletes the stored MMR peaks of the synced blocks up to a block number ([#2740](https://github.com/0xMiden/rust-sdk/pull/2740)).
 
 ### Breaking Changes
 
