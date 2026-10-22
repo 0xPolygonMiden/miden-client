@@ -10,4 +10,4 @@ pub use record::{
 };
 
 mod store_update;
-pub use store_update::TransactionStoreUpdate;
+pub use store_update::{BatchStoreUpdate, TransactionStoreUpdate};

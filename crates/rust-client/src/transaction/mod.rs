@@ -134,6 +134,7 @@ pub use chain_anchor::{ChainAnchor, ChainAnchorError};
 mod dap_executor;
 mod prover;
 pub use miden_client_core::transaction::{
+    BatchStoreUpdate,
     DiscardCause,
     TransactionDetails,
     TransactionRecord,
