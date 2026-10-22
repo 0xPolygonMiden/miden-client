@@ -1,9 +1,6 @@
 // RPC LIMITS
 // ================================================================================================
 
-use alloc::format;
-use core::convert::TryFrom;
-
 use miden_client_core::errors::RpcConversionError;
 use miden_client_core::rpc::{RpcEndpoint, RpcLimits};
 
@@ -53,8 +50,6 @@ impl TryFrom<proto::GetLimitsResponse> for RpcLimits {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::String;
-
     use super::*;
 
     #[test]

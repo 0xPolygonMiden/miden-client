@@ -38,7 +38,7 @@ let (block_header, _) = client.get_block_header_by_number(None, false).await?;
 
 | Feature | Description                                                                        |
 |---------|------------------------------------------------------------------------------------|
-| `std`   | Enables the Rust standard library and the native `tonic` transport with TLS. On by default. |
+| `std`   | Enables the native `tonic` transport with TLS and the `std` features of the Miden dependencies. On by default. Turn it off for `wasm32`. |
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](../../LICENSE) file for details.

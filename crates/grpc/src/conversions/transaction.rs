@@ -1,5 +1,4 @@
-use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
+use std::collections::BTreeMap;
 
 use miden_client_core::errors::{RpcConversionError, RpcError};
 use miden_client_core::rpc::domain::note::CommittedNote;

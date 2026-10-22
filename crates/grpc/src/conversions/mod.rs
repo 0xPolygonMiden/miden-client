@@ -1,4 +1,4 @@
-use core::any::type_name;
+use std::any::type_name;
 
 use miden_client_core::errors::RpcConversionError;
 

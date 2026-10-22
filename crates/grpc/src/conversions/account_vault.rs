@@ -1,6 +1,3 @@
-use alloc::string::ToString;
-use alloc::vec::Vec;
-
 use miden_client_core::errors::RpcError;
 use miden_client_core::rpc::domain::account_vault::AccountVaultInfo;
 use miden_objects::DecodeMessageExt;

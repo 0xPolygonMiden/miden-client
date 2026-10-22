@@ -1,6 +1,3 @@
-use alloc::string::ToString;
-use alloc::vec::Vec;
-
 use miden_client_core::errors::{RpcConversionError, RpcError};
 use miden_client_core::rpc::domain::sync::{ChainMmrInfo, SyncTarget};
 use miden_objects::DecodeMessageExt;
@@ -83,9 +80,6 @@ impl TryFrom<proto::rpc::SyncChainMmrResponse> for ChainMmrInfo {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
-    use alloc::vec::Vec;
-
     use miden_protocol::Word;
     use miden_protocol::asset::AssetId;
     use miden_protocol::block::{BlockHeader, FeeParameters};

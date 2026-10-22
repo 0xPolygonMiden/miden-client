@@ -1,10 +1,6 @@
-use alloc::borrow::ToOwned;
-use alloc::boxed::Box;
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use core::error::Error;
-use core::pin::Pin;
+use std::collections::{BTreeMap, BTreeSet};
+use std::error::Error;
+use std::pin::Pin;
 
 use miden_protocol::vm::FutureMaybeSend;
 
@@ -1151,9 +1147,6 @@ fn decode_block_response(
 
 #[cfg(test)]
 mod tests {
-    use std::boxed::Box;
-    use std::vec;
-
     use miden_client_core::errors::RpcError;
     use miden_client_core::rpc::NodeRpcClient;
     use miden_protocol::Word;
@@ -1169,7 +1162,6 @@ mod tests {
         decode_block_response,
         proto,
     };
-    use crate::alloc::string::ToString;
 
     fn assert_send_sync<T: Send + Sync>() {}
 

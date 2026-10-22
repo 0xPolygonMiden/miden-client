@@ -1,13 +1,5 @@
 //! Default gRPC implementation of the `miden-client-core` `NodeRpcClient` trait.
 
-#![no_std]
-
-#[macro_use]
-extern crate alloc;
-
-#[cfg(feature = "std")]
-extern crate std;
-
 mod conversions;
 mod endpoint;
 pub use endpoint::Endpoint;

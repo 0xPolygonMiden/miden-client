@@ -1,7 +1,5 @@
-use alloc::collections::BTreeMap;
-use alloc::string::ToString;
-use alloc::vec::Vec;
-use core::fmt::{self, Debug, Formatter};
+use std::collections::BTreeMap;
+use std::fmt::{self, Debug, Formatter};
 
 use miden_client_core::errors::RpcError;
 use miden_client_core::rpc::domain::account::{
@@ -134,7 +132,7 @@ impl TryFrom<proto::rpc::AccountStorageDetails> for AccountStorageDetails {
         let map_details = value
             .map_details
             .into_iter()
-            .map(core::convert::TryInto::try_into)
+            .map(TryInto::try_into)
             .collect::<Result<Vec<AccountStorageMapDetails>, RpcError>>()?;
 
         // A partial map is only worth anything if it is anchored to the slot root the account
@@ -203,7 +201,7 @@ impl TryFrom<proto::rpc::account_storage_details::AccountStorageMapDetails>
                 let entries = all_entries
                     .entries
                     .into_iter()
-                    .map(core::convert::TryInto::try_into)
+                    .map(TryInto::try_into)
                     .collect::<Result<Vec<StorageMapEntry>, RpcError>>()?;
                 StorageMapEntries::AllEntries(entries)
             },
@@ -354,7 +352,6 @@ pub(crate) fn storage_map_fetch_to_proto(storage: StorageMapFetch) -> Option<Sto
 #[cfg(test)]
 mod tests {
     use super::proto;
-    use crate::alloc::string::ToString;
 
     #[test]
     fn invitation_code_validation_request_debug_hides_code() {

@@ -1,6 +1,5 @@
-use alloc::string::String;
-use core::fmt::Write;
-use core::ops::{Deref, DerefMut};
+use std::fmt::Write;
+use std::ops::{Deref, DerefMut};
 
 use api_client_wrapper::{ApiClient, InnerClient};
 use miden_protocol::Word;
@@ -13,8 +12,7 @@ use tonic::service::Interceptor;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod api_client_wrapper {
-    use alloc::string::String;
-    use core::time::Duration;
+    use std::time::Duration;
 
     use miden_client_core::errors::RpcError;
     use miden_protocol::Word;
@@ -108,9 +106,7 @@ pub(crate) mod api_client_wrapper {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod api_client_wrapper {
-    use alloc::boxed::Box;
-    use alloc::string::String;
-    use core::time::Duration;
+    use std::time::Duration;
 
     use miden_client_core::errors::RpcError;
     use miden_protocol::Word;
@@ -237,7 +233,7 @@ impl DerefMut for ApiClient {
 /// Interceptor designed to inject required metadata into all [`ApiClient`] requests.
 #[derive(Default, Clone)]
 pub struct MetadataInterceptor {
-    metadata: alloc::collections::BTreeMap<&'static str, AsciiMetadataValue>,
+    metadata: std::collections::BTreeMap<&'static str, AsciiMetadataValue>,
 }
 
 impl MetadataInterceptor {
@@ -263,10 +259,8 @@ impl MetadataInterceptor {
         let Some(token) = bearer_token else {
             return Ok(self);
         };
-        self.with_metadata("authorization", alloc::format!("Bearer {token}"))
-            .map_err(|err| {
-                miden_client_core::errors::RpcError::ConnectionError(alloc::boxed::Box::new(err))
-            })
+        self.with_metadata("authorization", format!("Bearer {token}"))
+            .map_err(|err| miden_client_core::errors::RpcError::ConnectionError(Box::new(err)))
     }
 }
 

@@ -1,4 +1,4 @@
-use core::time::Duration;
+use std::time::Duration;
 
 use miden_client_core::rpc::RpcEndpoint;
 use tonic::Status;
@@ -102,7 +102,7 @@ fn retry_delay(status: &Status, fallback_ms: u64) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use core::time::Duration;
+    use std::time::Duration;
 
     use tonic::metadata::MetadataMap;
     use tonic::{Code, Status};

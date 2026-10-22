@@ -1,6 +1,3 @@
-use alloc::string::ToString;
-use core::convert::TryInto;
-
 use miden_client_core::errors::RpcError;
 use miden_client_core::rpc::domain::status::{
     BlockProducerStatusInfo,

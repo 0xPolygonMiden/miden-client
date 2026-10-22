@@ -21,8 +21,6 @@ fn main() -> miette::Result<()> {
 
     compile_tonic_client_proto(&out_dir)?;
 
-    replace_no_std_types_in_dir(&out_dir.join(RPC_NOSTD_DIR))?;
-
     generate_wrapper(&out_dir, RPC_STD_DIR, RPC_STD_WRAPPER)?;
     generate_wrapper(&out_dir, RPC_NOSTD_DIR, RPC_NOSTD_WRAPPER)?;
 
@@ -126,28 +124,5 @@ fn generate_wrapper(out_dir: &Path, subdir: &str, wrapper_name: &str) -> miette:
 
     fs::write(out_dir.join(wrapper_name), wrapper).into_diagnostic()?;
 
-    Ok(())
-}
-
-// NO_STD REPLACEMENTS
-// ===============================================================================================
-
-/// Applies `no_std` type replacements to all `.rs` files in the given directory.
-///
-/// This is needed because `tonic_build` doesn't generate `no_std` compatible files and we need to
-/// build WASM without `std`.
-fn replace_no_std_types_in_dir(dir: &Path) -> miette::Result<()> {
-    for entry in fs::read_dir(dir).into_diagnostic()? {
-        let entry = entry.into_diagnostic()?;
-        let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "rs") {
-            let content = fs::read_to_string(&path).into_diagnostic()?;
-            let replaced = content
-                .replace("std::result", "core::result")
-                .replace("std::marker", "core::marker")
-                .replace("format!", "alloc::format!");
-            fs::write(&path, replaced).into_diagnostic()?;
-        }
-    }
     Ok(())
 }
