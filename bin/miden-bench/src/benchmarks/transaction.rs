@@ -130,8 +130,7 @@ pub async fn run_transaction_benchmarks(
     };
     println!();
 
-    // Each iteration opens its own client on the same store. Only one read-write store can open the
-    // file, so the setup client is closed first.
+    // Release the writer lock before each benchmark opens its own client.
     drop(client);
 
     // Benchmark 1: Transaction execution time (without proving)

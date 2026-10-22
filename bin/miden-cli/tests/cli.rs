@@ -806,7 +806,7 @@ async fn tx_show_decodes_p2ide_note_storage() -> Result<()> {
         .get_output_note(NoteId::try_from_hex(&note_id)?)
         .await?
         .expect("the transfer should store its output note");
-    // The store holds an exclusive lock, so the CLI cannot open it while this client is alive.
+    // Release the writer lock before the CLI opens the store.
     drop(client);
 
     let mut show_cmd = cargo_bin_cmd!("miden-client");
@@ -945,8 +945,7 @@ async fn notes_show_prints_decoded_storage_and_consumer_transaction() -> Result<
         .unwrap_or_else(|| panic!("the transfer should report an output note ID:\n{stdout}"))
         .to_string();
 
-    // Get the consuming transaction from the store. The client is dropped before the CLI runs,
-    // because the store holds an exclusive lock.
+    // Close this client before the CLI opens the store.
     let consumer_tx = {
         let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
         client
@@ -1038,8 +1037,6 @@ async fn notes_show_decodes_swap_note_storage() -> Result<()> {
     sync_until_committed_note(&temp_dir);
     consume_note_cli(&temp_dir, &sender_account_id, &[&minted_note_id]);
 
-    // The CLI holds the exclusive lock while it runs, so the notes are read through a read-only
-    // store.
     let store = SqliteStore::open_read_only(store_path.clone()).await?;
     // Runs `swap` and returns the ID and serial number of the SWAP note.
     let swap_note = async |payback_note_type: &str| -> Result<(String, Word)> {
@@ -1488,7 +1485,7 @@ async fn cli_export_import_account() -> Result<()> {
 
     assert!(client_2.get_account(AccountId::from_hex(&faucet_id)?).await.is_ok());
     assert!(client_2.get_account(AccountId::from_hex(&wallet_id)?).await.is_ok());
-    // The store holds an exclusive lock, so the CLI cannot open it while this client is alive.
+    // Release the writer lock before the CLI opens the store.
     drop(client_2);
     sync_cli(&temp_dir_2);
 

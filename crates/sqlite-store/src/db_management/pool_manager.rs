@@ -27,27 +27,31 @@ pub struct SqlitePoolManager {
     read_only: bool,
 }
 
-/// `SQLite` connection pool manager
 impl SqlitePoolManager {
-    /// Returns a manager that opens read-write connections and creates the database if it does not
-    /// exist.
+    /// Opens read-write connections and creates the database if needed.
     pub fn new(database_path: PathBuf) -> Self {
         Self { database_path, read_only: false }
     }
 
-    /// Returns a manager that opens read-only connections to an existing database.
-    ///
-    /// `SQLite` refuses every write on these connections.
+    /// Opens read-only connections to an existing database.
     pub fn read_only(database_path: PathBuf) -> Self {
         Self { database_path, read_only: true }
     }
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
+        let flags = if self.read_only {
+            OpenFlags::SQLITE_OPEN_READ_ONLY
+                | OpenFlags::SQLITE_OPEN_URI
+                | OpenFlags::SQLITE_OPEN_NO_MUTEX
+        } else {
+            OpenFlags::default()
+        };
+        let conn = Connection::open_with_flags(&self.database_path, flags)?;
+        array::load_module(&conn)?;
+        conn.busy_timeout(Duration::from_secs(5))?;
         if self.read_only {
-            return self.new_read_only_connection();
+            return Ok(conn);
         }
-
-        let conn = Connection::open(&self.database_path)?;
 
         // Restrict database file permissions to owner-only on Unix. Also covers WAL and SHM journal
         // files that SQLite may create.
@@ -71,12 +75,6 @@ impl SqlitePoolManager {
             }
         }
 
-        // Feature used to support `IN` and `NOT IN` queries. We need to load this module for every
-        // connection we create to the DB to support the queries we want to run
-        array::load_module(&conn)?;
-
-        conn.busy_timeout(Duration::from_secs(5))?;
-
         let journal_mode: String =
             conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))?;
         if !journal_mode.eq_ignore_ascii_case("wal") {
@@ -92,21 +90,6 @@ impl SqlitePoolManager {
 
         // Enable foreign key checks.
         conn.pragma_update(None, "foreign_keys", "ON")?;
-
-        Ok(conn)
-    }
-
-    /// Opens a read-only connection. The journal mode and file permissions are left as the
-    /// read-write connections set them, because a read-only connection cannot change them.
-    fn new_read_only_connection(&self) -> rusqlite::Result<Connection> {
-        let conn = Connection::open_with_flags(
-            &self.database_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY
-                | OpenFlags::SQLITE_OPEN_URI
-                | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )?;
-        array::load_module(&conn)?;
-        conn.busy_timeout(Duration::from_secs(5))?;
 
         Ok(conn)
     }

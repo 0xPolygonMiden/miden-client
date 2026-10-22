@@ -88,46 +88,15 @@ mod transaction;
 
 /// `SQLite`-backed [`Store`] implementation.
 ///
-/// Current table definitions are the result of applying every migration under `migrations/` in
-/// order.
+/// [`Self::new`] permits one read-write store per database across processes. It holds an advisory
+/// lock on an adjacent `.lock` file until the store and its database jobs finish.
+/// [`Self::open_read_only`] permits concurrent readers and rejects writes.
 ///
-/// # Concurrent access
-///
-/// Only one client instance must write to a database file at a time. Two clients that sync, import
-/// notes, or apply transactions on the same file at the same time can leave the store in an
-/// incorrect state, because each operation reads the store, waits for the node, and then writes.
-/// `SQLite` makes each write atomic, but it cannot prevent a write that is based on data that
-/// another client changed.
-///
-/// A store opens a database file in one of two modes:
-///
-/// - [`SqliteStore::new`] opens the file for reading and writing. The store takes an exclusive lock on a `.lock` file next to the database and holds it for its lifetime. Only one such store can open the file at a time.
-/// - [`SqliteStore::open_read_only`] opens the file only for reading. The store does not take the lock, so it can open the file while a read-write store has it open, and many read-only stores can open the same file. `SQLite` refuses every write through this store.
-///
-/// A read-only store reads a consistent state of the database. It sees the commits of the
-/// read-write store when they complete.
-///
-/// A read-write store that cannot get the lock fails to open with [`StoreError::StoreLocked`]. The
-/// store does not wait for the lock.
-///
-/// The lock applies to stores in the same process and in different processes. It is advisory, so it
-/// does not stop a program that opens the database file without a `SqliteStore`.
-///
-/// The lock does not stop several clients from sharing one `SqliteStore` instance, for example
-/// through clones of an `Arc<SqliteStore>`. Do not share one read-write store between clients.
-///
-/// A database job keeps the lock until it finishes, even if its caller cancels the operation and
-/// drops the store. The operating system releases the lock when the last holder drops it or the
-/// process stops, also after a crash or a restart. The `.lock` file stays on disk and has no effect
-/// when no store or job holds it. Do not delete it while a store is open. On network file systems,
-/// the lock can be unreliable or can stay held for some time after a crash.
+/// Do not share a read-write store between clients. Do not delete its `.lock` file while it is in
+/// use. Database-file symlinks are not supported.
 pub struct SqliteStore {
     pub(crate) pool: Pool,
     database_filepath: PathBuf,
-    /// The open `.lock` file that holds the exclusive lock on the database file. A read-only store
-    /// does not hold the lock.
-    ///
-    /// Database jobs share this handle so cancellation cannot release the lock before they finish.
     lock: Option<Arc<File>>,
 }
 
@@ -135,62 +104,44 @@ impl SqliteStore {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Opens the store at `database_filepath` for reading and writing.
+    /// Opens or creates a read-write store and applies schema migrations.
     ///
-    /// Creates the database if it does not exist and applies the schema migrations. The store holds
-    /// an exclusive lock on the file until the store and its database jobs finish. The lock is
-    /// taken before the migrations run. See [Concurrent access](SqliteStore#concurrent-access) for
-    /// how the lock works.
-    ///
-    /// # Errors
-    ///
-    /// - [`StoreError::StoreLocked`] if another read-write store holds the file, in this process or in a different process.
-    /// - [`StoreError::DatabaseError`] if the path is not a UTF-8 filesystem path, if the `.lock` file cannot be opened or locked, or if the database cannot be opened or migrated.
+    /// Returns [`StoreError::StoreLocked`] without waiting if another writer holds the lock.
+    /// Returns [`StoreError::DatabaseError`] if the path is invalid or the store cannot be opened
+    /// or migrated.
     pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
-        let resolved_path = resolve_database_path(&database_filepath)?;
-
-        let lock = Arc::new(lock_store(&resolved_path)?);
-        let pool = build_pool(SqlitePoolManager::new(resolved_path))?;
-        Self::migrate(&pool, SqliteMigrator::client(), Arc::clone(&lock)).await?;
-
-        // Account SMT data is persisted in the forest tables and read on demand, so no state needs
-        // to be rebuilt here.
-        Ok(SqliteStore {
-            pool,
+        validate_database_path(&database_filepath)?;
+        let lock = Arc::new(lock_store(&database_filepath)?);
+        let store = Self {
+            pool: build_pool(SqlitePoolManager::new(database_filepath.clone()))?,
             database_filepath,
             lock: Some(lock),
-        })
+        };
+        store
+            .interact_with_connection(|conn| {
+                SqliteMigrator::client().apply(conn).map_err(database_error)
+            })
+            .await?;
+        Ok(store)
     }
 
-    /// Opens the existing store at `database_filepath` only for reading.
+    /// Opens an existing store for reading without taking the writer lock or applying migrations.
     ///
-    /// The store does not take the lock, so it can open a file that a read-write store holds. Use
-    /// it to read a store while a client uses it, for example from a tool or a test. See
-    /// [Concurrent access](SqliteStore#concurrent-access).
-    ///
-    /// The store does not create the database and does not apply migrations. A read-write store
-    /// must open the file first. Every [`Store`] method that writes fails with
-    /// [`StoreError::DatabaseError`], so do not give this store to a client that syncs, imports
-    /// notes, or executes transactions.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`StoreError::DatabaseError`] if the path is not a UTF-8 filesystem path, if the
-    /// database does not exist or cannot be opened, or if its schema is not the latest version that
-    /// this client supports.
+    /// Returns [`StoreError::DatabaseError`] if the path is invalid, the database cannot be opened,
+    /// or the schema is not current. Writes through this store also return this error.
     pub async fn open_read_only(database_filepath: PathBuf) -> Result<Self, StoreError> {
-        let resolved_path = resolve_database_path(&database_filepath)?;
-
-        let pool = build_pool(SqlitePoolManager::read_only(resolved_path))?;
-        pool.get()
-            .await
-            .map_err(database_error)?
-            .interact(|conn| SqliteMigrator::client().verify(conn))
-            .await
-            .map_err(database_error)?
-            .map_err(database_error)?;
-
-        Ok(SqliteStore { pool, database_filepath, lock: None })
+        validate_database_path(&database_filepath)?;
+        let store = Self {
+            pool: build_pool(SqlitePoolManager::read_only(database_filepath.clone()))?,
+            database_filepath,
+            lock: None,
+        };
+        store
+            .interact_with_connection(|conn| {
+                SqliteMigrator::client().verify(conn).map_err(database_error)
+            })
+            .await?;
+        Ok(store)
     }
 
     /// Returns the path of the database file backing this store.
@@ -198,32 +149,8 @@ impl SqliteStore {
         &self.database_filepath
     }
 
-    /// Brings the database in `pool` up to the latest version of the schema `migration` builds.
-    ///
-    /// The upgrade is verified before it is committed, so a failure is rolled back by `SQLite` and
-    /// leaves the store exactly as it was.
-    async fn migrate(
-        pool: &Pool,
-        migration: &'static SqliteMigrator,
-        lock: Arc<File>,
-    ) -> Result<(), StoreError> {
-        let conn = pool.get().await.map_err(database_error)?;
-
-        conn.interact(move |conn| {
-            let _lock = lock;
-            migration.apply(conn)
-        })
-        .await
-        .map_err(database_error)?
-        .map_err(database_error)
-    }
-
-    /// Interacts with the database by executing the provided function on a connection from the
-    /// pool.
-    ///
-    /// This function is a helper method which simplifies the process of making queries to the
-    /// database. It acquires a connection from the pool and executes the provided function,
-    /// returning the result.
+    /// Runs a database job and holds the writer lock until the job finishes, even after
+    /// cancellation.
     async fn interact_with_connection<F, R>(&self, f: F) -> Result<R, StoreError>
     where
         F: FnOnce(&mut Connection) -> Result<R, StoreError> + Send + 'static,
@@ -807,16 +734,7 @@ impl Store for SqliteStore {
 // UTILS
 // ================================================================================================
 
-/// Takes the exclusive lock on the `.lock` file next to the database and returns the handle that
-/// holds it.
-///
-/// The lock is on a separate file because `SQLite` takes its own locks on the database file and its
-/// journal files. The function does not wait. It returns [`StoreError::StoreLocked`] if another
-/// handle holds the lock.
-///
-/// The operating system releases the lock when the handle closes or the process stops, so a crash
-/// cannot leave the store locked. The file is not deleted. A deleted file lets a new store lock a
-/// new file while an old store still holds the lock on the deleted one.
+/// Locks a separate file to avoid interference with SQLite's database and journal locks.
 fn lock_store(database_filepath: &Path) -> Result<File, StoreError> {
     let mut lock_path = database_filepath.as_os_str().to_owned();
     lock_path.push(".lock");
@@ -841,47 +759,19 @@ fn lock_store(database_filepath: &Path) -> Result<File, StoreError> {
     Ok(file)
 }
 
-/// Refuses a path that is not valid UTF-8, because [`Store::identifier`] returns the path as
-/// `&str`.
-fn check_utf8_path(database_filepath: &Path) -> Result<(), StoreError> {
-    if database_filepath.to_str().is_none() {
-        return Err(database_error(format!(
-            "database path is not valid UTF-8: {}",
-            database_filepath.display()
-        )));
+fn validate_database_path(database_filepath: &Path) -> Result<(), StoreError> {
+    let path = database_filepath.to_str().ok_or_else(|| {
+        database_error(format!("database path is not valid UTF-8: {}", database_filepath.display()))
+    })?;
+    if matches!(path, "" | ":memory:") || path.starts_with("file:") {
+        return Err(database_error("SQLite stores require a filesystem database path"));
+    }
+    if database_filepath.is_symlink() {
+        return Err(database_error("database path must not be a symlink"));
     }
     Ok(())
 }
 
-/// Resolves the file path so symlink aliases use the same database and lock file.
-fn resolve_database_path(database_filepath: &Path) -> Result<PathBuf, StoreError> {
-    check_utf8_path(database_filepath)?;
-    let path = database_filepath.to_str().expect("the path is UTF-8");
-    if matches!(path, "" | ":memory:") || path.starts_with("file:") {
-        return Err(database_error("SQLite stores require a filesystem database path"));
-    }
-
-    let resolved = match database_filepath.canonicalize() {
-        Ok(path) => path,
-        Err(err)
-            if err.kind() == std::io::ErrorKind::NotFound && !database_filepath.is_symlink() =>
-        {
-            let name = database_filepath
-                .file_name()
-                .ok_or_else(|| database_error("database path has no file name"))?;
-            let parent = database_filepath
-                .parent()
-                .filter(|parent| !parent.as_os_str().is_empty())
-                .unwrap_or_else(|| Path::new("."));
-            parent.canonicalize().map_err(database_error)?.join(name)
-        },
-        Err(err) => return Err(database_error(err)),
-    };
-    check_utf8_path(&resolved)?;
-    Ok(resolved)
-}
-
-/// Builds the connection pool for `manager`.
 fn build_pool(manager: SqlitePoolManager) -> Result<Pool, StoreError> {
     Pool::builder(manager)
         .wait_timeout(Some(Duration::from_secs(30)))
@@ -972,19 +862,12 @@ pub(crate) fn with_write_tx<R>(
 #[cfg(test)]
 pub mod tests {
     use std::boxed::Box;
-    use std::sync::{Arc, LazyLock};
 
     use miden_client::testing::common::create_test_store_path;
     use miden_client_core::store::Store;
 
-    use super::db_management::migration::SqliteMigrator;
     use super::db_management::migration::tests::damaging_migration;
-    use super::db_management::pool_manager::SqlitePoolManager;
-    use super::{Pool, SqliteStore, StoreError, column_value_as_u64, u64_to_value, with_write_tx};
-
-    /// A migration set that changes the store and is then rejected, which is the failure the
-    /// rollback has to undo.
-    static DAMAGING_MIGRATION: LazyLock<SqliteMigrator> = LazyLock::new(damaging_migration);
+    use super::{SqliteStore, StoreError, column_value_as_u64, u64_to_value, with_write_tx};
 
     #[cfg(unix)]
     #[test]
@@ -1005,26 +888,27 @@ pub mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn symlinked_database_uses_the_same_writer_lock() -> anyhow::Result<()> {
+    async fn symlinked_database_is_rejected() -> anyhow::Result<()> {
         let path = create_test_store_path();
-        let alias = create_test_store_path();
-        let writer = SqliteStore::new(path.clone()).await?;
-        writer.set_setting("key".to_string(), b"value".to_vec()).await?;
-        std::os::unix::fs::symlink(&path, &alias)?;
+        let _writer = SqliteStore::new(path.clone()).await?;
+        for target in [path, create_test_store_path()] {
+            let alias = create_test_store_path();
+            std::os::unix::fs::symlink(target, &alias)?;
+            for result in
+                [SqliteStore::new(alias.clone()).await, SqliteStore::open_read_only(alias).await]
+            {
+                assert!(
+                    matches!(result, Err(StoreError::DatabaseError(message)) if message.contains("symlink"))
+                );
+            }
+        }
 
-        assert!(matches!(SqliteStore::new(alias.clone()).await, Err(StoreError::StoreLocked(_))));
-        let reader = SqliteStore::open_read_only(alias.clone()).await?;
-        assert_eq!(reader.get_setting("key".to_string()).await?, Some(b"value".to_vec()));
-
-        drop(writer);
-        let _writer = SqliteStore::new(alias).await?;
-        assert!(matches!(SqliteStore::new(path).await, Err(StoreError::StoreLocked(_))));
         Ok(())
     }
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn new_database_resolves_its_parent_directory() -> anyhow::Result<()> {
+    async fn symlinked_parent_directory_uses_the_same_writer_lock() -> anyhow::Result<()> {
         let path = create_test_store_path();
         let alias = create_test_store_path();
         std::os::unix::fs::symlink(path.parent().expect("test path has a parent"), &alias)?;
@@ -1082,19 +966,20 @@ pub mod tests {
     #[tokio::test]
     async fn failed_migration_leaves_the_store_as_it_was() {
         let database_filepath = create_test_store_path();
-        drop(SqliteStore::new(database_filepath.clone()).await.unwrap());
-
-        let pool = Pool::builder(SqlitePoolManager::new(database_filepath.clone()))
-            .build()
-            .unwrap();
-        let lock = Arc::new(super::lock_store(&database_filepath).unwrap());
-        let err = SqliteStore::migrate(&pool, &DAMAGING_MIGRATION, lock).await.unwrap_err();
+        let store = SqliteStore::new(database_filepath.clone()).await.unwrap();
+        let err = store
+            .interact_with_connection(|conn| {
+                damaging_migration().apply(conn).map_err(super::database_error)
+            })
+            .await
+            .unwrap_err();
 
         assert!(
             err.to_string().contains("produced a schema this client does not expect"),
             "the migration should have been rejected, got {err}"
         );
         // Reopening verifies the schema, so it only succeeds if the dropped table is still there.
+        drop(store);
         SqliteStore::new(database_filepath).await.unwrap();
     }
 
