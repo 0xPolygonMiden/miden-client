@@ -323,270 +323,275 @@ impl NoteUpdateTracker {
         }
         self.output_notes.insert(note_id, TrackedNote::new(note, None));
     }
-}
 
-// UPDATE FUNCTIONS
-// ================================================================================================
+    /// Inserts the new public note data into the tracker. This method doesn't check the relevance
+    /// of the note, so it should only be used for notes that are guaranteed to be relevant to the
+    /// client.
+    pub(crate) fn apply_new_public_note(
+        &mut self,
+        mut public_note_data: InputNoteRecord,
+        block_header: &BlockHeader,
+    ) -> Result<(), ClientError> {
+        public_note_data.block_header_received(block_header)?;
+        self.insert_input_note(public_note_data, Some(NoteUpdateType::Insert));
 
-/// Inserts the new public note data into the tracker. This function doesn't check the relevance of
-/// the note, so it should only be used for notes that are guaranteed to be relevant to the client.
-pub(crate) fn apply_new_public_note(
-    tracker: &mut NoteUpdateTracker,
-    mut public_note_data: InputNoteRecord,
-    block_header: &BlockHeader,
-) -> Result<(), ClientError> {
-    public_note_data.block_header_received(block_header)?;
-    tracker.insert_input_note(public_note_data, Some(NoteUpdateType::Insert));
-
-    Ok(())
-}
-
-/// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is committed in
-/// a block and returns whether the committed note is tracked as input note.
-pub(crate) fn apply_committed_note_state_transitions(
-    tracker: &mut NoteUpdateTracker,
-    committed_note: &CommittedNote,
-    block_header: &BlockHeader,
-) -> Result<bool, ClientError> {
-    let inclusion_proof = committed_note.inclusion_proof().clone();
-    let metadata = *committed_note.metadata();
-    let note_id = *committed_note.note_id();
-    let attachments = committed_note.attachments().filter(|attachments| !attachments.is_empty());
-
-    let is_tracked_as_input_note = if let Some(input_note_record) =
-        tracker.get_input_note_by_id(note_id)
-    {
-        input_note_record.inclusion_received(inclusion_proof.clone(), metadata, block_header)?;
-        if let Some(attachments) = attachments {
-            input_note_record.attachments_received(attachments.clone());
-        }
-
-        true
-    } else if let Some(commitment) = tracker.expected_note_matching(note_id, &metadata) {
-        // A metadata-less note whose id, with the committed metadata, equals this note id: evolve
-        // it into a full record (its details commitment key is unchanged).
-        let mut record = tracker
-            .input_note_by_commitment(commitment)
-            .expect("commitment was just matched against the tracked notes")
-            .clone();
-        record.inclusion_received(inclusion_proof.clone(), metadata, block_header)?;
-        if let Some(attachments) = attachments {
-            record.attachments_received(attachments.clone());
-        }
-
-        // `InsertCommitted` so the now-known `note_id`/`nullifier` columns are persisted (a
-        // full-row insert), while still being reported as a committed tracked note rather than a
-        // newly-discovered one. The insert also registers the note in the id and nullifier indices.
-        tracker.insert_input_note(record, Some(NoteUpdateType::InsertCommitted));
-
-        true
-    } else {
-        false
-    };
-
-    try_commit_output_note(tracker, note_id, inclusion_proof)?;
-
-    Ok(is_tracked_as_input_note)
-}
-
-/// Applies inclusion proofs from the transaction sync response to tracked output notes.
-///
-/// This transitions output notes from `Expected` to `Committed` state using the inclusion proofs
-/// returned by `SyncTransactions`.
-pub(crate) fn apply_output_note_inclusion_proofs(
-    tracker: &mut NoteUpdateTracker,
-    committed_notes: &[CommittedNote],
-) -> Result<(), ClientError> {
-    for committed_note in committed_notes {
-        try_commit_output_note(
-            tracker,
-            *committed_note.note_id(),
-            committed_note.inclusion_proof().clone(),
-        )?;
-    }
-    Ok(())
-}
-
-/// Marks an erased note as consumed.
-///
-/// This handles notes that were erased due to same-batch note erasure: the note was created and
-/// consumed within the same batch, so it never appeared in the block body. The `block_num` is the
-/// block in which the creating transaction was committed.
-///
-/// The consumer account id is derived from the tracked input record's attachments (a
-/// [`NetworkAccountTarget`], when present), not from the erased-note RPC stream, which delivers
-/// only a [`NoteHeader`]. When no such attachment is present the consumer is left unknown.
-pub(crate) fn mark_erased_note_as_consumed(
-    tracker: &mut NoteUpdateTracker,
-    note_header: &NoteHeader,
-    block_num: BlockNumber,
-) -> Result<(), ClientError> {
-    let note_id = note_header.id();
-
-    if let Some(output_note) = tracker.get_output_note_by_id(note_id)
-        && output_note.is_inclusion_pending()
-        && let Some(nullifier) = output_note.nullifier()
-    {
-        output_note.nullifier_received(nullifier, block_num)?;
+        Ok(())
     }
 
-    // Read first, so that the record is marked as updated only when it changes.
-    let unconsumed_input = tracker
-        .input_note_by_id(note_id)
-        .filter(|input_note| !input_note.is_consumed())
-        .and_then(|input_note| {
-            let consumer_account = NetworkAccountTarget::try_from(input_note.attachments())
-                .ok()
-                .map(|target| target.target_id());
-            input_note.nullifier().map(|nullifier| (nullifier, consumer_account))
-        });
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
+    /// committed in a block and returns whether the committed note is tracked as input note.
+    pub(crate) fn apply_committed_note_state_transitions(
+        &mut self,
+        committed_note: &CommittedNote,
+        block_header: &BlockHeader,
+    ) -> Result<bool, ClientError> {
+        let inclusion_proof = committed_note.inclusion_proof().clone();
+        let metadata = *committed_note.metadata();
+        let note_id = *committed_note.note_id();
+        let attachments =
+            committed_note.attachments().filter(|attachments| !attachments.is_empty());
 
-    if let Some((nullifier, consumer_account)) = unconsumed_input {
-        let input_note = tracker
-            .get_input_note_by_id(note_id)
-            .expect("input note was just found in the tracker");
-        input_note.consumed_externally(nullifier, block_num, consumer_account)?;
-        input_note.set_consumed_tx_order(Some(0));
+        let is_tracked_as_input_note =
+            if let Some(input_note_record) = self.get_input_note_by_id(note_id) {
+                input_note_record.inclusion_received(
+                    inclusion_proof.clone(),
+                    metadata,
+                    block_header,
+                )?;
+                if let Some(attachments) = attachments {
+                    input_note_record.attachments_received(attachments.clone());
+                }
+
+                true
+            } else if let Some(commitment) = self.expected_note_matching(note_id, &metadata) {
+                // A metadata-less note whose id, with the committed metadata, equals this note id:
+                // evolve it into a full record (its details commitment key is unchanged).
+                let mut record = self
+                    .input_note_by_commitment(commitment)
+                    .expect("commitment was just matched against the tracked notes")
+                    .clone();
+                record.inclusion_received(inclusion_proof.clone(), metadata, block_header)?;
+                if let Some(attachments) = attachments {
+                    record.attachments_received(attachments.clone());
+                }
+
+                // `InsertCommitted` so the now-known `note_id`/`nullifier` columns are persisted (a
+                // full-row insert), while still being reported as a committed tracked note rather
+                // than a newly-discovered one. The insert also registers the note in the id and
+                // nullifier indices.
+                self.insert_input_note(record, Some(NoteUpdateType::InsertCommitted));
+
+                true
+            } else {
+                false
+            };
+
+        self.try_commit_output_note(note_id, inclusion_proof)?;
+
+        Ok(is_tracked_as_input_note)
     }
 
-    Ok(())
-}
-
-/// Records `note` as consumed by `consumer`, as a
-/// [`ConsumedExternal`](crate::store::InputNoteState::ConsumedExternal) input-note record.
-///
-/// No-op when the note is already tracked: recovery runs after transaction and nullifier
-/// processing, so a tracked record's consumption has already been applied through
-/// [`apply_note_consumption`].
-pub(crate) fn insert_consumed_public_note(
-    tracker: &mut NoteUpdateTracker,
-    note: Note,
-    consumer: AccountId,
-    block_num: BlockNumber,
-) -> Result<(), ClientError> {
-    let note_id = note.id();
-    if tracker.tracks_note(note_id) {
-        return Ok(());
-    }
-    let nullifier = note.nullifier();
-    // The consuming transaction belongs to this sync, so its nullifier must have a position in the
-    // execution order; storing the record without one would break the ordering guarantees of
-    // `InputNoteReader`.
-    let order = tracker
-        .get_nullifier_order(nullifier)
-        .ok_or(ClientError::MissingConsumedNoteOrder(note_id))?;
-    let mut record = InputNoteRecord::from(note);
-    record.consumed_externally(nullifier, block_num, Some(consumer))?;
-    record.set_consumed_tx_order(Some(order));
-    tracker.insert_input_note(record, Some(NoteUpdateType::Insert));
-    Ok(())
-}
-
-/// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is nullified in
-/// a block.
-///
-/// For input note records two possible scenarios are considered:
-/// 1. The note was being processed by a local transaction that just got committed.
-/// 2. The note was consumed by a transaction not submitted by this client. This includes
-///    consumption by untracked accounts as well as consumption by tracked accounts whose
-///    transactions were submitted by other client instances. If a local transaction was processing
-///    the note and it didn't get committed, the transaction should be discarded.
-///
-/// If the note is tracked as an output but not as an input (e.g. the client tracks both the sender
-/// and the consumer), a new input record is created from the output details so the consumption
-/// surfaces through `InputNoteReader`.
-pub(crate) fn apply_note_consumption<'a>(
-    tracker: &mut NoteUpdateTracker,
-    consumption: &NoteConsumption,
-    mut committed_transactions: impl Iterator<Item = &'a TransactionRecord>,
-) -> Result<(), ClientError> {
-    let nullifier = consumption.nullifier;
-    let block_num = consumption.block_num;
-    let external_consumer = consumption.external_consumer;
-    let order = tracker.get_nullifier_order(nullifier);
-    let input_present = tracker.has_input_note_with_nullifier(nullifier);
-
-    if let Some(input_note_update) = tracker.get_input_note_update_by_nullifier(nullifier) {
-        if let Some(consumer_transaction) = committed_transactions
-            .find(|t| input_note_update.inner().consumer_transaction_id() == Some(&t.id))
-        {
-            // The note was being processed by a local transaction that just got committed
-            if let TransactionStatus::Committed { block_number, .. } = consumer_transaction.status {
-                input_note_update
-                    .inner_mut()
-                    .transaction_committed(consumer_transaction.id, block_number)?;
-            }
-        } else {
-            // The note was consumed by a transaction not submitted by this client. If the consuming
-            // account is tracked, external_consumer will be Some.
-            input_note_update.inner_mut().consumed_externally(
-                nullifier,
-                block_num,
-                external_consumer,
+    /// Applies inclusion proofs from the transaction sync response to tracked output notes.
+    ///
+    /// This transitions output notes from `Expected` to `Committed` state using the inclusion
+    /// proofs returned by `SyncTransactions`.
+    pub(crate) fn apply_output_note_inclusion_proofs(
+        &mut self,
+        committed_notes: &[CommittedNote],
+    ) -> Result<(), ClientError> {
+        for committed_note in committed_notes {
+            self.try_commit_output_note(
+                *committed_note.note_id(),
+                committed_note.inclusion_proof().clone(),
             )?;
         }
-        input_note_update.inner_mut().set_consumed_tx_order(order);
+        Ok(())
     }
 
-    if let Some(output_note_record) = tracker.get_output_note_by_nullifier(nullifier) {
-        output_note_record.nullifier_received(nullifier, block_num)?;
+    /// Marks an erased note as consumed.
+    ///
+    /// This handles notes that were erased due to same-batch note erasure: the note was created and
+    /// consumed within the same batch, so it never appeared in the block body. The `block_num` is
+    /// the block in which the creating transaction was committed.
+    ///
+    /// The consumer account id is derived from the tracked input record's attachments (a
+    /// [`NetworkAccountTarget`], when present), not from the erased-note RPC stream, which delivers
+    /// only a [`NoteHeader`]. When no such attachment is present the consumer is left unknown.
+    pub(crate) fn mark_erased_note_as_consumed(
+        &mut self,
+        note_header: &NoteHeader,
+        block_num: BlockNumber,
+    ) -> Result<(), ClientError> {
+        let note_id = note_header.id();
+
+        if let Some(output_note) = self.get_output_note_by_id(note_id)
+            && output_note.is_inclusion_pending()
+            && let Some(nullifier) = output_note.nullifier()
+        {
+            output_note.nullifier_received(nullifier, block_num)?;
+        }
+
+        // Read first, so that the record is marked as updated only when it changes.
+        let unconsumed_input = self
+            .input_note_by_id(note_id)
+            .filter(|input_note| !input_note.is_consumed())
+            .and_then(|input_note| {
+                let consumer_account = NetworkAccountTarget::try_from(input_note.attachments())
+                    .ok()
+                    .map(|target| target.target_id());
+                input_note.nullifier().map(|nullifier| (nullifier, consumer_account))
+            });
+
+        if let Some((nullifier, consumer_account)) = unconsumed_input {
+            let input_note = self
+                .get_input_note_by_id(note_id)
+                .expect("input note was just found in the tracker");
+            input_note.consumed_externally(nullifier, block_num, consumer_account)?;
+            input_note.set_consumed_tx_order(Some(0));
+        }
+
+        Ok(())
     }
 
-    if !input_present
-        && let Some(consumer) = external_consumer
-        && let Some(note_id) = tracker.output_note_id_by_nullifier(nullifier)
-    {
-        try_insert_consumed_input_from_output(tracker, note_id, consumer, block_num, order)?;
+    /// Records `note` as consumed by `consumer`, as a
+    /// [`ConsumedExternal`](crate::store::InputNoteState::ConsumedExternal) input-note record.
+    ///
+    /// No-op when the note is already tracked: recovery runs after transaction and nullifier
+    /// processing, so a tracked record's consumption has already been applied through
+    /// [`Self::apply_note_consumption`].
+    pub(crate) fn insert_consumed_public_note(
+        &mut self,
+        note: Note,
+        consumer: AccountId,
+        block_num: BlockNumber,
+    ) -> Result<(), ClientError> {
+        let note_id = note.id();
+        if self.tracks_note(note_id) {
+            return Ok(());
+        }
+        let nullifier = note.nullifier();
+        // The consuming transaction belongs to this sync, so its nullifier must have a position in
+        // the execution order; storing the record without one would break the ordering guarantees
+        // of `InputNoteReader`.
+        let order = self
+            .get_nullifier_order(nullifier)
+            .ok_or(ClientError::MissingConsumedNoteOrder(note_id))?;
+        let mut record = InputNoteRecord::from(note);
+        record.consumed_externally(nullifier, block_num, Some(consumer))?;
+        record.set_consumed_tx_order(Some(order));
+        self.insert_input_note(record, Some(NoteUpdateType::Insert));
+        Ok(())
     }
 
-    Ok(())
-}
+    /// Applies the necessary state transitions to the [`NoteUpdateTracker`] when a note is
+    /// nullified in a block.
+    ///
+    /// For input note records two possible scenarios are considered:
+    /// 1. The note was being processed by a local transaction that just got committed.
+    /// 2. The note was consumed by a transaction not submitted by this client. This includes
+    ///    consumption by untracked accounts as well as consumption by tracked accounts whose
+    ///    transactions were submitted by other client instances. If a local transaction was
+    ///    processing the note and it didn't get committed, the transaction should be discarded.
+    ///
+    /// If the note is tracked as an output but not as an input (e.g. the client tracks both the
+    /// sender and the consumer), a new input record is created from the output details so the
+    /// consumption surfaces through `InputNoteReader`.
+    pub(crate) fn apply_note_consumption<'a>(
+        &mut self,
+        consumption: &NoteConsumption,
+        mut committed_transactions: impl Iterator<Item = &'a TransactionRecord>,
+    ) -> Result<(), ClientError> {
+        let nullifier = consumption.nullifier;
+        let block_num = consumption.block_num;
+        let external_consumer = consumption.external_consumer;
+        let order = self.get_nullifier_order(nullifier);
+        let input_present = self.has_input_note_with_nullifier(nullifier);
 
-// HELPERS
-// ================================================================================================
+        if let Some(input_note_update) = self.get_input_note_update_by_nullifier(nullifier) {
+            if let Some(consumer_transaction) = committed_transactions
+                .find(|t| input_note_update.inner().consumer_transaction_id() == Some(&t.id))
+            {
+                // The note was being processed by a local transaction that just got committed
+                if let TransactionStatus::Committed { block_number, .. } =
+                    consumer_transaction.status
+                {
+                    input_note_update
+                        .inner_mut()
+                        .transaction_committed(consumer_transaction.id, block_number)?;
+                }
+            } else {
+                // The note was consumed by a transaction not submitted by this client. If the
+                // consuming account is tracked, external_consumer will be Some.
+                input_note_update.inner_mut().consumed_externally(
+                    nullifier,
+                    block_num,
+                    external_consumer,
+                )?;
+            }
+            input_note_update.inner_mut().set_consumed_tx_order(order);
+        }
 
-/// Builds a consumed input note record from a tracked output note and inserts it.
-///
-/// Used when an output note is consumed externally and the client should also surface it as a
-/// consumed input — for example, when the same client tracks both the sender and the consumer of
-/// the note. No-op if the input is already tracked, the output is not tracked, or the output cannot
-/// be converted to a [`Note`].
-fn try_insert_consumed_input_from_output(
-    tracker: &mut NoteUpdateTracker,
-    note_id: NoteId,
-    consumer: AccountId,
-    block_num: BlockNumber,
-    consumed_tx_order: Option<u32>,
-) -> Result<(), ClientError> {
-    if tracker.has_input_note_with_id(note_id) {
-        return Ok(());
+        if let Some(output_note_record) = self.get_output_note_by_nullifier(nullifier) {
+            output_note_record.nullifier_received(nullifier, block_num)?;
+        }
+
+        if !input_present
+            && let Some(consumer) = external_consumer
+            && let Some(note_id) = self.output_note_id_by_nullifier(nullifier)
+        {
+            self.try_insert_consumed_input_from_output(note_id, consumer, block_num, order)?;
+        }
+
+        Ok(())
     }
-    let Some(output_note) = tracker.output_note_by_id(note_id) else {
-        return Ok(());
-    };
-    let Ok(note) = Note::try_from(output_note.clone()) else {
-        return Ok(());
-    };
 
-    let mut input_record = InputNoteRecord::from(note);
-    let nullifier = input_record.nullifier().expect("record built from a full note has metadata");
-    input_record.consumed_externally(nullifier, block_num, Some(consumer))?;
-    input_record.set_consumed_tx_order(consumed_tx_order);
-    tracker.insert_input_note(input_record, Some(NoteUpdateType::Insert));
-    Ok(())
-}
+    // PRIVATE HELPERS
+    // --------------------------------------------------------------------------------------------
 
-/// If the note is tracked as an output note, transitions it to `Committed` with the given inclusion
-/// proof. No-op if the note is not tracked.
-fn try_commit_output_note(
-    tracker: &mut NoteUpdateTracker,
-    note_id: NoteId,
-    inclusion_proof: NoteInclusionProof,
-) -> Result<(), ClientError> {
-    if let Some(output_note) = tracker.get_output_note_by_id(note_id) {
-        output_note.inclusion_proof_received(inclusion_proof)?;
+    /// Builds a consumed input note record from a tracked output note and inserts it.
+    ///
+    /// Used when an output note is consumed externally and the client should also surface it as a
+    /// consumed input — for example, when the same client tracks both the sender and the consumer
+    /// of the note. No-op if the input is already tracked, the output is not tracked, or the output
+    /// cannot be converted to a [`Note`].
+    fn try_insert_consumed_input_from_output(
+        &mut self,
+        note_id: NoteId,
+        consumer: AccountId,
+        block_num: BlockNumber,
+        consumed_tx_order: Option<u32>,
+    ) -> Result<(), ClientError> {
+        if self.has_input_note_with_id(note_id) {
+            return Ok(());
+        }
+        let Some(output_note) = self.output_note_by_id(note_id) else {
+            return Ok(());
+        };
+        let Ok(note) = Note::try_from(output_note.clone()) else {
+            return Ok(());
+        };
+
+        let mut input_record = InputNoteRecord::from(note);
+        let nullifier =
+            input_record.nullifier().expect("record built from a full note has metadata");
+        input_record.consumed_externally(nullifier, block_num, Some(consumer))?;
+        input_record.set_consumed_tx_order(consumed_tx_order);
+        self.insert_input_note(input_record, Some(NoteUpdateType::Insert));
+        Ok(())
     }
-    Ok(())
+
+    /// If the note is tracked as an output note, transitions it to `Committed` with the given
+    /// inclusion proof. No-op if the note is not tracked.
+    fn try_commit_output_note(
+        &mut self,
+        note_id: NoteId,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<(), ClientError> {
+        if let Some(output_note) = self.get_output_note_by_id(note_id) {
+            output_note.inclusion_proof_received(inclusion_proof)?;
+        }
+        Ok(())
+    }
 }
 
 // TESTS
@@ -617,7 +622,7 @@ mod tests {
     use miden_protocol::{Felt, Word, ZERO};
     use miden_standards::note::StandardNote;
 
-    use super::{NoteConsumption, NoteUpdateTracker, NoteUpdateType, apply_note_consumption};
+    use super::{NoteConsumption, NoteUpdateTracker, NoteUpdateType};
     use crate::store::input_note_states::{NoteSubmissionData, ProcessingUnauthenticatedNoteState};
     use crate::store::{InputNoteRecord, InputNoteState};
     use crate::transaction::TransactionRecord;
@@ -688,16 +693,16 @@ mod tests {
         assert_eq!(tracker.clone().into_note_updates().consumed_input_note_ids().count(), 0);
 
         // After external consumption the note must still be reported as consumed by its id.
-        apply_note_consumption(
-            &mut tracker,
-            &NoteConsumption {
-                nullifier,
-                block_num: BlockNumber::from(5u32),
-                external_consumer: None,
-            },
-            core::iter::empty::<&TransactionRecord>(),
-        )
-        .expect("external consumption should apply");
+        tracker
+            .apply_note_consumption(
+                &NoteConsumption {
+                    nullifier,
+                    block_num: BlockNumber::from(5u32),
+                    external_consumer: None,
+                },
+                core::iter::empty::<&TransactionRecord>(),
+            )
+            .expect("external consumption should apply");
 
         let consumed: alloc::vec::Vec<NoteId> =
             tracker.into_note_updates().consumed_input_note_ids().collect();
@@ -729,16 +734,16 @@ mod tests {
             NoteUpdateTracker::new(vec![released, still_processing, consumed], vec![]);
 
         // One of the discarded transaction's notes was consumed on chain by someone else.
-        apply_note_consumption(
-            &mut tracker,
-            &NoteConsumption {
-                nullifier: consumed_nullifier,
-                block_num: BlockNumber::from(5u32),
-                external_consumer: None,
-            },
-            core::iter::empty::<&TransactionRecord>(),
-        )
-        .unwrap();
+        tracker
+            .apply_note_consumption(
+                &NoteConsumption {
+                    nullifier: consumed_nullifier,
+                    block_num: BlockNumber::from(5u32),
+                    external_consumer: None,
+                },
+                core::iter::empty::<&TransactionRecord>(),
+            )
+            .unwrap();
 
         tracker.apply_transaction_discarded(discarded_tx).unwrap();
 

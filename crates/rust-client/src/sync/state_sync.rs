@@ -26,16 +26,7 @@ use super::{
     TransactionUpdateTracker,
 };
 use crate::ClientError;
-use crate::note::{
-    NoteConsumption,
-    NoteUpdateTracker,
-    apply_committed_note_state_transitions,
-    apply_new_public_note,
-    apply_note_consumption,
-    apply_output_note_inclusion_proofs,
-    insert_consumed_public_note,
-    mark_erased_note_as_consumed,
-};
+use crate::note::{NoteConsumption, NoteUpdateTracker};
 use crate::rpc::domain::account::{
     AccountDetails,
     AccountProof,
@@ -603,8 +594,7 @@ impl StateSync {
                         ))
                         .into());
                     }
-                    insert_consumed_public_note(
-                        note_updates,
+                    note_updates.insert_consumed_public_note(
                         note,
                         reference.consumer,
                         reference.block_num,
@@ -968,7 +958,7 @@ impl StateSync {
             // Transition tracked output notes to Committed using inclusion proofs from the
             // transaction sync response. This covers output notes regardless of whether their tags
             // were tracked in the note sync.
-            apply_output_note_inclusion_proofs(note_updates, &transaction.output_notes)?;
+            note_updates.apply_output_note_inclusion_proofs(&transaction.output_notes)?;
 
             // Detect output notes erased by same-batch note erasure.
             Self::mark_erased_notes_as_consumed(note_updates, transaction);
@@ -988,7 +978,7 @@ impl StateSync {
     ) {
         for note_header in &transaction.erased_output_notes {
             // Best-effort: ignore errors for notes not tracked by this client.
-            let _ = mark_erased_note_as_consumed(note_updates, note_header, transaction.block_num);
+            let _ = note_updates.mark_erased_note_as_consumed(note_header, transaction.block_num);
         }
     }
 
@@ -1415,16 +1405,13 @@ impl StateSync {
                     // Only mark the downloaded block header as relevant if we are talking about an
                     // input note (output notes get marked as committed but we don't need the block
                     // for anything there)
-                    relevance.has_client_note |= apply_committed_note_state_transitions(
-                        note_updates,
-                        &committed_note,
-                        block_header,
-                    )?;
+                    relevance.has_client_note |= note_updates
+                        .apply_committed_note_state_transitions(&committed_note, block_header)?;
                 },
                 NoteUpdateAction::Insert(public_note) => {
                     relevance.has_client_note = true;
 
-                    apply_new_public_note(note_updates, public_note, block_header)?;
+                    note_updates.apply_new_public_note(public_note, block_header)?;
                 },
                 NoteUpdateAction::Discard => {},
             }
@@ -1474,8 +1461,7 @@ impl StateSync {
             .collect();
 
         for consumption in consumptions {
-            apply_note_consumption(
-                note_updates,
+            note_updates.apply_note_consumption(
                 &consumption,
                 transaction_updates.committed_transactions(),
             )?;
@@ -2827,7 +2813,8 @@ mod tests {
 
         // Mark the note as erased (created and consumed in the same batch).
         let block_num = BlockNumber::from(3u32);
-        mark_erased_note_as_consumed(&mut note_updates, &note_header, block_num)
+        note_updates
+            .mark_erased_note_as_consumed(&note_header, block_num)
             .expect("marking erased note should succeed");
 
         let note_updates = note_updates.into_note_updates();
