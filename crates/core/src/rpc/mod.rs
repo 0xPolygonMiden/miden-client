@@ -46,6 +46,7 @@ use miden_protocol::note::{
     NoteType,
     Nullifier,
 };
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::transaction::ProvenTransaction;
 use miden_protocol::vm::ExecutionProof;
 
@@ -217,9 +218,6 @@ pub trait NodeRpcClient: Send + Sync {
     /// does nothing.
     async fn set_genesis_commitment(&self, commitment: Word) -> Result<(), RpcError>;
 
-    /// Returns the genesis commitment if it has been set, without fetching from the node.
-    fn has_genesis_commitment(&self) -> Option<Word>;
-
     /// Fetches the validator set's transaction encryption key using the
     /// `/GetTransactionEncryptionKey` endpoint.
     ///
@@ -275,6 +273,13 @@ pub trait NodeRpcClient: Send + Sync {
         block_num: Option<BlockNumber>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
+
+    /// Fetches the genesis block header and the protocol configuration that it commits to, using
+    /// the `/GetBlockHeaderByNumber` endpoint.
+    ///
+    /// The returned header is not verified to be the genesis header; [`VerifyingRpcClient`]
+    /// performs that check.
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError>;
 
     /// Given a block number, fetches the block corresponding to that height from the node using the
     /// `/GetBlockByNumber` RPC endpoint.

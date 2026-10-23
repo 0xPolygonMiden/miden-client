@@ -21,6 +21,7 @@ use miden_protocol::note::{
     Nullifier,
     PartialNoteMetadata,
 };
+use miden_protocol::protocol_config::ProtocolConfig;
 use miden_protocol::testing::account_id::{
     ACCOUNT_ID_REGULAR_PUBLIC_ACCOUNT_IMMUTABLE_CODE,
     ACCOUNT_ID_SENDER,
@@ -222,7 +223,7 @@ impl NodeRpcClient for CannedTransport {
         unimplemented!("not used in these tests")
     }
 
-    fn has_genesis_commitment(&self) -> Option<Word> {
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
         unimplemented!("not used in these tests")
     }
 

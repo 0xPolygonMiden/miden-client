@@ -19,6 +19,7 @@
 * [FEATURE][rust] Added `AccountComponentCode`, `AccountComponentNameError`, `ComponentMetadataError`, and `RoleSymbolError` to `miden_client::account::component`, and `AuthSchemeError` to `miden_client::auth` ([#2678](https://github.com/0xMiden/rust-sdk/pull/2678)).
 * [FEATURE][cli] Added the repeatable `--init-slot <slot::name>=<value>` flag to `new-wallet` and `new-account`. Each use sets one init storage value and overrides the matching entry of the `--init-storage-data-path` file ([#2641](https://github.com/0xMiden/rust-sdk/pull/2641)).
 * [FEATURE][rust] Added `NodeRpcClient::get_account_details_at`, which fetches a public account at a given block and also returns the witness that commits to it ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
+* [FEATURE][cli] Added `--submit` to `exec`. It proves the transaction script and submits it to the network, with `--force` and `--delegate-proving` as in the other transaction commands ([#2640](https://github.com/0xMiden/rust-sdk/pull/2640)).
 
 ### Breaking Changes
 
@@ -51,6 +52,8 @@
 * [BREAKING][removal][rust] Removed `SettingScope`, `SettingMutation`, `Store::apply_settings_mutations`, `protocol_config_setting_key` and `NOTE_TRANSPORT_CURSORS_KEY`, and the deprecated `Store::get_note_transport_cursor`, `Store::update_note_transport_cursor`, `NOTE_TRANSPORT_CURSOR_STORE_SETTING` and `NOTE_TRANSPORT_COVERED_TAGS_KEY` ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][arch][store] The SQLite store keeps the client data in the new `client_config` table and the user settings in the new `user_settings` table. They replace the `settings` table ([#2702](https://github.com/0xMiden/rust-sdk/pull/2702)).
 * [BREAKING][removal][rust] Removed the `Serializable` and `Deserializable` implementations of `PswapLineageRecord`, `RpcLimits`, `TransactionEncryptionKey`, `TransactionDetails`, `TransactionStatus`, `DiscardCause`, `TransportNote`, `TransactionRequest` and `ForeignAccount`. Use the protobuf encodings in `miden-client-proto`. Removed `PswapLineageState::try_from_u8` ([#2738](https://github.com/0xMiden/rust-sdk/pull/2738)).
+* [BREAKING][type][rust] Added `NodeRpcClient::get_genesis_block_header`, which returns the genesis block header and the `ProtocolConfig` that it commits to. `Client::ensure_genesis_in_place` stores the genesis protocol configuration, so note screening works on the first sync ([#2724](https://github.com/0xMiden/rust-sdk/pull/2724)).
+* [BREAKING][removal][rust] Removed `NodeRpcClient::has_genesis_commitment`. `Client::ensure_genesis_in_place` checks the store for the genesis block header and its protocol configuration instead ([#2724](https://github.com/0xMiden/rust-sdk/pull/2724)).
 
 ### Features
 
@@ -67,6 +70,7 @@
 
 ### Fixes
 
+* [FIX][store] Read complete and minimal partial SQLite accounts, account storage, and account code from one database snapshot per call. Concurrent updates cannot mix account states, and history pruning cannot hide code selected by an earlier query ([#2729](https://github.com/0xMiden/rust-sdk/pull/2729)).
 * [FIX][rust] `GetAccount` responses are now checked against the authenticated account header: the account rebuilt from the returned details must match the header's commitment, and the storage header must match its storage commitment ([#2601](https://github.com/0xMiden/rust-sdk/pull/2601)).
 * [FIX][rust] Transaction requests from a non-fungible faucet skip the vault balance check, as requests from a fungible faucet do, so minting a non-fungible asset no longer fails with `MissingNonFungibleAsset` ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).
 * [FIX][rust] Note screening treats an account whose trial execution fails in the transaction prologue as unable to consume the note, instead of failing. Before, submitting a transaction that sends a non-fungible asset in a BURN note failed after the node accepted it, because the stored vault of the sender still held the asset ([#2688](https://github.com/0xMiden/rust-sdk/pull/2688)).

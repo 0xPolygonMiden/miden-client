@@ -447,15 +447,6 @@ impl MockRpcApi {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl NodeRpcClient for MockRpcApi {
-    /// Always reports the commitment as unset, unlike a real client.
-    ///
-    /// A real client's RPC connection is its own, so whoever set the commitment also stored the
-    /// header. Tests share one mock across clients with separate stores, where a commitment set by
-    /// the first would stop every later client from storing genesis at all.
-    fn has_genesis_commitment(&self) -> Option<Word> {
-        None
-    }
-
     async fn set_genesis_commitment(&self, _commitment: Word) -> Result<(), RpcError> {
         // The mock sends no request headers, so there is nothing to pin the commitment to.
         Ok(())
@@ -587,6 +578,11 @@ impl NodeRpcClient for MockRpcApi {
         };
 
         Ok((block, mmr_proof))
+    }
+
+    async fn get_genesis_block_header(&self) -> Result<(BlockHeader, ProtocolConfig), RpcError> {
+        let (block, _) = self.get_block_header_by_number(Some(BlockNumber::GENESIS), false).await?;
+        Ok((block, self.protocol_config()))
     }
 
     /// Returns the node's tracked notes that match the provided note IDs.
