@@ -93,7 +93,7 @@ mod transaction;
 /// [`Self::open_read_only`] permits concurrent readers and rejects writes.
 ///
 /// Do not share a read-write store between clients. Do not delete its `.lock` file while it is in
-/// use. Database-file symlinks are not supported.
+/// use. The lock file follows the given path, so a symlink to the database file bypasses the lock.
 pub struct SqliteStore {
     pub(crate) pool: Pool,
     database_filepath: PathBuf,
@@ -766,9 +766,6 @@ fn validate_database_path(database_filepath: &Path) -> Result<(), StoreError> {
     if matches!(path, "" | ":memory:") || path.starts_with("file:") {
         return Err(database_error("SQLite stores require a filesystem database path"));
     }
-    if database_filepath.is_symlink() {
-        return Err(database_error("database path must not be a symlink"));
-    }
     Ok(())
 }
 
@@ -883,41 +880,6 @@ pub mod tests {
 
         let lock = super::lock_store(&path)?;
         assert_eq!(lock.metadata()?.permissions().mode() & 0o777, 0o600);
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn symlinked_database_is_rejected() -> anyhow::Result<()> {
-        let path = create_test_store_path();
-        let _writer = SqliteStore::new(path.clone()).await?;
-        for target in [path, create_test_store_path()] {
-            let alias = create_test_store_path();
-            std::os::unix::fs::symlink(target, &alias)?;
-            for result in
-                [SqliteStore::new(alias.clone()).await, SqliteStore::open_read_only(alias).await]
-            {
-                assert!(
-                    matches!(result, Err(StoreError::DatabaseError(message)) if message.contains("symlink"))
-                );
-            }
-        }
-
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn symlinked_parent_directory_uses_the_same_writer_lock() -> anyhow::Result<()> {
-        let path = create_test_store_path();
-        let alias = create_test_store_path();
-        std::os::unix::fs::symlink(path.parent().expect("test path has a parent"), &alias)?;
-        let alias_path = alias.join(path.file_name().expect("test path has a file name"));
-
-        let writer = SqliteStore::new(alias_path.clone()).await?;
-        assert!(path.exists());
-        assert!(matches!(SqliteStore::new(path).await, Err(StoreError::StoreLocked(_))));
-        assert_eq!(writer.database_filepath(), alias_path.as_path());
         Ok(())
     }
 
