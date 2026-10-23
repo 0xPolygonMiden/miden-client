@@ -8,7 +8,7 @@ To use the Miden client library in a Rust project, include it as a dependency.
 In your project's `Cargo.toml`, add:
 
 ```toml
-miden-client = { version = "0.16.0-alpha.1", features = ["tonic"] }
+miden-client = { version = "0.17", features = ["tonic"] }
 ```
 
 The `tonic` feature is not enabled by default and gates everything that speaks gRPC to a node: `GrpcClient`, `RemoteTransactionProver`, the gRPC note transport client, and the `ClientBuilder` methods that wire them up. Leave it out only when supplying your own `NodeRpcClient` and `TransactionProver` implementations. See [Features](./features.md#crate-features) for the full list.
@@ -188,7 +188,7 @@ On a network that does not enforce the allowlist the node already allows every a
 
 Use `Client::is_invitation_code_valid(invitation_code).await?` to check a code before registration. This query does not consume the code. It returns `true` for an unused code or when the node does not enforce the allowlist. Unknown and registered codes return `false`. An empty code returns an error when enforcement is enabled. The response does not identify the account that holds a code.
 
-`Client::submit_new_transaction` and `BatchBuilder::submit` ask the node whether the network accepts the creation of an account before they submit a transaction that creates one, and fail with `ClientError::AccountNotAllowlisted` when it does not. The check runs after the transaction is executed and proven, so it does not save that work. Register the account first. `Client::is_account_allowed` asks the node the same question directly, and answers `true` on a network that does not enforce an allowlist.
+`Client::submit_new_transaction` and `Client::submit_transaction_batch` ask the node whether the network accepts the creation of an account before they submit a transaction that creates one, and fail with `ClientError::AccountNotAllowlisted` when it does not. The check runs after the transaction is executed and proven, so it does not save that work. Register the account first. `Client::is_account_allowed` asks the node the same question directly, and answers `true` on a network that does not enforce an allowlist.
 
 ## Execute transaction
 

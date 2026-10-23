@@ -44,7 +44,7 @@ use crate::pswap::{PswapLineageFilter, PswapLineageRecord};
 use crate::rpc::RpcLimits;
 use crate::rpc::encryption::TransactionEncryptionKey;
 use crate::sync::{NoteTagRecord, StateSyncUpdate};
-use crate::transaction::{TransactionRecord, TransactionStoreUpdate};
+use crate::transaction::{BatchStoreUpdate, TransactionRecord, TransactionStoreUpdate};
 
 mod account;
 pub use account::{AccountRecord, AccountRecordData, AccountStatus, ClientAccountType};
@@ -141,16 +141,17 @@ pub trait Store: Send + Sync {
     /// part of the update.
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
-    /// Applies a batch of [`TransactionStoreUpdate`]s atomically. Semantically equivalent to
-    /// calling [`Store::apply_transaction`] for each update in order, but with an all-or-nothing
-    /// guarantee — on any error no update is visible.
+    /// Applies a [`BatchStoreUpdate`] atomically. On any error no part of the update is visible.
     ///
-    /// Used by `BatchBuilder::submit` to persist a batch's results. Backends that cannot provide
-    /// true atomicity must document that limitation explicitly in their impl — there is no blanket
-    /// default.
+    /// The store inserts each transaction and applies its account patch in batch order, then
+    /// applies the merged note updates and tags once.
+    ///
+    /// Used by `Client::submit_transaction_batch` to persist a batch's results. Backends that
+    /// cannot provide true atomicity must document that limitation explicitly in their impl — there
+    /// is no blanket default.
     async fn apply_transaction_batch(
         &self,
-        tx_updates: Vec<TransactionStoreUpdate>,
+        batch_update: BatchStoreUpdate,
     ) -> Result<(), StoreError>;
 
     // NOTES
@@ -291,6 +292,23 @@ pub trait Store: Send + Sync {
         nodes: &[(InOrderIndex, Word)],
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
+
+    /// Inserts the genesis block header and, if present, its protocol configuration.
+    ///
+    /// The header is untracked and has no MMR authentication nodes. The default implementation uses
+    /// two writes when a protocol configuration is present. Store implementations should override
+    /// this method when they can write both values atomically.
+    async fn insert_genesis(
+        &self,
+        block_header: &BlockHeader,
+        protocol_config: Option<&ProtocolConfig>,
+    ) -> Result<(), StoreError> {
+        self.insert_block_header(block_header, &[], false).await?;
+        if let Some(protocol_config) = protocol_config {
+            self.insert_protocol_config(protocol_config).await?;
+        }
+        Ok(())
+    }
 
     /// Prunes irrelevant block data from the store.
     ///
