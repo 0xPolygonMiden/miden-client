@@ -21,37 +21,42 @@ const RUNTIME: Runtime = Runtime::Tokio1;
 // POOL MANAGER
 // ================================================================================================
 
+/// How the connections of a pool use the database.
+#[derive(Clone, Copy, Debug)]
+pub enum Access {
+    /// Reads and writes. Creates the database file if it does not exist.
+    ReadWrite,
+    /// Reads only. The database file must exist.
+    ReadOnly,
+}
+
+impl Access {
+    fn open_flags(self) -> OpenFlags {
+        match self {
+            Access::ReadWrite => OpenFlags::default(),
+            Access::ReadOnly => {
+                OpenFlags::SQLITE_OPEN_READ_ONLY
+                    | OpenFlags::SQLITE_OPEN_URI
+                    | OpenFlags::SQLITE_OPEN_NO_MUTEX
+            },
+        }
+    }
+}
+
 /// `SQLite` connection pool manager
 pub struct SqlitePoolManager {
     database_path: PathBuf,
-    read_only: bool,
+    access: Access,
 }
 
+/// `SQLite` connection pool manager
 impl SqlitePoolManager {
-    /// Opens read-write connections and creates the database if needed.
-    pub fn new(database_path: PathBuf) -> Self {
-        Self { database_path, read_only: false }
-    }
-
-    /// Opens read-only connections to an existing database.
-    pub fn read_only(database_path: PathBuf) -> Self {
-        Self { database_path, read_only: true }
+    pub fn new(database_path: PathBuf, access: Access) -> Self {
+        Self { database_path, access }
     }
 
     fn new_connection(&self) -> rusqlite::Result<Connection> {
-        let flags = if self.read_only {
-            OpenFlags::SQLITE_OPEN_READ_ONLY
-                | OpenFlags::SQLITE_OPEN_URI
-                | OpenFlags::SQLITE_OPEN_NO_MUTEX
-        } else {
-            OpenFlags::default()
-        };
-        let conn = Connection::open_with_flags(&self.database_path, flags)?;
-        array::load_module(&conn)?;
-        conn.busy_timeout(Duration::from_secs(5))?;
-        if self.read_only {
-            return Ok(conn);
-        }
+        let conn = Connection::open_with_flags(&self.database_path, self.access.open_flags())?;
 
         // Restrict database file permissions to owner-only on Unix. Also covers WAL and SHM journal
         // files that SQLite may create.
@@ -74,6 +79,12 @@ impl SqlitePoolManager {
                 }
             }
         }
+
+        // Feature used to support `IN` and `NOT IN` queries. We need to load this module for every
+        // connection we create to the DB to support the queries we want to run
+        array::load_module(&conn)?;
+
+        conn.busy_timeout(Duration::from_secs(5))?;
 
         let journal_mode: String =
             conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))?;
