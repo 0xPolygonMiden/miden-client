@@ -134,6 +134,7 @@ pub use chain_anchor::{ChainAnchor, ChainAnchorError};
 mod dap_executor;
 mod prover;
 pub use miden_client_core::transaction::{
+    BatchStoreUpdate,
     DiscardCause,
     TransactionDetails,
     TransactionRecord,
@@ -456,7 +457,7 @@ where
     ) -> Result<ChainAnchor, ClientError> {
         let inferred_input_note_ids: Vec<NoteId> = transaction_request
             .input_note_ids()
-            .filter(|note_id| !transaction_request.explicit_input_notes.contains_key(note_id))
+            .filter(|note_id| !transaction_request.explicit_input_notes().contains_key(note_id))
             .collect();
 
         let mut tracked_blocks: BTreeSet<BlockNumber> = if inferred_input_note_ids.is_empty() {
@@ -473,7 +474,7 @@ where
         };
         tracked_blocks.extend(
             transaction_request
-                .explicit_input_notes
+                .explicit_input_notes()
                 .values()
                 .filter_map(InputNote::proof)
                 .map(|proof| proof.location().block_num()),
@@ -922,31 +923,6 @@ where
 
         self.build_transaction_store_update(tx_result, submission_height, &output_note_relevances)
             .await
-    }
-
-    /// Builds one [`TransactionStoreUpdate`] for each transaction result, for updates that the
-    /// store applies together. The output notes are screened against the account states after the
-    /// last transaction.
-    pub(crate) async fn get_transaction_store_updates(
-        &self,
-        tx_results: &[TransactionResult],
-        submission_height: BlockNumber,
-    ) -> Result<Vec<TransactionStoreUpdate>, TransactionStoreUpdateError> {
-        let output_note_relevances = self.screen_output_notes(tx_results).await?;
-
-        let mut updates = Vec::with_capacity(tx_results.len());
-        for tx_result in tx_results {
-            updates.push(
-                self.build_transaction_store_update(
-                    tx_result,
-                    submission_height,
-                    &output_note_relevances,
-                )
-                .await?,
-            );
-        }
-
-        Ok(updates)
     }
 
     /// Screens the output notes of the provided transactions against the account states that the
@@ -1633,7 +1609,7 @@ fn get_outgoing_assets(
     // Create a map of the fungible and non-fungible assets in the output notes
     let outgoing_assets = output_notes_assets.values().flat_map(|note_assets| note_assets.iter());
 
-    request::collect_assets(outgoing_assets)
+    miden_client_core::transaction::collect_assets(outgoing_assets)
 }
 
 /// Sets default auth args when the request defines none.

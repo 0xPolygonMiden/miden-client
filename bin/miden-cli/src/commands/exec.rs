@@ -7,16 +7,19 @@ use std::slice;
 use clap::Parser;
 use miden_client::account::AccountId;
 use miden_client::keystore::Keystore;
-use miden_client::transaction::{ForeignAccount, TransactionScript};
+use miden_client::transaction::{ForeignAccount, TransactionRequestBuilder, TransactionScript};
 use miden_client::vm::{AdviceInputs, MIN_STACK_DEPTH};
 use miden_client::{Client, Felt};
 
 use crate::advice_inputs::load_advice_map_from_file;
-use crate::commands::new_account::load_packages;
+use crate::commands::new_transactions::{SubmitOptions, execute_transaction};
 use crate::config::CliConfig;
 use crate::errors::CliError;
+use crate::packages::load_packages;
 use crate::utils::{
     get_input_acc_id_by_prefix_or_default,
+    is_empty_transaction_error,
+    print_empty_transaction_report,
     print_executed_program_stack,
     print_executed_program_stack_hex_words,
 };
@@ -25,7 +28,12 @@ use crate::utils::{
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[command(about = "Execute the specified program against the specified account")]
+#[command(
+    mut_arg("force", |arg| arg.requires("submit")),
+    mut_arg("delegate_proving", |arg| arg.requires("submit")),
+    about = "Execute a transaction script against an account. With `--submit`, prove the \
+             transaction and submit it to the network."
+)]
 pub struct ExecCmd {
     /// Account ID to use for the program execution
     #[arg(short = 'a', long = "account")]
@@ -42,13 +50,20 @@ pub struct ExecCmd {
     inputs_path: Option<PathBuf>,
 
     /// Print the output stack grouped into words
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, conflicts_with = "submit")]
     hex_words: bool,
+
+    /// Prove the transaction and submit it to the network. The account must be tracked locally.
+    #[arg(long, default_value_t = false)]
+    submit: bool,
+
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 
     /// Start a DAP debug adapter server on the given address (e.g. "127.0.0.1:4711") and wait for a
     /// DAP client to connect before executing.
     #[cfg(feature = "dap")]
-    #[arg(long = "start-debug-adapter")]
+    #[arg(long = "start-debug-adapter", conflicts_with = "submit")]
     start_debug_adapter: Option<SocketAddr>,
 
     /// Write a replay snapshot of the debug session to this file once it ends.
@@ -65,7 +80,7 @@ pub struct ExecCmd {
 impl ExecCmd {
     pub async fn execute<AUTH: Keystore + Sync + 'static>(
         &self,
-        client: Client<AUTH>,
+        mut client: Client<AUTH>,
     ) -> Result<(), CliError> {
         let cli_config = CliConfig::load()?;
         let tx_script = load_tx_script_package(&cli_config, &self.package)?;
@@ -77,6 +92,21 @@ impl ExecCmd {
             Some(input_file) => load_advice_map_from_file(input_file)?,
             None => vec![],
         };
+
+        if self.submit {
+            let tx_request = TransactionRequestBuilder::new()
+                .custom_script(tx_script)
+                .extend_advice_map(inputs)
+                .build()
+                .map_err(|err| {
+                    CliError::Transaction(err.into(), "Failed to build transaction".to_string())
+                })?;
+            let result =
+                execute_transaction(&mut client, account_id, tx_request, &self.submit_options)
+                    .await;
+
+            return explain_empty_transaction(result);
+        }
 
         let advice_inputs = AdviceInputs::default().with_map(inputs);
 
@@ -194,6 +224,17 @@ fn load_tx_script_package(
     })
 }
 
+/// Prints the reason when the kernel rejected the transaction because it changed nothing. Returns
+/// the result unchanged, so the command still fails.
+fn explain_empty_transaction(result: Result<(), CliError>) -> Result<(), CliError> {
+    if let Err(CliError::Client { error, .. }) = &result
+        && is_empty_transaction_error(error)
+    {
+        print_empty_transaction_report();
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use std::env::temp_dir;
@@ -205,7 +246,21 @@ mod tests {
     use miden_client::Serializable;
     use miden_client::assembly::{Assembler, DefaultSourceManager, Module, ModuleKind, Path};
 
-    use super::{CliConfig, ExecCmd, load_tx_script_package};
+    use super::{CliConfig, ExecCmd, explain_empty_transaction, load_tx_script_package};
+    use crate::errors::CliError;
+    use crate::utils::empty_transaction_error;
+
+    #[test]
+    fn an_empty_transaction_is_still_an_error() {
+        let result = explain_empty_transaction(Err(empty_transaction_error().into()));
+
+        assert!(matches!(result, Err(CliError::Client { .. })));
+    }
+
+    #[test]
+    fn a_successful_submission_is_not_changed() {
+        assert!(explain_empty_transaction(Ok(())).is_ok());
+    }
 
     #[test]
     fn requires_a_package_and_rejects_source_arguments() {
@@ -214,6 +269,17 @@ mod tests {
         assert!(ExecCmd::try_parse_from(["exec", "-s", "script.masm"]).is_err());
         assert!(ExecCmd::try_parse_from(["exec", "--package", "script.masp"]).is_ok());
         assert!(ExecCmd::try_parse_from(["exec", "-p", "script"]).is_ok());
+    }
+
+    #[test]
+    fn submit_options_require_submit() {
+        let base = ["exec", "-p", "script"];
+        let parse = |extra: &[&str]| ExecCmd::try_parse_from(base.iter().chain(extra));
+
+        assert!(parse(&["--submit", "--force", "--delegate-proving"]).is_ok());
+        assert!(parse(&["--force"]).is_err());
+        assert!(parse(&["--delegate-proving"]).is_err());
+        assert!(parse(&["--submit", "--hex-words"]).is_err());
     }
 
     #[cfg(feature = "dap")]
