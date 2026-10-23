@@ -226,7 +226,8 @@ CREATE TABLE notes_scripts (
 
 -- ── Chain anchors & tags ─────────────────────────────────────────────────
 
--- One row for each synced block. The row with the highest block number is the sync height.
+-- One row for each block number that a state sync reached. The row with the highest block number
+-- is the current sync height.
 -- The INTEGER primary key is the rowid alias, so a MAX or ORDER BY DESC query is a direct seek.
 CREATE TABLE chain_anchors (
     block_num INTEGER NOT NULL, -- the block number of a state sync

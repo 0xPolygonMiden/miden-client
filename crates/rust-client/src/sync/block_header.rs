@@ -44,10 +44,11 @@ impl<AUTH> Client<AUTH> {
         Ok(self.get_latest_block_header().await?.validator_config().clone())
     }
 
-    /// Prunes the chain MMR peaks of the synced blocks up to the given block number.
+    /// Prunes the chain MMR peaks at the past sync heights up to the given block number.
     ///
-    /// The store keeps the peaks of each synced block. This method deletes the peaks of each block
-    /// with a number `<= up_to_block`. The genesis and sync-height peaks are always kept.
+    /// The store keeps the peaks at each past sync height. This method deletes the peaks at each
+    /// past sync height `<= up_to_block`. The genesis peaks and the current sync height peaks are
+    /// always kept.
     ///
     /// Returns the number of deleted entries.
     pub async fn prune_chain_anchors(

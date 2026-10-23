@@ -682,8 +682,9 @@ mod test {
         assert!(proof_3.is_none(), "block 3 should no longer be provable");
     }
 
-    /// Tests that the store keeps the peaks of each synced block after the irrelevant block headers
-    /// are pruned, and that `prune_chain_anchors` keeps the genesis and sync-height peaks.
+    /// Tests that the store keeps the peaks at each past sync height after the irrelevant block
+    /// headers are pruned, and that `prune_chain_anchors` keeps the genesis peaks and the current
+    /// sync height peaks.
     #[tokio::test]
     async fn chain_anchors_are_kept_until_pruned() {
         let store = create_test_store().await;
@@ -738,7 +739,7 @@ mod test {
         }
         assert_eq!(store.get_current_blockchain_peaks().await.unwrap(), peaks_at(SYNC_HEIGHT));
 
-        // Pruning irrelevant block headers keeps the peaks of each synced block.
+        // Pruning irrelevant block headers keeps the peaks at each past sync height.
         store.untrack_and_prune_irrelevant_blocks(&[], &[]).await.unwrap();
         assert!(store.get_block_header_by_num(BlockNumber::from(7u32)).await.unwrap().is_none());
         for block_num in [0, 3, 7, 10, SYNC_HEIGHT] {
@@ -753,7 +754,8 @@ mod test {
 
         // The bound is inclusive.
         assert_eq!(store.prune_chain_anchors(BlockNumber::from(7u32)).await.unwrap(), 2);
-        // The genesis and sync-height peaks are kept, even if the bound is above the sync height.
+        // The genesis peaks and the current sync height peaks are kept, even if the bound is above
+        // the current sync height.
         assert_eq!(store.prune_chain_anchors(BlockNumber::from(100u32)).await.unwrap(), 1);
 
         for block_num in [3, 7, 10] {
