@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use core::mem;
 
 use miden_protocol::note::{NoteDetailsCommitment, NoteId};
 use miden_protocol::utils::serde::{
@@ -184,6 +185,14 @@ impl NoteUpdates {
             .collect();
 
         Self::new(input_notes, output_notes)
+    }
+
+    /// Merges the note updates of a later transaction into these updates. The merge follows the
+    /// rules of [`Self::new`], with the updates of `later` after the current updates.
+    pub fn merge(&mut self, later: NoteUpdates) {
+        let input_notes = mem::take(&mut self.input_notes).into_iter().chain(later.input_notes);
+        let output_notes = mem::take(&mut self.output_notes).into_iter().chain(later.output_notes);
+        *self = Self::new(input_notes.collect(), output_notes.collect());
     }
 
     /// Returns the new and updated input notes.
