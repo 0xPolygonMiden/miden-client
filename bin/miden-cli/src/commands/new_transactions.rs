@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use miden_client::account::AccountId;
 use miden_client::asset::AssetAmount;
 use miden_client::keystore::Keystore;
@@ -53,6 +53,18 @@ impl From<&NoteType> for MidenNoteType {
     }
 }
 
+/// Options that control how a transaction is submitted.
+#[derive(Debug, Clone, Args)]
+pub(crate) struct SubmitOptions {
+    /// Flag to submit the executed transaction without asking for confirmation.
+    #[arg(long, default_value_t = false)]
+    pub(crate) force: bool,
+
+    /// Flag to delegate proving to the remote prover specified in the config file.
+    #[arg(long, default_value_t = false)]
+    pub(crate) delegate_proving: bool,
+}
+
 /// Mint tokens from a fungible faucet to a wallet.
 #[derive(Debug, Parser, Clone)]
 pub struct MintCmd {
@@ -66,13 +78,8 @@ pub struct MintCmd {
 
     #[arg(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 }
 
 impl MintCmd {
@@ -80,7 +87,6 @@ impl MintCmd {
         &self,
         mut client: Client<AUTH>,
     ) -> Result<(), CliError> {
-        let force = self.force;
         let resolver = load_faucet_metadata_resolver()?;
 
         let fungible_asset = resolver.parse_fungible_asset(&client, &self.asset).await?;
@@ -102,8 +108,7 @@ impl MintCmd {
             &mut client,
             fungible_asset.faucet_id(),
             transaction_request,
-            force,
-            self.delegate_proving,
+            &self.submit_options,
         )
         .await
     }
@@ -126,9 +131,8 @@ pub struct TransferCmd {
 
     #[arg(short, long, value_enum)]
     note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
-    #[arg(long, default_value_t = false)]
-    force: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
     /// Set the recall height for the transaction. If the note wasn't consumed by this height, the
     /// sender may consume it back.
     ///
@@ -140,10 +144,6 @@ pub struct TransferCmd {
     /// height is reached.
     #[arg(short = 'i', long)]
     timelock_height: Option<u32>,
-
-    /// Flag to delegate proving to the remote prover specified in the config file
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
 }
 
 impl TransferCmd {
@@ -151,8 +151,6 @@ impl TransferCmd {
         &self,
         mut client: Client<AUTH>,
     ) -> Result<(), CliError> {
-        let force = self.force;
-
         let resolver = load_faucet_metadata_resolver()?;
 
         let fungible_asset = resolver.parse_fungible_asset(&client, &self.asset).await?;
@@ -188,8 +186,7 @@ impl TransferCmd {
             &mut client,
             sender_account_id,
             transaction_request,
-            force,
-            self.delegate_proving,
+            &self.submit_options,
         )
         .await
     }
@@ -220,13 +217,8 @@ pub struct SwapCmd {
     #[arg(long, value_enum, default_value_t = NoteType::Private)]
     payback_note_type: NoteType,
 
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 }
 
 impl SwapCmd {
@@ -234,8 +226,6 @@ impl SwapCmd {
         &self,
         mut client: Client<AUTH>,
     ) -> Result<(), CliError> {
-        let force = self.force;
-
         let resolver = load_faucet_metadata_resolver()?;
 
         let offered_fungible_asset =
@@ -268,8 +258,7 @@ impl SwapCmd {
             &mut client,
             sender_account_id,
             transaction_request,
-            force,
-            self.delegate_proving,
+            &self.submit_options,
         )
         .await?;
 
@@ -286,6 +275,7 @@ impl SwapCmd {
 /// no account ID is provided, the default one is used. If no notes are provided, any notes that are
 /// identified to be owned by the account ID are consumed.
 #[derive(Debug, Parser, Clone)]
+#[command(mut_arg("force", |arg| arg.short('f')))]
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
     /// default account's ID is used instead.
@@ -293,13 +283,8 @@ pub struct ConsumeNotesCmd {
     account_id: Option<String>,
     /// A list of note IDs or the hex prefixes of their corresponding IDs.
     list_of_notes: Vec<String>,
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(short, long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 
     /// Debug the note-consumption transaction instead of proving and submitting it: start a DAP
     /// debug adapter server on the given address (e.g. "127.0.0.1:4711") and wait for a DAP client
@@ -320,8 +305,6 @@ impl ConsumeNotesCmd {
         &self,
         mut client: Client<AUTH>,
     ) -> Result<(), CliError> {
-        let force = self.force;
-
         let mut input_notes = Vec::new();
 
         for note_id in &self.list_of_notes {
@@ -374,14 +357,8 @@ impl ConsumeNotesCmd {
             .await;
         }
 
-        execute_transaction(
-            &mut client,
-            account_id,
-            transaction_request,
-            force,
-            self.delegate_proving,
-        )
-        .await
+        execute_transaction(&mut client, account_id, transaction_request, &self.submit_options)
+            .await
     }
 }
 
@@ -445,13 +422,8 @@ pub struct PswapCreateCmd {
     #[arg(long, value_enum, default_value_t = NoteType::Private)]
     payback_note_type: NoteType,
 
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 }
 
 impl PswapCreateCmd {
@@ -486,8 +458,7 @@ impl PswapCreateCmd {
                 )
             })?;
 
-        execute_transaction(&mut client, sender_id, tx_request, self.force, self.delegate_proving)
-            .await
+        execute_transaction(&mut client, sender_id, tx_request, &self.submit_options).await
     }
 }
 
@@ -506,13 +477,8 @@ pub struct PswapConsumeCmd {
     #[arg(long)]
     fill_amount: u64,
 
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 }
 
 impl PswapConsumeCmd {
@@ -537,8 +503,7 @@ impl PswapConsumeCmd {
                 )
             })?;
 
-        execute_transaction(&mut client, consumer_id, tx_request, self.force, self.delegate_proving)
-            .await
+        execute_transaction(&mut client, consumer_id, tx_request, &self.submit_options).await
     }
 }
 
@@ -554,13 +519,8 @@ pub struct PswapCancelCmd {
     #[arg(long)]
     note: String,
 
-    /// Flag to submit the executed transaction without asking for confirmation.
-    #[arg(long, default_value_t = false)]
-    force: bool,
-
-    /// Flag to delegate proving to the remote prover specified in the config file.
-    #[arg(long, default_value_t = false)]
-    delegate_proving: bool,
+    #[command(flatten)]
+    submit_options: SubmitOptions,
 }
 
 impl PswapCancelCmd {
@@ -581,8 +541,7 @@ impl PswapCancelCmd {
                 )
             })?;
 
-        execute_transaction(&mut client, sender_id, tx_request, self.force, self.delegate_proving)
-            .await
+        execute_transaction(&mut client, sender_id, tx_request, &self.submit_options).await
     }
 }
 
@@ -610,12 +569,11 @@ async fn resolve_input_note<AUTH: Keystore + Sync>(
 // EXECUTE TRANSACTION
 // ================================================================================================
 
-async fn execute_transaction<AUTH: Keystore + Sync + 'static>(
+pub(crate) async fn execute_transaction<AUTH: Keystore + Sync + 'static>(
     client: &mut Client<AUTH>,
     account_id: AccountId,
     transaction_request: TransactionRequest,
-    force: bool,
-    delegated_proving: bool,
+    options: &SubmitOptions,
 ) -> Result<(), CliError> {
     println!("Executing transaction...");
     let transaction_result = client.execute_transaction(account_id, transaction_request).await?;
@@ -624,7 +582,7 @@ async fn execute_transaction<AUTH: Keystore + Sync + 'static>(
 
     // Show delta and ask for confirmation
     print_executed_transaction(client, &executed_transaction).await?;
-    if !force {
+    if !options.force {
         println!(
             "\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the network (y/N)"
         );
@@ -646,7 +604,7 @@ async fn execute_transaction<AUTH: Keystore + Sync + 'static>(
 
     println!("Proving transaction...");
 
-    let prover = if delegated_proving {
+    let prover = if options.delegate_proving {
         let cli_config = CliConfig::load()?;
         let remote_prover_endpoint =
             cli_config.remote_prover_endpoint.as_ref().ok_or(CliError::Config(
