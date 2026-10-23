@@ -129,50 +129,61 @@ pub struct NoteUpdates {
 
 impl NoteUpdates {
     /// Creates a new [`NoteUpdates`] from the provided input and output note updates.
+    ///
+    /// The store keys notes by details commitment, so updates with the same commitment become one
+    /// update. A later update replaces an earlier one, with two exceptions: a record without
+    /// metadata does not replace a record with metadata, and an `Update` keeps the write type of
+    /// the earlier update.
     pub fn new(input_notes: Vec<InputNoteUpdate>, output_notes: Vec<OutputNoteUpdate>) -> Self {
-        Self { input_notes, output_notes }
+        let mut inputs = BTreeMap::<NoteDetailsCommitment, InputNoteUpdate>::new();
+        for mut update in input_notes {
+            let commitment = update.inner().details_commitment();
+            if let Some(existing) = inputs.get(&commitment) {
+                if update.id().is_none() && existing.id().is_some() {
+                    continue;
+                }
+                update.update_type = merged_update_type(existing.update_type, update.update_type);
+            }
+            inputs.insert(commitment, update);
+        }
+
+        let mut outputs = BTreeMap::<NoteDetailsCommitment, OutputNoteUpdate>::new();
+        for mut update in output_notes {
+            let commitment = update.inner().details_commitment();
+            if let Some(existing) = outputs.get(&commitment) {
+                update.update_type = merged_update_type(existing.update_type, update.update_type);
+            }
+            outputs.insert(commitment, update);
+        }
+
+        Self {
+            input_notes: inputs.into_values().collect(),
+            output_notes: outputs.into_values().collect(),
+        }
     }
 
-    /// Creates a [`NoteUpdates`] for updates related to transactions.
-    ///
-    /// A transaction can:
-    ///
-    /// - Create input notes
-    /// - Update existing input notes (by consuming them)
-    /// - Create output notes
-    pub fn for_transaction_updates(
+    /// Creates a [`NoteUpdates`] that inserts the new records and updates the updated records.
+    pub fn from_records(
         new_input_notes: impl IntoIterator<Item = InputNoteRecord>,
         updated_input_notes: impl IntoIterator<Item = InputNoteRecord>,
         new_output_notes: impl IntoIterator<Item = OutputNoteRecord>,
     ) -> Self {
-        let updates = new_input_notes
+        let input_notes = new_input_notes
             .into_iter()
             .map(|note| InputNoteUpdate::new(note, NoteUpdateType::Insert))
             .chain(
                 updated_input_notes
                     .into_iter()
                     .map(|note| InputNoteUpdate::new(note, NoteUpdateType::Update)),
-            );
-
-        // The store keys input notes by details commitment. A record with metadata supersedes a
-        // metadata-less record for the same commitment.
-        let mut input_notes = BTreeMap::<NoteDetailsCommitment, InputNoteUpdate>::new();
-        for update in updates {
-            let commitment = update.inner().details_commitment();
-            if update.id().is_some()
-                || input_notes.get(&commitment).is_none_or(|u| u.id().is_none())
-            {
-                input_notes.insert(commitment, update);
-            }
-        }
-        let input_notes = input_notes.into_values().collect();
+            )
+            .collect();
 
         let output_notes = new_output_notes
             .into_iter()
             .map(|note| OutputNoteUpdate::new(note, NoteUpdateType::Insert))
             .collect();
 
-        Self { input_notes, output_notes }
+        Self::new(input_notes, output_notes)
     }
 
     /// Returns the new and updated input notes.
@@ -207,6 +218,16 @@ impl NoteUpdates {
             .filter(|update| update.inner().is_consumed())
             .map(OutputNoteUpdate::id);
         self.consumed_input_note_ids().chain(output)
+    }
+}
+
+/// Returns the write type for two updates of the same note. An `Update` keeps the earlier type, so
+/// a note that needs an insert is not written as an update.
+fn merged_update_type(earlier: NoteUpdateType, later: NoteUpdateType) -> NoteUpdateType {
+    if later == NoteUpdateType::Update {
+        earlier
+    } else {
+        later
     }
 }
 
@@ -360,7 +381,7 @@ mod tests {
         let note = consumed_local_note(1, sender);
         let id = note.id().expect("consumed-local note has metadata");
 
-        let note_updates = NoteUpdates::for_transaction_updates(vec![], vec![note], vec![]);
+        let note_updates = NoteUpdates::from_records(vec![], vec![note], vec![]);
 
         let consumed: alloc::vec::Vec<NoteId> = note_updates.consumed_input_note_ids().collect();
         assert_eq!(consumed, vec![id]);
@@ -372,7 +393,7 @@ mod tests {
         let note = consumed_external_note(2);
         assert!(note.id().is_none());
 
-        let note_updates = NoteUpdates::for_transaction_updates(vec![note], vec![], vec![]);
+        let note_updates = NoteUpdates::from_records(vec![note], vec![], vec![]);
 
         assert_eq!(note_updates.consumed_input_note_ids().count(), 0);
         assert_eq!(note_updates.input_notes().len(), 1);

@@ -218,7 +218,7 @@ async fn note_write_measurements(
                 let update = StateSyncUpdate::from_parts(
                     sync_block,
                     PartialBlockchainUpdates::default(),
-                    NoteUpdates::for_transaction_updates(notes, [], []),
+                    NoteUpdates::from_records(notes, [], []),
                     TransactionUpdateTracker::default(),
                     AccountUpdates::default(),
                     None,

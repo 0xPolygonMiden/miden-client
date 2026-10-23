@@ -165,7 +165,7 @@ mod tests {
         // Build non-trivial `note_updates` and `new_tags` so that the round-trip covers every
         // field.
         let input_note = InputNoteRecord::from(note.clone());
-        let note_updates = NoteUpdates::for_transaction_updates([input_note], [], []);
+        let note_updates = NoteUpdates::from_records([input_note], [], []);
 
         let tag = NoteTag::with_account_target(account.id());
         let new_tags = vec![NoteTagRecord::with_note_source(tag, note.details_commitment())];

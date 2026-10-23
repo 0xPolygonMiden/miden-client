@@ -1488,7 +1488,7 @@ where
             }
         }
 
-        Ok(NoteUpdates::for_transaction_updates(
+        Ok(NoteUpdates::from_records(
             new_input_notes,
             updated_input_notes,
             new_output_notes,
