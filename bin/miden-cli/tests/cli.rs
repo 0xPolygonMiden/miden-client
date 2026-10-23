@@ -801,13 +801,12 @@ async fn tx_show_decodes_p2ide_note_storage() -> Result<()> {
     let (transaction_id, note_id) = (id_after("Transaction"), id_after("Output"));
 
     // The store is the ground truth for the note's expected height.
-    let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
-    let record = client
-        .get_output_note(NoteId::try_from_hex(&note_id)?)
+    let store = SqliteStore::open_read_only(store_path.clone()).await?;
+    let record = store
+        .get_output_notes(NoteFilter::Unique(NoteId::try_from_hex(&note_id)?))
         .await?
+        .pop()
         .expect("the transfer should store its output note");
-    // Release the writer lock before the CLI opens the store.
-    drop(client);
 
     let mut show_cmd = cargo_bin_cmd!("miden-client");
     show_cmd.args(["tx", "--show", &transaction_id]);
@@ -945,17 +944,15 @@ async fn notes_show_prints_decoded_storage_and_consumer_transaction() -> Result<
         .unwrap_or_else(|| panic!("the transfer should report an output note ID:\n{stdout}"))
         .to_string();
 
-    // Close this client before the CLI opens the store.
-    let consumer_tx = {
-        let (client, _) = create_rust_client_with_store_path(&store_path, endpoint).await?;
-        client
-            .get_input_note(NoteId::try_from_hex(&minted_note_id)?)
-            .await?
-            .expect("the mint note should be stored")
-            .consumer_transaction_id()
-            .expect("the consumed mint note should record its consuming transaction")
-            .to_hex()
-    };
+    let store = SqliteStore::open_read_only(store_path.clone()).await?;
+    let consumer_tx = store
+        .get_input_notes(NoteFilter::Unique(NoteId::try_from_hex(&minted_note_id)?))
+        .await?
+        .pop()
+        .expect("the mint note should be stored")
+        .consumer_transaction_id()
+        .expect("the consumed mint note should record its consuming transaction")
+        .to_hex();
 
     let labels =
         |rows: &[Vec<String>]| -> Vec<String> { rows.iter().map(|row| row[0].clone()).collect() };
