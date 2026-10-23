@@ -6,9 +6,6 @@
 
 use std::boxed::Box;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{File, TryLockError};
-#[cfg(unix)]
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::string::{String, ToString};
@@ -65,6 +62,7 @@ use rusqlite::types::Value;
 use sql_error::SqlResultExt;
 
 use crate::account::rows::query_vault_assets;
+use crate::lock::WriterLock;
 use crate::settings::{
     NOTE_TRANSPORT_CURSORS_KEY,
     RPC_LIMITS_KEY,
@@ -76,6 +74,7 @@ mod account;
 mod chain_data;
 mod db_management;
 mod forest;
+mod lock;
 mod note;
 mod pswap;
 mod settings;
@@ -97,7 +96,7 @@ mod transaction;
 pub struct SqliteStore {
     pub(crate) pool: Pool,
     database_filepath: PathBuf,
-    lock: Option<Arc<File>>,
+    lock: Option<Arc<WriterLock>>,
 }
 
 impl SqliteStore {
@@ -111,7 +110,7 @@ impl SqliteStore {
     /// or migrated.
     pub async fn new(database_filepath: PathBuf) -> Result<Self, StoreError> {
         validate_database_path(&database_filepath)?;
-        let lock = Arc::new(lock_store(&database_filepath)?);
+        let lock = Arc::new(WriterLock::acquire(&database_filepath)?);
         let store = Self {
             pool: build_pool(SqlitePoolManager::new(database_filepath.clone()))?,
             database_filepath,
@@ -734,31 +733,6 @@ impl Store for SqliteStore {
 // UTILS
 // ================================================================================================
 
-/// Locks a separate file to avoid interference with SQLite's database and journal locks.
-fn lock_store(database_filepath: &Path) -> Result<File, StoreError> {
-    let mut lock_path = database_filepath.as_os_str().to_owned();
-    lock_path.push(".lock");
-
-    let mut options = File::options();
-    options.write(true).create(true).truncate(false);
-    #[cfg(unix)]
-    options.mode(0o600);
-
-    let file = options.open(&lock_path).map_err(database_error)?;
-    #[cfg(unix)]
-    file.set_permissions(std::fs::Permissions::from_mode(0o600))
-        .map_err(database_error)?;
-
-    file.try_lock().map_err(|err| match err {
-        TryLockError::WouldBlock => {
-            StoreError::StoreLocked(database_filepath.display().to_string())
-        },
-        TryLockError::Error(err) => database_error(err),
-    })?;
-
-    Ok(file)
-}
-
 fn validate_database_path(database_filepath: &Path) -> Result<(), StoreError> {
     let path = database_filepath.to_str().ok_or_else(|| {
         database_error(format!("database path is not valid UTF-8: {}", database_filepath.display()))
@@ -865,23 +839,6 @@ pub mod tests {
 
     use super::db_management::migration::tests::damaging_migration;
     use super::{SqliteStore, StoreError, column_value_as_u64, u64_to_value, with_write_tx};
-
-    #[cfg(unix)]
-    #[test]
-    fn lock_file_permissions_are_owner_only() -> anyhow::Result<()> {
-        use std::os::unix::fs::PermissionsExt;
-
-        let path = create_test_store_path();
-        let lock = super::lock_store(&path)?;
-        assert_eq!(lock.metadata()?.permissions().mode() & 0o777, 0o600);
-
-        lock.set_permissions(std::fs::Permissions::from_mode(0o644))?;
-        drop(lock);
-
-        let lock = super::lock_store(&path)?;
-        assert_eq!(lock.metadata()?.permissions().mode() & 0o777, 0o600);
-        Ok(())
-    }
 
     #[tokio::test]
     async fn cancelled_write_keeps_the_writer_lock_until_it_finishes() -> anyhow::Result<()> {
